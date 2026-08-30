@@ -1,0 +1,3 @@
+ALTER TABLE audits
+  ADD COLUMN ai_consent BOOLEAN DEFAULT false,
+  ADD COLUMN locked_at TIMESTAMPTZ;

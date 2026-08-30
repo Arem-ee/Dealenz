@@ -1,0 +1,83 @@
+<svg width="1280" height="900" viewBox="0 0 1280 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Dealenz workspace preview</title>
+  <desc id="desc">A Dealenz audit workspace showing risk score, extracted details, generated documents, checklist items, and activity timeline.</desc>
+  <rect width="1280" height="900" rx="28" fill="#F8F8F7"/>
+  <rect x="38" y="38" width="1204" height="824" rx="22" fill="#FFFFFF" stroke="#E2E0DD" stroke-width="2"/>
+  <rect x="38" y="38" width="1204" height="68" rx="22" fill="#FBFAF9"/>
+  <path d="M38 84H1242" stroke="#E2E0DD" stroke-width="2"/>
+  <circle cx="76" cy="72" r="8" fill="#C7523D"/>
+  <circle cx="104" cy="72" r="8" fill="#DFA43A"/>
+  <circle cx="132" cy="72" r="8" fill="#4B9B6E"/>
+  <text x="188" y="78" fill="#2A2523" font-family="Arial, sans-serif" font-size="20" font-weight="700">Dealenz Audit Workspace</text>
+  <rect x="72" y="138" width="244" height="676" rx="16" fill="#FBFAF9" stroke="#E7E4E1"/>
+  <text x="100" y="180" fill="#706A66" font-family="Arial, sans-serif" font-size="15" font-weight="700">Risk score</text>
+  <circle cx="194" cy="292" r="74" fill="#F4E7E3" stroke="#B54735" stroke-width="18"/>
+  <path d="M194 218a74 74 0 0 1 64 111" stroke="#E1B15C" stroke-width="18" stroke-linecap="round"/>
+  <text x="165" y="300" fill="#2A2523" font-family="Arial, sans-serif" font-size="42" font-weight="700">42</text>
+  <text x="162" y="330" fill="#8A463C" font-family="Arial, sans-serif" font-size="16" font-weight="700">High risk</text>
+  <rect x="100" y="412" width="188" height="48" rx="10" fill="#FFFFFF" stroke="#E7E4E1"/>
+  <circle cx="124" cy="436" r="7" fill="#B54735"/>
+  <text x="144" y="431" fill="#2A2523" font-family="Arial, sans-serif" font-size="13" font-weight="700">Payment missing</text>
+  <text x="144" y="449" fill="#706A66" font-family="Arial, sans-serif" font-size="12">No deposit stated</text>
+  <rect x="100" y="476" width="188" height="48" rx="10" fill="#FFFFFF" stroke="#E7E4E1"/>
+  <circle cx="124" cy="500" r="7" fill="#D59A2D"/>
+  <text x="144" y="495" fill="#2A2523" font-family="Arial, sans-serif" font-size="13" font-weight="700">Timeline unclear</text>
+  <text x="144" y="513" fill="#706A66" font-family="Arial, sans-serif" font-size="12">Launch date only</text>
+  <rect x="100" y="540" width="188" height="48" rx="10" fill="#FFFFFF" stroke="#E7E4E1"/>
+  <circle cx="124" cy="564" r="7" fill="#B54735"/>
+  <text x="144" y="559" fill="#2A2523" font-family="Arial, sans-serif" font-size="13" font-weight="700">Scope broad</text>
+  <text x="144" y="577" fill="#706A66" font-family="Arial, sans-serif" font-size="12">"Brand refresh"</text>
+  <text x="100" y="652" fill="#706A66" font-family="Arial, sans-serif" font-size="15" font-weight="700">Activity</text>
+  <circle cx="112" cy="690" r="6" fill="#B54735"/>
+  <path d="M112 699V762" stroke="#D8D4D0" stroke-width="2"/>
+  <text x="132" y="694" fill="#2A2523" font-family="Arial, sans-serif" font-size="13" font-weight="700">Risk analysis complete</text>
+  <text x="132" y="714" fill="#706A66" font-family="Arial, sans-serif" font-size="12">2 minutes ago</text>
+  <circle cx="112" cy="750" r="6" fill="#4B9B6E"/>
+  <text x="132" y="754" fill="#2A2523" font-family="Arial, sans-serif" font-size="13" font-weight="700">Brief uploaded</text>
+  <text x="132" y="774" fill="#706A66" font-family="Arial, sans-serif" font-size="12">5 minutes ago</text>
+  <rect x="348" y="138" width="456" height="320" rx="16" fill="#FFFFFF" stroke="#E7E4E1"/>
+  <text x="380" y="180" fill="#2A2523" font-family="Arial, sans-serif" font-size="20" font-weight="700">Extracted project details</text>
+  <rect x="380" y="210" width="188" height="54" rx="10" fill="#FBFAF9" stroke="#E7E4E1"/>
+  <text x="400" y="232" fill="#706A66" font-family="Arial, sans-serif" font-size="12" font-weight="700">Project type</text>
+  <text x="400" y="250" fill="#2A2523" font-family="Arial, sans-serif" font-size="14">Website redesign</text>
+  <rect x="588" y="210" width="184" height="54" rx="10" fill="#FBFAF9" stroke="#E7E4E1"/>
+  <text x="608" y="232" fill="#706A66" font-family="Arial, sans-serif" font-size="12" font-weight="700">Budget</text>
+  <text x="608" y="250" fill="#2A2523" font-family="Arial, sans-serif" font-size="14">$8,000 - $12,000</text>
+  <rect x="380" y="286" width="392" height="54" rx="10" fill="#FBFAF9" stroke="#E7E4E1"/>
+  <text x="400" y="308" fill="#706A66" font-family="Arial, sans-serif" font-size="12" font-weight="700">Timeline</text>
+  <text x="400" y="326" fill="#2A2523" font-family="Arial, sans-serif" font-size="14">Launch before campaign kickoff</text>
+  <text x="380" y="382" fill="#706A66" font-family="Arial, sans-serif" font-size="13" font-weight="700">Deliverables</text>
+  <rect x="380" y="402" width="312" height="8" rx="4" fill="#D8D4D0"/>
+  <rect x="380" y="424" width="260" height="8" rx="4" fill="#D8D4D0"/>
+  <rect x="380" y="446" width="342" height="8" rx="4" fill="#D8D4D0"/>
+  <rect x="348" y="486" width="456" height="328" rx="16" fill="#FFFFFF" stroke="#E7E4E1"/>
+  <text x="380" y="528" fill="#2A2523" font-family="Arial, sans-serif" font-size="20" font-weight="700">Generated documents</text>
+  <rect x="380" y="562" width="168" height="214" rx="12" fill="#FBFAF9" stroke="#E7E4E1"/>
+  <text x="404" y="598" fill="#2A2523" font-family="Arial, sans-serif" font-size="16" font-weight="700">Proposal</text>
+  <rect x="404" y="622" width="100" height="7" rx="3.5" fill="#D8D4D0"/>
+  <rect x="404" y="642" width="120" height="7" rx="3.5" fill="#D8D4D0"/>
+  <rect x="404" y="662" width="88" height="7" rx="3.5" fill="#D8D4D0"/>
+  <rect x="580" y="562" width="168" height="214" rx="12" fill="#FBFAF9" stroke="#E7E4E1"/>
+  <text x="604" y="598" fill="#2A2523" font-family="Arial, sans-serif" font-size="16" font-weight="700">Contract</text>
+  <rect x="604" y="622" width="104" height="7" rx="3.5" fill="#D8D4D0"/>
+  <rect x="604" y="642" width="94" height="7" rx="3.5" fill="#D8D4D0"/>
+  <rect x="604" y="662" width="118" height="7" rx="3.5" fill="#D8D4D0"/>
+  <rect x="836" y="138" width="334" height="676" rx="16" fill="#FFFFFF" stroke="#E7E4E1"/>
+  <text x="868" y="180" fill="#2A2523" font-family="Arial, sans-serif" font-size="20" font-weight="700">Protection checklist</text>
+  <rect x="868" y="218" width="270" height="50" rx="10" fill="#FBFAF9" stroke="#E7E4E1"/>
+  <rect x="890" y="235" width="16" height="16" rx="4" fill="#4B9B6E"/>
+  <path d="m894 243 4 4 8-9" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="922" y="247" fill="#2A2523" font-family="Arial, sans-serif" font-size="14">Deposit required before kickoff</text>
+  <rect x="868" y="286" width="270" height="50" rx="10" fill="#FBFAF9" stroke="#E7E4E1"/>
+  <rect x="890" y="303" width="16" height="16" rx="4" fill="#FFFFFF" stroke="#B8B1AB"/>
+  <text x="922" y="315" fill="#2A2523" font-family="Arial, sans-serif" font-size="14">Revision rounds capped</text>
+  <rect x="868" y="354" width="270" height="50" rx="10" fill="#FBFAF9" stroke="#E7E4E1"/>
+  <rect x="890" y="371" width="16" height="16" rx="4" fill="#FFFFFF" stroke="#B8B1AB"/>
+  <text x="922" y="383" fill="#2A2523" font-family="Arial, sans-serif" font-size="14">Acceptance criteria written</text>
+  <rect x="868" y="444" width="270" height="142" rx="12" fill="#F8EFEA" stroke="#E9C9BE"/>
+  <text x="892" y="480" fill="#8A463C" font-family="Arial, sans-serif" font-size="15" font-weight="700">Suggested protection</text>
+  <text x="892" y="510" fill="#2A2523" font-family="Arial, sans-serif" font-size="14">Add a change request clause for work outside agreed deliverables.</text>
+  <rect x="868" y="628" width="270" height="118" rx="12" fill="#FBFAF9" stroke="#E7E4E1"/>
+  <text x="892" y="664" fill="#2A2523" font-family="Arial, sans-serif" font-size="15" font-weight="700">Ready to send</text>
+  <text x="892" y="694" fill="#706A66" font-family="Arial, sans-serif" font-size="14">Proposal, SOW, contract, and checklist generated from the audit.</text>
+</svg>
