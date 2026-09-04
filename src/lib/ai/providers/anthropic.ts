@@ -6,6 +6,7 @@
 // for raw JSON text and the domain layer parses and validates it.
 
 import { AIProviderError, type FailureCategory } from "../errors"
+import type { ProviderResult, TokenUsage } from "../operations"
 
 export interface AnthropicCallParams {
   systemPrompt: string
@@ -57,6 +58,17 @@ interface AnthropicTextBlock {
   text?: unknown
 }
 
+function extractUsage(result: unknown): TokenUsage | undefined {
+  if (typeof result !== "object" || result === null) return undefined
+  const usage = (result as { usage?: unknown }).usage
+  if (typeof usage !== "object" || usage === null) return undefined
+  const { input_tokens, output_tokens } = usage as Record<string, unknown>
+  if (typeof input_tokens !== "number" || typeof output_tokens !== "number") return undefined
+  if (!Number.isFinite(input_tokens) || !Number.isFinite(output_tokens)) return undefined
+  if (input_tokens < 0 || output_tokens < 0) return undefined
+  return { inputTokens: Math.floor(input_tokens), outputTokens: Math.floor(output_tokens) }
+}
+
 function extractText(result: unknown): string {
   if (typeof result !== "object" || result === null) {
     throw new AIProviderError({
@@ -88,7 +100,7 @@ function extractText(result: unknown): string {
   return text
 }
 
-export async function callAnthropicProvider(params: AnthropicCallParams): Promise<string> {
+export async function callAnthropicProvider(params: AnthropicCallParams): Promise<ProviderResult> {
   const { systemPrompt, userContent, temperature, maxTokens, model: modelOverride } = params
   const apiKey = resolveApiKey()
   const model = resolveModel(modelOverride)
@@ -171,7 +183,7 @@ export async function callAnthropicProvider(params: AnthropicCallParams): Promis
       })
     }
 
-    return extractText(result)
+    return { text: extractText(result), usage: extractUsage(result) }
   } finally {
     clearTimeout(timeout)
   }

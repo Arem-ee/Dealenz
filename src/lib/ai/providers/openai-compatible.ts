@@ -1,3 +1,5 @@
+import type { ProviderResult, TokenUsage } from "../operations"
+
 export interface OpenAICompatibleCallParams {
   systemPrompt: string
   userContent: string
@@ -26,7 +28,20 @@ function buildUrl(baseUrl: string): string {
   return `${baseUrl}/chat/completions`
 }
 
-export async function callOpenAICompatible(params: OpenAICompatibleCallParams): Promise<string> {
+// Best-effort usage mapping (usage.prompt_tokens / completion_tokens).
+// Absent or malformed usage yields undefined, never fabricated zeros.
+function extractUsage(result: unknown): TokenUsage | undefined {
+  if (typeof result !== "object" || result === null) return undefined
+  const usage = (result as { usage?: unknown }).usage
+  if (typeof usage !== "object" || usage === null) return undefined
+  const { prompt_tokens, completion_tokens } = usage as Record<string, unknown>
+  if (typeof prompt_tokens !== "number" || typeof completion_tokens !== "number") return undefined
+  if (!Number.isFinite(prompt_tokens) || !Number.isFinite(completion_tokens)) return undefined
+  if (prompt_tokens < 0 || completion_tokens < 0) return undefined
+  return { inputTokens: Math.floor(prompt_tokens), outputTokens: Math.floor(completion_tokens) }
+}
+
+export async function callOpenAICompatible(params: OpenAICompatibleCallParams): Promise<ProviderResult> {
   const { systemPrompt, userContent, temperature, maxTokens, model: modelOverride } = params
   const apiKey = resolveKey()
   const model = resolveModel(modelOverride)
@@ -77,7 +92,7 @@ export async function callOpenAICompatible(params: OpenAICompatibleCallParams): 
       throw new Error("OpenAI-compatible provider returned an empty response")
     }
 
-    return text.trim()
+    return { text: text.trim(), usage: extractUsage(result) }
   } finally {
     clearTimeout(timeout)
   }

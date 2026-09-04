@@ -32,7 +32,7 @@ Single Next.js monolith — no separate backend service, no other languages.
 - `src/lib/supabase/` — browser and server Supabase clients
 - `src/lib/generate.ts` — document generation orchestration (proposal → SOW → contract → checklist, sequential AI calls with per-document template fallback)
 - `src/lib/context/` — Context Resolution foundation (Phase 5B): validated envelope (schema.ts), required-policy plus gate (requirements.ts, gate.ts), authenticated-surface inference (inference.ts), user confirmation (confirm.ts); persisted as versioned JSONB on audits via migration 00021; enforced in analyzeDeal; confirmed via ContextPanel UI
-- `src/lib/knowledge/` — **PLANNED** structured legal rules, industry practices, deal-type schemas, versioned with provenance
+- `src/lib/knowledge/` — Knowledge Foundation (Phase 5C): validated item schema with kind/authority/jurisdiction/provenance/version/status (schema.ts), temporal helper isEffectiveAt (temporal.ts), deterministic applicability vs ContextEnvelope (applicability.ts), deterministic resolver returning candidates (resolver.ts), admin-gated ingestion plus lifecycle transitions (store.ts); persisted in versioned knowledge_items table via migration 00022; resolution exposed additively at the analyzeDeal boundary
 - `src/lib/deal-types/` — **PLANNED** deal-type registry, module loader, per-deal-type modules
 - `src/lib/protection/` — **PLANNED** clause library, template engine, document generator
 - `src/lib/lawyer/` — **PLANNED** lawyer workflow, handoff, feedback loop
@@ -102,6 +102,64 @@ The Domain/AI layer is the important seam: AI extraction produces structured dea
 **Reason for this:** currently running on a budget key from a non-Gemini provider, with intent to serve authenticated intelligence from Claude once an Anthropic key is configured. Adapter swaps remain config changes, not rewrites.
 
 **Response handling:** JSON extraction is provider-agnostic already — strips code fences, falls back to slicing the first `{…}` block, then coerces fields with defaults. This should keep working across providers, though non-Gemini models may follow the JSON-output instruction less reliably and exercise the fallback path more often — worth testing before trusting it for anything client-facing.
+
+**Token usage:** adapters return measured usage where the provider reports it (Anthropic `usage`, Gemini `usageMetadata`, OpenAI-compatible `usage`), threaded into `SurfaceCallMeta.usage` (`src/lib/ai/providers.ts`). Absent usage stays absent, never zeroed. No adapter fabricates counts.
+
+---
+
+## AI Response Architecture (Pre-5D Correction)
+
+Dealenz is not a document analyzer with chat. Documents are one input; conversation is another. Both flow through one provider router, one context model, one knowledge resolver, and one credit economy:
+
+```text
+                    USER
+                     │
+          ┌──────────┴──────────┐
+          ↓                     ↓
+    Conversation            Documents
+          │                     │
+          └──────────┬──────────┘
+                     ↓
+               Intent / Goal
+                     ↓
+                  Context
+                     ↓
+                Knowledge
+                     ↓
+                   Rules
+                     ↓
+             Deterministic
+               Evaluation
+                     ↓
+                 Findings
+                     ↓
+              AI Synthesis
+                     ↓
+        Response Constitution
+                     ↓
+              User Response
+                     │
+                     ↓
+              AI Usage Record
+                     │
+                     ↓
+              Credit Boundary
+                     │
+                     ↓
+               Credit Ledger
+```
+
+- **Operations and intent** (`src/lib/ai/operations.ts`): an AI request originates from one of `document_analysis`, `conversation`, `negotiation`, `drafting`, `comparison`, `explanation`, `decision_support`. Input is distinct from intent (`UserIntent`: explore through decide); the user objective (`UserObjective`) is preserved separately from deal facts. Document analysis requires input; conversation explicitly does not. Each operation carries an output-budget tier and a context-selection policy (minimal for simple questions, expanded for deep analysis).
+
+- **Response constitution** (`src/lib/ai/constitution.ts`): the durable behavior contract. Dealenz works for the user, never for closing the deal; facts, assumptions, and uncertainty stay separated; unknown never becomes false; plain complete sentences; em dashes banned from user-facing output (tested); concise by default and as detailed as the task requires; no sycophancy; no commercial bias. Structured machine-read prompts are excluded from the prose contract; user-facing prompts (today: negotiation points) receive it via `applyConstitution`.
+- **Credit economy:** AI operations consume user credits through one accounting boundary. `AIUsageRecord` (`src/lib/ai/usage.ts`) represents operation, provider, model, measured input/output/total tokens, credit charge (null until a policy prices it), and outcome status. Provider tokens and user credits are separate concepts: tokens are measured facts, credits are a commercial policy (`CreditPolicy`, still unconfigured — no rates invented). Balances live in the append-mostly `credit_ledger` table (migration `00023`): inserts for grants, reservations, consumptions, refunds, adjustments, plus RPC-mediated pending to finalized/voided transitions; rows are never deleted. All writes go through `SECURITY DEFINER` RPCs (`reserve_credits`, `finalize_reservation`, `void_reservation`, `grant_credits`); users read only their own rows. Reservations are per-user advisory-locked and idempotent on `(user_id, idempotency_key)`, so concurrent or retried operations cannot double-charge or overdraw. The authorize, measure, finalize orchestrator lives in `src/lib/credits/policy.ts` and runs in metering mode until a policy is configured. `usage_tracking` counters remain the rate-limit mechanism, unchanged.
+- **Verticals and conversation (Phase 5E):** the first vertical, freelance/service deals (`src/lib/verticals/freelance/`), plugs into the same pipeline: deterministic fact projection from extraction output, a 9-rule freelance pack evaluated in `analyzeDeal` for freelance audits, and knowledge filtering over shared resolver candidates. Conversation is a backend request pipeline (`src/lib/conversation/request.ts`): question to operation to context to knowledge to rules to synthesis to usage to accounting, with document-free, document-required, and mixed flows. No chat UI exists yet.
+
+**Product principle:** Dealenz optimizes for useful intelligence, not maximum token consumption. Credits authorize computation, not influence over substantive answers.
+
+Credits determine access to computation. Credits do not determine conclusions.
+
+*Phase 5F live verification (linked Supabase project): migrations 00021 through 00025 applied; RLS probed live as anonymous, authenticated non-admin, and admin-metadata subjects (published-only for the first two, drafts visible to admins, non-admin writes denied); credit RPCs exercised live (reserve allow/deny, idempotent replay, finalize math, void release, admin grant gate both directions); all probe data removed afterwards. True-simultaneous concurrency, live provider calls, and remote CI remain unverified in this environment.*
 
 ---
 
@@ -326,6 +384,13 @@ The following layers represent the **target full-product architecture**. Not all
 - **Deterministic Risk Analysis** — pluggable rule engines per deal type, evidence-backed findings
 - **AI Synthesis** — explanation, uncertainty flagging, negotiation questions, missing info prioritization
 
+### 3b. Rules and Deterministic Findings (Phase 5D)
+- **Context** — what the user confirmed or what was inferred (authoritative for context state; Phase 5B envelope reused directly, never duplicated).
+- **Knowledge** — information that may apply (Phase 5C candidates observed by rules, never re-resolved or reinvented).
+- **Rules** — deterministic logic in `src/lib/rules/` (schema, pure bounded evaluator, versioned code registry, built-in generic checks). Rules evaluate known facts, context, knowledge applicability, and structured extracted values. No LLM, no network, no wall clock except an explicit `evaluatedAt` input.
+- **Findings** — internal authority objects (`RuleResult`: PASS, FAIL with finding, or UNKNOWN with reason). Findings state facts; they are not user prose and carry no numeric score.
+- **AI** — reasoning, explanation, prioritization, and communication over findings (negotiation input carries selected FAIL findings; conflicts between asserted and deterministic statuses are detectable via `detectFindingConflicts`). AI never silently flips FAIL or UNKNOWN to PASS. The AI Constitution remains authoritative for all synthesis.
+
 ### 4. Knowledge (Planned Layer)
 - **Structured Legal Rules** — versioned, jurisdictional, with citations, applicability conditions, effective dates
 - **Industry Practices** — prevalence-tagged, jurisdiction-scoped, with commercial implications
@@ -369,7 +434,7 @@ The following layers represent the **target full-product architecture**. Not all
 
 | Phase | Focus |
 |-------|-------|
-| **Current** | Freelance end-to-end + Generic AI-only + Anonymous Quick Review + Lawyer waitlist + Context Resolution foundation (envelope, gate, confirmation UI) |
+| **Current** | Freelance end-to-end + Generic AI-only + Anonymous Quick Review + Lawyer waitlist + Context Resolution foundation (envelope, gate, confirmation UI) + Knowledge Foundation (item schema, resolver, versioned store; no legal corpus yet) |
 | **Next** | Lease deal type (deterministic rules) + Knowledge layer v1 (rules DB) + Lawyer workflow |
 | **Next** | Founder deal type + Knowledge layer v1 (rules DB) + Context resolution engine |
 | **Future** | Employment/Contractor + Partnership + Purchase/Sale + Full lawyer workflow |

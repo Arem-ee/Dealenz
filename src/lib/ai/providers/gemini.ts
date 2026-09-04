@@ -1,3 +1,5 @@
+import type { ProviderResult, TokenUsage } from "../operations"
+
 export interface GeminiCallParams {
   systemPrompt: string
   userContent: string
@@ -5,6 +7,7 @@ export interface GeminiCallParams {
   maxTokens?: number
   model?: string
 }
+
 
 function resolveGeminiKey(): string {
   const key = process.env.AI_API_KEY ?? process.env.GEMINI_API_KEY
@@ -21,7 +24,21 @@ function resolveGeminiBaseUrl(): string {
   return raw.replace(/\/+$/, "")
 }
 
-export async function callGeminiProvider(params: GeminiCallParams): Promise<string> {
+// Best-effort usage mapping (usageMetadata.promptTokenCount /
+// candidatesTokenCount). Absent or malformed metadata yields undefined, never
+// fabricated zeros, so accounting can tell "not reported" apart.
+function extractUsage(result: unknown): TokenUsage | undefined {
+  if (typeof result !== "object" || result === null) return undefined
+  const meta = (result as { usageMetadata?: unknown }).usageMetadata
+  if (typeof meta !== "object" || meta === null) return undefined
+  const { promptTokenCount, candidatesTokenCount } = meta as Record<string, unknown>
+  if (typeof promptTokenCount !== "number" || typeof candidatesTokenCount !== "number") return undefined
+  if (!Number.isFinite(promptTokenCount) || !Number.isFinite(candidatesTokenCount)) return undefined
+  if (promptTokenCount < 0 || candidatesTokenCount < 0) return undefined
+  return { inputTokens: Math.floor(promptTokenCount), outputTokens: Math.floor(candidatesTokenCount) }
+}
+
+export async function callGeminiProvider(params: GeminiCallParams): Promise<ProviderResult> {
   const { systemPrompt, userContent, temperature, maxTokens, model: modelOverride } = params
   const apiKey = resolveGeminiKey()
   const model = resolveGeminiModel(modelOverride)
@@ -63,7 +80,7 @@ export async function callGeminiProvider(params: GeminiCallParams): Promise<stri
       throw new Error("Gemini returned an empty response")
     }
 
-    return (text as string).trim()
+    return { text: (text as string).trim(), usage: extractUsage(result) }
   } finally {
     clearTimeout(timeout)
   }

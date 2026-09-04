@@ -6,6 +6,10 @@
 
 Anyone entering an agreement — freelance work, a lease, a partnership, a service contract, a purchase agreement — is exposed to terms they didn't write and risks they can't easily see. Dealenz reads the deal (a brief, an email thread, an uploaded contract, a call transcript) and tells you what's risky before you commit, generating protective documents where that's the relevant next step.
 
+A document is one input, not the whole product. Users can also ask Dealenz questions directly, with no document attached: what to think about, what to negotiate, what to ask before agreeing, how two offers compare, or whether to walk away.
+
+Dealenz is an AI deal intelligence platform that helps users understand, evaluate, negotiate, and make decisions about deals. Dealenz works for the user, not for the deal: it optimizes for useful intelligence, not maximum token consumption, and credits pay for computation without buying favorable answers.
+
 This is a broadening from the original freelancer-only framing ("audit your client before you write the proposal"). That framing still describes the flagship, fully-built use case — but it's now one deal type among several, not the whole product.
 
 ## Core Product Thesis
@@ -341,6 +345,10 @@ If applicable deterministic/authoritative analysis cannot be confidently perform
 - Limits the conclusion
 - Requests/derives additional context where appropriate
 - Recommends professional review when warranted
+
+## Deterministic Authority
+
+Dealenz pairs deterministic checks with AI reasoning. Deterministic rules establish verifiable facts (a condition exists, a piece of context is missing, a knowledge item applies, a threshold was exceeded) without depending on the model. The AI then explains what those findings mean for the user, in plain user-first language, without changing them. Unknown stays unknown: the system would rather ask or qualify than guess.
 
 The system never manufactures certainty simply because an LLM is available.
 

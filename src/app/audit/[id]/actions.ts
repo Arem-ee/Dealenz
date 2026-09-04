@@ -7,6 +7,16 @@ import { analyzeRisk, analyzeGenericRiskWithVisibleFailure } from "@/lib/ai/risk
 import { generateDocuments } from "@/lib/generate"
 import { generateNegotiationPoints } from "@/lib/ai/negotiation"
 import { ensureContextForAnalysis } from "./context-actions"
+import { fetchPublishedKnowledge, resolveKnowledge, type KnowledgeCandidate } from "@/lib/knowledge"
+import {
+  evaluateApplicableRules,
+  registerBuiltinRules,
+  selectRelevantFindings,
+  type Finding,
+  type RuleResult,
+} from "@/lib/rules"
+import { deriveFreelanceFacts } from "@/lib/verticals/freelance/facts"
+import { registerFreelancePack } from "@/lib/verticals/freelance/rules"
 import type { GenericRiskReport } from "@/lib/ai/risk-analysis"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { logEvent, logDuration } from "@/lib/logger"
@@ -252,7 +262,7 @@ export async function removeFileMetadata(
 
 export async function analyzeDeal(
   auditId: string
-): Promise<{ success: boolean; data?: ExtractedData; riskReport?: RiskReport | GenericRiskReport; error?: string; contextGate?: string; missingRequiredContext?: string[] }> {
+): Promise<{ success: boolean; data?: ExtractedData; riskReport?: RiskReport | GenericRiskReport; error?: string; contextGate?: string; missingRequiredContext?: string[]; knowledgeCandidates?: KnowledgeCandidate[]; deterministicFindings?: RuleResult[] }> {
   const startMs = Date.now()
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -334,6 +344,26 @@ export async function analyzeDeal(
     .from("audits")
     .update({ status: "processing", updated_at: new Date().toISOString() })
     .eq("id", auditId)
+
+  // Phase 5C/5D: resolve knowledge candidates right after the context gate so
+  // deterministic rules below can observe them. Best-effort: an empty store
+  // or a missing table yields [], never a failure.
+  let knowledgeCandidates: KnowledgeCandidate[] = []
+  try {
+    const items = await fetchPublishedKnowledge(supabase)
+    if (items.length > 0 && gateCheck.envelope) {
+      knowledgeCandidates = resolveKnowledge(gateCheck.envelope, items, { asOf: new Date() })
+    }
+    await logEvent({
+      audit_id: auditId,
+      user_id: user.id,
+      phase: "knowledge",
+      status: "success",
+      error_message: `${knowledgeCandidates.length} candidate(s) resolved`,
+    })
+  } catch {
+    knowledgeCandidates = []
+  }
 
   await logActivity(user.id, "analysis_started", {}, auditId)
 
@@ -497,11 +527,61 @@ export async function analyzeDeal(
       duration_ms: logDuration(riskStartMs),
     })
 
+    // Phase 5D: evaluate deterministic rules over context, extracted facts,
+    // and knowledge candidates. Pure and side-effect free; a failure here
+    // degrades to no findings rather than breaking analysis (reversible).
+    let ruleResults: RuleResult[] = []
+    let relevantFindings: Finding[] = []
+    try {
+      registerBuiltinRules()
+      registerFreelancePack()
+      const freelanceFacts =
+        dealType === "freelance"
+          ? JSON.parse(JSON.stringify(deriveFreelanceFacts(extracted, combinedInput))) as unknown
+          : undefined
+      const rulesInput = {
+        context: gateCheck.envelope!,
+        facts: {
+          budget: extracted.budget,
+          timeline: extracted.timeline,
+          deliverables: extracted.deliverables,
+          projectType: extracted.projectType,
+          confidence: extracted.confidence,
+          ...(freelanceFacts !== undefined ? { freelance: freelanceFacts } : {}),
+        },
+        knowledge: knowledgeCandidates,
+        operation: "document_analysis" as const,
+        evaluatedAt: new Date().toISOString(),
+      }
+      const run = evaluateApplicableRules(rulesInput, "document_analysis", dealType)
+      ruleResults = run.results
+      relevantFindings = selectRelevantFindings(ruleResults, { operation: "document_analysis" })
+      await logEvent({
+        audit_id: auditId,
+        user_id: user.id,
+        phase: "rules",
+        status: "success",
+        error_message: `${ruleResults.filter((r) => r.status === "FAIL").length} finding(s) from ${ruleResults.length} rule(s)`,
+      })
+    } catch (rulesErr) {
+      ruleResults = []
+      relevantFindings = []
+      await logEvent({
+        audit_id: auditId,
+        user_id: user.id,
+        phase: "rules",
+        status: "failure",
+        error_message: rulesErr instanceof Error ? rulesErr.message : "Rule evaluation failed",
+      })
+    }
+
     let negotiationPoints: string[] | undefined
     let genericRiskDegraded = false
     if (dealType === "generic" && riskReport) {
       try {
-        negotiationPoints = await generateNegotiationPoints(extracted, riskReport as GenericRiskReport)
+        // Deterministic findings feed synthesis as context to reason over;
+        // the model explains them but never re-decides their status.
+        negotiationPoints = await generateNegotiationPoints(extracted, riskReport as GenericRiskReport, "authenticated", relevantFindings)
       } catch (negErr) {
         genericRiskDegraded = true
         negotiationPoints = []
@@ -543,7 +623,7 @@ export async function analyzeDeal(
       p_limit: 5,
     })
 
-    return { success: true, data: extracted, riskReport }
+    return { success: true, data: extracted, riskReport, knowledgeCandidates, deterministicFindings: ruleResults }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error"
     const errorType = err instanceof Error ? err.constructor.name : "UnknownError"

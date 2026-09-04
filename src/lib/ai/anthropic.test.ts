@@ -59,7 +59,7 @@ describe("callAnthropicProvider", () => {
   it("performs a successful primary call against the Messages API contract", async () => {
     fetchMock.mockResolvedValueOnce(anthropicOk("  hello world  "))
 
-    const text = await callAnthropicProvider({
+    const { text } = await callAnthropicProvider({
       systemPrompt: "sys",
       userContent: "user",
       model: "claude-sonnet-5",
@@ -82,7 +82,7 @@ describe("callAnthropicProvider", () => {
     const payload = '{"goals":["a"],"confidence":0.9}'
     fetchMock.mockResolvedValueOnce(anthropicOk(payload))
 
-    const text = await callAnthropicProvider({ systemPrompt: "s", userContent: "u" })
+    const { text } = await callAnthropicProvider({ systemPrompt: "s", userContent: "u" })
     expect(text).toBe(payload)
     expect(() => JSON.parse(text)).not.toThrow()
   })
@@ -99,7 +99,7 @@ describe("callAnthropicProvider", () => {
       })
     )
 
-    const text = await callAnthropicProvider({ systemPrompt: "s", userContent: "u" })
+    const { text } = await callAnthropicProvider({ systemPrompt: "s", userContent: "u" })
     expect(text).toBe("part-one part-two")
   })
 
@@ -136,6 +136,25 @@ describe("callAnthropicProvider", () => {
     expect(err).toBeInstanceOf(AIProviderError)
     expect((err as AIProviderError).category).toBe("network")
     expect(String(err)).not.toContain(SENTINEL_KEY)
+  })
+
+  it("reports measured token usage without fabricating it", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        content: [{ type: "text", text: "hi" }],
+        usage: { input_tokens: 120, output_tokens: 8 },
+      })
+    )
+    const withUsage = await callAnthropicProvider({ systemPrompt: "s", userContent: "u" })
+    expect(withUsage.text).toBe("hi")
+    expect(withUsage.usage).toEqual({ inputTokens: 120, outputTokens: 8 })
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { content: [{ type: "text", text: "no usage here" }] })
+    )
+    const withoutUsage = await callAnthropicProvider({ systemPrompt: "s", userContent: "u" })
+    expect(withoutUsage.text).toBe("no usage here")
+    expect(withoutUsage.usage).toBeUndefined()
   })
 
   it("raises a configuration error when the key is missing", async () => {

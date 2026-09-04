@@ -7,6 +7,7 @@ import {
   toProviderError,
   type FailureCategory,
 } from "./errors"
+import type { ProviderResult, TokenUsage } from "./operations"
 
 export type AIProviderName = "gemini" | "openai_compatible" | "anthropic"
 
@@ -33,6 +34,9 @@ export interface SurfaceCallMeta {
   // Present when the primary failed, even if the fallback then succeeded.
   failureCategory?: FailureCategory
   servedByFallback?: boolean
+  // Measured provider token usage when reported. Absent means unreported,
+  // never zero by default.
+  usage?: TokenUsage
 }
 
 export function getActiveProviderName(): AIProviderName {
@@ -93,7 +97,7 @@ async function callWithAdapter(
   provider: AIProviderName,
   params: CallAIParams,
   model?: string
-): Promise<string> {
+): Promise<ProviderResult> {
   if (provider === "anthropic") {
     return callAnthropicProvider({ ...params, model })
   }
@@ -122,10 +126,10 @@ async function callAuthenticatedWithFallback(
 ): Promise<{ text: string; meta: SurfaceCallMeta }> {
   const primary = { provider: "anthropic", model }
   try {
-    const text = await callAnthropicProvider({ ...params, model })
+    const result = await callAnthropicProvider({ ...params, model })
     return {
-      text,
-      meta: { surface: "authenticated", primary, fallbackAttempted: false, servedByFallback: false },
+      text: result.text,
+      meta: { surface: "authenticated", primary, fallbackAttempted: false, servedByFallback: false, usage: result.usage },
     }
   } catch (err) {
     const failure = toProviderError(err, "anthropic")
@@ -148,9 +152,9 @@ async function callAuthenticatedWithFallback(
       failureCategory: failure.category,
     }))
     try {
-      const text = await callAnthropicProvider({ ...params, model: fallbackModel })
+      const result = await callAnthropicProvider({ ...params, model: fallbackModel })
       return {
-        text,
+        text: result.text,
         meta: {
           surface: "authenticated",
           primary,
@@ -158,6 +162,7 @@ async function callAuthenticatedWithFallback(
           fallback: { provider: "anthropic", model: fallbackModel },
           failureCategory: failure.category,
           servedByFallback: true,
+          usage: result.usage,
         },
       }
     } catch (fallbackErr) {
@@ -191,16 +196,17 @@ export async function callAIForSurface(
   if (surface === "authenticated" && config.provider === "anthropic") {
     return callAuthenticatedWithFallback(params, config.model ?? resolveAuthModel(), config.fallbackModel ?? resolveAuthFallbackModel())
   }
-  const text = await callWithAdapter(config.provider, params, config.model).catch((err: unknown) => {
+  const result = await callWithAdapter(config.provider, params, config.model).catch((err: unknown) => {
     throw toProviderError(err, config.provider)
   })
   return {
-    text,
+    text: result.text,
     meta: {
       surface,
       primary: { provider: config.provider, model: config.model ?? "(adapter default)" },
       fallbackAttempted: false,
       servedByFallback: false,
+      usage: result.usage,
     },
   }
 }
@@ -208,10 +214,10 @@ export async function callAIForSurface(
 export async function callAI(params: CallAIParams): Promise<string> {
   const provider = getActiveProviderName()
   if (provider === "anthropic") {
-    return callAnthropicProvider(params)
+    return (await callAnthropicProvider(params)).text
   }
   if (provider === "gemini") {
-    return callGeminiProvider(params)
+    return (await callGeminiProvider(params)).text
   }
-  return callOpenAICompatible(params)
+  return (await callOpenAICompatible(params)).text
 }

@@ -195,6 +195,7 @@ export interface AnalysisGateCheck {
   state: ContextGateState
   message: string
   missing: ContextFieldKey[]
+  envelope?: ContextEnvelope
 }
 
 // Shared-client variant for analyzeDeal: seeds a missing envelope from the
@@ -207,11 +208,12 @@ export async function ensureContextForAnalysis(
   auditId: string,
   auditRow: Record<string, unknown>
 ): Promise<AnalysisGateCheck> {
-  const blocked = (state: ContextGateState, message: string, missing: ContextFieldKey[] = []): AnalysisGateCheck => ({
+  const blocked = (state: ContextGateState, message: string, missing: ContextFieldKey[] = [], envelope?: ContextEnvelope): AnalysisGateCheck => ({
     ready: false,
     state,
     message,
     missing,
+    envelope,
   })
   try {
     const dealType = normalizeDealType(auditRow.deal_type)
@@ -247,19 +249,21 @@ export async function ensureContextForAnalysis(
     }
     const gate = evaluateContextGate(envelope, dealType)
     if (gate.state === "READY") {
-      return { ready: true, state: gate.state, message: gate.detail, missing: [] }
+      return { ready: true, state: gate.state, message: gate.detail, missing: [], envelope }
     }
     if (gate.state === "MISSING_REQUIRED_CONTEXT") {
       return blocked(
         gate.state,
         `Before analyzing, confirm the required deal context (missing: ${gate.missingRequired.join(", ")}). Use the Deal context panel to review and confirm.`,
-        gate.missingRequired
+        gate.missingRequired,
+        envelope
       )
     }
     return blocked(
       gate.state,
       `Please confirm the detected deal context (${gate.unconfirmedRequired.join(", ")}) before analyzing. Use the Deal context panel to review and confirm.`,
-      []
+      [],
+      envelope
     )
   } catch {
     return blocked("MISSING_REQUIRED_CONTEXT", "Deal context could not be resolved. Please review the Deal context panel and try again.")
