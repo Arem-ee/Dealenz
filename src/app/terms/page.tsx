@@ -14,7 +14,7 @@ export default function TermsPage() {
         <h1 className="mt-8 text-3xl font-semibold">Terms</h1>
         <div className="mt-6 space-y-5 text-sm leading-7 text-muted-foreground">
           <p>
-            Dealenz is an audit and document drafting tool for freelancers and agencies. It helps identify project risk and generate working drafts for review.
+            Dealenz is an audit and document drafting tool for anyone reviewing an agreement. It helps identify risk and generate working drafts where that is the right next step for the deal you are looking at.
           </p>
           <p>
             Dealenz does not provide legal advice, does not replace professional legal review, and does not guarantee client payment, signature, or project outcome.

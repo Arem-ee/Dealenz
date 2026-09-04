@@ -2,20 +2,24 @@ import { SectionWrapper, Heading, BodyText } from "@/components/landing/primitiv
 
 const steps = [
   {
-    title: "Paste the brief",
-    description: "Drop in the client email, a Notion doc, a Slack message, or whatever you received. Messy is fine.",
+    title: "Share the deal",
+    description:
+      "You start by giving Dealenz whatever you've got. That could be a messy email thread, a PDF someone sent over, a contract you're about to send out yourself, or you can just describe the deal in your own words if that's easier.",
   },
   {
-    title: "Get a risk report",
-    description: "Dealenz analyzes it across eight risk categories: payment, scope, IP, legal, timeline, communication, client signals, and contract gaps.",
+    title: "Understand the agreement",
+    description:
+      "From there, Dealenz goes through it and works out what's actually being agreed to. Who's involved, what money's changing hands, what everyone's expected to do, that kind of thing.",
   },
   {
-    title: "Generate your documents",
-    description: "A proposal, scope of work, contract, and deliverables checklist, each building on the last.",
+    title: "Get the risk report",
+    description:
+      "Then you get a risk report, and it's specific. It tells you exactly where the trouble spots are instead of handing you a vague score and leaving you to guess why it landed there.",
   },
   {
-    title: "Send for signing",
-    description: "Your client gets a secure link. They read the document and accept in their browser. The timestamp is recorded.",
+    title: "Decide what to do next",
+    description:
+      "If you're the one sending something out, like a proposal or a contract, Dealenz can put one together for you that actually accounts for whatever risks it found. And if someone else sent the deal to you, it'll tell you what to push back on before you put your name on anything.",
   },
 ]
 

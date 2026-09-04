@@ -1,5 +1,9 @@
 const faqs = [
   {
+    q: "What kinds of deals can Dealenz look at?",
+    a: "Pretty much anything. Freelance contracts, leases, partnership agreements, purchase agreements, whatever you're actually dealing with. Dealenz looks at what's really in front of you instead of forcing it into some template that doesn't fit.",
+  },
+  {
     q: "Is this a replacement for a lawyer?",
     a: "No. Dealenz helps you catch problems before they become legal problems. For high-value contracts or anything complex, still have a lawyer review the final document. The AI disclaimer is in every contract for a reason.",
   },
@@ -27,14 +31,14 @@ const faqs = [
 
 export function LandingFAQ() {
   return (
-    <section className="bg-[#141414] px-6 py-24 sm:py-32">
+    <section className="bg-white px-6 py-24 sm:py-32">
       <div className="mx-auto max-w-[680px]">
-        <p className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Common questions.</p>
+        <p className="text-3xl font-semibold tracking-tight text-[#1a0f0f] sm:text-4xl">Common questions.</p>
         <div className="mt-14 space-y-10">
           {faqs.map((faq) => (
-            <div key={faq.q}>
-              <p className="text-base font-semibold text-white">{faq.q}</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-[#a0a0a0]">{faq.a}</p>
+            <div key={faq.q} className="rounded-xl border border-black/[0.04] bg-[#fdfaf7] p-5">
+              <p className="text-base font-semibold text-[#1a0f0f]">{faq.q}</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{faq.a}</p>
             </div>
           ))}
         </div>

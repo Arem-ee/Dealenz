@@ -14,7 +14,7 @@ export function FooterSection() {
             height={16}
             className="shrink-0 opacity-60"
           />
-          <span className="text-xs text-muted-foreground">(c) 2026 Dealenz</span>
+          <span className="text-xs text-muted-foreground">Know the risk before you sign, (c) 2026 Dealenz</span>
         </div>
         <nav className="flex items-center gap-4 text-xs text-muted-foreground">
           <Link href="/privacy" className="hover:text-foreground transition-colors">

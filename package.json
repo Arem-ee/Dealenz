@@ -7,11 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "vitest run",
     "db:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
     "db:migrate": "supabase db push",
     "db:start": "supabase start"
   },
   "dependencies": {
+    "@fontsource-variable/mona-sans": "^5.3.0",
     "@next/swc-win32-x64-msvc": "^16.2.9",
     "@radix-ui/react-avatar": "^1.2.0",
     "@radix-ui/react-dialog": "^1.1.17",
@@ -30,6 +32,7 @@
     "pdf-parse": "^2.4.5",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-icons": "^5.7.0",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-import { callAI } from "./client"
+import { callAISurface, type AISurface } from "./client"
 import { EXTRACTION_SYSTEM_PROMPT, GENERIC_EXTRACTION_SYSTEM_PROMPT } from "./prompts"
 
 export interface ExtractedData {
@@ -50,7 +50,51 @@ function parseExtractedResponse(text: string): ExtractedData {
 
 export type DealType = "freelance" | "generic"
 
-export async function extractProjectData(input: string, dealType: DealType = "freelance"): Promise<ExtractedData> {
+export interface ExtractionValidationResult {
+  valid: boolean
+  reason?: string
+  extractedData?: ExtractedData
+}
+
+function validateExtraction(data: ExtractedData): ExtractionValidationResult {
+  const populatedFields = [
+    data.goals.length > 0,
+    data.deliverables.length > 0,
+    data.timeline !== null,
+    data.budget !== null,
+    data.projectType !== null,
+    data.clientSignals.length > 0,
+  ].filter(Boolean).length
+
+  const hasMeaningfulContent = data.goals.some(g => g.trim().length > 2) ||
+    data.deliverables.some(d => d.trim().length > 2) ||
+    data.clientSignals.some(s => s.trim().length > 2) ||
+    (data.timeline !== null && data.timeline.trim().length > 2) ||
+    (data.budget !== null && data.budget.trim().length > 2) ||
+    (data.projectType !== null && data.projectType.trim().length > 2)
+
+  const confidenceOk = data.confidence >= 0.5
+  const enoughFields = populatedFields >= 2
+  const meaningfulContent = hasMeaningfulContent
+
+  if (!confidenceOk) {
+    return { valid: false, reason: "low_confidence" }
+  }
+  if (!enoughFields) {
+    return { valid: false, reason: "insufficient_fields" }
+  }
+  if (!meaningfulContent) {
+    return { valid: false, reason: "no_meaningful_content" }
+  }
+
+  return { valid: true, extractedData: data }
+}
+
+export async function extractProjectData(
+  input: string,
+  dealType: DealType = "freelance",
+  surface: AISurface = "authenticated"
+): Promise<ExtractedData> {
   if (!input.trim()) {
     throw new Error("No input provided for extraction")
   }
@@ -58,9 +102,18 @@ export async function extractProjectData(input: string, dealType: DealType = "fr
   const prompt = dealType === "generic" ? GENERIC_EXTRACTION_SYSTEM_PROMPT : EXTRACTION_SYSTEM_PROMPT
 
   try {
-    const text = await callAI({ systemPrompt: prompt, userContent: input, temperature: 0.2 })
+    const { text } = await callAISurface(surface, { systemPrompt: prompt, userContent: input, temperature: 0.2 })
     return parseExtractedResponse(text)
   } catch {
     throw new Error("Failed to parse AI extraction result")
   }
+}
+
+export async function extractAndValidate(
+  input: string,
+  dealType: DealType = "freelance",
+  surface: AISurface = "authenticated"
+): Promise<ExtractionValidationResult> {
+  const extracted = await extractProjectData(input, dealType, surface)
+  return validateExtraction(extracted)
 }

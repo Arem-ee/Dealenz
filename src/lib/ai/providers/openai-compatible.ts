@@ -3,6 +3,7 @@ export interface OpenAICompatibleCallParams {
   userContent: string
   temperature?: number
   maxTokens?: number
+  model?: string
 }
 
 function resolveKey(): string {
@@ -11,8 +12,8 @@ function resolveKey(): string {
   return key
 }
 
-function resolveModel(): string {
-  return process.env.AI_MODEL ?? process.env.GEMINI_MODEL ?? "meta/llama-3.3-70b-instruct"
+function resolveModel(override?: string): string {
+  return override ?? process.env.AI_MODEL ?? process.env.GEMINI_MODEL ?? "meta/llama-3.3-70b-instruct"
 }
 
 function resolveBaseUrl(): string {
@@ -26,9 +27,9 @@ function buildUrl(baseUrl: string): string {
 }
 
 export async function callOpenAICompatible(params: OpenAICompatibleCallParams): Promise<string> {
-  const { systemPrompt, userContent, temperature, maxTokens } = params
+  const { systemPrompt, userContent, temperature, maxTokens, model: modelOverride } = params
   const apiKey = resolveKey()
-  const model = resolveModel()
+  const model = resolveModel(modelOverride)
   const baseUrl = resolveBaseUrl()
   const url = buildUrl(baseUrl)
 

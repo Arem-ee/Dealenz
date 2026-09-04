@@ -26,10 +26,10 @@ const docs = [
 
 export function LandingProtectionPackage() {
   return (
-    <section className="bg-[#141414] px-6 py-24 sm:py-32">
+    <section className="bg-white px-6 py-24 sm:py-32">
       <div className="mx-auto max-w-5xl">
         <p className="text-xs font-medium uppercase tracking-[0.12em] text-brand-red">What you get</p>
-        <p className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+        <p className="mt-3 text-3xl font-semibold tracking-tight text-[#1a0f0f] sm:text-4xl">
           Every deal leaves with
           <br />
           a full set of documents.
@@ -38,15 +38,15 @@ export function LandingProtectionPackage() {
           {docs.map((d) => {
             const Icon = d.icon
             return (
-              <div key={d.name} className="rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] p-6 shadow-sm">
+              <div key={d.name} className="rounded-xl border border-black/[0.06] bg-[#fdfaf7] p-6 shadow-sm">
                 <Icon className="mb-3 h-5 w-5 text-brand-red" />
-                <p className="text-base font-semibold text-white">{d.name}</p>
-                <p className="mt-1.5 text-sm leading-relaxed text-[#a0a0a0]">{d.desc}</p>
+                <p className="text-base font-semibold text-[#1a0f0f]">{d.name}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{d.desc}</p>
               </div>
             )
           })}
         </div>
-        <p className="mx-auto mt-10 max-w-lg text-center text-xs leading-relaxed text-[#606060]">
+        <p className="mx-auto mt-10 max-w-lg text-center text-xs leading-relaxed text-muted-foreground">
           Documents are AI-generated and should be reviewed before use. Dealenz is not a law firm. This is not legal
           advice.
         </p>

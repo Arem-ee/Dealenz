@@ -2,6 +2,10 @@ import { SectionWrapper, BodyText } from "@/components/landing/primitives"
 
 const faqs = [
   {
+    q: "What kinds of deals can Dealenz look at?",
+    a: "Pretty much anything. Freelance contracts, leases, partnership agreements, purchase agreements, whatever you're actually dealing with. Dealenz looks at what's really in front of you instead of forcing it into some template that doesn't fit.",
+  },
+  {
     q: "What file types can I use?",
     a: "PDF, DOCX, and TXT files, plus pasted text or a guided form.",
   },

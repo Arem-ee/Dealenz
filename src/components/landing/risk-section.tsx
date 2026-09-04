@@ -26,7 +26,7 @@ export function RiskSection() {
             ))}
           </ul>
           <BodyText muted className="mt-8 max-w-2xl">
-            Most of these appear in the first message. Dealenz reads for them before you reply.
+            Most of these show up right at the start, before you have had a chance to really look at what you are agreeing to. Dealenz reads for them before you sign anything.
           </BodyText>
         </div>
         <div className="sm:w-1/2 mt-8 sm:mt-0">

@@ -21,14 +21,14 @@ export function HeroSection() {
           </div>
           <div className="sm:w-[45%] px-4 sm:pl-8 sm:pr-6 pt-16 sm:pt-24">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight">
-              Know before you say yes.
+              Know the risk before you sign.
             </h1>
             <p className="mt-4 sm:mt-5 text-base sm:text-lg leading-relaxed text-[#a0a0a0] max-w-2xl">
-              Dealenz reads client briefs for risk, generates protective contracts, and gets them signed before a bad deal costs you.
+              Before you sign anything, whether it&apos;s a contract with a new client, a lease on a place you&apos;re renting, or some partnership deal someone put in front of you, it&apos;s worth knowing what you&apos;re actually agreeing to. That&apos;s what Dealenz does. You give it whatever you&apos;ve got, and it reads through it and tells you plainly where the risk is, instead of leaving you to figure it out on your own after it&apos;s too late to change anything.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-start gap-3">
               <CTAButton variant="primary" href="/register">
-                Analyze your first deal
+                Analyze your deal free
               </CTAButton>
               <CTAButton variant="secondary" href="/login">
                 Sign in

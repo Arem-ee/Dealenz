@@ -1,4 +1,4 @@
-import { callAI } from "@/lib/ai/client"
+import { callAISurface, type AISurface } from "@/lib/ai/client"
 import type { ExtractedData } from "@/lib/ai/extract"
 import type { RiskReport, RiskCategory } from "@/lib/risk/engine"
 import { buildProposalPrompt, buildSowPrompt, buildContractPrompt, buildChecklistPrompt } from "@/lib/ai/prompts"
@@ -228,16 +228,18 @@ function generateChecklist(data: ExtractedData, report: RiskReport): string {
 
 export async function generateDocuments(
   data: ExtractedData,
-  report: RiskReport
+  report: RiskReport,
+  surface: AISurface = "authenticated"
 ): Promise<GeneratedDocMap> {
   // 1. Proposal — no prior documents needed
   let proposalContent: string
   let proposalMethod: DocumentMethod
   try {
-    proposalContent = await callAI({
+    const { text } = await callAISurface(surface, {
       systemPrompt: buildProposalPrompt(data, report),
       userContent: JSON.stringify({ goals: data.goals, deliverables: data.deliverables, timeline: data.timeline, budget: data.budget, projectType: data.projectType }),
     })
+    proposalContent = text
     proposalMethod = "ai"
   } catch (err) {
     console.error("Proposal generation via AI failed, using template:", err instanceof Error ? err.message : err)
@@ -249,10 +251,11 @@ export async function generateDocuments(
   let sowContent: string
   let sowMethod: DocumentMethod
   try {
-    sowContent = await callAI({
+    const { text } = await callAISurface(surface, {
       systemPrompt: buildSowPrompt(data, report, proposalContent),
       userContent: JSON.stringify({ goals: data.goals, deliverables: data.deliverables, timeline: data.timeline, budget: data.budget, projectType: data.projectType }),
     })
+    sowContent = text
     sowMethod = "ai"
   } catch (err) {
     console.error("SOW generation via AI failed, using template:", err instanceof Error ? err.message : err)
@@ -264,10 +267,11 @@ export async function generateDocuments(
   let contractContent: string
   let contractMethod: DocumentMethod
   try {
-    contractContent = await callAI({
+    const { text } = await callAISurface(surface, {
       systemPrompt: buildContractPrompt(data, report, proposalContent, sowContent),
       userContent: JSON.stringify({ goals: data.goals, deliverables: data.deliverables, timeline: data.timeline, budget: data.budget, projectType: data.projectType }),
     })
+    contractContent = text
     contractMethod = "ai"
   } catch (err) {
     console.error("Contract generation via AI failed, using template:", err instanceof Error ? err.message : err)
@@ -279,10 +283,11 @@ export async function generateDocuments(
   let checklistContent: string
   let checklistMethod: DocumentMethod
   try {
-    checklistContent = await callAI({
+    const { text } = await callAISurface(surface, {
       systemPrompt: buildChecklistPrompt(data, report, proposalContent, sowContent, contractContent),
       userContent: JSON.stringify({ goals: data.goals, deliverables: data.deliverables, timeline: data.timeline }),
     })
+    checklistContent = text
     checklistMethod = "ai"
   } catch (err) {
     console.error("Checklist generation via AI failed, using template:", err instanceof Error ? err.message : err)

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { seedEnvelopeForDealType } from "@/lib/context"
 
 const ALLOWED_DEAL_TYPES = new Set(["freelance", "generic"] as const)
 
@@ -22,11 +23,17 @@ export async function createAudit(template?: string, dealTypeInput?: string) {
 
   const dealType = normalizeDealType(dealTypeInput)
 
+  // The user explicitly picked this deal type in the UI, so the context
+  // envelope starts with dealType user_confirmed (Phase 5B).
+  const seeded = seedEnvelopeForDealType(dealType)
+
   const payload: Record<string, unknown> = {
     user_id: user.id,
     title: "New Deal",
     status: "draft",
     deal_type: dealType,
+    context_envelope: JSON.parse(JSON.stringify(seeded)) as never,
+    context_version: seeded.version,
   }
 
   if (template) {
@@ -39,7 +46,10 @@ export async function createAudit(template?: string, dealTypeInput?: string) {
   data = result.data as { id: string } | null
   error = result.error as { message: string } | null
 
-  if (error && error.message.includes("deal_type")) {
+  if (error && (error.message.includes("deal_type") || error.message.includes("context_envelope") || error.message.includes("context_version"))) {
+    // Database predates the deal_type and/or context columns: retry with only
+    // universally available fields. The context envelope is lazily seeded on
+    // first context interaction (ensureContextEnvelope).
     const fallbackPayload: Record<string, unknown> = {
       user_id: user.id,
       title: "New Deal",

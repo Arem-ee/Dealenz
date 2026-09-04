@@ -1,4 +1,4 @@
-import { callAI } from "./client"
+import { callAISurface, type AISurface } from "./client"
 import type { ExtractedData } from "./extract"
 import type { RiskReport, RiskCategory, RiskFinding } from "@/lib/risk/engine"
 import { generateRiskReport } from "@/lib/risk/engine"
@@ -121,12 +121,15 @@ function parseRiskResponse(text: string): GeminiRiskOutput {
   }
 }
 
-export async function analyzeRisk(data: ExtractedData): Promise<{ report: RiskReport; usedFallback: boolean }> {
+export async function analyzeRisk(
+  data: ExtractedData,
+  surface: AISurface = "authenticated"
+): Promise<{ report: RiskReport; usedFallback: boolean }> {
   try {
     const input = JSON.stringify(data, null, 2)
-    const raw = await callAI({ systemPrompt: RISK_ANALYSIS_SYSTEM_PROMPT, userContent: input })
+    const { text: raw, meta } = await callAISurface(surface, { systemPrompt: RISK_ANALYSIS_SYSTEM_PROMPT, userContent: input })
     const parsed = parseRiskResponse(raw)
-    return { report: transformGeminiOutput(parsed), usedFallback: false }
+    return { report: transformGeminiOutput(parsed), usedFallback: meta.servedByFallback ?? false }
   } catch (err) {
     console.error("Gemini risk analysis failed, falling back to rule engine:", err instanceof Error ? err.message : err)
     return { report: generateRiskReport(data), usedFallback: true }
@@ -187,9 +190,12 @@ function parseGenericResponse(text: string): GeminiRiskOutput {
   }
 }
 
-export async function analyzeGenericRiskWithVisibleFailure(data: ExtractedData): Promise<{ report: GenericRiskReport; usedFallback: false }> {
+export async function analyzeGenericRiskWithVisibleFailure(
+  data: ExtractedData,
+  surface: AISurface = "authenticated"
+): Promise<{ report: GenericRiskReport; usedFallback: false }> {
   const input = JSON.stringify(data, null, 2)
-  const raw = await callAI({ systemPrompt: GENERIC_RISK_ANALYSIS_SYSTEM_PROMPT, userContent: input })
+  const { text: raw } = await callAISurface(surface, { systemPrompt: GENERIC_RISK_ANALYSIS_SYSTEM_PROMPT, userContent: input })
   const parsed = parseGenericResponse(raw)
   return { report: transformGenericOutput(parsed), usedFallback: false }
 }
@@ -198,17 +204,18 @@ export type DealType = "freelance" | "generic"
 
 export async function analyzeRiskForDealType(
   data: ExtractedData,
-  dealType: DealType
+  dealType: DealType,
+  surface: AISurface = "authenticated"
 ): Promise<{ report: RiskReport | GenericRiskReport; usedFallback: boolean; genericAnalysisUnavailable: boolean }> {
   if (dealType === "generic") {
     try {
-      const result = await analyzeGenericRiskWithVisibleFailure(data)
+      const result = await analyzeGenericRiskWithVisibleFailure(data, surface)
       return { report: result.report, usedFallback: false, genericAnalysisUnavailable: false }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error"
       throw new Error(`Automated risk analysis is unavailable right now. Please try again or review the agreement manually. Details: ${message}`)
     }
   }
-  const result = await analyzeRisk(data)
+  const result = await analyzeRisk(data, surface)
   return { report: result.report, usedFallback: result.usedFallback, genericAnalysisUnavailable: false }
 }

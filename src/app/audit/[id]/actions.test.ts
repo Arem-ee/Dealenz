@@ -6,9 +6,11 @@ import type { ExtractedData } from "@/lib/ai/extract"
 
 const mockGetUser = vi.hoisted(() => vi.fn())
 const mockFrom = vi.hoisted(() => vi.fn())
+const mockRpc = vi.hoisted(() => vi.fn())
 const mockStorageFrom = vi.hoisted(() => vi.fn())
 const mockCheckRateLimit = vi.hoisted(() => vi.fn())
 const mockExtractProjectData = vi.hoisted(() => vi.fn())
+const mockExtractAndValidate = vi.hoisted(() => vi.fn())
 const mockAnalyzeRiskFn = vi.hoisted(() => vi.fn())
 const mockGenerateDocuments = vi.hoisted(() => vi.fn())
 const mockLogEvent = vi.hoisted(() => vi.fn())
@@ -18,6 +20,7 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },
     from: mockFrom,
+    rpc: mockRpc,
     storage: { from: mockStorageFrom },
   })),
 }))
@@ -28,6 +31,7 @@ vi.mock("@/lib/rate-limit", () => ({
 
 vi.mock("@/lib/ai/extract", () => ({
   extractProjectData: mockExtractProjectData,
+  extractAndValidate: mockExtractAndValidate,
 }))
 
 vi.mock("@/lib/ai/risk-analysis", () => ({
@@ -70,6 +74,31 @@ function qb(resolveTo: unknown = { data: null, error: null }) {
     update: vi.fn(() => builder),
     then: (resolve: (v: unknown) => unknown) => resolve(resolveTo),
   }
+  return builder
+}
+
+// Default: usage RPC allows the call (mirrors increment_usage default-allow under limit)
+mockRpc.mockResolvedValue({ data: { allowed: true, current_count: 1 }, error: null })
+
+// ── Stateful audits-table builder ──
+// The implementation hits from("audits") three times per flow:
+//   read   = select("*").eq().eq().single()            → resolves the audit row
+//   lock   = update().eq().eq().or().select("id")      → resolves lockRows
+//   update = update().eq() (awaited thenable)           → resolves default
+function auditsQuery(auditRow: unknown, lockRows: unknown[]) {
+  const builder = qb()
+  let updated = false
+  builder.single = vi.fn().mockResolvedValue({ data: auditRow, error: null })
+  builder.update = vi.fn(() => {
+    updated = true
+    return builder
+  })
+  builder.or = vi.fn(() => builder)
+  const terminalSelect = vi.fn(() => {
+    if (updated) return Promise.resolve({ data: lockRows, error: null })
+    return builder
+  })
+  builder.select = terminalSelect as unknown as typeof builder.select
   return builder
 }
 
@@ -116,23 +145,13 @@ describe("analyzeDeal", () => {
   it("returns success with data and risk report for valid input", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
 
-    const query = qb()
-    query.single = vi.fn().mockResolvedValueOnce({
-      data: { id: "audit-1", ai_consent: true, raw_input: "Build a website", structured_data: { files: [] } },
-      error: null,
-    })
-
-    // select("*") for read chain → return builder; select("id") for lock → terminal
-    const selectSpy = vi.fn()
-      .mockReturnValueOnce(query)   // read chain: select("*") → builder
-      .mockResolvedValueOnce({ data: [{ id: "audit-1" }], error: null }) // lock: select("id") → data
-    query.select = selectSpy
-    query.or = vi.fn(() => query)
-    query.update = vi.fn(() => query)
-
-    mockFrom.mockReturnValue(query)
+    const audits = auditsQuery(
+      { id: "audit-1", ai_consent: true, raw_input: "Build a website", structured_data: { files: [] } },
+      [{ id: "audit-1" }]
+    )
+    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
     mockStorageFrom.mockReturnValue({ download: vi.fn() })
-    mockExtractProjectData.mockResolvedValue(mockExtractedData)
+    mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
     mockAnalyzeRiskFn.mockResolvedValue({ report: mockRiskReport, usedFallback: false })
 
     const result = await analyzeDeal("audit-1")
@@ -145,18 +164,11 @@ describe("analyzeDeal", () => {
   it("returns error when audit has no input content", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
 
-    const query = qb()
-    query.single = vi.fn().mockResolvedValueOnce({
-      data: { id: "audit-1", ai_consent: true, raw_input: "", structured_data: { files: [] } },
-      error: null,
-    })
-    query.select = vi.fn()
-      .mockReturnValueOnce(query)
-      .mockResolvedValueOnce({ data: [{ id: "audit-1" }], error: null })
-    query.or = vi.fn(() => query)
-    query.update = vi.fn(() => query)
-
-    mockFrom.mockReturnValue(query)
+    const audits = auditsQuery(
+      { id: "audit-1", ai_consent: true, raw_input: "", structured_data: { files: [] } },
+      [{ id: "audit-1" }]
+    )
+    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
 
     const result = await analyzeDeal("audit-1")
     expect(result.success).toBe(false)
@@ -166,18 +178,11 @@ describe("analyzeDeal", () => {
   it("returns error when audit is locked by another process", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
 
-    const query = qb()
-    query.single = vi.fn().mockResolvedValueOnce({
-      data: { id: "audit-1", ai_consent: true, raw_input: "test", structured_data: { files: [] } },
-      error: null,
-    })
-    query.select = vi.fn()
-      .mockReturnValueOnce(query)
-      .mockResolvedValueOnce({ data: [], error: null }) // empty → lock fails
-    query.or = vi.fn(() => query)
-    query.update = vi.fn(() => query)
-
-    mockFrom.mockReturnValue(query)
+    const audits = auditsQuery(
+      { id: "audit-1", ai_consent: true, raw_input: "test", structured_data: { files: [] } },
+      [] // empty → lock fails
+    )
+    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
 
     const result = await analyzeDeal("audit-1")
     expect(result.success).toBe(false)

@@ -3,6 +3,7 @@ export interface GeminiCallParams {
   userContent: string
   temperature?: number
   maxTokens?: number
+  model?: string
 }
 
 function resolveGeminiKey(): string {
@@ -11,8 +12,8 @@ function resolveGeminiKey(): string {
   return key
 }
 
-function resolveGeminiModel(): string {
-  return process.env.AI_MODEL ?? process.env.GEMINI_MODEL ?? "gemini-2.0-flash"
+function resolveGeminiModel(override?: string): string {
+  return override ?? process.env.AI_MODEL ?? process.env.GEMINI_MODEL ?? "gemini-2.0-flash"
 }
 
 function resolveGeminiBaseUrl(): string {
@@ -21,9 +22,9 @@ function resolveGeminiBaseUrl(): string {
 }
 
 export async function callGeminiProvider(params: GeminiCallParams): Promise<string> {
-  const { systemPrompt, userContent, temperature, maxTokens } = params
+  const { systemPrompt, userContent, temperature, maxTokens, model: modelOverride } = params
   const apiKey = resolveGeminiKey()
-  const model = resolveGeminiModel()
+  const model = resolveGeminiModel(modelOverride)
   const baseUrl = resolveGeminiBaseUrl()
 
   const controller = new AbortController()

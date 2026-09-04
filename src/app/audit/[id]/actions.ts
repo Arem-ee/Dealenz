@@ -2,10 +2,11 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { extractTextFromBuffer } from "@/lib/text-extract"
-import { extractProjectData } from "@/lib/ai/extract"
+import { extractProjectData, extractAndValidate } from "@/lib/ai/extract"
 import { analyzeRisk, analyzeGenericRiskWithVisibleFailure } from "@/lib/ai/risk-analysis"
 import { generateDocuments } from "@/lib/generate"
 import { generateNegotiationPoints } from "@/lib/ai/negotiation"
+import { ensureContextForAnalysis } from "./context-actions"
 import type { GenericRiskReport } from "@/lib/ai/risk-analysis"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { logEvent, logDuration } from "@/lib/logger"
@@ -251,7 +252,7 @@ export async function removeFileMetadata(
 
 export async function analyzeDeal(
   auditId: string
-): Promise<{ success: boolean; data?: ExtractedData; riskReport?: RiskReport | GenericRiskReport; error?: string }> {
+): Promise<{ success: boolean; data?: ExtractedData; riskReport?: RiskReport | GenericRiskReport; error?: string; contextGate?: string; missingRequiredContext?: string[] }> {
   const startMs = Date.now()
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -308,6 +309,25 @@ export async function analyzeDeal(
 
   if (lockError || !locked || locked.length === 0) {
     return { success: false, error: "This audit is currently being analyzed. Please wait." }
+  }
+
+  // Phase 5B context gate: analysis must not silently treat unresolved
+  // required context as confirmed. Legacy audits without an envelope are
+  // seeded from the stored deal_type column first (safe migration path).
+  const gateCheck = await ensureContextForAnalysis(supabase, user.id, auditId, audit)
+  if (!gateCheck.ready) {
+    await supabase
+      .from("audits")
+      .update({ locked_at: null, updated_at: new Date().toISOString() })
+      .eq("id", auditId)
+      .eq("user_id", user.id)
+    await logActivity(user.id, "analysis_blocked_context", { state: gateCheck.state }, auditId)
+    return {
+      success: false,
+      error: gateCheck.message,
+      contextGate: gateCheck.state,
+      missingRequiredContext: gateCheck.missing,
+    }
   }
 
   await supabase
@@ -389,7 +409,25 @@ export async function analyzeDeal(
     }
 
     const dealType = ((audit as Record<string, unknown>).deal_type as string) === "generic" ? "generic" : "freelance"
-    const extracted = await extractProjectData(combinedInput, dealType)
+    const validation = await extractAndValidate(combinedInput, dealType)
+
+    if (!validation.valid) {
+      await supabase
+        .from("audits")
+        .update({ status: "failed", locked_at: null, updated_at: new Date().toISOString() })
+        .eq("id", auditId)
+      await logEvent({
+        audit_id: auditId,
+        user_id: user.id,
+        phase: "extraction",
+        status: "failure",
+        error_message: `Insufficient input: ${validation.reason}`,
+      })
+      await logActivity(user.id, "analysis_failed", { reason: `Insufficient input: ${validation.reason}` }, auditId)
+      return { success: false, error: "That doesn't look like a deal yet. Add more detail about the agreement — paste a client email, contract clause, lease terms, or describe the deal in your own words." }
+    }
+
+    const extracted = validation.extractedData!
 
     await logEvent({
       audit_id: auditId,

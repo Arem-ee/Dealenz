@@ -3,16 +3,18 @@ import "./globals.css"
 
 export const metadata: Metadata = {
   title: {
-    default: "Dealenz — AI Auditor for Freelancers",
+    default: "Dealenz — Know the Risk Before You Sign",
     template: "%s | Dealenz",
   },
-  description: "Identify risks, protect scope, and generate safer deal packages. AI-powered audit tool for freelancers.",
+  description:
+    "Dealenz looks at the deal you're about to enter, whether that's a contract, a lease, or a partnership agreement, and tells you plainly where the risk actually is before you sign anything.",
   keywords: ["freelance", "contract audit", "risk assessment", "scope protection", "AI auditor"],
   authors: [{ name: "Dealenz" }],
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Dealenz — AI Auditor for Freelancers",
-    description: "Identify risks, protect scope, and generate safer deal packages for freelancers.",
+    title: "Dealenz — Know the Risk Before You Sign",
+    description:
+      "Dealenz looks at the deal you're about to enter, whether that's a contract, a lease, or a partnership agreement, and tells you plainly where the risk actually is before you sign anything.",
     type: "website",
     siteName: "Dealenz",
   },

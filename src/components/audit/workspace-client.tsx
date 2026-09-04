@@ -23,6 +23,10 @@ import { cn } from "@/lib/utils"
 
 import { Timeline, type TimelineEvent } from "@/components/audit/timeline"
 import { analyzeDeal, generateProtectionPackage, updateAudit, getClientProfiles } from "@/app/audit/[id]/actions"
+import { createConsultationRequest, getVerifiedLawyersCount } from "@/app/audit/[id]/consultation-actions"
+import { LawyerEscalationCard } from "@/components/audit/lawyer-escalation"
+import { ContextPanel } from "@/components/audit/context-panel"
+import { parseContextEnvelope, type ContextEnvelope } from "@/lib/context/schema"
 import type { ExtractedData } from "@/lib/ai/extract"
 import type { RiskReport } from "@/lib/risk/engine"
 import type { GenericRiskReport } from "@/lib/ai/risk-analysis"
@@ -50,6 +54,7 @@ interface AuditData {
   ai_consent: boolean
   client_id: string | null
   deal_type: DealType | null
+  context_envelope: unknown
 }
 
 interface UploadedFile {
@@ -146,6 +151,17 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
   const hasDocuments = documents.length > 0
   const dealType: DealType = (audit.deal_type as DealType) === "generic" ? "generic" : "freelance"
   const isGeneric = dealType === "generic"
+  // Stored envelope validated defensively: malformed data renders as
+  // "no context yet" and is reseeded by ensureContextForAnalysis on analyze.
+  let initialContext: ContextEnvelope | null = null
+  try {
+    initialContext =
+      audit.context_envelope === null || audit.context_envelope === undefined
+        ? null
+        : parseContextEnvelope(audit.context_envelope)
+  } catch {
+    initialContext = null
+  }
   const negotiationPoints = (structured?.negotiationPoints as string[] | undefined) ?? []
   const genericDegraded = (structured?.genericRiskDegraded as boolean | undefined) ?? false
   const isDirty = saveState === "unsaved" || saveState === "saving"
@@ -708,6 +724,12 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
             <div className="space-y-8">
               <RiskReportView report={riskReport as RiskReport} />
 
+              <LawyerEscalationCard
+                auditId={audit.id}
+                dealType={dealType}
+                riskLevel={riskLevel}
+              />
+
               {generating && !hasDocuments && (
                 <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm">
                   <div className="flex items-center gap-2">
@@ -813,6 +835,10 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
               </button>
             </div>
           )}
+
+          <div className="mt-6">
+            <ContextPanel auditId={audit.id} dealType={dealType} initialEnvelope={initialContext} />
+          </div>
         </>
       )
     }
