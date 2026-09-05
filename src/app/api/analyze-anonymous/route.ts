@@ -24,9 +24,12 @@ function getAnonymousKey(req: NextRequest): string {
   return `${ip}:${fingerprint}`
 }
 
-function normalizeAnonymousDealType(input?: string): "freelance" | "generic" {
-  if (input === "generic") return "generic"
-  return "freelance"
+function normalizeAnonymousDealType(input?: string): "freelance" | "generic" | "lease" {
+  if (input === "freelance") return "freelance"
+  if (input === "lease") return "lease"
+  // Unknown or absent input takes the adaptive generic path, never a
+  // specialized vertical. The landing UI always sends an explicit value.
+  return "generic"
 }
 
 function insufficientInputResponse() {

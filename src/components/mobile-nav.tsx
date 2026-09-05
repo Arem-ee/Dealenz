@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, User, Plus, MoreHorizontal, LogOut, CreditCard } from "lucide-react"
+import { LayoutDashboard, User, Plus, MoreHorizontal, LogOut, CreditCard, MessageCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { IconDeal, IconClient, IconRiskFlag, IconTemplate } from "@/components/icons"
 import { createClient } from "@/lib/supabase/client"
@@ -18,6 +18,7 @@ const items = [
 ]
 
 const moreItems = [
+  { label: "Ask", href: "/ask", icon: MessageCircle },
   { label: "Risk Intelligence", href: "/risk-intelligence", icon: IconRiskFlag },
   { label: "Templates", href: "/templates", icon: IconTemplate },
   { label: "Billing", href: "/billing", icon: CreditCard },

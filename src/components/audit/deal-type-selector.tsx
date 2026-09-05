@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils"
 
-export type DealType = "freelance" | "generic"
+export type DealType = "freelance" | "generic" | "lease"
 
 interface DealTypeSelectorProps {
   value: DealType | null
@@ -18,7 +18,12 @@ const OPTIONS: Array<{ value: DealType; label: string; description: string }> = 
   {
     value: "generic",
     label: "Any other agreement",
-    description: "A lease, purchase, partnership or other agreement you are reviewing before signing",
+    description: "A purchase, partnership or other agreement you are reviewing before signing",
+  },
+  {
+    value: "lease",
+    label: "Lease or rental",
+    description: "A commercial or residential lease you are reviewing before signing",
   },
 ]
 

@@ -200,14 +200,16 @@ export async function analyzeGenericRiskWithVisibleFailure(
   return { report: transformGenericOutput(parsed), usedFallback: false }
 }
 
-export type DealType = "freelance" | "generic"
+export type DealType = "freelance" | "generic" | "lease"
 
 export async function analyzeRiskForDealType(
   data: ExtractedData,
   dealType: DealType,
   surface: AISurface = "authenticated"
 ): Promise<{ report: RiskReport | GenericRiskReport; usedFallback: boolean; genericAnalysisUnavailable: boolean }> {
-  if (dealType === "generic") {
+  // Lease deals take the adaptive generic path (never the freelance
+  // 8-category engine) until lease-specific risk analysis exists.
+  if (dealType !== "freelance") {
     try {
       const result = await analyzeGenericRiskWithVisibleFailure(data, surface)
       return { report: result.report, usedFallback: false, genericAnalysisUnavailable: false }

@@ -30,7 +30,7 @@ export function jurisdictionMatches(item: KnowledgeItem, contextJurisdiction: st
   return normalizePlace(item.jurisdiction.code as string) === normalizePlace(contextJurisdiction)
 }
 
-function dealTypeOf(envelope: ContextEnvelope): "freelance" | "generic" | null {
+function dealTypeOf(envelope: ContextEnvelope): "freelance" | "generic" | "lease" | null {
   const field = envelope.fields.dealType
   if (field.source === "unknown" || field.value === null) return null
   return field.value

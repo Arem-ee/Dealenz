@@ -12,6 +12,8 @@ const mockCheckRateLimit = vi.hoisted(() => vi.fn())
 const mockExtractProjectData = vi.hoisted(() => vi.fn())
 const mockExtractAndValidate = vi.hoisted(() => vi.fn())
 const mockAnalyzeRiskFn = vi.hoisted(() => vi.fn())
+const mockAnalyzeGenericRiskFn = vi.hoisted(() => vi.fn())
+const mockNegotiationPointsFn = vi.hoisted(() => vi.fn())
 const mockGenerateDocuments = vi.hoisted(() => vi.fn())
 const mockLogEvent = vi.hoisted(() => vi.fn())
 const mockLogDuration = vi.hoisted(() => vi.fn(() => 100))
@@ -36,6 +38,11 @@ vi.mock("@/lib/ai/extract", () => ({
 
 vi.mock("@/lib/ai/risk-analysis", () => ({
   analyzeRisk: mockAnalyzeRiskFn,
+  analyzeGenericRiskWithVisibleFailure: mockAnalyzeGenericRiskFn,
+}))
+
+vi.mock("@/lib/ai/negotiation", () => ({
+  generateNegotiationPoints: mockNegotiationPointsFn,
 }))
 
 vi.mock("@/lib/generate", () => ({
@@ -187,6 +194,47 @@ describe("analyzeDeal", () => {
     const result = await analyzeDeal("audit-1")
     expect(result.success).toBe(false)
     expect(result.error).toMatch(/currently being analyzed|lock/i)
+  })
+
+  it("runs lease audits through the generic path with lease findings, never the freelance engine", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+
+    const audits = auditsQuery(
+      {
+        id: "audit-lease-1",
+        ai_consent: true,
+        raw_input: "Shop lease, 12 month term.",
+        structured_data: { files: [] },
+        deal_type: "lease",
+        context_envelope: null,
+      },
+      [{ id: "audit-lease-1" }]
+    )
+    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockStorageFrom.mockReturnValue({ download: vi.fn() })
+    mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
+    mockAnalyzeGenericRiskFn.mockResolvedValue({
+      report: {
+        overallScore: 65,
+        riskLevel: "Medium",
+        categories: {},
+        summary: "Generic lease review",
+        recommendations: [],
+      },
+      usedFallback: false,
+    })
+    mockNegotiationPointsFn.mockResolvedValue(["Ask about renewal terms"])
+
+    const result = await analyzeDeal("audit-lease-1")
+
+    expect(result.success).toBe(true)
+    // Freelance deterministic engine must not run on a lease.
+    expect(mockAnalyzeRiskFn).not.toHaveBeenCalled()
+    const findingKeys = (result.deterministicFindings ?? []).map((r) => r.ruleKey)
+    expect(findingKeys).toContain("lease-termination-notice-missing")
+    expect(findingKeys.some((k) => k.startsWith("freelance-"))).toBe(false)
+    // Negotiation synthesis is included for lease exactly like generic.
+    expect(mockNegotiationPointsFn).toHaveBeenCalledTimes(1)
   })
 })
 

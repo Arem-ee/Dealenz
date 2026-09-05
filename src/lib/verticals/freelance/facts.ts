@@ -8,18 +8,9 @@
 // distinct from inferred conclusions at every step.
 
 import type { ExtractedData } from "@/lib/ai/extract"
+import { corpusOf, findFirst, flag, text, type ObservedFlag, type ObservedText } from "@/lib/verticals/observe"
 
-export interface ObservedText {
-  // Null means not observed in the available input (unknown, not absent).
-  text: string | null
-  evidence: string | null
-}
-
-export interface ObservedFlag {
-  // Null means the input says nothing either way (unknown).
-  value: boolean | null
-  evidence: string | null
-}
+export type { ObservedFlag, ObservedText }
 
 export interface FreelanceFacts {
   fee: ObservedText
@@ -39,66 +30,6 @@ export interface FreelanceFacts {
   indemnity: ObservedText
   disputeResolution: ObservedText
   deliverablesCount: number
-}
-
-function corpusOf(extracted: ExtractedData, rawText?: string): string {
-  return [
-    rawText ?? "",
-    extracted.budget ?? "",
-    extracted.timeline ?? "",
-    extracted.projectType ?? "",
-    ...extracted.goals,
-    ...extracted.deliverables,
-    ...extracted.clientSignals,
-  ].join("\n")
-}
-
-function snippet(corpus: string, matchIndex: number, matchLength: number): string {
-  const start = Math.max(0, matchIndex - 60)
-  const end = Math.min(corpus.length, matchIndex + matchLength + 60)
-  return corpus.slice(start, end).replace(/\s+/g, " ").trim().slice(0, 200)
-}
-
-const NEGATION_BEFORE = /\b(no|not|cannot|n't|without|never|none|neither|missing|lacks?|absent|unaddressed|fails? to)\b/i
-const NEGATION_AFTER = /^\s*[:\-–]?\s*(none|n\/a|nil|tbd|tbc|missing)\b/i
-
-// A negated mention ("no termination clause", "termination: none") is not an
-// affirmative observation. Matches inside a negation window are skipped so
-// absence-family rules keep working; the window sizes are documented
-// heuristics, not linguistic analysis.
-function isNegated(corpus: string, matchIndex: number, matchLength: number): boolean {
-  const before = corpus.slice(Math.max(0, matchIndex - 30), matchIndex)
-  if (NEGATION_BEFORE.test(before)) return true
-  const after = corpus.slice(matchIndex + matchLength, matchIndex + matchLength + 20)
-  if (NEGATION_AFTER.test(after)) return true
-  return false
-}
-
-function findFirst(corpus: string, pattern: RegExp): { text: string; evidence: string } | null {
-  const flags = pattern.flags.includes("i") ? pattern.flags : `${pattern.flags}i`
-  const re = new RegExp(pattern.source, flags.includes("g") ? flags : `${flags}g`)
-  let match: RegExpExecArray | null
-  while ((match = re.exec(corpus)) !== null) {
-    if (!match[0]) {
-      re.lastIndex += 1
-      continue
-    }
-    if (isNegated(corpus, match.index, match[0].length)) continue
-    return { text: match[0].trim(), evidence: snippet(corpus, match.index, match[0].length) }
-  }
-  return null
-}
-
-function flag(corpus: string, pattern: RegExp): ObservedFlag {
-  const found = findFirst(corpus, pattern)
-  if (!found) return { value: null, evidence: null }
-  return { value: true, evidence: found.evidence }
-}
-
-function text(corpus: string, pattern: RegExp): ObservedText {
-  const found = findFirst(corpus, pattern)
-  if (!found) return { text: null, evidence: null }
-  return found
 }
 
 // Deterministic freelance fact projection. Pure: same extraction plus same

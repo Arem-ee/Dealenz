@@ -2,11 +2,13 @@ import { describe, it, expect, vi } from "vitest"
 import {
   answerQuestion,
   classifyOperation,
+  DETERMINISTIC_GREETING,
   inferIntent,
   selectFindingsForIntent,
   type ConversationPorts,
 } from "./request"
-import { applyUserConfirmation, seedEnvelopeForDealType } from "@/lib/context"
+import { validateOutputContract } from "@/lib/ai/constitution"
+import { applyUserConfirmation, emptyContextEnvelope, seedEnvelopeForDealType } from "@/lib/context"
 import type { CreditPolicy } from "@/lib/ai/usage"
 
 function envelope() {
@@ -14,6 +16,24 @@ function envelope() {
     userRole: { value: "freelancer" },
     counterpartyRole: { value: "client" },
   })
+}
+
+function leaseEnvelope() {
+  return applyUserConfirmation(seedEnvelopeForDealType("lease"), {
+    userRole: { value: "tenant" },
+    counterpartyRole: { value: "landlord" },
+  })
+}
+
+const SAMPLE_LEASE_EXTRACTED = {
+  goals: ["Shop lease"],
+  deliverables: [],
+  timeline: null,
+  budget: null,
+  projectType: "lease",
+  clientSignals: [],
+  missingInformation: [],
+  confidence: 0.9,
 }
 
 const SAMPLE_EXTRACTED = {
@@ -116,9 +136,10 @@ describe("answerQuestion", () => {
     expect(aiCalls).toHaveLength(1)
     expect(aiCalls[0].maxTokens).toBe(1024)
     expect(aiCalls[0].systemPrompt).toContain("Dealenz response contract")
-    expect(response.usageRecord.operation).toBe("explanation")
-    expect(response.usageRecord.inputTokens).toBe(50)
-    expect(response.usageRecord.totalTokens).toBe(60)
+    expect(response.usageRecord?.operation).toBe("explanation")
+    expect(response.usageRecord?.inputTokens).toBe(50)
+    expect(response.usageRecord?.totalTokens).toBe(60)
+    expect(response.deterministic).toBe(false)
     // Metering mode: measured but not charged, no reservation taken.
     expect(response.creditsConsumed).toBeNull()
     expect(ledger.calls.some((c) => c.fn === "reserve_credits")).toBe(false)
@@ -150,6 +171,7 @@ describe("answerQuestion", () => {
     expect(response.intent).toBe("decide")
     const keys = response.findingsUsed.map((f) => f.ruleKey)
     expect(keys).toContain("freelance-unlimited-revisions")
+    expect(keys.some((k) => k.startsWith("lease-"))).toBe(false)
     expect(response.contractViolations).toEqual([])
   })
 
@@ -185,12 +207,70 @@ describe("answerQuestion", () => {
     expect(aiCalls).toHaveLength(0)
   })
 
+  it("answers greetings deterministically with no AI call, no ledger, no charge", async () => {
+    const { ports, aiCalls, ledger } = fakePorts()
+    ports.aiCaller = async () => { throw new Error("must not be called") }
+    const response = await answerQuestion({ text: "Hello", userId: "u1", ports })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    expect(response.text).toBe("Hello. What are you working on?")
+    expect(response.deterministic).toBe(true)
+    expect(response.usageRecord).toBeNull()
+    expect(response.creditsConsumed).toBeNull()
+    expect(response.knowledgeSources).toEqual([])
+    expect(aiCalls).toHaveLength(0)
+    expect(ledger.calls).toHaveLength(0)
+  })
+
   it("releases no hold and records failure distinctly on AI failure in metering mode", async () => {
     const { ports, aiCalls, ledger } = fakePorts()
     ports.aiCaller = async () => { throw new Error("provider down") }
-    await expect(answerQuestion({ text: "Hello", userId: "u1", ports })).rejects.toThrow("provider down")
+    await expect(answerQuestion({ text: "What does net 30 mean?", userId: "u1", ports })).rejects.toThrow("provider down")
     expect(aiCalls).toHaveLength(0)
     expect(ledger.calls.some((c) => c.fn === "void_reservation")).toBe(false)
+  })
+
+  it("bounds history sent to the model and keeps simple answers finding-free", async () => {
+    const { ports, aiCalls } = fakePorts()
+    const history = Array.from({ length: 10 }, (_, i) => [
+      { role: "user" as const, text: `old question ${i}` },
+      { role: "assistant" as const, text: `old answer ${i}` },
+    ]).flat()
+    await answerQuestion({ text: "What does net 30 mean?", userId: "u1", history, ports })
+    expect(aiCalls).toHaveLength(1)
+    const prompt = aiCalls[0].userContent
+    expect(prompt).not.toContain("old question 0")
+    expect(prompt).not.toContain("old question 3")
+    expect(prompt).toContain("old question 9")
+    expect(prompt).toContain("No deterministic findings available")
+    expect(prompt).not.toContain("Deterministic findings to reason over")
+  })
+
+  it("keeps the deterministic greeting contract-clean", async () => {
+    expect(DETERMINISTIC_GREETING).toBe("Hello. What are you working on?")
+    expect(validateOutputContract(DETERMINISTIC_GREETING).passed).toBe(true)
+  })
+
+  it("attaches knowledge sources with provenance when resolved", async () => {
+    const { ports } = fakePorts()
+    ports.loadKnowledge = async () => [
+      {
+        knowledgeItemId: "k1", itemKey: "test-item", version: 1, title: "Test item",
+        kind: "market_practice", authority: "market_practice", relevance: 0.8,
+        applicabilityReasons: ["r"], effectiveFrom: "2020-01-01", effectiveTo: null,
+        sourceName: "Test Source", sourceReference: "TEST-1", jurisdiction: "global",
+      },
+    ]
+    const response = await answerQuestion({ text: "Should I accept?", auditId: "a1", userId: "u1", ports })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    expect(response.knowledgeSources).toEqual([
+      {
+        itemKey: "test-item", title: "Test item", authority: "market_practice",
+        sourceName: "Test Source", sourceReference: "TEST-1", jurisdiction: "global",
+        effectiveFrom: "2020-01-01",
+      },
+    ])
   })
 
   it("selects findings by intent deterministically", () => {
@@ -200,5 +280,93 @@ describe("answerQuestion", () => {
     ]
     expect(selectFindingsForIntent(findings, "decide", 5).map((f) => f.ruleKey)).toEqual(["b", "a"])
     expect(selectFindingsForIntent(findings, "negotiate", 5).map((f) => f.ruleKey)).toEqual(["b", "a"])
+  })
+
+  it("answers document-free lease questions without manufacturing a document", async () => {
+    const { ports, aiCalls } = fakePorts()
+    const response = await answerQuestion({ text: "What does a break clause mean?", userId: "u1", ports })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    expect(response.operation).toBe("explanation")
+    expect(response.findingsUsed).toEqual([])
+    expect(aiCalls).toHaveLength(1)
+    expect(aiCalls[0].maxTokens).toBe(1024)
+  })
+
+  it("runs mixed lease questions through lease facts and lease rules", async () => {
+    const { ports, aiCalls } = fakePorts({
+      loadContext: async () => leaseEnvelope(),
+      loadFacts: async () => ({
+        extracted: SAMPLE_LEASE_EXTRACTED,
+        rawText: "12-month shop lease. Tenant liable for all repairs with no cap stated.",
+      }),
+    })
+    const response = await answerQuestion({ text: "Should I accept this lease?", auditId: "lease-1", userId: "u1", ports })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    const keys = response.findingsUsed.map((f) => f.ruleKey)
+    expect(keys).toContain("lease-liability-uncapped")
+    expect(keys.some((k) => k.startsWith("freelance-"))).toBe(false)
+    for (const finding of response.findingsUsed) {
+      expect(finding.authority.kind).toBe("product_policy")
+    }
+    // Synthesis receives the question, the findings, and the constitution at
+    // decision depth — never the whole store, never raw scores.
+    expect(aiCalls).toHaveLength(1)
+    expect(aiCalls[0].maxTokens).toBe(2048)
+    expect(aiCalls[0].systemPrompt).toContain("Dealenz response contract")
+    expect(aiCalls[0].userContent).toContain("Should I accept this lease?")
+    expect(aiCalls[0].userContent).toContain("Deterministic findings to reason over")
+    expect(aiCalls[0].userContent).not.toMatch(/overallScore|dealScore/)
+  })
+
+  it("keeps lease truth identical across intents and objectives", async () => {
+    const { ports } = fakePorts({
+      loadContext: async () => leaseEnvelope(),
+      loadFacts: async () => ({
+        extracted: SAMPLE_LEASE_EXTRACTED,
+        rawText: "12-month shop lease. No termination clause. No deposit mentioned.",
+      }),
+    })
+    const explore = await answerQuestion({ text: "What should I look for in this lease?", auditId: "lease-1", userId: "u1", ports })
+    const decide = await answerQuestion({
+      text: "Should I accept this lease?",
+      auditId: "lease-1",
+      userId: "u1",
+      objective: "decide_whether_to_accept",
+      ports,
+    })
+    expect(explore.type).toBe("answer")
+    expect(decide.type).toBe("answer")
+    if (explore.type !== "answer" || decide.type !== "answer") throw new Error("unreachable")
+    const keyset = (r: typeof explore) => r.findingsUsed.map((f) => `${f.ruleKey}:${f.summary}`).sort()
+    // Decision intent surfaces a severity-ordered superset; every plain
+    // finding appears verbatim in the decision set.
+    for (const entry of keyset(explore)) {
+      expect(keyset(decide)).toContain(entry)
+    }
+    expect(decide.findingsUsed[0].severity).toMatch(/material|critical|attention/)
+  })
+
+  it("never mutates confirmed context during conversation", async () => {
+    const { ports } = fakePorts()
+    const stored = envelope()
+    const snapshot = JSON.parse(JSON.stringify(stored)) as unknown
+    ports.loadContext = async () => stored
+    await answerQuestion({ text: "Should I accept?", auditId: "a1", userId: "u1", ports })
+    await answerQuestion({ text: "What about payment?", auditId: "a1", userId: "u1", ports })
+    expect(stored).toEqual(snapshot)
+  })
+
+  it("excludes freelance-scoped rules when the deal type is unknown", async () => {
+    const { ports } = fakePorts()
+    ports.loadContext = async () => emptyContextEnvelope()
+    const response = await answerQuestion({ text: "Should I accept?", auditId: "a1", userId: "u1", ports })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    const keys = response.findingsUsed.map((f) => f.ruleKey)
+    expect(keys.some((k) => k.startsWith("freelance-"))).toBe(false)
+    // Unscoped generic rules still evaluate.
+    expect(keys).toContain("payment-terms-missing")
   })
 })

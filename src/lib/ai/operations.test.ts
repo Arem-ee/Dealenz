@@ -61,6 +61,21 @@ describe("AI operations", () => {
     expect(resolveOperationProfile("explanation").contextSelection).toBe("minimal")
     expect(resolveOperationProfile("document_analysis").contextSelection).toBe("expanded")
   })
+
+  it("declares document, context, and rules requirements per operation", () => {
+    // Only document analysis is gate-enforced and document-mandatory.
+    expect(resolveOperationProfile("document_analysis").requiresContext).toBe(true)
+    expect(resolveOperationProfile("conversation").requiresContext).toBe(false)
+    expect(resolveOperationProfile("negotiation").requiresContext).toBe(false)
+    // Rules consumers exist everywhere except drafting (no consumer yet).
+    expect(resolveOperationProfile("document_analysis").usesRules).toBe(true)
+    expect(resolveOperationProfile("conversation").usesRules).toBe(true)
+    expect(resolveOperationProfile("negotiation").usesRules).toBe(true)
+    expect(resolveOperationProfile("comparison").usesRules).toBe(true)
+    expect(resolveOperationProfile("explanation").usesRules).toBe(true)
+    expect(resolveOperationProfile("decision_support").usesRules).toBe(true)
+    expect(resolveOperationProfile("drafting").usesRules).toBe(false)
+  })
 })
 
 describe("token accounting primitives", () => {

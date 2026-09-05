@@ -15,8 +15,7 @@ import {
   type Finding,
   type RuleResult,
 } from "@/lib/rules"
-import { deriveFreelanceFacts } from "@/lib/verticals/freelance/facts"
-import { registerFreelancePack } from "@/lib/verticals/freelance/rules"
+import { verticalForDealType } from "@/lib/verticals"
 import type { GenericRiskReport } from "@/lib/ai/risk-analysis"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { logEvent, logDuration } from "@/lib/logger"
@@ -438,7 +437,8 @@ export async function analyzeDeal(
       combinedInput = combinedInput.slice(0, MAX_COMBINED_INPUT_LENGTH)
     }
 
-    const dealType = ((audit as Record<string, unknown>).deal_type as string) === "generic" ? "generic" : "freelance"
+    const dealTypeRaw = (audit as Record<string, unknown>).deal_type as string
+    const dealType = dealTypeRaw === "generic" || dealTypeRaw === "lease" ? dealTypeRaw : "freelance"
     const validation = await extractAndValidate(combinedInput, dealType)
 
     if (!validation.valid) {
@@ -477,7 +477,9 @@ export async function analyzeDeal(
 
     let riskReport: RiskReport | GenericRiskReport
     let usedFallback = false
-    if (dealType === "generic") {
+    // Lease analyses take the adaptive generic path, never the freelance
+    // 8-category engine (mirrors analyzeRiskForDealType routing).
+    if (dealType !== "freelance") {
       try {
         const result = await analyzeGenericRiskWithVisibleFailure(extracted)
         riskReport = result.report
@@ -534,10 +536,11 @@ export async function analyzeDeal(
     let relevantFindings: Finding[] = []
     try {
       registerBuiltinRules()
-      registerFreelancePack()
-      const freelanceFacts =
-        dealType === "freelance"
-          ? JSON.parse(JSON.stringify(deriveFreelanceFacts(extracted, combinedInput))) as unknown
+      const vertical = verticalForDealType(dealType)
+      if (vertical) vertical.registerPack()
+      const verticalFacts =
+        vertical !== null
+          ? JSON.parse(JSON.stringify(vertical.deriveFacts(extracted, combinedInput))) as unknown
           : undefined
       const rulesInput = {
         context: gateCheck.envelope!,
@@ -547,7 +550,7 @@ export async function analyzeDeal(
           deliverables: extracted.deliverables,
           projectType: extracted.projectType,
           confidence: extracted.confidence,
-          ...(freelanceFacts !== undefined ? { freelance: freelanceFacts } : {}),
+          ...(vertical !== null && verticalFacts !== undefined ? { [vertical.key]: verticalFacts } : {}),
         },
         knowledge: knowledgeCandidates,
         operation: "document_analysis" as const,
@@ -577,7 +580,7 @@ export async function analyzeDeal(
 
     let negotiationPoints: string[] | undefined
     let genericRiskDegraded = false
-    if (dealType === "generic" && riskReport) {
+    if (dealType !== "freelance" && riskReport) {
       try {
         // Deterministic findings feed synthesis as context to reason over;
         // the model explains them but never re-decides their status.
@@ -599,7 +602,7 @@ export async function analyzeDeal(
     }
 
     const structuredUpdate: Record<string, unknown> = { ...(structured ?? {}), extractedData: extracted }
-    if (dealType === "generic") {
+    if (dealType !== "freelance") {
       structuredUpdate.negotiationPoints = negotiationPoints ?? []
       structuredUpdate.genericRiskDegraded = genericRiskDegraded
     }
@@ -677,8 +680,9 @@ export async function generateProtectionPackage(
     return { success: false, error: "Audit not found" }
   }
 
-  const auditDealType = ((audit as Record<string, unknown>).deal_type as string) === "generic" ? "generic" : "freelance"
-  if (auditDealType === "generic") {
+  const auditDealTypeRaw = (audit as Record<string, unknown>).deal_type as string
+  const auditDealType = auditDealTypeRaw === "generic" || auditDealTypeRaw === "lease" ? auditDealTypeRaw : "freelance"
+  if (auditDealType !== "freelance") {
     return { success: false, error: "Protection package is available for freelance deals only. For this agreement, review the risk report and negotiation points." }
   }
 

@@ -9,7 +9,7 @@ import { createConsultationRequest } from "@/app/audit/[id]/consultation-actions
 
 interface EscalationCardProps {
   auditId: string
-  dealType: "freelance" | "generic"
+  dealType: "freelance" | "generic" | "lease"
   riskLevel?: "Low" | "Medium" | "High" | "Critical" | null
 }
 

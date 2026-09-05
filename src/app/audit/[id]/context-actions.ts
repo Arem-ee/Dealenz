@@ -27,7 +27,8 @@ import {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function normalizeDealType(value: unknown): DealType {
-  return value === "generic" ? "generic" : "freelance"
+  if (value === "generic" || value === "lease") return value
+  return "freelance"
 }
 
 async function requireUser() {

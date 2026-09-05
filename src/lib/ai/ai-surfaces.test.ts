@@ -363,4 +363,41 @@ describe("surface routing regression", () => {
     const [url] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe("https://api.anthropic.com/v1/messages")
   })
+
+  it("routes lease extraction through the agreement-oriented generic prompt", async () => {
+    stubAuthenticated()
+    fetchMock.mockResolvedValueOnce(anthropicOk(VALID_EXTRACTION_JSON))
+
+    const { extractProjectData } = await import("./extract")
+    await extractProjectData("Shop lease, 12 month term.", "lease")
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(init.body as string) as { system: string }
+    expect(body.system).toContain("agreement analyst")
+    expect(body.system).not.toContain("project analyst")
+  })
+
+  it("routes lease risk analysis through the adaptive generic path, not the freelance engine", async () => {
+    stubAuthenticated()
+    fetchMock.mockResolvedValueOnce(anthropicOk(RISK_JSON))
+    const extracted = {
+      goals: ["g"],
+      deliverables: [],
+      timeline: null,
+      budget: null,
+      projectType: "lease",
+      clientSignals: [],
+      missingInformation: [],
+      confidence: 0.9,
+    }
+
+    const result = await analyzeRiskForDealType(extracted, "lease")
+
+    expect(result.genericAnalysisUnavailable).toBe(false)
+    expect(result.usedFallback).toBe(false)
+    // Freelance-shaped reports always carry the 8 fixed categories;
+    // the generic path returns only what the model identified.
+    expect(result.report.categories).toEqual({})
+    expect("scopeRisk" in result.report.categories).toBe(false)
+  })
 })

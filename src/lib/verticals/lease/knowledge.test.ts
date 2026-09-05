@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { FREELANCE_KNOWLEDGE_KEYS, selectFreelanceCandidates } from "./knowledge"
+import { LEASE_KNOWLEDGE_KEYS, selectLeaseCandidates } from "./knowledge"
 import type { KnowledgeCandidate } from "@/lib/knowledge/resolver"
 
 function candidate(overrides: Partial<KnowledgeCandidate> = {}): KnowledgeCandidate {
@@ -21,24 +21,23 @@ function candidate(overrides: Partial<KnowledgeCandidate> = {}): KnowledgeCandid
   }
 }
 
-describe("freelance knowledge hooks", () => {
-  it("curates no keys while the store has no real freelance sources", () => {
-    expect(FREELANCE_KNOWLEDGE_KEYS).toEqual([])
+describe("lease knowledge hooks", () => {
+  it("curates no keys while no lease sources exist", () => {
+    expect(LEASE_KNOWLEDGE_KEYS).toEqual([])
   })
 
-  it("keeps unconstrained and freelance-scoped candidates, drops generic-only ones", () => {
-    const kept = selectFreelanceCandidates([
+  it("keeps unconstrained and lease-scoped candidates, drops others", () => {
+    const kept = selectLeaseCandidates([
       candidate({ itemKey: "a", applicabilityDealTypes: undefined }),
-      candidate({ itemKey: "b", applicabilityDealTypes: ["freelance", "generic"] }),
+      candidate({ itemKey: "b", applicabilityDealTypes: ["lease"] }),
     ])
     expect(kept.map((c) => c.itemKey)).toEqual(["a", "b"])
-    const dropped = selectFreelanceCandidates([
-      candidate({ itemKey: "c", applicabilityDealTypes: ["generic"] }),
-    ])
-    expect(dropped).toEqual([])
+    expect(
+      selectLeaseCandidates([candidate({ itemKey: "c", applicabilityDealTypes: ["freelance"] })])
+    ).toEqual([])
   })
 
   it("never invents candidates from an empty resolution", () => {
-    expect(selectFreelanceCandidates([])).toEqual([])
+    expect(selectLeaseCandidates([])).toEqual([])
   })
 })

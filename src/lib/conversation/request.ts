@@ -28,8 +28,7 @@ import {
   selectRelevantFindings,
   type Finding,
 } from "@/lib/rules"
-import { deriveFreelanceFacts } from "@/lib/verticals/freelance/facts"
-import { registerFreelancePack } from "@/lib/verticals/freelance/rules"
+import { verticalForDealType } from "@/lib/verticals"
 import { authorizeOperation, completeOperation, type Authorization } from "@/lib/credits/policy"
 import type { LedgerClient } from "@/lib/credits/ledger"
 
@@ -61,6 +60,16 @@ export interface ConversationRequest {
   ports: ConversationPorts
 }
 
+export interface KnowledgeSource {
+  itemKey: string
+  title: string
+  authority: KnowledgeCandidate["authority"]
+  sourceName: string
+  sourceReference: string
+  jurisdiction: string
+  effectiveFrom: string
+}
+
 export type ConversationResponse =
   | {
       type: "answer"
@@ -68,7 +77,11 @@ export type ConversationResponse =
       operation: AIOperation
       intent: UserIntent
       findingsUsed: Finding[]
-      usageRecord: AIUsageRecord
+      knowledgeSources: KnowledgeSource[]
+      // True only for the deterministic greeting fast-path: no AI call, no
+      // ledger interaction, no computation to charge.
+      deterministic: boolean
+      usageRecord: AIUsageRecord | null
       creditsConsumed: number | null
       balance: number | null
       contractViolations: string[]
@@ -78,12 +91,22 @@ export type ConversationResponse =
 
 const has = (text: string, pattern: RegExp): boolean => pattern.test(text)
 
+// Pure social greetings get a deterministic reply: no AI call, no ledger
+// interaction, no charge. Anything beyond a greeting flows through the full
+// pipeline. Narrow by construction (short greeting only).
+export function isGreeting(text: string): boolean {
+  const t = text.toLowerCase().trim()
+  return /^(hi|hey|hello|yo|thanks|thank you|ok|okay|bye)\b/.test(t) && t.length < 30
+}
+
+export const DETERMINISTIC_GREETING = "Hello. What are you working on?"
+
 // Keyword heuristic for operation routing. Transparent and bounded: it picks
 // the execution policy (budget, context selection, document requirement),
 // never a conclusion.
 export function classifyOperation(text: string, hasDocument: boolean): AIOperation {
+  if (isGreeting(text)) return "conversation"
   const t = text.toLowerCase().trim()
-  if (/^(hi|hey|hello|yo|thanks|thank you|ok|okay|bye)\b/.test(t) && t.length < 30) return "conversation"
   if (/negotiat|push back|counter(-|\s*)offer|ask for more|lower the|raise the|how should i respond|how to respond/.test(t)) return "negotiation"
   if (/compar|which (one|offer)|better deal|better offer|two offers/.test(t)) return "comparison"
   if (/\b(draft|write|word|respond|reply|email|letter|redline|suggest (a |the )?clause|safer version)\b/.test(t)) return "drafting"
@@ -169,6 +192,24 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
   const profile = resolveOperationProfile(operation)
   const intent = inferIntent(text, operation)
 
+  // Deterministic greeting: a social hello is answered without computation.
+  // No provider call, no ledger interaction, no charge, no findings lookup.
+  if (isGreeting(text)) {
+    return {
+      type: "answer",
+      text: DETERMINISTIC_GREETING,
+      operation,
+      intent,
+      findingsUsed: [],
+      knowledgeSources: [],
+      deterministic: true,
+      usageRecord: null,
+      creditsConsumed: null,
+      balance: null,
+      contractViolations: [],
+    }
+  }
+
   if (profile.requiresDocument && !hasDocument) {
     return {
       type: "needs_document",
@@ -196,10 +237,10 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
   }
 
   registerBuiltinRules()
-  registerFreelancePack()
 
   let envelope: ContextEnvelope | null = null
   let facts: Record<string, unknown> = {}
+  let loadedFacts: { extracted: ExtractedData; rawText: string } | null = null
   let knowledge: KnowledgeCandidate[] = []
   if (request.auditId) {
     try {
@@ -210,14 +251,13 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
     try {
       const loaded = await request.ports.loadFacts(request.auditId)
       if (loaded) {
-        const freelance = deriveFreelanceFacts(loaded.extracted, loaded.rawText)
+        loadedFacts = loaded
         facts = {
           budget: loaded.extracted.budget,
           timeline: loaded.extracted.timeline,
           deliverables: loaded.extracted.deliverables,
           projectType: loaded.extracted.projectType,
           confidence: loaded.extracted.confidence,
-          freelance: JSON.parse(JSON.stringify(freelance)) as unknown,
         }
       }
     } catch {
@@ -230,18 +270,34 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
     }
   }
 
+  // Unknown deal type stays unknown: freelance-scoped rules must not run on
+  // deals of unestablished type. Unscoped generic rules still evaluate.
   const dealType =
     envelope && envelope.fields.dealType.source !== "unknown" && envelope.fields.dealType.value
       ? envelope.fields.dealType.value
-      : "freelance"
+      : "unknown"
   let allFindings: Finding[] = []
   if (request.auditId && envelope) {
     try {
+      // The vertical is the variable: resolve this deal's pack (if any),
+      // register it, project its facts, and scope its knowledge. Shared
+      // layers never import a vertical directly.
+      const vertical = verticalForDealType(dealType)
+      if (vertical) {
+        vertical.registerPack()
+        if (loadedFacts) {
+          facts = {
+            ...facts,
+            [vertical.key]: JSON.parse(JSON.stringify(vertical.deriveFacts(loadedFacts.extracted, loadedFacts.rawText))) as unknown,
+          }
+        }
+      }
+      const scopedKnowledge = vertical ? vertical.selectCandidates(knowledge) : knowledge
       const run = evaluateApplicableRules(
         {
           context: envelope,
           facts,
-          knowledge,
+          knowledge: scopedKnowledge,
           operation,
           intent,
           objective: request.objective,
@@ -256,6 +312,20 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
     }
   }
   const findingsUsed = selectFindingsForIntent(allFindings, intent, findingLimitFor(operation))
+  // Sources behind the answer: top resolved candidates by relevance, capped
+  // so provenance supports trust without dominating the experience.
+  const knowledgeSources: KnowledgeSource[] = [...knowledge]
+    .sort((a, b) => b.relevance - a.relevance)
+    .slice(0, 3)
+    .map((c) => ({
+      itemKey: c.itemKey,
+      title: c.title,
+      authority: c.authority,
+      sourceName: c.sourceName,
+      sourceReference: c.sourceReference,
+      jurisdiction: c.jurisdiction,
+      effectiveFrom: c.effectiveFrom,
+    }))
 
   const history = truncateHistory(request.history)
   const taskPrompt = [
@@ -299,6 +369,8 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
       operation,
       intent,
       findingsUsed,
+      knowledgeSources,
+      deterministic: false,
       usageRecord: completion.record,
       creditsConsumed: completion.record.creditsConsumed,
       balance: completion.balance,

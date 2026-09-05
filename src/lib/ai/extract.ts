@@ -48,7 +48,7 @@ function parseExtractedResponse(text: string): ExtractedData {
   }
 }
 
-export type DealType = "freelance" | "generic"
+export type DealType = "freelance" | "generic" | "lease"
 
 export interface ExtractionValidationResult {
   valid: boolean
@@ -99,7 +99,9 @@ export async function extractProjectData(
     throw new Error("No input provided for extraction")
   }
 
-  const prompt = dealType === "generic" ? GENERIC_EXTRACTION_SYSTEM_PROMPT : EXTRACTION_SYSTEM_PROMPT
+  // Lease deals use the agreement-oriented generic prompt until a
+  // lease-specific extraction schema exists (future vertical work).
+  const prompt = dealType === "freelance" ? EXTRACTION_SYSTEM_PROMPT : GENERIC_EXTRACTION_SYSTEM_PROMPT
 
   try {
     const { text } = await callAISurface(surface, { systemPrompt: prompt, userContent: input, temperature: 0.2 })

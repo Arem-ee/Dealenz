@@ -44,7 +44,7 @@ describe("built-in rules", () => {
             knowledgeItemId: "k1", itemKey: "k", version: 1, title: "t",
             kind: "market_practice", authority: "market_practice", relevance: 0.8,
             applicabilityReasons: ["r"], effectiveFrom: "2020-01-01", effectiveTo: null,
-            sourceName: "s", sourceReference: "r",
+            sourceName: "s", sourceReference: "r", jurisdiction: "global",
           },
         ],
       },

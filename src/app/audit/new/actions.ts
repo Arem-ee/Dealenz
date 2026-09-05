@@ -4,9 +4,9 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { seedEnvelopeForDealType } from "@/lib/context"
 
-const ALLOWED_DEAL_TYPES = new Set(["freelance", "generic"] as const)
+const ALLOWED_DEAL_TYPES = new Set(["freelance", "generic", "lease"] as const)
 
-export type DealType = "freelance" | "generic"
+export type DealType = "freelance" | "generic" | "lease"
 
 function normalizeDealType(input?: string | null): DealType {
   if (input && ALLOWED_DEAL_TYPES.has(input as DealType)) return input as DealType

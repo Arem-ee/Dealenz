@@ -87,7 +87,7 @@ export interface KnowledgeProvenance {
 // Which contexts an item may be relevant to. Every dimension is optional; an
 // absent dimension is unconstrained, never a hidden default.
 export interface KnowledgeApplicability {
-  dealTypes?: Array<"freelance" | "generic">
+  dealTypes?: Array<"freelance" | "generic" | "lease">
   industries?: string[]
   structures?: string[]
   entityTypes?: string[]
@@ -199,11 +199,11 @@ function checkApplicability(raw: unknown): KnowledgeApplicability {
     if (
       !Array.isArray(raw.dealTypes) ||
       raw.dealTypes.length === 0 ||
-      !raw.dealTypes.every((d) => d === "freelance" || d === "generic")
+      !raw.dealTypes.every((d) => d === "freelance" || d === "generic" || d === "lease")
     ) {
       throw new Error("Knowledge item has invalid applicability dealTypes")
     }
-    out.dealTypes = [...(raw.dealTypes as Array<"freelance" | "generic">)]
+    out.dealTypes = [...(raw.dealTypes as Array<"freelance" | "generic" | "lease">)]
   }
   if (raw.industries !== undefined) out.industries = checkStringList(raw.industries, "industries", 20, MAX_TEXT)
   if (raw.structures !== undefined) out.structures = checkStringList(raw.structures, "structures", 20, MAX_TEXT)

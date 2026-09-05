@@ -39,7 +39,7 @@ interface ClientProfile {
   email: string | null
 }
 
-type DealType = "freelance" | "generic"
+type DealType = "freelance" | "generic" | "lease"
 
 interface AuditData {
   id: string
@@ -149,8 +149,11 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
   const isAnalyzed = audit.status === "analyzed" && (extractedData !== null || riskReport !== null)
   const isFailed = audit.status === "failed" && !isAnalyzed
   const hasDocuments = documents.length > 0
-  const dealType: DealType = (audit.deal_type as DealType) === "generic" ? "generic" : "freelance"
-  const isGeneric = dealType === "generic"
+  const dealTypeRaw = audit.deal_type as DealType
+  const dealType: DealType = dealTypeRaw === "generic" || dealTypeRaw === "lease" ? dealTypeRaw : "freelance"
+  // Lease analyses produce the adaptive generic-shaped report, so they share
+  // the generic report view; only freelance uses the 8-category view.
+  const isGeneric = dealType !== "freelance"
   // Stored envelope validated defensively: malformed data renders as
   // "no context yet" and is reseeded by ensureContextForAnalysis on analyze.
   let initialContext: ContextEnvelope | null = null

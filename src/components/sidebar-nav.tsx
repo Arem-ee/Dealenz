@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, usePathname } from "next/navigation"
-import { Settings, LogOut, History, CreditCard } from "lucide-react"
+import { Settings, LogOut, History, CreditCard, MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -24,6 +24,7 @@ import {
 
 const navItems = [
   { label: "Home", href: "/dashboard", icon: IconPipeline },
+  { label: "Ask", href: "/ask", icon: MessageCircle },
   { label: "Deals", href: "/deals", icon: IconDeal },
   { label: "Clients", href: "/clients", icon: IconClient },
   { label: "Risk Intelligence", href: "/risk-intelligence", icon: IconRiskFlag },

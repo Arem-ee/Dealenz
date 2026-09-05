@@ -6,6 +6,7 @@ import type { LedgerClient } from "./ledger"
 import type { CreditPolicy } from "@/lib/ai/usage"
 import { clearRegistry, evaluateApplicableRules } from "@/lib/rules/registry"
 import { registerFreelancePack, resetFreelanceRegistration } from "@/lib/verticals/freelance/rules"
+import { registerLeasePack, resetLeaseRegistration } from "@/lib/verticals/lease/rules"
 import { applyUserConfirmation, seedEnvelopeForDealType } from "@/lib/context"
 
 // Fake ledger mirroring the RPC contract: single-RPC atomic reserve,
@@ -128,8 +129,7 @@ describe("credit authorization", () => {
 })
 
 describe("economic independence", () => {
-  it("produces identical deterministic findings regardless of credits available", async () => {
-    clearRegistry()
+  it("produces identical deterministic findings regardless of credits available", async () => {    clearRegistry()
     resetFreelanceRegistration()
     registerFreelancePack()
     const envelope = applyUserConfirmation(seedEnvelopeForDealType("freelance"), {
@@ -149,6 +149,27 @@ describe("economic independence", () => {
     const broke = evaluateApplicableRules(JSON.parse(JSON.stringify(input)) as typeof input, "document_analysis", "freelance")
     expect(broke).toEqual(rich)
     expect(rich.results.find((r) => r.ruleKey === "freelance-fee-terms-missing")?.status).toBe("FAIL")
+  })
+
+  it("holds for lease findings as well as freelance findings", async () => {
+    clearRegistry()
+    resetLeaseRegistration()
+    registerLeasePack()
+    const envelope = applyUserConfirmation(seedEnvelopeForDealType("lease"), {
+      userRole: { value: "tenant" },
+      counterpartyRole: { value: "landlord" },
+    })
+    const input = {
+      context: envelope,
+      facts: { lease: { rent: { text: null, evidence: null } } },
+      knowledge: [],
+      operation: "document_analysis" as const,
+      evaluatedAt: "2026-09-04T00:00:00.000Z",
+    }
+    const rich = evaluateApplicableRules(input, "document_analysis", "lease")
+    const broke = evaluateApplicableRules(JSON.parse(JSON.stringify(input)) as typeof input, "document_analysis", "lease")
+    expect(broke).toEqual(rich)
+    expect(rich.results.find((r) => r.ruleKey === "lease-rent-terms-missing")?.status).toBe("FAIL")
   })
 })
 

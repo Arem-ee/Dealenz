@@ -67,7 +67,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/audit") || pathname.startsWith("/deals") || pathname.startsWith("/clients") || pathname.startsWith("/risk-intelligence") || pathname.startsWith("/templates") || pathname.startsWith("/billing")) && !pathname.startsWith("/view")) {
+  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/audit") || pathname.startsWith("/ask") || pathname.startsWith("/deals") || pathname.startsWith("/clients") || pathname.startsWith("/risk-intelligence") || pathname.startsWith("/templates") || pathname.startsWith("/billing")) && !pathname.startsWith("/view")) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     await logEventWithClient(supabase, {

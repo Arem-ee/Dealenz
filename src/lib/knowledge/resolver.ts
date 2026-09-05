@@ -27,10 +27,13 @@ export interface KnowledgeCandidate {
   effectiveTo: string | null
   sourceName: string
   sourceReference: string
+  // Jurisdiction label for user-facing provenance ("global" or the item's
+  // code). Carried for display; matching already happened deterministically.
+  jurisdiction: string
   // Deal-type scope from the item's applicability block, when constrained.
   // Absent means unconstrained. Carried so verticals can filter without
   // re-resolving; it never decides eligibility by itself.
-  applicabilityDealTypes?: Array<"freelance" | "generic">
+  applicabilityDealTypes?: Array<"freelance" | "generic" | "lease">
 }
 
 export interface ResolveOptions {
@@ -73,6 +76,7 @@ export function resolveKnowledge(
       effectiveTo: item.effectiveTo,
       sourceName: item.provenance.source,
       sourceReference: item.provenance.sourceReference,
+      jurisdiction: item.jurisdiction.scope === "global" ? "global" : (item.jurisdiction.code ?? item.jurisdiction.scope),
       applicabilityDealTypes: item.applicability.dealTypes,
     })
   }
