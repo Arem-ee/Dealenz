@@ -13,8 +13,8 @@ This document describes the **target full-product architecture** for Dealenz, di
 - **UI primitives:** Radix UI + lucide-react + class-variance-authority
 - **Database & Auth:** Supabase (Postgres + Supabase Auth, via `@supabase/ssr`)
 - **Document generation:** `@react-pdf/renderer` for PDF export, `pdf-parse` / `mammoth` for reading uploaded PDFs/DOCX
-- **AI:** Google Gemini today (being refactored to a provider-agnostic layer — see "AI provider layer" below)
-- **Testing:** Vitest wired via `npm test` (6 test files); CI runs typecheck, lint, tests, and build (`.github/workflows/ci.yml`)
+- **AI:** provider-agnostic layer with three adapters — Gemini, OpenAI-compatible (covers NVIDIA NIM), Anthropic Claude (see "AI provider layer" below)
+- **Testing:** Vitest wired via `npm test` (65 test files, 488 tests); CI runs typecheck, lint, tests, and build (`.github/workflows/ci.yml`)
 
 Single Next.js monolith — no separate backend service, no other languages.
 
@@ -33,11 +33,11 @@ Single Next.js monolith — no separate backend service, no other languages.
 - `src/lib/generate.ts` — document generation orchestration (proposal → SOW → contract → checklist, sequential AI calls with per-document template fallback)
 - `src/lib/context/` — Context Resolution foundation (Phase 5B): validated envelope (schema.ts), required-policy plus gate (requirements.ts, gate.ts), authenticated-surface inference (inference.ts), user confirmation (confirm.ts); persisted as versioned JSONB on audits via migration 00021; enforced in analyzeDeal; confirmed via ContextPanel UI
 - `src/lib/knowledge/` — Knowledge Foundation (Phase 5C): validated item schema with kind/authority/jurisdiction/provenance/version/status (schema.ts), temporal helper isEffectiveAt (temporal.ts), deterministic applicability vs ContextEnvelope (applicability.ts), deterministic resolver returning candidates (resolver.ts), admin-gated ingestion plus lifecycle transitions (store.ts); persisted in versioned knowledge_items table via migration 00022; resolution exposed additively at the analyzeDeal boundary
-- `src/lib/deal-types/` — **PLANNED** deal-type registry, module loader, per-deal-type modules
+- `src/lib/verticals/` — canonical deal-type modules (facts/rules/knowledge per vertical) behind the single dispatcher in `src/lib/verticals/index.ts` (supersedes the old `src/lib/deal-types/` plan)
 - `src/lib/protection/` — **PLANNED** clause library, template engine, document generator
 - `src/lib/lawyer/` — **PLANNED** lawyer workflow, handoff, feedback loop
 - `src/lib/execution/` — **PLANNED** obligation tracking, change orders, monitoring
-- `supabase/migrations/` — 19 migrations, one Postgres schema, RLS enabled on every table
+- `supabase/migrations/` — 33 forward migrations (`00001`–`00033`) plus 3 unapplied `20260903*` drafts, one Postgres schema, RLS enabled on every table
 
 ---
 
@@ -72,7 +72,9 @@ All tables have Row Level Security enabled, scoped to `auth.uid()`. Two RPCs (`g
 
 ## Auth Flow
 
-Supabase Auth (email/password), email verification required before a user can run an analysis or generate documents (checked both in the route layer and inside the relevant Server Actions — defense in depth). Every Server Action independently re-fetches the user and validates their UUID rather than trusting a shared context — safe, but means there's no caching layer, so auth checks happen redundantly across components.
+Supabase Auth (email/password + Google OAuth), email verification required before a user can run an analysis or generate documents (checked both in the route layer and inside the relevant Server Actions — defense in depth). Every Server Action independently re-fetches the user and validates their UUID rather than trusting a shared context — safe, but means there's no caching layer, so auth checks happen redundantly across components.
+
+Identity model: one human maps to one canonical `auth.users.id`, with email/password and Google as identities on that row — never two Dealenz accounts for one person. Google is attached only through the explicit authenticated `linkIdentity` flow in settings (verified provider email required, pre/post user id must match); the application never merges accounts by comparing email strings, rewrites `user_id`, or deletes duplicates. Referral attribution, audits, credits, and conversations all key to the canonical `auth.users.id`, so linking preserves them unchanged.
 
 ---
 
@@ -152,9 +154,10 @@ Dealenz is not a document analyzer with chat. Documents are one input; conversat
 - **Operations and intent** (`src/lib/ai/operations.ts`): an AI request originates from one of `document_analysis`, `conversation`, `negotiation`, `drafting`, `comparison`, `explanation`, `decision_support`. Input is distinct from intent (`UserIntent`: explore through decide); the user objective (`UserObjective`) is preserved separately from deal facts. Document analysis requires input; conversation explicitly does not. Each operation carries an output-budget tier and a context-selection policy (minimal for simple questions, expanded for deep analysis).
 
 - **Response constitution** (`src/lib/ai/constitution.ts`): the durable behavior contract. Dealenz works for the user, never for closing the deal; facts, assumptions, and uncertainty stay separated; unknown never becomes false; plain complete sentences; em dashes banned from user-facing output (tested); concise by default and as detailed as the task requires; no sycophancy; no commercial bias. Structured machine-read prompts are excluded from the prose contract; user-facing prompts (today: negotiation points) receive it via `applyConstitution`.
-- **Credit economy:** AI operations consume user credits through one accounting boundary. `AIUsageRecord` (`src/lib/ai/usage.ts`) represents operation, provider, model, measured input/output/total tokens, credit charge (null until a policy prices it), and outcome status. Provider tokens and user credits are separate concepts: tokens are measured facts, credits are a commercial policy (`CreditPolicy`, still unconfigured — no rates invented). Balances live in the append-mostly `credit_ledger` table (migration `00023`): inserts for grants, reservations, consumptions, refunds, adjustments, plus RPC-mediated pending to finalized/voided transitions; rows are never deleted. All writes go through `SECURITY DEFINER` RPCs (`reserve_credits`, `finalize_reservation`, `void_reservation`, `grant_credits`); users read only their own rows. Reservations are per-user advisory-locked and idempotent on `(user_id, idempotency_key)`, so concurrent or retried operations cannot double-charge or overdraw. The authorize, measure, finalize orchestrator lives in `src/lib/credits/policy.ts` and runs in metering mode until a policy is configured. `usage_tracking` counters remain the rate-limit mechanism, unchanged.
-- **Verticals and conversation (Phases 5E-6):** verticals plug into the same pipeline through a dispatcher (`src/lib/verticals/index.ts`, resolved by deal type): freelance/service deals (`src/lib/verticals/freelance/`, 9-rule pack) and lease deals (`src/lib/verticals/lease/`, 9-rule pack), each with deterministic fact projection from extraction output, a scoped rule pack evaluated in `analyzeDeal` and conversation, and knowledge filtering over shared resolver candidates. Shared observation helpers live in `src/lib/verticals/observe.ts`. Conversation is a backend request pipeline (`src/lib/conversation/request.ts`): question to operation to context to knowledge to rules to synthesis to usage to accounting, with document-free, document-required, and mixed flows. Greetings take a deterministic fast-path (no AI call, no ledger interaction). No chat UI exists yet. Lease audits persist `deal_type = 'lease'` (migration `00027`); lease analysis uses the adaptive generic AI path plus lease deterministic rules, never the freelance 8-category engine.
-- **Product surface and economy (Phase 5G):** the Ask experience (`src/app/ask/`, `src/components/ask/`) puts the conversation pipeline behind an authenticated page with optional audit attachment, bounded caller history (server-truncated), per-answer credit display, and findings/sources rendering. Pricing is explicit and provisional (`STANDARD_CREDIT_POLICY`: brief 1, standard 3, extended 8 credits per operation; flat per-operation charges, never token-derived). The first production corpus (migration `00026`, three web-verified freelance items) seeds published knowledge with real provenance.
+- **Credit economy:** `Ask` conversations consume credits through one accounting boundary (`src/lib/credits/policy.ts:41` `authorize→reserve→finalize/void`, `pricing.ts:19` `1/3/8` flat per-operation, `STANDARD_CREDIT_POLICY`). `AIUsageRecord` (`src/lib/ai/usage.ts`) represents operation, provider, model, measured tokens, credit charge, outcome; tokens never derive credits. Balances live in append-mostly `credit_ledger` (`00023`) with advisory-locked `reserve_credits` idempotent on `(user_id,idempotency_key)`. **Authenticated `analyzeDeal`/`generateProtectionPackage` are currently free and rate-limited `5/day` / `10/day` via atomic `increment_usage` (`00018`) `usage_tracking` — not billed through `credit_ledger`. This is intentional for the release candidate: core analysis is free, Ask is metered. `usage_tracking` remains the abuse rate-limit, `credit_ledger` remains the Ask economy; no double system.
+- **Verticals and conversation (Phases 5E-6, 13-14, persisted in 10):** verticals plug into the same pipeline through a dispatcher (`src/lib/verticals/index.ts`, resolved by deal type): freelance/service deals (`src/lib/verticals/freelance/`, 9-rule pack), lease deals (`src/lib/verticals/lease/`, 9-rule pack), purchase/sale deals (`src/lib/verticals/purchase_sale/`, 8-rule pack, migration `00029`), and employment deals (`src/lib/verticals/employment/`, 8-rule pack, migration `00030`), each with deterministic fact projection from extraction output, a scoped rule pack evaluated in `analyzeDeal` and conversation, and knowledge filtering over shared resolver candidates. Shared observation helpers live in `src/lib/verticals/observe.ts`. Conversation is a backend request pipeline (`src/lib/conversation/request.ts`): question to operation to context to knowledge to rules to synthesis to usage to accounting, with document-free, document-required, and mixed flows. Greetings take a deterministic fast-path (no AI call, no ledger interaction). Lease, purchase/sale, and employment audits persist their `deal_type` (`00027`/`00029`/`00030`); each non-freelance analysis uses the adaptive generic AI path plus its deterministic vertical rules, never the freelance 8-category engine. **Vertical knowledge limitation:** `employment/knowledge.ts:EMPLOYMENT_KNOWLEDGE_KEYS=[]`, `purchase_sale/knowledge.ts:PURCHASE_SALE_KNOWLEDGE_KEYS=[]`, `lease/knowledge.ts:LEASE_KNOWLEDGE_KEYS=[]` — no verified lease/purchase/employment-specific sources ingested; shared resolver still applies (global/unconstrained items), rules are `product_policy` only, and evidence `exact` is emitted only for `raw_input` matches from an inspectable `audit_input` per `observe.ts:192-230`. Since Phase 10, Ask persists per-user conversations and messages (`conversations` + `conversation_messages`, migration `00028`, RLS owned) with server-truncated bounded history and re-validated audit attachment.
+- **Product surface and economy (Phases 5G + 10):** the Ask experience (`src/app/ask/`, `src/components/ask/`) puts the conversation pipeline behind an authenticated page with optional audit attachment, bounded caller history (server-truncated), per-answer credit display, conversation list/history, and findings/sources rendering. Pricing is explicit and provisional (`STANDARD_CREDIT_POLICY`: brief 1, standard 3, extended 8 credits per operation; flat per-operation charges, never token-derived). Estimated cost is shown before computation (0 for greetings, otherwise tier price) and every turn is authorized/reserved before the provider call. The first production corpus (migration `00026`, three web-verified freelance items) seeds published knowledge with real provenance.
+- **Evidence mapping (Phases 7–9):** every affirmative vertical observation carries validated `Evidence` references (`src/lib/evidence/schema.ts`: source type, source id/version, exact/approximate/unavailable location, quote, observation key, method, bounded confidence, inspectable flag; deterministic content-derived ids). **Exact offsets are proven only for `raw_input` matches from an inspectable audit** (`src/lib/verticals/observe.ts`): the match index inside the verbatim pasted input yields `exact` offsets that verify at display time against the same `raw_input` text; every other section, non-inspectable source, or extraction-derived fact stays `approximate` or `unavailable` — offsets are never manufactured. After evaluation, `attachEvidence` (`src/lib/evidence/collect.ts`) walks each fired rule's condition and gathers the evidence behind the facts and knowledge it actually read; PASS/UNKNOWN results carry none. Findings embed their evidence (`Finding.evidence`), which flows through selection into the Ask UI's compact source lines and the workspace `FindingsPanel` (persisted findings with Inspect-source actions backed by the ownership-checked `src/app/audit/[id]/evidence-actions.ts` action and the `src/lib/evidence/inspect.ts` verifier). Synthesis inputs never truncate silently: negotiation receives the full FAIL set with an explicit bound, and conversation prompts state the focused/total finding counts when intent filtering narrows the set. Knowledge provenance is bridged by reference, never duplicated. No evidence table exists: evidence travels embedded in facts and findings and is never persisted beyond the existing audit payloads.
 
 **Product principle:** Dealenz optimizes for useful intelligence, not maximum token consumption. Credits authorize computation, not influence over substantive answers.
 
@@ -168,12 +171,12 @@ Credits determine access to computation. Credits do not determine conclusions.
 
 The deal-type generalization is partially built:
 
-- **`deal_type` column exists** — migration `00019_add_deal_type.sql` adds `deal_type text not null default 'freelance' check (deal_type in ('freelance', 'generic'))` to the `audits` table.
+- **`deal_type` column exists** — migration `00019_add_deal_type.sql` adds `deal_type` to the `audits` table; the check constraint now allows `freelance, generic, lease, purchase_sale, employment, founder` (extended forward-only by `00027`, `00029`, `00030`, `00032`).
 - **Deal-type-specific extraction prompts exist** — `src/lib/ai/prompts.ts` has `EXTRACTION_SYSTEM_PROMPT` (freelance) and `GENERIC_EXTRACTION_SYSTEM_PROMPT` (generic). `src/lib/ai/extract.ts` selects the prompt based on `dealType`.
-- **Generic mode has AI-assisted risk scoring** — `src/lib/ai/risk-analysis.ts` provides `analyzeGenericRiskWithVisibleFailure` which calls the AI with `GENERIC_RISK_ANALYSIS_SYSTEM_PROMPT` and transforms the dynamic category output. No deterministic rule engine exists for generic mode yet — it relies entirely on AI scoring.
+- **Generic mode has deterministic authority** — `src/lib/verticals/generic/` provides 7 deterministic rules plus `bucketForGenericFindings`; `analyzeDeal` overrides AI headline scores with the deterministic bucket (AI summary/recommendations kept). `src/lib/ai/risk-analysis.ts` still provides `analyzeGenericRiskWithVisibleFailure` for AI themes and anonymous Quick Review.
 - **Freelance deterministic rule engine is complete** — `src/lib/risk/engine.ts` implements the 8 freelance categories (scope, payment, timeline, communication, revision, legal, IP, client behavior) and is used as the fallback when the AI call fails.
 
-**What remains unbuilt:** a deterministic rule engine per deal type (freelance has the full 8-category engine plus a 9-rule vertical pack; lease has a 9-rule vertical pack and otherwise uses the adaptive generic AI path). The generic mode uses AI-only scoring with no rule-engine validation. Sequencing which deal type or generic mode ships first is a product decision under "Open product decisions" in `product.md`.
+**Current state:** every deal type has a deterministic rule pack (freelance 9 + 8-category engine, lease 9, purchase_sale 8, employment 8, generic 7, founder 8). Non-freelance analyses use adaptive generic AI themes plus a deterministic floor (`deterministicRiskFloor` in `src/lib/rules/result.ts`): an AI Low can never hide a deterministic FAIL, while an AI High with no FAIL is preserved as advisory. Freelance headline scoring remains AI-primary with the deterministic engine as fallback.
 
 ---
 
@@ -435,10 +438,9 @@ The following layers represent the **target full-product architecture**. Not all
 
 | Phase | Focus |
 |-------|-------|
-| **Current** | Freelance end-to-end + Generic AI-only + Anonymous Quick Review + Lawyer waitlist + Context Resolution foundation (envelope, gate, confirmation UI) + Knowledge Foundation (item schema, resolver, versioned store; no legal corpus yet) |
-| **Next** | Lease deal type (deterministic rules) + Knowledge layer v1 (rules DB) + Lawyer workflow |
-| **Next** | Founder deal type + Knowledge layer v1 (rules DB) + Context resolution engine |
-| **Future** | Employment/Contractor + Partnership + Purchase/Sale + Full lawyer workflow |
+| **Current** | Freelance end-to-end + Lease (9 rules) + Purchase/Sale (8 rules, 00029) + Employment (8 rules, 00030) + Founder (8 rules, 00032) + Generic deterministic floor (7 rules + bucket) + Anonymous Quick Review + Lawyer waitlist + Google account linking + Referral MVP (00033, reward provisional) + Context Resolution foundation + Knowledge Foundation (shared resolver, versioned store, 3 freelance corpus items; other vertical keys empty) + Evidence + Conversation/Ask + Credits |
+| **Next** | Knowledge corpus expansion + Lawyer workflow |
+| **Future** | Partnership + Full lawyer workflow + Founder knowledge |
 | **Future** | Deal Execution (obligations, change orders, monitoring) |
 | **Future** | Client intelligence (repeat counterparties) + Relationship history |
 
@@ -451,7 +453,7 @@ The following layers represent the **target full-product architecture**. Not all
 3. **Jurisdiction coverage v1** — Explicit supported jurisdictions list needed
 4. **Rule representation** — TypeScript functions + Zod schemas vs JSON AST vs custom DSL?
 5. **Dependency vulnerabilities** — High-severity issues across Next.js, PostCSS, sharp, transitive packages
-6. **CI/CD pipeline** — No pipeline exists; need `npm test` wired first
+6. **CI/CD pipeline** — `.github/workflows/ci.yml` runs typecheck/lint/test/build; no deployment job yet
 7. **Backup & recovery** — No stated RPO/RTO; relying on Supabase automated daily backups
 8. **Data retention policy** — No stated policy; need decision before real user data
 9. **Payment provider** — Lemon Squeezy vs Stripe vs Paystack — international coverage, MoR, tax/compliance
@@ -462,10 +464,13 @@ The following layers represent the **target full-product architecture**. Not all
 ## Currently Observed (High-Level Repository Inspection)
 
 - **Freelance deal type**: Fully implemented end-to-end (intake → extraction → risk analysis → protection package generation → PDF export → e-signing)
-- **Generic deal type**: AI-only risk scoring fallback, no deterministic rule engine
+- **Generic deal type**: deterministic floor (7 rules + bucket override) with AI summary/themes kept
+- **Founder deal type**: 8 deterministic rules (00032) with Phase 21 floor, protection coming-soon
+- **Referral MVP**: `referral_codes` + `referral_attributions` (00033), reward via credit ledger (provisional amount, pending sign-off)
+- **Google account linking**: explicit `linkIdentity` flow in settings with verified-email check and allowlisted callback
 - **Landing page**: Anonymous Quick Review with mini-dashboard (paste/upload/describe → `/api/analyze-anonymous`)
-- **Authentication**: Supabase Auth (email/password), email verification required
-- **Database**: Supabase/Postgres with RLS on all tables, 19 migrations
+- **Authentication**: Supabase Auth (email/password + Google OAuth), email verification required
+- **Database**: Supabase/Postgres with RLS on all tables, 33 forward migrations
 - **AI Provider Layer**: Provider-agnostic interface (`callAI`) with Gemini, OpenAI-compatible, and Anthropic Claude adapters; authenticated surface on Sonnet 5 with Opus 5 fallback, Quick Review on the independent cheaper path
 - **Risk Engine**: 8 freelance categories (scope, payment, timeline, communication, revision, legal, IP, client behavior) with deterministic rules + AI fallback
 - **Document Generation**: Proposal → SOW → Contract → Checklist (sequential AI calls with template fallback)

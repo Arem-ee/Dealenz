@@ -18,6 +18,7 @@ import {
   type UserIntent,
   type UserObjective,
 } from "@/lib/ai/operations"
+import { classifyOperation, DETERMINISTIC_GREETING, inferIntent, isGreeting } from "./classify"
 import type { AIUsageRecord, CreditPolicy, TokenUsage } from "@/lib/ai/usage"
 import type { ContextEnvelope } from "@/lib/context/schema"
 import type { ExtractedData } from "@/lib/ai/extract"
@@ -29,6 +30,7 @@ import {
   type Finding,
 } from "@/lib/rules"
 import { verticalForDealType } from "@/lib/verticals"
+import { attachEvidence } from "@/lib/evidence"
 import { authorizeOperation, completeOperation, type Authorization } from "@/lib/credits/policy"
 import type { LedgerClient } from "@/lib/credits/ledger"
 
@@ -89,48 +91,7 @@ export type ConversationResponse =
   | { type: "needs_document"; operation: AIOperation; intent: UserIntent; message: string }
   | { type: "denied"; operation: AIOperation; intent: UserIntent; denialReason: string; balance: number | null }
 
-const has = (text: string, pattern: RegExp): boolean => pattern.test(text)
-
-// Pure social greetings get a deterministic reply: no AI call, no ledger
-// interaction, no charge. Anything beyond a greeting flows through the full
-// pipeline. Narrow by construction (short greeting only).
-export function isGreeting(text: string): boolean {
-  const t = text.toLowerCase().trim()
-  return /^(hi|hey|hello|yo|thanks|thank you|ok|okay|bye)\b/.test(t) && t.length < 30
-}
-
-export const DETERMINISTIC_GREETING = "Hello. What are you working on?"
-
-// Keyword heuristic for operation routing. Transparent and bounded: it picks
-// the execution policy (budget, context selection, document requirement),
-// never a conclusion.
-export function classifyOperation(text: string, hasDocument: boolean): AIOperation {
-  if (isGreeting(text)) return "conversation"
-  const t = text.toLowerCase().trim()
-  if (/negotiat|push back|counter(-|\s*)offer|ask for more|lower the|raise the|how should i respond|how to respond/.test(t)) return "negotiation"
-  if (/compar|which (one|offer)|better deal|better offer|two offers/.test(t)) return "comparison"
-  if (/\b(draft|write|word|respond|reply|email|letter|redline|suggest (a |the )?clause|safer version)\b/.test(t)) return "drafting"
-  if (/should i (accept|sign|agree|take|walk away)|worth it|good deal|bad deal|decide|make sense for me/.test(t)) return "decision_support"
-  if (/what does|what is|what do you mean|explain|mean by|define|net 30|how does .* work/.test(t)) return "explanation"
-  if (/review|analy[sz]e|biggest problem|risk|audit|look (at|over)|check this|problem/.test(t)) {
-    return "document_analysis"
-  }
-  void hasDocument
-  return "conversation"
-}
-
-export function inferIntent(text: string, operation: AIOperation): UserIntent {
-  const t = text.toLowerCase()
-  if (operation === "negotiation") return "negotiate"
-  if (operation === "drafting") return "draft"
-  if (operation === "comparison") return "compare"
-  if (operation === "decision_support") return "decide"
-  if (operation === "document_analysis") return "review"
-  if (operation === "explanation" || has(t, /what does|what is|explain|mean by/)) return "understand"
-  if (has(t, /should i|decide|worth it/)) return "decide"
-  if (has(t, /negotiat/)) return "negotiate"
-  return "explore"
-}
+export { classifyOperation, DETERMINISTIC_GREETING, inferIntent, isGreeting } from "./classify"
 
 // Intent shapes relevance and presentation only. Decision-relevant questions
 // surface material findings first; negotiation surfaces actionable ones;
@@ -185,8 +146,12 @@ function truncateHistory(history: HistoryTurn[] | undefined): HistoryTurn[] {
 }
 
 export async function answerQuestion(request: ConversationRequest): Promise<ConversationResponse> {
-  const text = request.text.trim()
-  if (!text) throw new Error("A question is required")
+  const rawText = request.text.trim()
+  if (!rawText) throw new Error("A question is required")
+  // Very long questions are truncated for the model prompt (history is
+  // already bounded separately). Stored messages keep up to 8000 chars
+  // (store.ts), the prompt keeps 4000, so no single turn can dominate.
+  const text = rawText.slice(0, 4000)
   const hasDocument = Boolean(request.auditId)
   const operation = classifyOperation(text, hasDocument)
   const profile = resolveOperationProfile(operation)
@@ -285,33 +250,54 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
       const vertical = verticalForDealType(dealType)
       if (vertical) {
         vertical.registerPack()
-        if (loadedFacts) {
+        if (loadedFacts && request.auditId) {
           facts = {
             ...facts,
-            [vertical.key]: JSON.parse(JSON.stringify(vertical.deriveFacts(loadedFacts.extracted, loadedFacts.rawText))) as unknown,
+            [vertical.key]: JSON.parse(
+              JSON.stringify(
+                vertical.deriveFacts(loadedFacts.extracted, loadedFacts.rawText, {
+                  type: "audit_input",
+                  id: request.auditId,
+                })
+              )
+            ) as unknown,
           }
         }
       }
       const scopedKnowledge = vertical ? vertical.selectCandidates(knowledge) : knowledge
-      const run = evaluateApplicableRules(
-        {
-          context: envelope,
-          facts,
-          knowledge: scopedKnowledge,
-          operation,
-          intent,
-          objective: request.objective,
-          evaluatedAt: new Date().toISOString(),
-        },
+      const rulesInput = {
+        context: envelope,
+        facts,
+        knowledge: scopedKnowledge,
         operation,
-        dealType
-      )
-      allFindings = selectRelevantFindings(run.results, { operation, intent, objective: request.objective, limit: 50 })
+        intent,
+        objective: request.objective,
+        evaluatedAt: new Date().toISOString(),
+      }
+      const run = evaluateApplicableRules(rulesInput, operation, dealType)
+      const enriched = attachEvidence(run.results, rulesInput, operation, dealType)
+      allFindings = selectRelevantFindings(enriched, { operation, intent, objective: request.objective, limit: 50 })
     } catch {
       allFindings = []
     }
   }
   const findingsUsed = selectFindingsForIntent(allFindings, intent, findingLimitFor(operation))
+  // Truncation is intentional (depth follows the question) and must stay
+  // visible: the model is told how many findings exist beyond the focused
+  // set, without their content, so it cannot invent them.
+  const findingsBlock =
+    findingsUsed.length > 0
+      ? `Deterministic findings to reason over (explain and prioritize these; do not change their status, do not invent new findings, and never present UNKNOWN as a confirmed problem):\n${findingsUsed
+          .map((f) => {
+            const evidence = f.evidence && f.evidence.length > 0 ? ` Evidence: “${f.evidence[0].quote}”` : ""
+            const why = f.severity === "material" || f.severity === "critical" ? " — why it matters: may materially affect payment, scope, or risk" : ""
+            return `- [${f.severity}] ${f.summary}${why}${f.guidance ? ` Next step: ${f.guidance}` : ""}${evidence}`
+          })
+          .join("\n")}` +
+        (allFindings.length > findingsUsed.length
+          ? `\nFocused on the ${findingsUsed.length} most relevant of ${allFindings.length} total findings for this question; do not infer the content of the others. If the user asks what is missing or to see more, you may summarize that additional findings exist without inventing their content.`
+          : "")
+      : "No deterministic findings available; answer from the question and context, and say what information is missing if that limits the answer. Do not invent findings."
   // Sources behind the answer: top resolved candidates by relevance, capped
   // so provenance supports trust without dominating the experience.
   const knowledgeSources: KnowledgeSource[] = [...knowledge]
@@ -332,9 +318,7 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
     `User question: ${text}`,
     `Operation: ${operation}. Intent: ${intent}.${request.objective ? ` User objective: ${request.objective}.` : ""}`,
     `Deal context: ${summarizeContext(envelope)}`,
-    findingsUsed.length > 0
-      ? `Deterministic findings to reason over (explain and prioritize these; do not change their status):\n${findingsUsed.map((f) => `- [${f.severity}] ${f.summary}${f.guidance ? ` Next step: ${f.guidance}` : ""}`).join("\n")}`
-      : "No deterministic findings available; answer from the question and context, and say what information is missing if that limits the answer.",
+    findingsBlock,
     history.length > 0
       ? `Recent conversation:\n${history.map((h) => `${h.role}: ${h.text}`).join("\n")}`
       : "No prior conversation in this thread.",

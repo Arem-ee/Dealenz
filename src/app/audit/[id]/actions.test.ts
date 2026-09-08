@@ -203,7 +203,7 @@ describe("analyzeDeal", () => {
       {
         id: "audit-lease-1",
         ai_consent: true,
-        raw_input: "Shop lease, 12 month term.",
+        raw_input: "Shop lease, 12 month term. Subletting requires landlord consent.",
         structured_data: { files: [] },
         deal_type: "lease",
         context_envelope: null,
@@ -235,6 +235,43 @@ describe("analyzeDeal", () => {
     expect(findingKeys.some((k) => k.startsWith("freelance-"))).toBe(false)
     // Negotiation synthesis is included for lease exactly like generic.
     expect(mockNegotiationPointsFn).toHaveBeenCalledTimes(1)
+    // Synthesis receives every FAIL finding: no silent truncation between
+    // evaluation and the negotiation prompt.
+    const failKeys = (result.deterministicFindings ?? [])
+      .filter((r) => r.status === "FAIL")
+      .map((r) => r.ruleKey)
+      .sort()
+    const negotiatedKeys = (
+      mockNegotiationPointsFn.mock.calls[0][3] as Array<{ ruleKey: string }>
+    )
+      .map((f) => f.ruleKey)
+      .sort()
+    expect(negotiatedKeys).toEqual(failKeys)
+    // Findings persist into structured_data so the workspace can render them
+    // on reload without re-running evaluation.
+    const updates = (audits.update as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0])
+    const persisted = updates.find(
+      (update): update is { structured_data: { deterministicFindings: Array<{ ruleKey: string }> } } => {
+        if (typeof update !== "object" || update === null) return false
+        const structured = (update as Record<string, unknown>).structured_data
+        return (
+          typeof structured === "object" &&
+          structured !== null &&
+          Array.isArray((structured as Record<string, unknown>).deterministicFindings)
+        )
+      }
+    )
+    expect(persisted).toBeDefined()
+    expect(persisted?.structured_data.deterministicFindings.map((r) => r.ruleKey)).toContain(
+      "lease-termination-notice-missing"
+    )
+    // Enriched findings carry audit-bound evidence for later inspection.
+    const flagged = (result.deterministicFindings ?? []).find((r) => r.ruleKey === "lease-subletting-terms-present")
+    expect(flagged?.status).toBe("FAIL")
+    expect(flagged?.finding?.evidence?.length).toBeGreaterThan(0)
+    expect(flagged?.finding?.evidence?.[0].sourceType).toBe("audit_input")
+    expect(flagged?.finding?.evidence?.[0].sourceId).toBe("audit-lease-1")
+    expect(flagged?.finding?.evidence?.[0].quote).toMatch(/sublet/i)
   })
 })
 

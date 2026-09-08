@@ -20,6 +20,8 @@ export default async function SettingsPage() {
 
   const initialProfile = profile as Record<string, unknown> | null
   const email = user.email ?? ""
+  const googleConnected =
+    Array.isArray(user.identities) && user.identities.some((i) => i.provider === "google")
 
-  return <SettingsClient initialProfile={initialProfile} email={email} />
+  return <SettingsClient initialProfile={initialProfile} email={email} googleConnected={googleConnected} />
 }

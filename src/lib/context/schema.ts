@@ -6,7 +6,7 @@
 // separate. Nothing here decides legal validity, enforceability, compliance,
 // applicable law, or lawfulness — those belong to later Knowledge/rules layers.
 
-export type DealType = "freelance" | "generic" | "lease"
+export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder"
 
 // How a field value came to be. AI inference is never equivalent to user
 // confirmation, and the distinction survives persistence.
@@ -237,7 +237,7 @@ export function parseContextEnvelope(raw: unknown): ContextEnvelope {
     fields: {
       dealType: checkField<DealType>(
         fields.dealType,
-        (v): v is DealType => v === "freelance" || v === "generic" || v === "lease",
+        (v): v is DealType => v === "freelance" || v === "generic" || v === "lease" || v === "purchase_sale" || v === "employment" || v === "founder",
         "dealType"
       ),
       jurisdiction: checkField<string>(fields.jurisdiction, isValidText, "jurisdiction"),

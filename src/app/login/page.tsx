@@ -31,9 +31,11 @@ export default function LoginPage() {
       router.push("/dashboard")
       router.refresh()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "An error occurred"
+      // Generic message prevents account enumeration (nonexistent vs wrong password vs unverified)
+      const msg = "Invalid email or password. Please try again."
       setError(msg)
-      logAuthFailure(msg, "login")
+      const raw = err instanceof Error ? err.message : "unknown"
+      logAuthFailure(raw, "login")
     } finally {
       setLoading(false)
     }
@@ -64,12 +66,13 @@ export default function LoginPage() {
     if (!email) return
     const supabase = createClient()
     const { error } = await supabase.auth.resetPasswordForEmail(email)
+    // Always show generic success to prevent enumeration (Supabase itself returns success for non-existent emails, but we normalize all responses)
     if (error) {
-      setError(error.message)
-    } else {
-      setError(null)
-      alert("Password reset email sent. Check your inbox.")
+      // Log raw for observability, show generic to user
+      logAuthFailure(error.message, "login")
     }
+    setError(null)
+    alert("If an account exists for that email, a password reset link has been sent. Check your inbox.")
   }
 
   return (
@@ -79,13 +82,8 @@ export default function LoginPage() {
       <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-[var(--color-primary)]/20 blur-[120px]" />
 
       <div className="relative w-full min-h-screen grid grid-cols-1 md:grid-cols-2">
-        <div className="hidden md:flex flex-col justify-between p-12 lg:p-16 backdrop-blur-2xl backdrop-saturate-150 bg-[var(--color-primary)]/30 border-r border-white/20 relative overflow-hidden">
-          <div className="relative z-10">
-            <span className="text-2xl font-semibold tracking-tight text-white">Dealenz</span>
-          </div>
-          <div className="relative z-10">
-            <SlideshowPanel />
-          </div>
+        <div className="hidden md:flex relative overflow-hidden border-r border-black/5">
+          <SlideshowPanel />
         </div>
 
         <div className="flex flex-col justify-center p-8 sm:p-16 backdrop-blur-2xl backdrop-saturate-150 bg-white/40 border-l border-white/30 relative">

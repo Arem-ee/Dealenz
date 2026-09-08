@@ -246,6 +246,32 @@ describe("answerQuestion", () => {
     expect(prompt).not.toContain("Deterministic findings to reason over")
   })
 
+  it("says how many findings exist when the focused set is truncated", async () => {
+    const { ports, aiCalls } = fakePorts({
+      loadFacts: async () => ({
+        extracted: {
+          goals: [],
+          deliverables: [],
+          timeline: null,
+          budget: null,
+          projectType: null,
+          clientSignals: [],
+          missingInformation: [],
+          confidence: 0.9,
+        },
+        rawText: "A vague idea with no terms at all.",
+      }),
+    })
+    const response = await answerQuestion({ text: "What should I watch for?", auditId: "a1", userId: "u1", ports })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    // Brief budget focuses on 3, but the model is told the true total.
+    expect(response.findingsUsed).toHaveLength(3)
+    const prompt = aiCalls[0].userContent
+    expect(prompt).toMatch(/Focused on the 3 most relevant of \d+ total findings/)
+    expect(prompt).toContain("do not infer the content of the others")
+  })
+
   it("keeps the deterministic greeting contract-clean", async () => {
     expect(DETERMINISTIC_GREETING).toBe("Hello. What are you working on?")
     expect(validateOutputContract(DETERMINISTIC_GREETING).passed).toBe(true)
@@ -289,8 +315,12 @@ describe("answerQuestion", () => {
     if (response.type !== "answer") throw new Error("unreachable")
     expect(response.operation).toBe("explanation")
     expect(response.findingsUsed).toEqual([])
+    expect(response.knowledgeSources).toEqual([])
     expect(aiCalls).toHaveLength(1)
     expect(aiCalls[0].maxTokens).toBe(1024)
+    // Narrow lease answers stay under the constitution at brief depth.
+    expect(aiCalls[0].systemPrompt).toContain("Dealenz response contract")
+    expect(response.text).toBe("Short answer.")
   })
 
   it("runs mixed lease questions through lease facts and lease rules", async () => {
@@ -318,6 +348,13 @@ describe("answerQuestion", () => {
     expect(aiCalls[0].userContent).toContain("Should I accept this lease?")
     expect(aiCalls[0].userContent).toContain("Deterministic findings to reason over")
     expect(aiCalls[0].userContent).not.toMatch(/overallScore|dealScore/)
+    // Findings used in mixed answers carry their supporting evidence, rooted
+    // in the attached audit (not the conversation).
+    const flagged = response.findingsUsed.find((f) => f.ruleKey === "lease-liability-uncapped")
+    expect(flagged?.evidence?.length).toBeGreaterThan(0)
+    expect(flagged?.evidence?.[0].sourceType).toBe("audit_input")
+    expect(flagged?.evidence?.[0].sourceId).toBe("lease-1")
+    expect(flagged?.evidence?.[0].quote).toMatch(/liab/i)
   })
 
   it("keeps lease truth identical across intents and objectives", async () => {

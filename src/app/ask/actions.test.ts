@@ -13,6 +13,33 @@ vi.mock("@/lib/supabase/server", () => ({
   })),
 }))
 
+vi.mock("@/lib/conversation/store", () => ({
+  createConversation: vi.fn(async (_client: unknown, _userId: string, input: { title?: string; attachedAuditId?: string | null; firstText: string }) => ({
+    id: "conv-1",
+    user_id: "user-1",
+    title: input.title ?? input.firstText.slice(0, 60),
+    attached_audit_id: input.attachedAuditId ?? null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  })),
+  getConversation: vi.fn(async () => null),
+  listConversations: vi.fn(async () => []),
+  listMessages: vi.fn(async () => []),
+  addMessage: vi.fn(async () => ({
+    id: "msg-1",
+    conversation_id: "conv-1",
+    user_id: "user-1",
+    role: "assistant",
+    content: "hi",
+    operation: null,
+    intent: null,
+    objective: null,
+    metadata: {},
+    created_at: new Date().toISOString(),
+  })),
+  touchConversation: vi.fn(async () => {}),
+}))
+
 vi.mock("@/lib/conversation/request", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/conversation/request")>()
   return {
@@ -101,6 +128,23 @@ describe("ask actions security", () => {
     if (response.type !== "answer") throw new Error("unreachable")
     // The mocked pipeline (metering mode) charges nothing regardless of input.
     expect(response.creditsConsumed).toBeNull()
+  })
+
+  it("ignores client-supplied evidence and ownership instead of trusting them", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+    mockFrom.mockImplementation(() => tableMock({ data: { id: "audit-1" }, error: null }))
+    await askQuestionAction({
+      text: "Hello",
+      auditId: "audit-1",
+      findingsUsed: [{ ruleKey: "fake", summary: "Fake.", severity: "critical" }],
+      knowledgeSources: [{ itemKey: "fake" }],
+      userId: "someone-else",
+    } as unknown as { text: string; auditId: string })
+    const call = vi.mocked(answerQuestion).mock.calls[0][0]
+    // Only the request shape reaches the pipeline; server resolves the rest.
+    expect(call.userId).toBe("user-1")
+    expect(call).not.toHaveProperty("findingsUsed")
+    expect(call).not.toHaveProperty("knowledgeSources")
   })
 
   it("keeps provider credentials out of the client bundle", () => {

@@ -8,6 +8,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { normalizeDealType } from "@/lib/deal-type"
 import {
   applyUserConfirmation,
   emptyContextEnvelope,
@@ -25,11 +26,6 @@ import {
 } from "@/lib/context"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function normalizeDealType(value: unknown): DealType {
-  if (value === "generic" || value === "lease") return value
-  return "freelance"
-}
 
 async function requireUser() {
   const supabase = await createClient()

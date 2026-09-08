@@ -1,28 +1,64 @@
-// Authenticated conversation surface (Phase 5G).
+// Authenticated conversation surface (Phases 5G + 10).
 //
 // Thin bridge between the UI and the conversation request pipeline: verifies
-// the session, enforces ownership on attached audits, assembles real ports
-// (RLS-governed reads, authenticated AI surface, ledger RPCs, priced policy),
-// and returns only serializable data. The client is trusted for nothing:
-// no credits, provider, model, token counts, findings, or authority cross
-// the boundary from the browser.
+// the session, enforces ownership on attached audits and conversations,
+// assembles real ports (RLS-governed reads, authenticated AI surface, ledger
+// RPCs, priced policy), and returns only serializable data. The client is
+// trusted for nothing: no credits, provider, model, token counts, findings,
+// or authority cross the boundary from the browser. Conversations persist
+// per-user; every message inherits the pipeline's constitution and bounded
+// history (the server truncates, never the client).
 
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { answerQuestion, type ConversationResponse, type HistoryTurn } from "@/lib/conversation/request"
+import {
+  answerQuestion,
+  classifyOperation,
+  isGreeting,
+  type ConversationResponse,
+  type HistoryTurn,
+} from "@/lib/conversation/request"
 import { getCreditBalance, type LedgerClient } from "@/lib/credits/ledger"
-import { STANDARD_CREDIT_POLICY } from "@/lib/credits/pricing"
+import { priceForOperation, STANDARD_CREDIT_POLICY } from "@/lib/credits/pricing"
 import { fetchPublishedKnowledge, resolveKnowledge } from "@/lib/knowledge"
 import { parseContextEnvelope } from "@/lib/context/schema"
 import { callAISurface } from "@/lib/ai/client"
+import {
+  addMessage,
+  createConversation,
+  getConversation,
+  listConversations,
+  listMessages,
+  touchConversation,
+  type ConversationRow,
+} from "@/lib/conversation/store"
 import type { ExtractedData } from "@/lib/ai/extract"
 
 export interface AskInput {
   text: string
   auditId?: string
+  conversationId?: string
   history?: HistoryTurn[]
   idempotencyKey?: string
+}
+
+export interface ConversationSummary {
+  id: string
+  title: string
+  attachedAuditId: string | null
+  updatedAt: string
+  createdAt: string
+}
+
+export interface ConversationMessageView {
+  id: string
+  role: "user" | "assistant"
+  content: string
+  operation: string | null
+  intent: string | null
+  objective: string | null
+  createdAt: string
 }
 
 export interface AuditOption {
@@ -54,7 +90,16 @@ function asExtractedData(value: unknown): ExtractedData | null {
   }
 }
 
-export async function askQuestionAction(input: AskInput): Promise<ConversationResponse> {
+function estimatedCreditsFor(text: string, hasDocument: boolean): number {
+  if (isGreeting(text)) return 0
+  try {
+    return priceForOperation(classifyOperation(text, hasDocument))
+  } catch {
+    return 1
+  }
+}
+
+export async function askQuestionAction(input: AskInput): Promise<ConversationResponse & { conversationId?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("You must be signed in to ask Dealenz.")
@@ -73,6 +118,31 @@ export async function askQuestionAction(input: AskInput): Promise<ConversationRe
     if (!owned) throw new Error("Deal not found.")
   }
 
+  // Ownership gate for conversations. A conversation binds to one user; a
+  // mismatched attached audit is rejected before anything is persisted.
+  let conversation: ConversationRow | null = null
+  if (input.conversationId) {
+    conversation = await getConversation(supabase as never, user.id, input.conversationId)
+    if (!conversation) throw new Error("Conversation not found.")
+    if (input.auditId && conversation.attached_audit_id && conversation.attached_audit_id !== input.auditId) {
+      throw new Error("This conversation is attached to a different deal.")
+    }
+    if (input.auditId && !conversation.attached_audit_id) {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ attached_audit_id: input.auditId, updated_at: new Date().toISOString() })
+        .eq("id", conversation.id)
+        .eq("user_id", user.id)
+      if (error) throw new Error("Failed to attach deal to conversation")
+      conversation.attached_audit_id = input.auditId
+    }
+  } else {
+    conversation = await createConversation(supabase as never, user.id, {
+      firstText: input.text,
+      attachedAuditId: input.auditId ?? null,
+    })
+  }
+
   const ledger: LedgerClient = {
     rpc: async (functionName: string, args: Record<string, unknown> = {}) => {
       const result = await (supabase.rpc as unknown as (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>)(
@@ -83,13 +153,26 @@ export async function askQuestionAction(input: AskInput): Promise<ConversationRe
     },
   }
 
-  const history = Array.isArray(input.history) ? input.history.slice(-20) : []
-
-  return answerQuestion({
-    text: input.text,
-    auditId: input.auditId,
+  // Persist the user turn before the model call so the transcript is
+  // durable even if the provider fails. History for the model is the
+  // persisted last 12 messages, truncated again server-side before the
+  // provider — the client slice is ignored beyond this point.
+  const persistedHistory = await listMessages(supabase as never, user.id, conversation.id, 20)
+  const serverHistory: Array<{ role: "user" | "assistant"; text: string }> = persistedHistory
+    .slice(-12)
+    .map((row) => ({ role: row.role, text: row.content }))
+  await addMessage(supabase as never, {
+    conversationId: conversation.id,
     userId: user.id,
-    history,
+    role: "user",
+    content: input.text,
+  })
+
+  const response = await answerQuestion({
+    text: input.text,
+    auditId: conversation.attached_audit_id ?? input.auditId,
+    userId: user.id,
+    history: serverHistory,
     idempotencyKey: input.idempotencyKey,
     ports: {
       loadContext: async (auditId: string) => {
@@ -134,9 +217,105 @@ export async function askQuestionAction(input: AskInput): Promise<ConversationRe
       policy: STANDARD_CREDIT_POLICY,
     },
   })
+
+  // Persist the assistant turn and touch the conversation for ordering.
+  // The persisted copy includes the pipeline's operation/intent/objective
+  // where available, so history reloads are self-describing, but the live
+  // path never trusts a client replay of those fields.
+  if (response.type === "answer") {
+    await addMessage(supabase as never, {
+      conversationId: conversation.id,
+      userId: user.id,
+      role: "assistant",
+      content: response.text,
+      operation: response.operation,
+      intent: response.intent,
+      metadata: {
+        findingsUsed: response.findingsUsed.map((finding) => ({
+          ruleKey: finding.ruleKey,
+          summary: finding.summary,
+          severity: finding.severity,
+        })),
+        knowledgeSources: response.knowledgeSources.map((source) => ({
+          itemKey: source.itemKey,
+          title: source.title,
+          jurisdiction: source.jurisdiction,
+        })),
+        deterministic: response.deterministic,
+      },
+    })
+  } else if (response.type === "needs_document") {
+    await addMessage(supabase as never, {
+      conversationId: conversation.id,
+      userId: user.id,
+      role: "assistant",
+      content: response.message,
+      operation: response.operation,
+      intent: response.intent,
+    })
+  } else if (response.type === "denied") {
+    await addMessage(supabase as never, {
+      conversationId: conversation.id,
+      userId: user.id,
+      role: "assistant",
+      content: `I cannot run that right now: ${response.denialReason}. Credits pay for computation, and this one needs more than is available.`,
+      operation: response.operation,
+      intent: response.intent,
+    })
+  }
+  await touchConversation(supabase as never, user.id, conversation.id)
+
+  return { ...response, conversationId: conversation.id } as ConversationResponse & { conversationId: string }
 }
 
-export async function getAskContext(): Promise<{ balance: number | null; audits: AuditOption[] }> {
+export async function estimateAskCredits(text: string, hasDocument: boolean): Promise<number> {
+  return estimatedCreditsFor(text, hasDocument)
+}
+
+export async function listAskConversations(): Promise<ConversationSummary[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("You must be signed in.")
+  if (!user.email_confirmed_at) throw new Error("VERIFY_REQUIRED")
+  const rows = await listConversations(supabase as never, user.id)
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    attachedAuditId: row.attached_audit_id,
+    updatedAt: row.updated_at,
+    createdAt: row.created_at,
+  }))
+}
+
+export async function getAskConversation(conversationId: string): Promise<{ conversation: ConversationSummary; messages: ConversationMessageView[] }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("You must be signed in.")
+  if (!user.email_confirmed_at) throw new Error("VERIFY_REQUIRED")
+  const conversation = await getConversation(supabase as never, user.id, conversationId)
+  if (!conversation) throw new Error("Conversation not found.")
+  const messages = await listMessages(supabase as never, user.id, conversation.id, 50)
+  return {
+    conversation: {
+      id: conversation.id,
+      title: conversation.title,
+      attachedAuditId: conversation.attached_audit_id,
+      updatedAt: conversation.updated_at,
+      createdAt: conversation.created_at,
+    },
+    messages: messages.map((row) => ({
+      id: row.id,
+      role: row.role,
+      content: row.content,
+      operation: row.operation,
+      intent: row.intent,
+      objective: row.objective,
+      createdAt: row.created_at,
+    })),
+  }
+}
+
+export async function getAskContext(): Promise<{ balance: number | null; audits: AuditOption[]; conversations: ConversationSummary[] }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("You must be signed in.")
@@ -155,11 +334,19 @@ export async function getAskContext(): Promise<{ balance: number | null; audits:
   } catch {
     balance = null
   }
-  const { data: audits } = await supabase
-    .from("audits")
-    .select("id, title, status")
-    .eq("user_id", user.id)
-    .order("updated_at", { ascending: false })
-    .limit(20)
-  return { balance, audits: ((audits ?? []) as AuditOption[]) }
+  const [{ data: audits }, conversations] = await Promise.all([
+    supabase.from("audits").select("id, title, status").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(20),
+    listConversations(supabase as never, user.id).catch(() => [] as ConversationRow[]),
+  ])
+  return {
+    balance,
+    audits: ((audits ?? []) as AuditOption[]),
+    conversations: conversations.map((row) => ({
+      id: row.id,
+      title: row.title,
+      attachedAuditId: row.attached_audit_id,
+      updatedAt: row.updated_at,
+      createdAt: row.created_at,
+    })),
+  }
 }

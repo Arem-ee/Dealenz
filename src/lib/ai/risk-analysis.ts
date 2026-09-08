@@ -200,7 +200,7 @@ export async function analyzeGenericRiskWithVisibleFailure(
   return { report: transformGenericOutput(parsed), usedFallback: false }
 }
 
-export type DealType = "freelance" | "generic" | "lease"
+export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder"
 
 export async function analyzeRiskForDealType(
   data: ExtractedData,

@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import {
   detectFindingConflicts,
+  deterministicRiskFloor,
   evaluateRule,
+  floorExceedsDisplay,
   ruleApplies,
   selectRelevantFindings,
 } from "./result"
@@ -109,6 +111,76 @@ describe("intent and objective", () => {
     )
     expect(selected.map((f) => f.ruleKey)).toEqual(["high-priority", "low-priority"])
     expect(selected).not.toHaveProperty("0.score")
+  })
+})
+
+describe("deterministic risk floor (Phase 21 authority boundary)", () => {
+  const failWith = (severity: "informational" | "attention" | "material" | "critical") =>
+    evaluateRule(
+      testRule({
+        ruleKey: `floor-${severity}`,
+        condition: { field: "facts.budget", op: "missing" },
+        fireOn: true,
+        finding: { summary: `${severity} fired.`, severity },
+      }),
+      testRuleInput({ facts: {} })
+    )
+  const passResult = evaluateRule(
+    testRule({ ruleKey: "floor-pass", condition: { field: "facts.budget", op: "missing" }, fireOn: true }),
+    testRuleInput()
+  )
+
+  it("floors at High when any critical or material FAIL exists", () => {
+    expect(passResult.status).toBe("PASS")
+    expect(deterministicRiskFloor([passResult, failWith("material")])).toEqual({
+      level: "High",
+      score: 20,
+      severity: "high",
+    })
+    expect(deterministicRiskFloor([failWith("critical")])).toEqual({
+      level: "High",
+      score: 20,
+      severity: "high",
+    })
+  })
+
+  it("floors at Medium when only attention FAILs exist", () => {
+    expect(deterministicRiskFloor([passResult, failWith("attention")])).toEqual({
+      level: "Medium",
+      score: 50,
+      severity: "medium",
+    })
+  })
+
+  it("stays Low when nothing worse than informational FAILs exists", () => {
+    expect(deterministicRiskFloor([passResult, failWith("informational")])).toEqual({
+      level: "Low",
+      score: 80,
+      severity: "low",
+    })
+    expect(deterministicRiskFloor([])).toEqual({ level: "Low", score: 80, severity: "low" })
+  })
+
+  it("ignores UNKNOWN results instead of converting them into failures", () => {
+    const unknown = evaluateRule(
+      testRule({ ruleKey: "floor-unknown", condition: { field: "facts.missing", op: "eq", value: "x" }, fireOn: true }),
+      testRuleInput({ facts: {} })
+    )
+    expect(unknown.status).toBe("UNKNOWN")
+    expect(deterministicRiskFloor([passResult, unknown])).toEqual({
+      level: "Low",
+      score: 80,
+      severity: "low",
+    })
+  })
+
+  it("only raises the display, never lowers it", () => {
+    expect(floorExceedsDisplay("High", "Low")).toBe(true)
+    expect(floorExceedsDisplay("High", "Medium")).toBe(true)
+    expect(floorExceedsDisplay("Medium", "Low")).toBe(true)
+    expect(floorExceedsDisplay("Medium", "Medium")).toBe(false)
+    expect(floorExceedsDisplay("Low", "High")).toBe(false)
+    expect(floorExceedsDisplay("High", "critical")).toBe(false)
   })
 })
 

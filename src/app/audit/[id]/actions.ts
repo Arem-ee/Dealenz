@@ -16,8 +16,11 @@ import {
   type RuleResult,
 } from "@/lib/rules"
 import { verticalForDealType } from "@/lib/verticals"
+import { attachEvidence } from "@/lib/evidence"
 import type { GenericRiskReport } from "@/lib/ai/risk-analysis"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { bucketForGenericFindings } from "@/lib/verticals/generic/rules"
+import { deterministicRiskFloor, floorExceedsDisplay } from "@/lib/rules/result"
 import { logEvent, logDuration } from "@/lib/logger"
 import type { ExtractedData } from "@/lib/ai/extract"
 import type { RiskReport } from "@/lib/risk/engine"
@@ -124,14 +127,35 @@ export async function updateAudit(
     throw new Error("Unauthorized")
   }
 
-  const oldStatus = (await supabase.from("audits").select("status, title").eq("id", id).single()).data as { status: string; title: string } | null
+  const oldStatus = (await supabase.from("audits").select("status, title").eq("id", id).eq("user_id", user.id).single()).data as { status: string; title: string } | null
 
   const updates: Record<string, unknown> = {}
   for (const key of Object.keys(data)) {
     if (!ALLOWED_FIELDS.has(key as "title")) continue
     const value = (data as Record<string, unknown>)[key]
     if (key === "status" && typeof value === "string" && !ALLOWED_STATUS_VALUES.has(value)) continue
+    if (key === "structured_data" && value !== null && typeof value === "object" && !Array.isArray(value)) {
+      // Client must not inject server-derived intelligence. Deterministic
+      // findings and related artifacts are only set by analyzeDeal.
+      const sd = value as Record<string, unknown>
+      const sanitized: Record<string, unknown> = { ...sd }
+      delete sanitized.extractedData
+      delete sanitized.deterministicFindings
+      delete sanitized.negotiationPoints
+      delete sanitized.genericRiskDegraded
+      delete sanitized.generatedDocuments
+      updates[key] = sanitized
+      continue
+    }
     updates[key] = value
+  }
+  if (updates.client_id !== undefined && updates.client_id !== null) {
+    if (!isValidUUID(updates.client_id as string)) {
+      delete updates.client_id
+    } else {
+      const { data: cp } = await supabase.from("client_profiles").select("id").eq("id", updates.client_id as string).eq("user_id", user.id).maybeSingle()
+      if (!cp) delete updates.client_id
+    }
   }
   updates.updated_at = new Date().toISOString()
 
@@ -167,6 +191,7 @@ export async function attachFileMetadata(
     throw new Error("Unauthorized")
   }
 
+  if (!isValidUUID(auditId)) throw new Error("Invalid audit ID")
   const expectedPrefix = `audit-files/${user.id}/${auditId}/`
   if (!fileData.path.startsWith(expectedPrefix)) {
     throw new Error("Invalid file path")
@@ -176,6 +201,7 @@ export async function attachFileMetadata(
     .from("audits")
     .select("structured_data")
     .eq("id", auditId)
+    .eq("user_id", user.id)
     .single()
 
   if (!audit) throw new Error("Audit not found")
@@ -225,11 +251,15 @@ export async function removeFileMetadata(
   if (!user || !isValidUUID(user.id)) {
     throw new Error("Unauthorized")
   }
+  if (!isValidUUID(auditId)) throw new Error("Invalid audit ID")
+  const expectedPrefix = `audit-files/${user.id}/${auditId}/`
+  if (!filePath.startsWith(expectedPrefix)) throw new Error("Invalid file path")
 
   const { data: audit } = await supabase
     .from("audits")
     .select("structured_data")
     .eq("id", auditId)
+    .eq("user_id", user.id)
     .single()
 
   if (!audit) throw new Error("Audit not found")
@@ -293,19 +323,6 @@ export async function analyzeDeal(
     return { success: false, error: "You must consent to AI analysis before proceeding." }
   }
 
-  const today = new Date().toISOString().split("T")[0]
-  const { data: usage } = await supabase
-    .from("usage_tracking")
-    .select("count")
-    .eq("user_id", user.id)
-    .eq("action_type", "analyzeDeal")
-    .eq("date", today)
-    .maybeSingle()
-
-  if (usage && usage.count >= 5) {
-    return { success: false, error: "You've reached today's usage limit. Please try again tomorrow." }
-  }
-
   const ttlThreshold = new Date(Date.now() - LOCK_TTL_MS).toISOString()
 
   const { data: locked, error: lockError } = await supabase
@@ -318,6 +335,16 @@ export async function analyzeDeal(
 
   if (lockError || !locked || locked.length === 0) {
     return { success: false, error: "This audit is currently being analyzed. Please wait." }
+  }
+
+  // Atomic rate limit: single authoritative increment before expensive AI work via shared abstraction.
+  // Fail closed on RPC error; deny before AI if limit exceeded; no second increment later.
+  {
+    const rate = await checkRateLimit("analyzeDeal")
+    if (!rate.allowed) {
+      await supabase.from("audits").update({ locked_at: null, updated_at: new Date().toISOString() }).eq("id", auditId).eq("user_id", user.id)
+      return { success: false, error: rate.error ?? "Rate limit check failed. Please try again." }
+    }
   }
 
   // Phase 5B context gate: analysis must not silently treat unresolved
@@ -438,7 +465,14 @@ export async function analyzeDeal(
     }
 
     const dealTypeRaw = (audit as Record<string, unknown>).deal_type as string
-    const dealType = dealTypeRaw === "generic" || dealTypeRaw === "lease" ? dealTypeRaw : "freelance"
+    const dealType =
+      dealTypeRaw === "generic" ||
+      dealTypeRaw === "lease" ||
+      dealTypeRaw === "purchase_sale" ||
+      dealTypeRaw === "employment" ||
+      dealTypeRaw === "founder"
+        ? dealTypeRaw
+        : "freelance"
     const validation = await extractAndValidate(combinedInput, dealType)
 
     if (!validation.valid) {
@@ -540,7 +574,9 @@ export async function analyzeDeal(
       if (vertical) vertical.registerPack()
       const verticalFacts =
         vertical !== null
-          ? JSON.parse(JSON.stringify(vertical.deriveFacts(extracted, combinedInput))) as unknown
+          ? JSON.parse(
+              JSON.stringify(vertical.deriveFacts(extracted, combinedInput, { type: "audit_input", id: auditId }))
+            ) as unknown
           : undefined
       const rulesInput = {
         context: gateCheck.envelope!,
@@ -557,8 +593,55 @@ export async function analyzeDeal(
         evaluatedAt: new Date().toISOString(),
       }
       const run = evaluateApplicableRules(rulesInput, "document_analysis", dealType)
-      ruleResults = run.results
-      relevantFindings = selectRelevantFindings(ruleResults, { operation: "document_analysis" })
+      // Attach supporting evidence to FAIL findings (pure post-processing;
+      // findings without evidence stay possible and unchanged).
+      ruleResults = attachEvidence(run.results, rulesInput, "document_analysis", dealType)
+      // Generic deterministic bucket (AI-authority fix): override AI scores
+      // with bucket-derived placeholders. AI summary/recommendations kept.
+      if (dealType === "generic" && riskReport) {
+        const bucket = bucketForGenericFindings(ruleResults)
+        const gr = riskReport as GenericRiskReport & { overallScore: number; riskLevel: "Low" | "Medium" | "High" }
+        gr.overallScore = bucket.score
+        gr.riskLevel = bucket.level as GenericRiskReport["riskLevel"]
+        const cats = (gr as { categories?: Record<string, { score: number; severity: "low" | "medium" | "high" }> }).categories
+        if (cats && typeof cats === "object") {
+          for (const cat of Object.values(cats)) {
+            cat.score = bucket.score
+            cat.severity = bucket.severity as "low" | "medium" | "high"
+          }
+        }
+      }
+      // Phase 21 deterministic floor (authority boundary): for the specialized
+      // non-freelance verticals, the deterministic findings set a floor the
+      // displayed AI headline may not undercut. An AI Low can never silently
+      // hide a deterministic FAIL; an AI High with no deterministic FAIL is
+      // preserved as advisory (no FAIL is fabricated). AI themes, summary,
+      // and recommendations are always preserved as advisory text.
+      if (
+        (dealType === "lease" ||
+          dealType === "purchase_sale" ||
+          dealType === "employment" ||
+          dealType === "founder") &&
+        riskReport
+      ) {
+        const floor = deterministicRiskFloor(ruleResults)
+        const gr = riskReport as GenericRiskReport & { overallScore: number; riskLevel: "Low" | "Medium" | "High" }
+        if (floorExceedsDisplay(floor.level, gr.riskLevel)) {
+          gr.overallScore = floor.score
+          gr.riskLevel = floor.level as GenericRiskReport["riskLevel"]
+          const cats = (gr as { categories?: Record<string, { score: number; severity: "low" | "medium" | "high" }> }).categories
+          if (cats && typeof cats === "object") {
+            for (const cat of Object.values(cats)) {
+              cat.score = floor.score
+              cat.severity = floor.severity as "low" | "medium" | "high"
+            }
+          }
+        }
+      }
+      // Negotiation synthesis reasons over the full FAIL set (limit 50 documents
+      // the bound explicitly): findings are compact next to the full report
+      // already in the prompt, so silent truncation here would only hide signal.
+      relevantFindings = selectRelevantFindings(ruleResults, { operation: "document_analysis", limit: 50 })
       await logEvent({
         audit_id: auditId,
         user_id: user.id,
@@ -601,7 +684,13 @@ export async function analyzeDeal(
       }
     }
 
-    const structuredUpdate: Record<string, unknown> = { ...(structured ?? {}), extractedData: extracted }
+    const structuredUpdate: Record<string, unknown> = {
+      ...(structured ?? {}),
+      extractedData: extracted,
+      // Persisted so the workspace can show why each finding fired (with its
+      // evidence) without re-running evaluation. Recomputed on every analysis.
+      deterministicFindings: ruleResults,
+    }
     if (dealType !== "freelance") {
       structuredUpdate.negotiationPoints = negotiationPoints ?? []
       structuredUpdate.genericRiskDegraded = genericRiskDegraded
@@ -621,10 +710,53 @@ export async function analyzeDeal(
 
     await logActivity(user.id, "analysis_completed", { score: riskReport.overallScore, riskLevel: riskReport.riskLevel }, auditId)
 
-    await supabase.rpc("increment_usage", {
-      p_action_type: "analyzeDeal",
-      p_limit: 5,
-    })
+    // Referral MVP (Phase 22): attribute + reward on first successful
+    // analysis. Best-effort by design: failures are logged and retried on
+    // the next success; the analysis result is never affected. Attribution
+    // is restricted to first analyses so existing accounts (stale cookie,
+    // post-linking analysis) are never attributed here.
+    try {
+      const { cookies } = await import("next/headers")
+      const { REFERRAL_COOKIE } = await import("@/lib/referrals/policy")
+      const { processReferralPostAnalysis } = await import("@/lib/referrals/attribution")
+      const cookieStore = await cookies()
+      await processReferralPostAnalysis({
+        getCookie: (name) => cookieStore.get(name)?.value,
+        clearCookie: (name) => {
+          cookieStore.set(name, "", { maxAge: 0, path: "/" })
+        },
+        findOtherAnalyzedAudits: async () => {
+          const { data, error } = await supabase
+            .from("audits")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("status", "analyzed")
+            .neq("id", auditId)
+            .limit(2)
+          if (error || !Array.isArray(data)) return []
+          return (data as Array<{ id?: unknown }>)
+            .filter((a) => typeof a.id === "string")
+            .map((a) => ({ id: a.id as string }))
+        },
+        attributeReferral: async (code) => {
+          const attr = await supabase.rpc("attribute_referral", { p_code: code })
+          if (attr.error) return false
+          const row = (Array.isArray(attr.data) ? attr.data[0] : attr.data) as { attributed?: unknown } | null
+          return row?.attributed === true
+        },
+        claimReward: async () => {
+          const claim = await supabase.rpc("claim_referral_reward")
+          if (claim.error) return false
+          const row = (Array.isArray(claim.data) ? claim.data[0] : claim.data) as { rewarded?: unknown } | null
+          return row?.rewarded === true
+        },
+        log: async (event, payload) => {
+          await logActivity(user.id, event, payload)
+        },
+      })
+    } catch {
+      // Referral bookkeeping must never fail an analysis.
+    }
 
     return { success: true, data: extracted, riskReport, knowledgeCandidates, deterministicFindings: ruleResults }
   } catch (err) {
@@ -681,7 +813,14 @@ export async function generateProtectionPackage(
   }
 
   const auditDealTypeRaw = (audit as Record<string, unknown>).deal_type as string
-  const auditDealType = auditDealTypeRaw === "generic" || auditDealTypeRaw === "lease" ? auditDealTypeRaw : "freelance"
+  const auditDealType =
+    auditDealTypeRaw === "generic" ||
+    auditDealTypeRaw === "lease" ||
+    auditDealTypeRaw === "purchase_sale" ||
+    auditDealTypeRaw === "employment" ||
+    auditDealTypeRaw === "founder"
+      ? auditDealTypeRaw
+      : "freelance"
   if (auditDealType !== "freelance") {
     return { success: false, error: "Protection package is available for freelance deals only. For this agreement, review the risk report and negotiation points." }
   }
@@ -694,17 +833,11 @@ export async function generateProtectionPackage(
     return { success: false, error: "Complete the audit analysis before generating documents." }
   }
 
-  const today = new Date().toISOString().split("T")[0]
-  const { data: usage } = await supabase
-    .from("usage_tracking")
-    .select("count")
-    .eq("user_id", user.id)
-    .eq("action_type", "generateProtectionPackage")
-    .eq("date", today)
-    .maybeSingle()
-
-  if (usage && usage.count >= 10) {
-    return { success: false, error: "You've reached today's usage limit. Please try again tomorrow." }
+  {
+    const rate = await checkRateLimit("generateProtectionPackage")
+    if (!rate.allowed) {
+      return { success: false, error: rate.error ?? "Rate limit check failed. Please try again." }
+    }
   }
 
   await logEvent({
@@ -828,11 +961,6 @@ export async function generateProtectionPackage(
         }
       }
     }
-
-    await supabase.rpc("increment_usage", {
-      p_action_type: "generateProtectionPackage",
-      p_limit: 10,
-    })
 
     return { success: true, documents }
   } catch (err) {
@@ -1278,6 +1406,7 @@ export async function markDocumentReviewed(
     .from("document_versions")
     .update({ reviewed: true, updated_at: new Date().toISOString() })
     .eq("id", latest.id)
+    .eq("user_id", user.id)
 
   if (updateError) throw new Error(updateError.message)
 }
@@ -1304,14 +1433,20 @@ export async function getDocumentReviewedStatus(
 
 export async function logAuditEvent(
   auditId: string,
-  userId: string,
+  // second param is legacy client userId — ignored, identity derived from auth
+  _legacyUserId: string,
   phase: string,
   status: "success" | "failure",
   errorMessage?: string
 ) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !isValidUUID(user.id) || !isValidUUID(auditId)) return
+  const { data: audit } = await supabase.from("audits").select("id").eq("id", auditId).eq("user_id", user.id).maybeSingle()
+  if (!audit) return
   await logEvent({
     audit_id: auditId,
-    user_id: userId,
+    user_id: user.id,
     phase,
     status,
     error_message: errorMessage ?? null,

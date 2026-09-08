@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { FcGoogle } from "react-icons/fc"
@@ -19,6 +19,21 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  // Referral MVP (Phase 22): capture ?ref=CODE into a short-lived cookie so
+  // the server can attribute the signup after the account exists. The code
+  // is untrusted input; the server validates it against referral_codes.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const ref = (params.get("ref") ?? "").trim().toUpperCase()
+      if (/^[A-Z0-9]{8}$/.test(ref)) {
+        document.cookie = `dealenz_ref=${ref}; max-age=${60 * 60 * 24 * 30}; path=/; SameSite=Lax`
+      }
+    } catch {
+      // Referral capture is opportunistic only.
+    }
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -31,9 +46,15 @@ export default function RegisterPage() {
       router.push("/dashboard?verify=true")
       router.refresh()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "An error occurred"
-      setError(msg)
-      logAuthFailure(msg, "register")
+      const raw = err instanceof Error ? err.message : "unknown"
+      // Prevent enumeration: "already registered" → generic success path
+      if (raw.toLowerCase().includes("already registered") || raw.toLowerCase().includes("already exists") || raw.toLowerCase().includes("user already")) {
+        router.push("/dashboard?verify=true")
+        router.refresh()
+        return
+      }
+      setError("Unable to create account. Please try again.")
+      logAuthFailure(raw, "register")
     } finally {
       setLoading(false)
     }
@@ -67,13 +88,8 @@ export default function RegisterPage() {
       <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-[var(--color-primary)]/20 blur-[120px]" />
 
       <div className="relative w-full min-h-screen grid grid-cols-1 md:grid-cols-2">
-        <div className="hidden md:flex flex-col justify-between p-12 lg:p-16 backdrop-blur-2xl backdrop-saturate-150 bg-[var(--color-primary)]/30 border-r border-white/20 relative overflow-hidden">
-          <div className="relative z-10">
-            <span className="text-2xl font-semibold tracking-tight text-white">Dealenz</span>
-          </div>
-          <div className="relative z-10">
-            <SlideshowPanel />
-          </div>
+        <div className="hidden md:flex relative overflow-hidden border-r border-black/5">
+          <SlideshowPanel />
         </div>
 
         <div className="flex flex-col justify-center p-8 sm:p-16 backdrop-blur-2xl backdrop-saturate-150 bg-white/40 border-l border-white/30 relative">

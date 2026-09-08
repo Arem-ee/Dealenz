@@ -19,7 +19,13 @@ function extracted(overrides: Partial<ExtractedData> = {}): ExtractedData {
 describe("freelance fact projection", () => {
   it("projects fee and delivery from structured extraction", () => {
     const facts = deriveFreelanceFacts(extracted({ budget: "$5,000 fixed", timeline: "2 weeks" }))
-    expect(facts.fee).toEqual({ text: "$5,000 fixed", evidence: "$5,000 fixed" })
+    expect(facts.fee.text).toBe("$5,000 fixed")
+    expect(facts.fee.evidence).toBe("$5,000 fixed")
+    // Extraction-derived observations carry extraction evidence.
+    expect(facts.fee.evidenceRefs).toHaveLength(1)
+    expect(facts.fee.evidenceRefs?.[0].method).toBe("ai_extraction")
+    expect(facts.fee.evidenceRefs?.[0].observationKey).toBe("facts.freelance.fee")
+    expect(facts.fee.evidenceRefs?.[0].confidence).toBe(0.9)
     expect(facts.delivery.text).toBe("2 weeks")
     expect(facts.deliverablesCount).toBe(0)
   })
@@ -55,10 +61,27 @@ describe("freelance fact projection", () => {
 
   it("leaves unobserved facts unknown instead of inventing them", () => {
     const facts = deriveFreelanceFacts(extracted())
-    expect(facts.fee).toEqual({ text: null, evidence: null })
-    expect(facts.unlimitedRevisions).toEqual({ value: null, evidence: null })
+    expect(facts.fee).toEqual({ text: null, evidence: null, evidenceRefs: [] })
+    expect(facts.unlimitedRevisions).toEqual({ value: null, evidence: null, evidenceRefs: [] })
     expect(facts.ownership.text).toBeNull()
     expect(facts.currency.text).toBeNull()
+  })
+
+  it("attaches pattern evidence with sections to corpus observations", () => {
+    const facts = deriveFreelanceFacts(
+      extracted({ deliverables: ["Website with unlimited revisions until approval"] }),
+      undefined,
+      { type: "audit_input", id: "audit-1" }
+    )
+    const refs = facts.unlimitedRevisions.evidenceRefs ?? []
+    expect(refs).toHaveLength(1)
+    expect(refs[0].sourceType).toBe("audit_input")
+    expect(refs[0].sourceId).toBe("audit-1")
+    expect(refs[0].method).toBe("pattern_observation")
+    expect(refs[0].location.kind).toBe("approximate")
+    expect(refs[0].location.section).toBe("deliverables")
+    expect(refs[0].inspectable).toBe(true)
+    expect(refs[0].observationKey).toBe("facts.freelance.unlimitedRevisions")
   })
 
   it("treats negated mentions as unobserved, not affirmative", () => {

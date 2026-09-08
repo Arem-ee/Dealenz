@@ -4,7 +4,7 @@
 
 "Know the risk before you sign."
 
-Anyone entering an agreement — freelance work, a lease, a partnership, a service contract, a purchase agreement — is exposed to terms they didn't write and risks they can't easily see. Dealenz reads the deal (a brief, an email thread, an uploaded contract, a call transcript) and tells you what's risky before you commit, generating protective documents where that's the relevant next step.
+Anyone entering an agreement — freelance work, a lease, a partnership, a service contract, a purchase agreement, an employment offer — is exposed to terms they didn't write and risks they can't easily see. Dealenz reads the deal (a brief, an email thread, an uploaded contract, a call transcript) and tells you what's risky before you commit, generating protective documents where that's the relevant next step.
 
 A document is one input, not the whole product. Users can also ask Dealenz questions directly, with no document attached: what to think about, what to negotiate, what to ask before agreeing, how two offers compare, or whether to walk away.
 
@@ -350,6 +350,8 @@ If applicable deterministic/authoritative analysis cannot be confidently perform
 
 Dealenz pairs deterministic checks with AI reasoning. Deterministic rules establish verifiable facts (a condition exists, a piece of context is missing, a knowledge item applies, a threshold was exceeded) without depending on the model. The AI then explains what those findings mean for the user, in plain user-first language, without changing them. Unknown stays unknown: the system would rather ask or qualify than guess.
 
+Where the system observed something in the user's own input, findings can point back to the observed text and where it came from. Absence of such a pointer means nothing was observed there, not that nothing exists.
+
 The system never manufactures certainty simply because an LLM is available.
 
 ## Context Resolution
@@ -601,11 +603,13 @@ Do not recommend throwing away working functionality without evidence.
 ## CURRENTLY OBSERVED (High-Level Repository Inspection)
 
 - **Freelance deal type**: Fully implemented end-to-end (intake → extraction → risk analysis → protection package generation → PDF export → e-signing)
-- **Generic deal type**: AI-only risk scoring fallback, no deterministic rule engine
+- **Generic deal type**: deterministic floor (7 rules + bucket) with AI summary kept
+- **Founder deal type**: 8 deterministic rules with Phase 21 floor, protection coming-soon
+- **Referrals**: invite link + attribution on signup, reward on first completed analysis via credit ledger (reward amount provisional, pending sign-off)
 - **Landing page**: Anonymous Quick Review with mini-dashboard (paste/upload/describe → `/api/analyze-anonymous`)
-- **Authentication**: Supabase Auth (email/password), email verification required
-- **Database**: Supabase/Postgres with RLS on all tables, 19 migrations
-- **AI Provider Layer**: Provider-agnostic interface (`callAI`) with Gemini and OpenAI-compatible adapters
+- **Authentication**: Supabase Auth (email/password + Google OAuth with explicit account linking), email verification required
+- **Database**: Supabase/Postgres with RLS on all tables, 33 forward migrations
+- **AI Provider Layer**: Provider-agnostic interface with Gemini, OpenAI-compatible, and Anthropic Claude adapters
 - **Risk Engine**: 8 freelance categories (scope, payment, timeline, communication, revision, legal, IP, client behavior) with deterministic rules + AI fallback
 - **Document Generation**: Proposal → SOW → Contract → Checklist (sequential AI calls with template fallback)
 - **Lawyer Escalation**: Waitlist-based consultation requests with admin verification UI
@@ -621,7 +625,7 @@ Do not recommend throwing away working functionality without evidence.
 Dealenz becomes a **deal intelligence, protection, professional-review, and execution platform** with:
 
 1. **Acquisition** — Landing page, Quick Review, conversion
-2. **Identity & Account** — Supabase Auth, email verification, team accounts
+2. **Identity & Account** — Supabase Auth, email verification, team accounts. One human maps to one canonical account with email/password and Google as identities — Google is linked explicitly, never merged by email comparison.
 3. **Deal Intelligence** — Context resolution, extraction, evidence mapping, deterministic risk analysis, AI synthesis
 4. **Knowledge** — Structured legal rules, industry practices, deal-type schemas, versioned with provenance
 5. **Deal Protection** — Negotiation intelligence, clause library, document generation, lawyer handoff
@@ -638,10 +642,9 @@ Dealenz becomes a **deal intelligence, protection, professional-review, and exec
 
 | Phase | Focus |
 |-------|-------|
-| **Current** | Freelance end-to-end + Generic AI-only + Anonymous Quick Review + Lawyer waitlist |
-| **Next** | Lease deal type (deterministic rules) + Context resolution UI + Lawyer workflow |
-| **Next** | Founder deal type + Knowledge layer v1 (rules DB) + Context resolution engine |
-| **Future** | Employment/Contractor + Partnership + Purchase/Sale + Full lawyer workflow |
+| **Current** | Freelance (9 rules + 8-category engine) + Lease (9 rules, 00027) + Purchase/Sale (8 rules, 00029) + Employment (8 rules, 00030) + Founder (8 rules, 00032) + Generic deterministic floor + Google account linking + Referral MVP + Anonymous Quick Review + Lawyer waitlist + Context/Knowledge/Evidence/Conversation/Credits foundations |
+| **Next** | Knowledge corpus expansion + Lawyer workflow |
+| **Future** | Partnership + Full lawyer workflow |
 | **Future** | Deal Execution (obligations, change orders, monitoring) |
 | **Future** | Client intelligence (repeat counterparties) + Relationship history |
 

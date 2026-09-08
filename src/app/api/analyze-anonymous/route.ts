@@ -4,6 +4,7 @@ import { extractAndValidate } from "@/lib/ai/extract"
 import { analyzeRiskForDealType } from "@/lib/ai/risk-analysis"
 import { isSupportedFileType, isValidFileSize, extractTextFromBuffer } from "@/lib/text-extract"
 import { toAnonymousError } from "@/lib/safe-error"
+import { normalizeAnonymousDealType } from "@/lib/deal-type"
 
 const ANONYMOUS_LIMIT = 3
 const ANONYMOUS_WINDOW_MS = 60 * 60 * 1000
@@ -22,14 +23,6 @@ function getAnonymousKey(req: NextRequest): string {
   const ip = xff || req.headers.get("x-real-ip") || "unknown-ip"
   const fingerprint = req.headers.get("x-anonymous-fp") || "no-fp"
   return `${ip}:${fingerprint}`
-}
-
-function normalizeAnonymousDealType(input?: string): "freelance" | "generic" | "lease" {
-  if (input === "freelance") return "freelance"
-  if (input === "lease") return "lease"
-  // Unknown or absent input takes the adaptive generic path, never a
-  // specialized vertical. The landing UI always sends an explicit value.
-  return "generic"
 }
 
 function insufficientInputResponse() {

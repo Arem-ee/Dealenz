@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest"
 import { clearRegistry, evaluateApplicableRules } from "@/lib/rules/registry"
 import { selectRelevantFindings } from "@/lib/rules/result"
+import { attachEvidence } from "@/lib/evidence"
 import { applyUserConfirmation, seedEnvelopeForDealType } from "@/lib/context"
 import type { RuleInput } from "@/lib/rules/schema"
 import { FREELANCE_RULES, registerFreelancePack, resetFreelanceRegistration } from "./rules"
@@ -21,14 +22,14 @@ function extracted(overrides: Partial<ExtractedData> = {}): ExtractedData {
   }
 }
 
-function freelanceInput(rawText: string, data: ExtractedData): RuleInput {
+function freelanceInput(rawText: string, data: ExtractedData, source?: { type: "audit_input" | "conversation_input"; id: string | null }): RuleInput {
   const envelope = applyUserConfirmation(seedEnvelopeForDealType("freelance"), {
     userRole: { value: "freelancer" },
     counterpartyRole: { value: "client" },
   })
   return {
     context: envelope,
-    facts: { freelance: JSON.parse(JSON.stringify(deriveFreelanceFacts(data, rawText))) as unknown },
+    facts: { freelance: JSON.parse(JSON.stringify(deriveFreelanceFacts(data, rawText, source))) as unknown },
     knowledge: [],
     operation: "document_analysis",
     evaluatedAt: "2026-09-04T00:00:00.000Z",
@@ -116,5 +117,48 @@ describe("freelance rule pack", () => {
     expect(fee?.status).toBe("FAIL")
     const selected = selectRelevantFindings(run.results, { operation: "document_analysis" })
     expect(selected.length).toBeGreaterThan(0)
+  })
+
+  it("carries evidence from fact to rule to finding end to end", () => {
+    registerFreelancePack()
+    const input = freelanceInput("Website with unlimited revisions until approval.", extracted())
+    const run = evaluateApplicableRules(input, "document_analysis", "freelance")
+    const enriched = attachEvidence(run.results, input, "document_analysis", "freelance")
+    const hit = enriched.find((r) => r.ruleKey === "freelance-unlimited-revisions")
+    expect(hit?.status).toBe("FAIL")
+    const evidence = hit?.finding?.evidence ?? []
+    expect(evidence.length).toBeGreaterThan(0)
+    expect(evidence[0].observationKey).toBe("facts.freelance.unlimitedRevisions")
+    expect(evidence[0].quote).toMatch(/unlimited revision/i)
+    expect(evidence[0].method).toBe("pattern_observation")
+    expect(evidence[0].sourceType).toBe("conversation_input")
+    expect(evidence[0].location.kind).toBe("approximate")
+  })
+
+  it("carries exact evidence when the source is an inspectable audit", () => {
+    registerFreelancePack()
+    const input = freelanceInput(
+      "Website with unlimited revisions until approval.",
+      extracted(),
+      { type: "audit_input", id: "audit-1" }
+    )
+    const run = evaluateApplicableRules(input, "document_analysis", "freelance")
+    const enriched = attachEvidence(run.results, input, "document_analysis", "freelance")
+    const hit = enriched.find((r) => r.ruleKey === "freelance-unlimited-revisions")
+    expect(hit?.status).toBe("FAIL")
+    const evidence = hit?.finding?.evidence ?? []
+    expect(evidence).toHaveLength(1)
+    expect(evidence[0].location.kind).toBe("exact")
+    expect(evidence[0].sourceId).toBe("audit-1")
+    expect(evidence[0].inspectable).toBe(true)
+    // Offsets slice the original raw input back out.
+    const location = evidence[0].location
+    if (location.kind === "exact") {
+      const rawText = "Website with unlimited revisions until approval."
+      // Stored offsets reproduce the stored quote from the original input.
+      expect(rawText.slice(location.startOffset, location.endOffset)).toBe(evidence[0].quote)
+    } else {
+      throw new Error("expected exact location")
+    }
   })
 })

@@ -7,6 +7,7 @@
 // must never silently flip a deterministic status (see detectFindingConflicts).
 
 import { evaluateCondition } from "./evaluator"
+import type { Evidence } from "@/lib/evidence/schema"
 import type {
   FindingSeverity,
   Rule,
@@ -23,6 +24,10 @@ export interface Finding {
   severity: FindingSeverity
   guidance?: string
   authority: RuleAuthority
+  // Supporting evidence references, attached post-evaluation by
+  // attachEvidence (src/lib/evidence/collect.ts). Absent means none was
+  // found — never fabricated to fill the field.
+  evidence?: Evidence[]
 }
 
 export interface RuleResult {
@@ -100,6 +105,57 @@ const SEVERITY_ORDER: Record<FindingSeverity, number> = {
   attention: 1,
   material: 2,
   critical: 3,
+}
+
+export interface DeterministicRiskFloor {
+  // Display bucket derived from the worst deterministic FAIL severity.
+  // Health-score polarity (matches prompts.ts and ScoreGauge): lower numeric
+  // means higher risk. Placeholders are bucket-derived, never computed scores.
+  level: "Low" | "Medium" | "High"
+  score: number
+  severity: "low" | "medium" | "high"
+}
+
+// Deterministic risk floor (Phase 21 authority boundary).
+//
+// Maps evaluated rule results to the minimum risk the UI may display: any
+// critical/material FAIL floors at High (20), otherwise any attention FAIL
+// floors at Medium (50), otherwise Low (80). Only FAIL findings count —
+// PASS, UNKNOWN, and informational-only FAILs never raise the floor, and
+// UNKNOWN is never converted into a failure. Pure: same results in,
+// same floor out. Callers use this to ensure AI advisory scores cannot
+// silently hide a deterministic failure; AI text (summary, themes,
+// recommendations) is preserved separately.
+export function deterministicRiskFloor(results: RuleResult[]): DeterministicRiskFloor {
+  const fails = results.filter((r) => r.status === "FAIL" && r.finding)
+  if (fails.some((f) => f.finding!.severity === "critical" || f.finding!.severity === "material")) {
+    return { level: "High", score: 20, severity: "high" }
+  }
+  if (fails.some((f) => f.finding!.severity === "attention")) {
+    return { level: "Medium", score: 50, severity: "medium" }
+  }
+  return { level: "Low", score: 80, severity: "low" }
+}
+
+const RISK_LEVEL_RANK: Record<DeterministicRiskFloor["level"], number> = {
+  Low: 0,
+  Medium: 1,
+  High: 2,
+}
+
+// Returns true when the floor demands at least as much risk as the given
+// displayed level — i.e. the display must be raised to the floor.
+export function floorExceedsDisplay(
+  floor: DeterministicRiskFloor["level"],
+  displayed: string
+): boolean {
+  const rank = (level: string): number => {
+    const l = level.toLowerCase()
+    if (l === "critical" || l === "high") return 2
+    if (l === "medium") return 1
+    return 0
+  }
+  return RISK_LEVEL_RANK[floor] > rank(displayed)
 }
 
 export interface FindingSelection {

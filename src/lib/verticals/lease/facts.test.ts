@@ -34,7 +34,7 @@ describe("lease fact projection", () => {
 
   it("leaves missing values unknown instead of fabricating them", () => {
     const facts = deriveLeaseFacts(extracted())
-    expect(facts.rent).toEqual({ text: null, evidence: null })
+    expect(facts.rent).toEqual({ text: null, evidence: null, evidenceRefs: [] })
     expect(facts.leaseTerm.text).toBeNull()
     expect(facts.permittedUse.text).toBeNull()
     expect(facts.insurance.text).toBeNull()

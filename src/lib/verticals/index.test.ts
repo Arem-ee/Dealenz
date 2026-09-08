@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest"
 import { registeredVerticalKeys, verticalForDealType } from "./index"
 
 describe("vertical dispatcher", () => {
-  it("resolves freelance and lease packs and nothing else", () => {
-    expect(registeredVerticalKeys().sort()).toEqual(["freelance", "lease"])
+  it("resolves freelance, lease, purchase_sale, employment, generic, and founder packs and nothing else", () => {
+    expect(registeredVerticalKeys().sort()).toEqual(["employment", "founder", "freelance", "generic", "lease", "purchase_sale"])
     const freelance = verticalForDealType("freelance")
     expect(freelance?.key).toBe("freelance")
     expect(typeof freelance?.deriveFacts).toBe("function")
@@ -14,11 +14,31 @@ describe("vertical dispatcher", () => {
     expect(typeof lease?.deriveFacts).toBe("function")
     expect(typeof lease?.registerPack).toBe("function")
     expect(typeof lease?.selectCandidates).toBe("function")
+    const purchaseSale = verticalForDealType("purchase_sale")
+    expect(purchaseSale?.key).toBe("purchase_sale")
+    expect(typeof purchaseSale?.deriveFacts).toBe("function")
+    expect(typeof purchaseSale?.registerPack).toBe("function")
+    expect(typeof purchaseSale?.selectCandidates).toBe("function")
+    const employment = verticalForDealType("employment")
+    expect(employment?.key).toBe("employment")
+    expect(typeof employment?.deriveFacts).toBe("function")
+    expect(typeof employment?.registerPack).toBe("function")
+    expect(typeof employment?.selectCandidates).toBe("function")
+    const generic = verticalForDealType("generic")
+    expect(generic?.key).toBe("generic")
+    expect(typeof generic?.deriveFacts).toBe("function")
+    expect(typeof generic?.registerPack).toBe("function")
+    expect(typeof generic?.selectCandidates).toBe("function")
+    const founder = verticalForDealType("founder")
+    expect(founder?.key).toBe("founder")
+    expect(typeof founder?.deriveFacts).toBe("function")
+    expect(typeof founder?.registerPack).toBe("function")
+    expect(typeof founder?.selectCandidates).toBe("function")
   })
 
-  it("returns null for generic and unknown deal types", () => {
-    expect(verticalForDealType("generic")).toBeNull()
+  it("returns null for unknown deal types", () => {
     expect(verticalForDealType("unknown")).toBeNull()
     expect(verticalForDealType("")).toBeNull()
+    expect(verticalForDealType("partnership")).toBeNull()
   })
 })

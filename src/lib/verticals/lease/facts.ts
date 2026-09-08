@@ -7,7 +7,13 @@
 // means. Observation helpers are shared from @/lib/verticals/observe.
 
 import type { ExtractedData } from "@/lib/ai/extract"
-import { corpusOf, text, type ObservedText } from "@/lib/verticals/observe"
+import { makeEvidence } from "@/lib/evidence/schema"
+import {
+  observePattern,
+  sectionedParts,
+  type ObservedText,
+  type ObservationSource,
+} from "@/lib/verticals/observe"
 
 export interface LeaseFacts {
   rent: ObservedText
@@ -35,36 +41,60 @@ export interface LeaseFacts {
 }
 
 // Deterministic lease fact projection. Pure: same extraction plus same raw
-// text always yields the same facts. Patterns are conservative presence
-// detectors, not a parser and not legal analysis.
-export function deriveLeaseFacts(extracted: ExtractedData, rawText?: string): LeaseFacts {
-  const corpus = corpusOf(extracted, rawText)
+// text plus same source always yields the same facts. Patterns are
+// conservative presence detectors, not a parser and not legal analysis.
+// Every affirmative observation carries validated Evidence references.
+export function deriveLeaseFacts(
+  extracted: ExtractedData,
+  rawText?: string,
+  source?: ObservationSource
+): LeaseFacts {
+  const src: ObservationSource = source ?? { type: "conversation_input", id: null }
+  const parts = sectionedParts(extracted, rawText)
+  const key = (field: string) => `facts.lease.${field}`
+  const obs = (field: string, pattern: RegExp) => observePattern(parts, pattern, { key: key(field), source: src })
+  const inspectable = src.type === "audit_input" && src.id !== null
   return {
     rent: extracted.budget
-      ? { text: extracted.budget, evidence: extracted.budget.slice(0, 200) }
-      : text(corpus, /rent[^\n]{0,60}|monthly payment[^\n]{0,60}|annual rent[^\n]{0,60}/i),
-    paymentFrequency: text(corpus, /monthly|quarterly|annually|weekly|per month|per annum|per quarter|per week/i),
-    deposit: text(corpus, /security deposit|deposit of [^\n]{1,60}|deposit equal to[^\n]{0,60}|bond [^\n]{0,40}/i),
-    leaseTerm: text(corpus, /term of [^\n]{1,60}|(\d+)[\s-]+(year|month)s?[^\n]{0,30}?(lease|term|tenancy)|lease term[^\n]{0,60}|fixed term/i),
-    commencement: text(corpus, /commencement|commences|start date|beginning of the term|term begins/i),
-    expiry: text(corpus, /expir(y|ation|es)|end date|end of (the )?term/i),
-    renewal: text(corpus, /renew(al)?|extend|extension|option to renew|holding over/i),
-    termination: text(corpus, /terminat|break clause|early termination|notice to quit|surrender|forfeit/i),
-    notice: text(corpus, /(\d+)\s*(day|month)s?('?s)? notice|notice of [^\n]{1,60}|notice period/i),
-    rentReview: text(corpus, /rent review|rent increase|escalation|index-linked|CPI|RPI|market rent|review date/i),
-    maintenance: text(corpus, /maintenan|upkeep|keeps?( the premises)? in (good )?repair/i),
-    repairs: text(corpus, /repair|dilapidation|disrepair/i),
-    utilities: text(corpus, /utilit|service charge|council tax|business rates/i),
-    permittedUse: text(corpus, /permitted use|use (of|as)|purpose of the (lease|tenancy|premises)/i),
-    subletting: text(corpus, /sublet|sub-let|underlet|assign(ment|ing)?|share (of )?possession|part with possession/i),
-    alterations: text(corpus, /alteration|improvement|fit.?out|modif/i),
-    insurance: text(corpus, /insur/i),
-    liability: text(corpus, /liab|indemnif|hold harmless|damages/i),
+      ? {
+          text: extracted.budget,
+          evidence: extracted.budget.slice(0, 200),
+          evidenceRefs: [
+            makeEvidence({
+              sourceType: "extraction",
+              sourceId: src.id,
+              quote: extracted.budget.slice(0, 200),
+              observationKey: key("rent"),
+              method: "ai_extraction",
+              confidence: extracted.confidence,
+              inspectable,
+              location: { kind: "unavailable" },
+            }),
+          ],
+        }
+      : obs("rent", /rent[^\n]{0,60}|monthly payment[^\n]{0,60}|annual rent[^\n]{0,60}/i),
+    paymentFrequency: obs("paymentFrequency", /monthly|quarterly|annually|weekly|per month|per annum|per quarter|per week/i),
+    deposit: obs("deposit", /security deposit|deposit of [^\n]{1,60}|deposit equal to[^\n]{0,60}|bond [^\n]{0,40}/i),
+    leaseTerm: obs("leaseTerm", /term of [^\n]{1,60}|(\d+)[\s-]+(year|month)s?[^\n]{0,30}?(lease|term|tenancy)|lease term[^\n]{0,60}|fixed term/i),
+    commencement: obs("commencement", /commencement|commences|start date|beginning of the term|term begins/i),
+    expiry: obs("expiry", /expir(y|ation|es)|end date|end of (the )?term/i),
+    renewal: obs("renewal", /renew(al)?|extend|extension|option to renew|holding over/i),
+    termination: obs("termination", /terminat|break clause|early termination|notice to quit|surrender|forfeit/i),
+    notice: obs("notice", /(\d+)\s*(day|month)s?('?s)? notice|notice of [^\n]{1,60}|notice period/i),
+    rentReview: obs("rentReview", /rent review|rent increase|escalation|index-linked|CPI|RPI|market rent|review date/i),
+    maintenance: obs("maintenance", /maintenan|upkeep|keeps?( the premises)? in (good )?repair/i),
+    repairs: obs("repairs", /repair|dilapidation|disrepair/i),
+    utilities: obs("utilities", /utilit|service charge|council tax|business rates/i),
+    permittedUse: obs("permittedUse", /permitted use|use (of|as)|purpose of the (lease|tenancy|premises)/i),
+    subletting: obs("subletting", /sublet|sub-let|underlet|assign(ment|ing)?|share (of )?possession|part with possession/i),
+    alterations: obs("alterations", /alteration|improvement|fit.?out|modif/i),
+    insurance: obs("insurance", /insur/i),
+    liability: obs("liability", /liab|indemnif|hold harmless|damages/i),
     // "unlimited" contains "limit" but means the opposite of a cap: the
     // lookbehind keeps the liability-capacity alternative honest.
-    liabilityCap: text(corpus, /cap(ped)?|limited to|maximum liability|not exceed|liability.{0,40}(?<!un)limit/i),
-    defaultTerms: text(corpus, /default|breach|forfeit|re-?enter|reentry|arrears|non-payment/i),
-    possession: text(corpus, /possession|vacant possession|hand back|yield up|deliver up/i),
-    fixtures: text(corpus, /fixture|fitting/i),
+    liabilityCap: obs("liabilityCap", /cap(ped)?|limited to|maximum liability|not exceed|liability.{0,40}(?<!un)limit/i),
+    defaultTerms: obs("defaultTerms", /default|breach|forfeit|re-?enter|reentry|arrears|non-payment/i),
+    possession: obs("possession", /possession|vacant possession|hand back|yield up|deliver up/i),
+    fixtures: obs("fixtures", /fixture|fitting/i),
   }
 }

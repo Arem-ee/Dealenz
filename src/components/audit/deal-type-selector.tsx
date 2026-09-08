@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils"
 
-export type DealType = "freelance" | "generic" | "lease"
+export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder"
 
 interface DealTypeSelectorProps {
   value: DealType | null
@@ -16,9 +16,24 @@ const OPTIONS: Array<{ value: DealType; label: string; description: string }> = 
     description: "Proposal, scope, contract and checklist for work you will deliver",
   },
   {
+    value: "purchase_sale",
+    label: "Purchase or sale",
+    description: "Buying or selling an item, asset, or business where price and handover matter",
+  },
+  {
+    value: "employment",
+    label: "Employment",
+    description: "An employment offer or contract where role, pay, and protections matter",
+  },
+  {
+    value: "founder",
+    label: "Founder or startup",
+    description: "A co-founder agreement where ownership, vesting, and control matter",
+  },
+  {
     value: "generic",
     label: "Any other agreement",
-    description: "A purchase, partnership or other agreement you are reviewing before signing",
+    description: "A partnership or other agreement you are reviewing before signing",
   },
   {
     value: "lease",

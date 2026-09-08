@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from "react"
 import { upsertBusinessProfile } from "@/app/audit/[id]/actions"
+import { getGoogleLinkPath } from "@/app/dashboard/settings/actions"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,9 +23,10 @@ const sections: { key: Section; label: string }[] = [
 interface SettingsClientProps {
   initialProfile: Record<string, unknown> | null
   email: string
+  googleConnected: boolean
 }
 
-export default function SettingsClient({ initialProfile, email }: SettingsClientProps) {
+export default function SettingsClient({ initialProfile, email, googleConnected }: SettingsClientProps) {
   const [activeSection, setActiveSection] = useState<Section>("business")
   const [saving, setSaving] = useState(false)
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
@@ -117,7 +120,7 @@ export default function SettingsClient({ initialProfile, email }: SettingsClient
           )}
           {activeSection === "notifications" && <NotificationsSection />}
           {activeSection === "integrations" && <IntegrationsSection />}
-          {activeSection === "security" && <SecuritySection email={email} />}
+          {activeSection === "security" && <SecuritySection email={email} googleConnected={googleConnected} />}
           {activeSection === "team" && <TeamSection />}
         </div>
       </div>
@@ -294,7 +297,59 @@ function IntegrationsSection() {
   )
 }
 
-function SecuritySection({ email }: { email: string }) {
+function GoogleConnectButton({ connected }: { connected: boolean }) {
+  const [linking, setLinking] = useState(false)
+  const [linkError, setLinkError] = useState<string | null>(null)
+
+  if (connected) {
+    return (
+      <Button variant="outline" size="sm" disabled>
+        <Check className="mr-1.5 h-3.5 w-3.5" />
+        Connected
+      </Button>
+    )
+  }
+
+  const handleConnect = async () => {
+    setLinking(true)
+    setLinkError(null)
+    try {
+      // Server verifies the session first; the returned path is fixed and
+      // server-owned, never attacker-controlled.
+      const authz = await getGoogleLinkPath()
+      if (!authz.success || !authz.path) {
+        throw new Error("link_not_authorized")
+      }
+      const supabase = createClient()
+      const { error } = await supabase.auth.linkIdentity({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}${authz.path}` },
+      })
+      if (error) throw error
+      // On success the browser leaves for Google; the callback completes linking.
+    } catch {
+      setLinkError("We couldn't connect this Google account. Please try again.")
+      setLinking(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1.5">
+      <Button variant="outline" size="sm" onClick={handleConnect} disabled={linking}>
+        {linking ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+        Connect Google
+      </Button>
+      {linkError ? (
+        <p className="text-xs text-destructive flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" />
+          {linkError}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+function SecuritySection({ email, googleConnected }: { email: string; googleConnected: boolean }) {
   return (
     <div className="space-y-4">
       <SectionCard title="Account Security" description="Password, sessions, and account recovery">
@@ -321,6 +376,17 @@ function SecuritySection({ email }: { email: string }) {
             <Button variant="outline" size="sm" disabled>
               Set Up
             </Button>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">Google</p>
+              <p className="text-xs text-muted-foreground">
+                {googleConnected
+                  ? "Your Google account is connected to this Dealenz account"
+                  : "Sign in with Google on this account"}
+              </p>
+            </div>
+            <GoogleConnectButton connected={googleConnected} />
           </div>
         </div>
       </SectionCard>

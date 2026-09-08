@@ -25,7 +25,7 @@ export interface CorpusSeed {
   status: "draft" | "verified" | "published" | "superseded" | "withdrawn"
   content: string
   applicability: {
-    dealTypes?: Array<"freelance" | "generic" | "lease">
+    dealTypes?: Array<"freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder">
     industries?: string[]
     structures?: string[]
     entityTypes?: string[]

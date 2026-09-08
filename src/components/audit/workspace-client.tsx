@@ -26,6 +26,8 @@ import { analyzeDeal, generateProtectionPackage, updateAudit, getClientProfiles 
 import { createConsultationRequest, getVerifiedLawyersCount } from "@/app/audit/[id]/consultation-actions"
 import { LawyerEscalationCard } from "@/components/audit/lawyer-escalation"
 import { ContextPanel } from "@/components/audit/context-panel"
+import { FindingsPanel, parsePersistedFindings } from "@/components/audit/findings-panel"
+import type { RuleResult } from "@/lib/rules/result"
 import { parseContextEnvelope, type ContextEnvelope } from "@/lib/context/schema"
 import type { ExtractedData } from "@/lib/ai/extract"
 import type { RiskReport } from "@/lib/risk/engine"
@@ -39,7 +41,7 @@ interface ClientProfile {
   email: string | null
 }
 
-type DealType = "freelance" | "generic" | "lease"
+type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder"
 
 interface AuditData {
   id: string
@@ -121,6 +123,9 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
   const [documents, setDocuments] = useState<GeneratedDocument[]>(
     ((audit.structured_data as Record<string, unknown>)?.generatedDocuments as GeneratedDocument[] | undefined) ?? []
   )
+  const [ruleResults, setRuleResults] = useState<RuleResult[]>(() =>
+    parsePersistedFindings((audit.structured_data as Record<string, unknown>)?.deterministicFindings)
+  )
   const [generating, setGenerating] = useState(false)
   const [showExtraction, setShowExtraction] = useState(false)
   const [consented, setConsented] = useState(audit.ai_consent)
@@ -150,9 +155,13 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
   const isFailed = audit.status === "failed" && !isAnalyzed
   const hasDocuments = documents.length > 0
   const dealTypeRaw = audit.deal_type as DealType
-  const dealType: DealType = dealTypeRaw === "generic" || dealTypeRaw === "lease" ? dealTypeRaw : "freelance"
-  // Lease analyses produce the adaptive generic-shaped report, so they share
-  // the generic report view; only freelance uses the 8-category view.
+  const dealType: DealType =
+    dealTypeRaw === "generic" || dealTypeRaw === "lease" || dealTypeRaw === "purchase_sale" || dealTypeRaw === "employment" || dealTypeRaw === "founder"
+      ? dealTypeRaw
+      : "freelance"
+  // Lease, purchase/sale, and employment analyses produce the adaptive
+  // generic-shaped report, so they share the generic report view; only
+  // freelance uses the 8-category view.
   const isGeneric = dealType !== "freelance"
   // Stored envelope validated defensively: malformed data renders as
   // "no context yet" and is reseeded by ensureContextForAnalysis on analyze.
@@ -359,6 +368,9 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
         setExtractedData(result.data)
         if (result.riskReport) {
           setRiskReport(result.riskReport)
+        }
+        if (Array.isArray(result.deterministicFindings)) {
+          setRuleResults(parsePersistedFindings(result.deterministicFindings))
         }
         const newTitle = makeTitleFromExtracted(result.data)
         if (defaultTitles.includes(audit.title) || defaultTitles.includes(editTitle)) {
@@ -673,7 +685,13 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
             {workspaceTab === "report" ? (
               <div className="space-y-8">
                 <GenericRiskReportView report={riskReport as GenericRiskReport} degraded={genericDegraded} />
+                <FindingsPanel auditId={audit.id} results={ruleResults} />
                 <NegotiationPointsView points={negotiationPoints} />
+                <div className="rounded-xl border border-border/60 bg-card p-5">
+                  <h3 className="text-sm font-semibold">Protection package</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">Coming soon for this deal type. You can still review the deal findings and ask questions about the deal.</p>
+                  <Link href={`/ask?deal=${encodeURIComponent(audit.id)}`} className="mt-3 inline-flex text-xs font-medium text-primary hover:underline">Ask about this deal →</Link>
+                </div>
                 {extractedData && (
                   <ErrorBoundary>
                     <div>
@@ -726,6 +744,8 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
           {workspaceTab === "report" ? (
             <div className="space-y-8">
               <RiskReportView report={riskReport as RiskReport} />
+
+              <FindingsPanel auditId={audit.id} results={ruleResults} />
 
               <LawyerEscalationCard
                 auditId={audit.id}

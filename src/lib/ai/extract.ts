@@ -48,7 +48,7 @@ function parseExtractedResponse(text: string): ExtractedData {
   }
 }
 
-export type DealType = "freelance" | "generic" | "lease"
+export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder"
 
 export interface ExtractionValidationResult {
   valid: boolean

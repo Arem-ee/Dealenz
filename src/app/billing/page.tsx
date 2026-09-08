@@ -2,6 +2,7 @@ import { CreditCard, Shield } from "lucide-react"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
+import { ReferralSection } from "@/components/referral-section"
 
 export const dynamic = "force-dynamic"
 
@@ -66,6 +67,20 @@ export default async function BillingPage() {
             </div>
           </div>
         </div>
+
+        <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <CreditCard className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium">Ask credits</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Deal analysis is free (5 per day, rate-limited). Ask conversations use credits: brief 1, standard 3, extended 8. Greetings cost 0.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <ReferralSection />
 
         <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm">
           <div className="flex items-center gap-3">
