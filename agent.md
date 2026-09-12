@@ -80,3 +80,28 @@ That means:
 - When a fix touches security, auth, or money (rate limits, billing),
   say so explicitly and explain the reasoning, even briefly — these are
   the places where a wrong assumption costs the most.
+
+## Auth-email test policy (production safety)
+
+Automated development and QA tests must not intentionally send
+transactional Auth emails (signup verification, password reset, magic
+link, email change) to fabricated, invalid, disposable, or unowned
+addresses through the live Supabase project. A prior browser-QA run
+created accounts with throwaway gmail addresses and triggered a
+bounce-rate warning — do not repeat that pattern.
+
+- Unit/integration tests: mock `@/lib/supabase/server` (existing
+  convention). Never point test fixtures at a live project URL.
+- Browser/UI-behavior runs: intercept `**/auth/v1/**` (see
+  `qa-safety.js` pattern) so submits exercise app error paths with zero
+  live traffic. Default-deny; no live Auth without an explicit decision.
+- Deliberate live Auth checks: only ever to `QA_OWNER_EMAIL` (an owned,
+  valid, receivable inbox), one address, one send per check. Never
+  generate addresses, never use example/gmail guesses, never re-run
+  signup/reset in a loop.
+- Prefer local Supabase (`supabase start`, Mailpit captures Auth mail)
+  for any flow that must observe a real email. This repo has no local
+  Supabase config yet — that is the correct next step before any
+  email-observing test work, not a custom harness.
+- Do not weaken email verification, password reset, or OAuth to reduce
+  sends. Do not delete Auth users outside a local project.

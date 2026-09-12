@@ -10,7 +10,7 @@ A document is one input, not the whole product. Users can also ask Dealenz quest
 
 Dealenz is an AI deal intelligence platform that helps users understand, evaluate, negotiate, and make decisions about deals. Dealenz works for the user, not for the deal: it optimizes for useful intelligence, not maximum token consumption, and credits pay for computation without buying favorable answers.
 
-This is a broadening from the original freelancer-only framing ("audit your client before you write the proposal"). That framing still describes the flagship, fully-built use case — but it's now one deal type among several, not the whole product.
+**Primary customer: founders and business owners.** Freelance is a supported vertical, not the product centre of gravity. Tier 1 is Founder + Partnership + company deals; Tier 2 is Purchase/Sale, Lease, Employment; Tier 3 is Freelance; Tier 4 is Generic fallback. The original freelancer-only framing ("audit your client before you write the proposal") described the initial vertical that established the architecture — it is now one supported vertical among several, not the canonical Dealenz experience. New product investment prioritises business-owner workflows and grounded legal intelligence (Nigeria/CAMA first, jurisdiction-extensible).
 
 ## Core Product Thesis
 
@@ -195,6 +195,8 @@ Balance          461
 
 Required capabilities: credit balances, immutable usage history, purchases, consumption, refunds/adjustments, entitlement/access checks, reconciliation, auditability.
 
+Minimal international purchase is implemented: provider-independent catalog (`src/lib/billing/catalog.ts`, starter/standard/pro in USD/GBP/EUR), Lemon Squeezy buy-link checkout + HMAC-verified webhook (`src/app/api/billing/*`), idempotent allocation through the existing ledger (`credit_purchases` `00037`, no second ledger). Lemon Squeezy is Merchant of Record, so no tax engine is implemented. Prices are provisional configuration, not approved commercial pricing; no subscriptions and no refunds automation yet. Live variant IDs and webhook secret are required production configuration (see `.env.example`).
+
 ## Pricing/Tiers
 
 Credits exist, but capabilities should not be arbitrarily crippled by traditional subscription tiers. Everyone conceptually has access to the same core Dealenz intelligence, subject to available credits and legitimate product/security constraints.
@@ -262,6 +264,8 @@ The architecture supports professional review as a monetizable Dealenz service. 
 - Other Dealenz-managed service models
 
 Dealenz receives revenue from professional-review services while maintaining ownership of the customer/deal experience. Do not design a lawyer marketplace.
+
+Money boundary (implemented): Dealenz software/credits run on Lemon Squeezy; lawyer professional services are recorded as service orders (`service_orders`, migration `00044`) and never touch the credit ledger. Credits cannot become money and money never becomes credits. Paystack is the planned rail for lawyer-service payments; no payout integration is implemented — quoted/paid/fulfilled order states and all payout/fee/tax/escrow rules are explicit future product decisions.
 
 ## Lawyer Workflow
 
@@ -396,6 +400,10 @@ Do NOT impose a simplistic universal hierarchy (statute > regulation > case law 
 
 Do not invent legal rules. Do not build a full legal CMS in this documentation phase.
 
+## Live Legal Research (International-First)
+
+Dealenz is international-first: US/UK/Europe are primary target markets; Nigeria is a supported jurisdiction, not the default. Legal research uses an authoritative-source allowlist (`src/lib/legal-research/allowlist.ts` + jurisdiction-keyed `registry.ts`): Tier 1 primary authority (e.g. Delaware Code, legislation.gov.uk, EUR-Lex, CAC/PLAC), Tier 2 authoritative databases, Tier 3 commentary never presented as primary law. Live web content is treated as DATA, never instructions: bounded retrieval (HTTPS-only, SSRF guards incl. metadata endpoints, per-hop redirect re-validation, content-type + byte caps, timeout) via `src/lib/legal-research/retrieval.ts`, default corpus-only unless `LEGAL_RESEARCH_LIVE=1` (server-only). AI synthesizes validated evidence rather than inventing law. Unsupported jurisdictions remain honestly unsupported (`NOT_FOUND`); unknown jurisdiction asks (`NEEDS_JURISDICTION`) instead of guessing. Legal research does not equal legal advice; lawyer review remains available for material uncertainty.
+
 ## Deal-Type Architecture
 
 Dealenz supports multiple deal categories. Existing freelance functionality is preserved.
@@ -471,11 +479,9 @@ Orders / Subscriptions / Transactions
 Payment Provider Adapter
 ```
 
-Potential providers: Lemon Squeezy, Stripe, Paystack, other appropriate providers.
+Implemented provider: Lemon Squeezy (buy-link checkout + HMAC-verified webhook, `src/lib/billing/provider.ts`; `credit_purchases` accepts `stripe` (historical) and `lemonsqueezy`, production path writes Lemon Squeezy only). Stripe was an earlier incorrect implementation and is removed from the live path; Paystack and other providers are not implemented.
 
 Evaluation criteria (international-first): international coverage, subscription support, credit purchases, one-time/recurring purchases, currencies, payout availability for a Nigeria-based company, Merchant of Record capabilities, tax/compliance burden, refunds, chargebacks, billing flexibility, professional-service compatibility, long-term scalability.
-
-The architecture remains replaceable. No final provider decision in this documentation phase.
 
 ## Software Payments vs Professional Services
 
@@ -602,17 +608,18 @@ Do not recommend throwing away working functionality without evidence.
 
 ## CURRENTLY OBSERVED (High-Level Repository Inspection)
 
-- **Freelance deal type**: Fully implemented end-to-end (intake → extraction → risk analysis → protection package generation → PDF export → e-signing)
-- **Generic deal type**: deterministic floor (7 rules + bucket) with AI summary kept
-- **Founder deal type**: 8 deterministic rules with Phase 21 floor, protection coming-soon
+- **Freelance deal type**: Fully implemented end-to-end (intake → extraction → risk analysis → protection intelligence + protection package generation → PDF export → e-signing)
+- **Lease/Purchase/Employment/Generic deal types**: deterministic protection intelligence (findings + negotiation points where applicable) with document generation honestly unavailable (freelance-only via `src/lib/protection` boundary)
+- **Founder/Partnership deal types (Tier 1)**: deterministic protection intelligence **plus** structured protection intents (`ProtectionIntent` per FAIL finding with priority, rationale, legal citation, variables→UNKNOWN) and curated clause suggestions (Founder 8, Partnership 8, structure-aware for LLP/LP/ordinary, drafting assistance labelled, `{{var}}` preserved) **plus** international document generation (`src/lib/documents` families `founder-agreement`/`llp-agreement` etc., `assembleDraft` jurisdiction-aware `Nigeria`/`Testland` neutral, `generateBusinessOwnerDraft` server action, `BusinessOwnerDocumentSection` UI: select family → confirm jurisdiction → resolve missing → review clauses → generate draft → provenance/legal citations → review/export/handoff)
+- **Document Generation boundary**: `canGenerateDocuments` — freelance → allowed via `src/lib/generate.ts`, founder/partnership → allowed via `src/lib/documents` business-owner pipeline (international, jurisdiction-explicit, `hasProtectionDraftSupport` true), other verticals → unavailable (tested per deal type; Founder/Partnership never route through Freelance)
 - **Referrals**: invite link + attribution on signup, reward on first completed analysis via credit ledger (reward amount provisional, pending sign-off)
 - **Landing page**: Anonymous Quick Review with mini-dashboard (paste/upload/describe → `/api/analyze-anonymous`)
 - **Authentication**: Supabase Auth (email/password + Google OAuth with explicit account linking), email verification required
-- **Database**: Supabase/Postgres with RLS on all tables, 33 forward migrations
+- **Database**: Supabase/Postgres with RLS on all tables, 35 forward migrations (`00034` Partnership, `00035` Nigeria CAMA/CAC corpus)
 - **AI Provider Layer**: Provider-agnostic interface with Gemini, OpenAI-compatible, and Anthropic Claude adapters
 - **Risk Engine**: 8 freelance categories (scope, payment, timeline, communication, revision, legal, IP, client behavior) with deterministic rules + AI fallback
 - **Document Generation**: Proposal → SOW → Contract → Checklist (sequential AI calls with template fallback)
-- **Lawyer Escalation**: Waitlist-based consultation requests with admin verification UI
+- **Lawyer Handoff**: Contextual Founder/Partnership “Have a lawyer review this deal” CTA after protection/document, `LawyerHandoffReview` panel showing what will be shared (deal type/jurisdiction, critical findings, protection intents, evidence, legal citations/provenance, draft + missing `{{var}}`, honest limitations), submits via existing `consultation_requests` with `handoff_snapshot` `00036` (preserves evidence/VERIFIED…NOT_FOUND, jurisdiction explicit, no Nigeria leak, structure-aware), waitlist vs requested based on verified lawyers
 - **Anonymous Analyze API**: `/api/analyze-anonymous` with IP+fingerprint rate limiting (3/hr)
 - **Landing Mini-Dashboard**: Paste/upload/describe → inline risk report
 - **Design System**: Mona Sans Variable, light theme (`#F2F0ED`/`#FDFBF9`), extreme glassmorphism (`glass-extreme` 40% white/40px blur)
@@ -642,9 +649,9 @@ Dealenz becomes a **deal intelligence, protection, professional-review, and exec
 
 | Phase | Focus |
 |-------|-------|
-| **Current** | Freelance (9 rules + 8-category engine) + Lease (9 rules, 00027) + Purchase/Sale (8 rules, 00029) + Employment (8 rules, 00030) + Founder (8 rules, 00032) + Generic deterministic floor + Google account linking + Referral MVP + Anonymous Quick Review + Lawyer waitlist + Context/Knowledge/Evidence/Conversation/Credits foundations |
-| **Next** | Knowledge corpus expansion + Lawyer workflow |
-| **Future** | Partnership + Full lawyer workflow |
+| **Current** | **Business-owner first + International docs + Lawyer handoff:** Founder + Partnership are Tier 1 first-class verticals (8 rules each, Nigeria CAMA/CAC legal corpus via `src/lib/legal-research` + `00035`, grounded Ask with citations, `src/lib/verticals/tier.ts` DealTypeSelector founder-first, `src/lib/protection` intents+8+8 clause library with `{{var}}` UNKNOWN, `src/lib/documents` international families `founder-agreement`/`llp-agreement` etc. jurisdiction-aware `Nigeria`/`Testland` neutral via `assembleDraft` + `generateBusinessOwnerDraft` server action + `BusinessOwnerDocumentSection` UI, `src/lib/consultation/handoff.ts` `HandoffPackage` + `00036` `handoff_snapshot` + `LawyerHandoffReview` CTA/review for Founder/Partnership); Lease/Purchase/Employment Tier 2 (8-9 rules); Freelance Tier 3 preserved (9 rules + 8-category engine, `src/lib/generate.ts` isolated, `canGenerateDocuments` freelance-only, `hasProtectionDraftSupport` for founder/partnership draft); Generic Tier 4 fallback (7 rules) + Google linking + Referral MVP + Anonymous Quick Review + Context/Knowledge/Evidence/Conversation/Credits + Protection intelligence/Documents split |
+| **Next** | Nigeria legal corpus expansion (contract, employment, property, IP, NDPA/NDPC, tax) + partnership LLP/LP/ordinary clause variants + execution-aware templates |
+| **Future** | Full lawyer marketplace + execution/monitoring + background jobs |
 | **Future** | Deal Execution (obligations, change orders, monitoring) |
 | **Future** | Client intelligence (repeat counterparties) + Relationship history |
 
@@ -660,7 +667,7 @@ Dealenz becomes a **deal intelligence, protection, professional-review, and exec
 6. **CI/CD pipeline** — No pipeline exists; need `npm test` wired first
 7. **Backup & recovery** — No stated RPO/RTO; relying on Supabase automated daily backups
 8. **Data retention policy** — No stated policy; need decision before real user data
-9. **Payment provider** — Lemon Squeezy vs Stripe vs Paystack — international coverage, MoR, tax/compliance
+9. **Payment provider economics** — Lemon Squeezy is implemented (Merchant of Record); remaining questions are payout availability and whether professional services need a separate mechanism — not provider selection
 10. **Professional services payment** — Separate mechanism from software credits?
 
 ---
