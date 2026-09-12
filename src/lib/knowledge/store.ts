@@ -2,12 +2,14 @@
 //
 // Reads go through RLS-governed queries (published rows are world-readable,
 // drafts are admin-visible only — see migration 00022). Writes are
-// admin-gated inside these functions via the caller's session metadata (same
-// is_admin convention as the lawyer verification flow), so no entry point can
-// accidentally expose privileged writes. There is no browser-facing ingestion
-// UI in this phase; these functions serve tests, future ops tooling, and a
-// future admin surface.
+// admin-gated inside these functions via server-controlled app_metadata
+// (same convention as the lawyer verification flow), so no entry point can
+// accidentally expose privileged writes and no caller can self-promote via
+// user_metadata. There is no browser-facing ingestion UI in this phase;
+// these functions serve tests, future ops tooling, and a future admin
+// surface.
 
+import { isAdminSessionUser } from "@/lib/auth/admin"
 import { parseKnowledgeItem, type KnowledgeItem, type KnowledgeStatus } from "./schema"
 
 // Minimal structural client surface. Both the real Supabase client and test
@@ -15,7 +17,7 @@ import { parseKnowledgeItem, type KnowledgeItem, type KnowledgeStatus } from "./
 export interface KnowledgeStoreClient {
   auth: {
     getUser(): Promise<{
-      data: { user: { id: string; user_metadata?: Record<string, unknown> | null } | null }
+      data: { user: { id: string; app_metadata?: Record<string, unknown> | null } | null }
     }>
   }
   from(table: string): any // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -26,8 +28,7 @@ type AnyClient = KnowledgeStoreClient
 async function requireAdmin(client: AnyClient) {
   const { data: { user } } = await client.auth.getUser()
   if (!user) throw new Error("You must be signed in")
-  const isAdmin = (user.user_metadata as Record<string, unknown> | null)?.is_admin === true
-  if (!isAdmin) throw new Error("Knowledge ingestion requires administrator access")
+  if (!isAdminSessionUser(user)) throw new Error("Knowledge ingestion requires administrator access")
   return user
 }
 

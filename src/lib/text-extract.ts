@@ -1,5 +1,6 @@
 import { PDFParse } from "pdf-parse"
 import mammoth from "mammoth"
+import { sniffUploadMime } from "@/lib/validation/files"
 
 const SUPPORTED_TYPES = [
   "application/pdf",
@@ -8,6 +9,15 @@ const SUPPORTED_TYPES = [
 ]
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
+
+// Aggregate cap across all files in one analysis request: 10 files x 10MB
+// must never mean 100MB resident per request.
+export const MAX_TOTAL_UPLOAD_BYTES = 30 * 1024 * 1024
+
+// Decompression guard: a small archive can expand enormously (zip bomb).
+// Reject explicitly rather than silently truncating and analyzing a slice
+// as if it were the whole document.
+export const MAX_EXTRACTED_CHARS = 500_000
 
 export function isSupportedFileType(mimeType: string): boolean {
   return SUPPORTED_TYPES.includes(mimeType)
@@ -33,23 +43,41 @@ export async function extractTextFromBuffer(
     throw new Error(`File exceeds maximum size of ${MAX_FILE_SIZE / 1024 / 1024}MB`)
   }
 
+  // Never trust the client-supplied MIME or extension alone: the bytes must
+  // recognizably match the declared type.
+  const sniffed = sniffUploadMime(buffer)
+  if (sniffed !== mimeType) {
+    throw new Error("File content does not match its declared type")
+  }
+
+  let text: string
   switch (mimeType) {
     case "application/pdf": {
       const parser = new PDFParse({ data: buffer, verbosity: 0 })
       const result = await parser.getText()
-      return result.text || ""
+      text = result.text || ""
+      break
     }
 
     case "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
       const result = await mammoth.extractRawText({ buffer })
-      return result.value || ""
+      text = result.value || ""
+      break
     }
 
     case "text/plain": {
-      return buffer.toString("utf-8")
+      text = buffer.toString("utf-8")
+      break
     }
 
     default:
       throw new Error(`Unsupported file type: ${mimeType}`)
   }
+
+  if (text.length > MAX_EXTRACTED_CHARS) {
+    throw new Error(
+      `Extracted text exceeds the ${MAX_EXTRACTED_CHARS.toLocaleString()}-character limit; split the document and retry`
+    )
+  }
+  return text
 }

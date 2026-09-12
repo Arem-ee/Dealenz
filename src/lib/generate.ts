@@ -1,7 +1,7 @@
 import { callAISurface, type AISurface } from "@/lib/ai/client"
 import type { ExtractedData } from "@/lib/ai/extract"
 import type { RiskReport, RiskCategory } from "@/lib/risk/engine"
-import { buildProposalPrompt, buildSowPrompt, buildContractPrompt, buildChecklistPrompt } from "@/lib/ai/prompts"
+import { buildProposalPrompt, buildSowPrompt, buildContractPrompt, buildChecklistPrompt, referenceBlock } from "@/lib/ai/prompts"
 
 export type DocumentType = "proposal" | "sow" | "contract" | "checklist"
 export type DocumentMethod = "ai" | "template"
@@ -226,23 +226,42 @@ function generateChecklist(data: ExtractedData, report: RiskReport): string {
   return lines.join("\n")
 }
 
+export interface GenerateFallbackInfo {
+  document: "proposal" | "sow" | "contract" | "checklist"
+  surface: AISurface
+}
+
 export async function generateDocuments(
   data: ExtractedData,
   report: RiskReport,
-  surface: AISurface = "authenticated"
+  surface: AISurface = "authenticated",
+  // Optional degradation hook so server callers with database access can
+  // record template fallbacks durably. Console remains for dev visibility.
+  onFallback?: (info: GenerateFallbackInfo) => void
 ): Promise<GeneratedDocMap> {
+  const noteFallback = (document: GenerateFallbackInfo["document"]) => {
+    try {
+      onFallback?.({ document, surface })
+    } catch {
+      // Observability must never break generation.
+    }
+  }
   // 1. Proposal — no prior documents needed
   let proposalContent: string
   let proposalMethod: DocumentMethod
+  // Extracted deal content travels in the user role only (delimited); the
+  // system prompt carries instructions plus deterministic risk scalars.
+  const dealReference = referenceBlock("extracted-deal-data", JSON.stringify(data))
   try {
     const { text } = await callAISurface(surface, {
-      systemPrompt: buildProposalPrompt(data, report),
-      userContent: JSON.stringify({ goals: data.goals, deliverables: data.deliverables, timeline: data.timeline, budget: data.budget, projectType: data.projectType }),
+      systemPrompt: buildProposalPrompt(report),
+      userContent: dealReference,
     })
     proposalContent = text
     proposalMethod = "ai"
   } catch (err) {
     console.error("Proposal generation via AI failed, using template:", err instanceof Error ? err.message : err)
+    noteFallback("proposal")
     proposalContent = generateProposal(data)
     proposalMethod = "template"
   }
@@ -252,13 +271,14 @@ export async function generateDocuments(
   let sowMethod: DocumentMethod
   try {
     const { text } = await callAISurface(surface, {
-      systemPrompt: buildSowPrompt(data, report, proposalContent),
-      userContent: JSON.stringify({ goals: data.goals, deliverables: data.deliverables, timeline: data.timeline, budget: data.budget, projectType: data.projectType }),
+      systemPrompt: buildSowPrompt(report),
+      userContent: [dealReference, referenceBlock("prior-proposal-draft", proposalContent.slice(0, 3000))].join("\n\n"),
     })
     sowContent = text
     sowMethod = "ai"
   } catch (err) {
     console.error("SOW generation via AI failed, using template:", err instanceof Error ? err.message : err)
+    noteFallback("sow")
     sowContent = generateSow(data, report)
     sowMethod = "template"
   }
@@ -268,13 +288,14 @@ export async function generateDocuments(
   let contractMethod: DocumentMethod
   try {
     const { text } = await callAISurface(surface, {
-      systemPrompt: buildContractPrompt(data, report, proposalContent, sowContent),
-      userContent: JSON.stringify({ goals: data.goals, deliverables: data.deliverables, timeline: data.timeline, budget: data.budget, projectType: data.projectType }),
+      systemPrompt: buildContractPrompt(report),
+      userContent: [dealReference, referenceBlock("prior-proposal-draft", proposalContent.slice(0, 3000)), referenceBlock("prior-sow-draft", sowContent.slice(0, 2000))].join("\n\n"),
     })
     contractContent = text
     contractMethod = "ai"
   } catch (err) {
     console.error("Contract generation via AI failed, using template:", err instanceof Error ? err.message : err)
+    noteFallback("contract")
     contractContent = generateContract(data, report)
     contractMethod = "template"
   }
@@ -284,13 +305,14 @@ export async function generateDocuments(
   let checklistMethod: DocumentMethod
   try {
     const { text } = await callAISurface(surface, {
-      systemPrompt: buildChecklistPrompt(data, report, proposalContent, sowContent, contractContent),
-      userContent: JSON.stringify({ goals: data.goals, deliverables: data.deliverables, timeline: data.timeline }),
+      systemPrompt: buildChecklistPrompt(),
+      userContent: [dealReference, referenceBlock("prior-contract-draft", contractContent.slice(0, 1500))].join("\n\n"),
     })
     checklistContent = text
     checklistMethod = "ai"
   } catch (err) {
     console.error("Checklist generation via AI failed, using template:", err instanceof Error ? err.message : err)
+    noteFallback("checklist")
     checklistContent = generateChecklist(data, report)
     checklistMethod = "template"
   }

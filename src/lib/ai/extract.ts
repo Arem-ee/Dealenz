@@ -29,7 +29,15 @@ function extractJson(text: string): string {
     return text.slice(start, end + 1)
   }
 
-  throw new Error("No JSON object found in Gemini response")
+  throw new Error("No JSON object found in model response")
+}
+
+function stringArray(value: unknown): string[] {
+  // Model output is untrusted: non-string items are dropped rather than
+  // coerced (String({}) would inject "[object Object]" into facts, and raw
+  // items crash downstream .trim() calls).
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === "string")
 }
 
 function parseExtractedResponse(text: string): ExtractedData {
@@ -37,18 +45,18 @@ function parseExtractedResponse(text: string): ExtractedData {
   const parsed = JSON.parse(cleaned)
 
   return {
-    goals: Array.isArray(parsed.goals) ? parsed.goals : [],
-    deliverables: Array.isArray(parsed.deliverables) ? parsed.deliverables : [],
+    goals: stringArray(parsed.goals),
+    deliverables: stringArray(parsed.deliverables),
     timeline: typeof parsed.timeline === "string" ? parsed.timeline : null,
     budget: typeof parsed.budget === "string" ? parsed.budget : null,
     projectType: typeof parsed.projectType === "string" ? parsed.projectType : null,
-    clientSignals: Array.isArray(parsed.clientSignals) ? parsed.clientSignals : [],
-    missingInformation: Array.isArray(parsed.missingInformation) ? parsed.missingInformation : [],
+    clientSignals: stringArray(parsed.clientSignals),
+    missingInformation: stringArray(parsed.missingInformation),
     confidence: typeof parsed.confidence === "number" ? Math.min(1, Math.max(0, parsed.confidence)) : 0,
   }
 }
 
-export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder"
+export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership"
 
 export interface ExtractionValidationResult {
   valid: boolean

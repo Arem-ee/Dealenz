@@ -30,11 +30,11 @@ export function jurisdictionMatches(item: KnowledgeItem, contextJurisdiction: st
   return normalizePlace(item.jurisdiction.code as string) === normalizePlace(contextJurisdiction)
 }
 
-function dealTypeOf(envelope: ContextEnvelope): "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | null {
+function dealTypeOf(envelope: ContextEnvelope): "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership" | null {
   const field = envelope.fields.dealType
   if (field.source === "unknown" || field.value === null) return null
   // Cast is safe: DealType is the closed union from context/schema.ts
-  return field.value as "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder"
+  return field.value as "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership"
 }
 
 function knownValue<T>(value: T | null, source: string): T | null {

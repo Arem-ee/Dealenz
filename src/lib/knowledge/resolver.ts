@@ -33,7 +33,7 @@ export interface KnowledgeCandidate {
   // Deal-type scope from the item's applicability block, when constrained.
   // Absent means unconstrained. Carried so verticals can filter without
   // re-resolving; it never decides eligibility by itself.
-  applicabilityDealTypes?: Array<"freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder">
+  applicabilityDealTypes?: Array<"freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership">
 }
 
 export interface ResolveOptions {
