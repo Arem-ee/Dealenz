@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { rateLimitFor } from "@/lib/rate-limit"
 
 export async function searchDeals(query: string) {
   const supabase = await createClient()
@@ -67,7 +68,12 @@ export async function getUsageStats() {
     .eq("user_id", user.id)
     .eq("date", today)
 
-  const stats = { analyzeDeal: 0, generateProtectionPackage: 0 }
+  const stats = {
+    analyzeDeal: 0,
+    generateProtectionPackage: 0,
+    analyzeLimit: rateLimitFor("analyzeDeal"),
+    generationLimit: rateLimitFor("generateProtectionPackage"),
+  }
   if (data) {
     for (const row of data) {
       if (row.action_type === "analyzeDeal") stats.analyzeDeal = row.count

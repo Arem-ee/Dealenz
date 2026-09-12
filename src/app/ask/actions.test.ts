@@ -147,8 +147,18 @@ describe("ask actions security", () => {
     expect(call).not.toHaveProperty("knowledgeSources")
   })
 
-  it("keeps provider credentials out of the client bundle", () => {
-    for (const file of ["src/components/ask/ask-client.tsx", "src/app/ask/page.tsx"]) {
+  it("sanitizes provider failures before they reach the client", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+    mockFrom.mockImplementation(() => tableMock({ data: { id: "audit-1" }, error: null }))
+    vi.mocked(answerQuestion).mockRejectedValueOnce(new Error("Gemini request failed - HTTP 503"))
+    const err = await askQuestionAction({ text: "Review this.", auditId: "audit-1" }).catch((e) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(String(err.message)).not.toMatch(/gemini/i)
+    expect(String(err.message)).not.toMatch(/503/)
+    expect(String(err.message)).toMatch(/nothing was charged/)
+  })
+
+  it("keeps provider credentials out of the client bundle", () => {    for (const file of ["src/components/ask/ask-client.tsx", "src/app/ask/page.tsx"]) {
       const source = readFileSync(file, "utf8")
       for (const banned of ["ANTHROPIC_API_KEY", "AI_API_KEY", "sk-ant-", "Bearer ", "x-api-key"]) {
         expect(source).not.toContain(banned)

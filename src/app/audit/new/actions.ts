@@ -5,7 +5,7 @@ import { redirect } from "next/navigation"
 import { seedEnvelopeForDealType } from "@/lib/context"
 import { normalizeDealType } from "@/lib/deal-type"
 
-export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder"
+export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership"
 
 export async function createAudit(template?: string, dealTypeInput?: string) {
   const supabase = await createClient()

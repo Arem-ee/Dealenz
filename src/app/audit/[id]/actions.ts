@@ -18,10 +18,15 @@ import {
 import { verticalForDealType } from "@/lib/verticals"
 import { attachEvidence } from "@/lib/evidence"
 import type { GenericRiskReport } from "@/lib/ai/risk-analysis"
+import { assembleDraft } from "@/lib/documents/assembly"
+import { familyById } from "@/lib/documents/families"
+import type { DraftDocument } from "@/lib/documents/types"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { bucketForGenericFindings } from "@/lib/verticals/generic/rules"
 import { deterministicRiskFloor, floorExceedsDisplay } from "@/lib/rules/result"
-import { logEvent, logDuration } from "@/lib/logger"
+import { canGenerateDocuments } from "@/lib/protection"
+import { logEvent, logDuration, reportAIFallback, reportError } from "@/lib/logger"
+import { publicErrorMessage } from "@/lib/safe-error"
 import type { ExtractedData } from "@/lib/ai/extract"
 import type { RiskReport } from "@/lib/risk/engine"
 import type { GeneratedDocument } from "@/lib/generate"
@@ -192,8 +197,22 @@ export async function attachFileMetadata(
   }
 
   if (!isValidUUID(auditId)) throw new Error("Invalid audit ID")
-  const expectedPrefix = `audit-files/${user.id}/${auditId}/`
-  if (!fileData.path.startsWith(expectedPrefix)) {
+  // Server-authoritative file validation: sanitize the name, then require
+  // the exact owner-scoped path (no prefix-only match, no nested keys).
+  const { sanitizeFilename } = await import("@/lib/validation/files")
+  const { isSupportedFileType, isValidFileSize } = await import("@/lib/text-extract")
+  const safeName = sanitizeFilename(fileData.name)
+  if (fileData.name !== safeName) {
+    throw new Error("Invalid file name")
+  }
+  if (typeof fileData.size !== "number" || !isValidFileSize(fileData.size)) {
+    throw new Error("Invalid file size")
+  }
+  if (typeof fileData.type !== "string" || !isSupportedFileType(fileData.type)) {
+    throw new Error("Unsupported file type")
+  }
+  const expectedPath = `audit-files/${user.id}/${auditId}/${safeName}`
+  if (fileData.path !== expectedPath) {
     throw new Error("Invalid file path")
   }
 
@@ -470,7 +489,8 @@ export async function analyzeDeal(
       dealTypeRaw === "lease" ||
       dealTypeRaw === "purchase_sale" ||
       dealTypeRaw === "employment" ||
-      dealTypeRaw === "founder"
+      dealTypeRaw === "founder" ||
+      dealTypeRaw === "partnership"
         ? dealTypeRaw
         : "freelance"
     const validation = await extractAndValidate(combinedInput, dealType)
@@ -545,12 +565,13 @@ export async function analyzeDeal(
         throw riskErr
       }
       if (usedFallback) {
-        await logEvent({
-          audit_id: auditId,
-          user_id: user.id,
-          phase: "risk_fallback",
-          status: "success",
-          error_message: "Gemini risk analysis failed, rule engine fallback used",
+        await reportAIFallback(supabase, {
+          surface: "authenticated",
+          provider: "risk-analysis",
+          operation: "risk",
+          servedByFallback: true,
+          userId: user.id,
+          auditId,
         })
       }
     }
@@ -621,7 +642,8 @@ export async function analyzeDeal(
         (dealType === "lease" ||
           dealType === "purchase_sale" ||
           dealType === "employment" ||
-          dealType === "founder") &&
+          dealType === "founder" ||
+          dealType === "partnership") &&
         riskReport
       ) {
         const floor = deterministicRiskFloor(ruleResults)
@@ -781,7 +803,8 @@ export async function analyzeDeal(
 
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Analysis failed",
+      // Raw provider errors never reach the client; the failure is logged above.
+      error: publicErrorMessage(err, "Analysis failed. Please try again."),
     }
   }
 }
@@ -818,10 +841,11 @@ export async function generateProtectionPackage(
     auditDealTypeRaw === "lease" ||
     auditDealTypeRaw === "purchase_sale" ||
     auditDealTypeRaw === "employment" ||
-    auditDealTypeRaw === "founder"
+    auditDealTypeRaw === "founder" ||
+    auditDealTypeRaw === "partnership"
       ? auditDealTypeRaw
       : "freelance"
-  if (auditDealType !== "freelance") {
+  if (!canGenerateDocuments(auditDealType)) {
     return { success: false, error: "Protection package is available for freelance deals only. For this agreement, review the risk report and negotiation points." }
   }
 
@@ -848,7 +872,18 @@ export async function generateProtectionPackage(
   })
 
   try {
-    const docMap = await generateDocuments(extractedData, riskReport)
+    const docMap = await generateDocuments(extractedData, riskReport, "authenticated", (info) => {
+      // Durable template-fallback record; fire-and-forget so generation
+      // latency is unaffected. Metadata only, never document content.
+      void reportAIFallback(supabase, {
+        surface: "authenticated",
+        provider: "document-generation",
+        operation: `generate:${info.document}`,
+        servedByFallback: true,
+        userId: user.id,
+        auditId,
+      })
+    })
     const { data: businessProfile } = await supabase
       .from("business_profiles")
       .select("business_name, legal_entity, address, city, country, email, phone, website, default_currency, default_payment_terms, standard_rate, rate_unit")
@@ -975,8 +1010,166 @@ export async function generateProtectionPackage(
 
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Generation failed",
+      error: publicErrorMessage(err, "Generation failed. Please try again."),
     }
+  }
+}
+
+export async function generateBusinessOwnerDraft(
+  auditId: string,
+  familyId: string,
+  jurisdictionCountry: string,
+  variables: Record<string, string>
+): Promise<{ success: boolean; draft?: DraftDocument; error?: string }> {
+  const startMs = Date.now()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user || !isValidUUID(user.id)) {
+    return { success: false, error: "Unauthorized" }
+  }
+  if (!user.email_confirmed_at) {
+    return { success: false, error: "Please verify your email address before using this feature." }
+  }
+  if (!auditId || !isValidUUID(auditId)) {
+    return { success: false, error: "Invalid audit ID" }
+  }
+  if (!familyId || typeof familyId !== "string") {
+    return { success: false, error: "Document family is required." }
+  }
+  if (!jurisdictionCountry || typeof jurisdictionCountry !== "string" || jurisdictionCountry.trim().length === 0) {
+    return { success: false, error: "Jurisdiction is required. Select the country whose law should inform this draft." }
+  }
+
+  const family = familyById(familyId)
+  if (!family) {
+    return { success: false, error: "Unknown document family." }
+  }
+
+  const { data: audit } = await supabase.from("audits").select("*").eq("id", auditId).eq("user_id", user.id).single()
+  if (!audit) {
+    return { success: false, error: "Audit not found" }
+  }
+  const auditDealTypeRaw = (audit as Record<string, unknown>).deal_type as string
+  const DRAFT_SUPPORTED_DEAL_TYPES = ["founder", "partnership", "purchase_sale", "lease", "employment"] as const
+  const auditDealType = (DRAFT_SUPPORTED_DEAL_TYPES as readonly string[]).includes(auditDealTypeRaw) ? auditDealTypeRaw : null
+  if (!auditDealType || !family.dealTypes.includes(auditDealType as never)) {
+    return { success: false, error: `Family ${familyId} does not support deal type ${auditDealTypeRaw}.` }
+  }
+
+  // Rate limit: reuse generation limit (10/day) to avoid second ledger
+  {
+    const rate = await checkRateLimit("generateProtectionPackage")
+    if (!rate.allowed) {
+      return { success: false, error: rate.error ?? "Rate limit check failed. Please try again." }
+    }
+  }
+
+  // Load persisted findings (authoritative) — do not re-derive without evidence
+  const structured = audit.structured_data as Record<string, unknown> | null
+  const persistedFindings = (structured?.deterministicFindings as unknown) ?? []
+  const findings = Array.isArray(persistedFindings) ? (persistedFindings as RuleResult[]) : []
+
+  // Partnership structure for honest handling (LLP/LP/ordinary/UNKNOWN)
+  let partnershipStructure: string | null = null
+  if (auditDealType === "partnership") {
+    const raw = (audit.raw_input as string | null) ?? ""
+    // Minimal structure hint from facts would be ideal, but we can derive from raw + findings without inventing
+    // For Phase 28, use variables or raw text hint; if absent, UNKNOWN
+    partnershipStructure = (variables.partnership_structure as string) || null
+    if (!partnershipStructure) {
+      const lower = raw.toLowerCase()
+      if (lower.includes("llp") || lower.includes("limited liability partnership")) partnershipStructure = "LLP"
+      else if (lower.includes("limited partnership")) partnershipStructure = "LP"
+      else if (lower.includes("partnership")) partnershipStructure = "ordinary partnership"
+      else partnershipStructure = null
+    }
+  }
+
+  try {
+    const result = assembleDraft(
+      {
+        familyId: family.id,
+        dealType: auditDealType,
+        jurisdiction: { country: jurisdictionCountry.trim(), region: null },
+        findings,
+        variables,
+        partnershipStructure,
+      },
+      new Date()
+    )
+
+    await logEvent({
+      audit_id: auditId,
+      user_id: user.id,
+      phase: "business_owner_draft",
+      status: "success",
+      error_message: `${family.id} for ${auditDealType} in ${jurisdictionCountry}: ${result.missingVariables.length} missing`,
+      duration_ms: logDuration(startMs),
+    })
+
+    // Persist draft as a document_version for review/export/handoff (familyId
+    // as document_type; migration 00042 allows the family ids). Persistence
+    // stays best-effort for the returned draft, but failures are now visible
+    // (previously swallowed silently, so drafts were never actually stored).
+    const readMaxVersion = async (): Promise<number> => {
+      const { data: existing } = await supabase
+        .from("document_versions")
+        .select("version_number")
+        .eq("audit_id", auditId)
+        .eq("document_type", family.id)
+        .order("version_number", { ascending: false })
+        .limit(1)
+        .maybeSingle<{ version_number: number }>()
+      return existing !== null && typeof existing.version_number === "number"
+        ? existing.version_number + 1
+        : 1
+    }
+    const persistVersion = async (versionNumber: number) =>
+      supabase.from("document_versions").insert({
+        audit_id: auditId,
+        user_id: user.id,
+        document_type: family.id,
+        version_number: versionNumber,
+        content: result.draft.markdown,
+        generation_method: "assembled",
+        created_at: new Date().toISOString(),
+      })
+    try {
+      const { error } = await persistVersion(await readMaxVersion())
+      if (error) {
+        // Concurrent generation can collide on version_number (now unique):
+        // re-read and retry once instead of forking history.
+        const msg = error.message?.toLowerCase() ?? ""
+        if (msg.includes("duplicate") || msg.includes("unique")) {
+          const { error: retryError } = await persistVersion(await readMaxVersion())
+          if (retryError) throw retryError
+        } else {
+          throw error
+        }
+      }
+    } catch (err) {
+      await reportError(supabase, {
+        phase: "business_owner_draft_persist",
+        error: err,
+        details: { family: family.id, dealType: auditDealType },
+        severity: "warn",
+        userId: user.id,
+        auditId,
+      })
+    }
+
+    return { success: true, draft: result.draft }
+  } catch (err) {
+    await logEvent({
+      audit_id: auditId,
+      user_id: user.id,
+      phase: "business_owner_draft",
+      status: "failure",
+      error_message: err instanceof Error ? err.message : "Draft generation failed",
+      duration_ms: logDuration(startMs),
+    })
+    return { success: false, error: publicErrorMessage(err, "Draft generation failed. Please try again.") }
   }
 }
 

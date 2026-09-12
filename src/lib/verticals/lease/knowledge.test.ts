@@ -22,8 +22,16 @@ function candidate(overrides: Partial<KnowledgeCandidate> = {}): KnowledgeCandid
 }
 
 describe("lease knowledge hooks", () => {
-  it("curates no keys while no lease sources exist", () => {
-    expect(LEASE_KNOWLEDGE_KEYS).toEqual([])
+  it("curates verified lease keys (migration 00038, US/UK/DE/FR/NL)", () => {
+    expect(LEASE_KNOWLEDGE_KEYS).toContain("us-ca-civil-tenancy")
+    expect(LEASE_KNOWLEDGE_KEYS).toContain("uk-landlord-tenant-1954")
+    expect(LEASE_KNOWLEDGE_KEYS).toContain("de-bgb-contracts")
+    expect(LEASE_KNOWLEDGE_KEYS).toContain("fr-code-civil-contracts")
+    expect(LEASE_KNOWLEDGE_KEYS).toContain("nl-bw-contracts")
+    // Scoped prefixes only, never synthetic lookalikes
+    for (const key of LEASE_KNOWLEDGE_KEYS) {
+      expect(key).toMatch(/^(us|uk|eu|de|fr|nl)-/)
+    }
   })
 
   it("keeps unconstrained and lease-scoped candidates, drops others", () => {

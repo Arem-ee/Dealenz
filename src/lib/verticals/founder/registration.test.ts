@@ -7,8 +7,8 @@ import { normalizeAnonymousDealType, normalizeDealType } from "@/lib/deal-type"
 describe("founder registration", () => {
   it("resolves founder through the single dispatcher", () => {
     expect(verticalForDealType("founder")?.key).toBe("founder")
+    expect(verticalForDealType("partnership")?.key).toBe("partnership")
     expect(verticalForDealType("unknown")).toBeNull()
-    expect(verticalForDealType("partnership")).toBeNull()
   })
 
   it("normalizes founder in authenticated paths (context + audit creation share one helper)", () => {

@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   keywords: ["freelance", "contract audit", "risk assessment", "scope protection", "AI auditor"],
   authors: [{ name: "Dealenz" }],
   robots: { index: true, follow: true },
+  icons: { icon: "/favicon.svg" },
   openGraph: {
     title: "Dealenz — Know the Risk Before You Sign",
     description:

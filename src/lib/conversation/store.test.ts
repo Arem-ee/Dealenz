@@ -16,6 +16,9 @@ describe("conversation store", () => {
 })
 
 describe("estimateAskCredits", () => {
+  // Generous timeout: this test dynamically imports the large ask-actions
+  // module graph, whose transform can exceed the default 5s under full-suite
+  // parallel load. Assertions unchanged.
   it("predicts costs per operation tier and is zero for greetings", async () => {
     const { estimateAskCredits } = await import("@/app/ask/actions")
     // This is a server action, but the estimation logic is pure; we test via
@@ -28,7 +31,7 @@ describe("estimateAskCredits", () => {
     expect(await estimateAskCredits("Hello", false)).toBe(0)
     expect(await estimateAskCredits("What does net 30 mean?", false)).toBe(1)
     expect(await estimateAskCredits("Should I accept this freelance contract?", true)).toBe(3)
-  })
+  }, 20000)
 })
 
 function mockClient(tableData: Record<string, unknown[]> = {}) {

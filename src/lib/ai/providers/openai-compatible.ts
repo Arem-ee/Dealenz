@@ -72,12 +72,18 @@ export async function callOpenAICompatible(params: OpenAICompatibleCallParams): 
 
     if (!response.ok) {
       const errorBody = await response.text()
-      console.error("[OpenAI-compatible] HTTP", response.status, "Request body was:", {
+      // Metadata only: provider error bodies can echo request content, so
+      // the body itself is truncated hard and never logged in full.
+      console.error(JSON.stringify({
+        event: "ai_provider_failure",
+        surface: "openai_compatible",
+        provider: "openai_compatible",
         model,
+        status: response.status,
         systemPromptLength: systemPrompt.length,
         userContentLength: userContent.length,
-        errorBody,
-      })
+        errorBody: errorBody.slice(0, 500),
+      }))
       throw new Error(`OpenAI-compatible request failed — HTTP ${response.status}`)
     }
 
@@ -88,7 +94,17 @@ export async function callOpenAICompatible(params: OpenAICompatibleCallParams): 
       result?.content
 
     if (typeof text !== "string" || !text.trim()) {
-      console.error("[OpenAI-compatible] Unexpected response shape:", JSON.stringify(result).slice(0, 1000))
+      // Shape keys only: model output may contain deal content and must
+      // never reach logs.
+      const shape =
+        result && typeof result === "object" ? Object.keys(result as Record<string, unknown>) : []
+      console.error(JSON.stringify({
+        event: "ai_malformed_response",
+        surface: "openai_compatible",
+        provider: "openai_compatible",
+        model,
+        responseKeys: shape.slice(0, 10),
+      }))
       throw new Error("OpenAI-compatible provider returned an empty response")
     }
 

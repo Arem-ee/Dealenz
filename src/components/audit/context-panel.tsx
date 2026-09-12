@@ -176,8 +176,8 @@ export function ContextPanel({ auditId, dealType, initialEnvelope }: ContextPane
         <span
           className={cn(
             "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium",
-            gate.state === "READY" && "bg-emerald-100 text-emerald-800",
-            gate.state === "NEEDS_CONFIRMATION" && "bg-amber-100 text-amber-800",
+            gate.state === "READY" && "bg-success/10 text-success",
+            gate.state === "NEEDS_CONFIRMATION" && "bg-warning/15 text-warning-foreground",
             gate.state === "MISSING_REQUIRED_CONTEXT" && "bg-muted text-muted-foreground"
           )}
         >
@@ -263,8 +263,8 @@ export function ContextPanel({ auditId, dealType, initialEnvelope }: ContextPane
                   <span
                     className={cn(
                       "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                      source === "user_confirmed" && "bg-emerald-100 text-emerald-800",
-                      source === "inferred" && "bg-amber-100 text-amber-800",
+                      source === "user_confirmed" && "bg-success/10 text-success",
+                      source === "inferred" && "bg-warning/15 text-warning-foreground",
                       source === "unknown" && "bg-muted text-muted-foreground"
                     )}
                   >

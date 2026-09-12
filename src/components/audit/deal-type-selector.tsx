@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils"
 
-export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder"
+export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership"
 
 interface DealTypeSelectorProps {
   value: DealType | null
@@ -11,9 +11,14 @@ interface DealTypeSelectorProps {
 
 const OPTIONS: Array<{ value: DealType; label: string; description: string }> = [
   {
-    value: "freelance",
-    label: "Freelance or client work",
-    description: "Proposal, scope, contract and checklist for work you will deliver",
+    value: "founder",
+    label: "Founder or startup",
+    description: "A co-founder agreement where ownership, vesting, and control matter",
+  },
+  {
+    value: "partnership",
+    label: "Partnership",
+    description: "A business partnership where contributions, profit share, and control matter",
   },
   {
     value: "purchase_sale",
@@ -21,24 +26,24 @@ const OPTIONS: Array<{ value: DealType; label: string; description: string }> = 
     description: "Buying or selling an item, asset, or business where price and handover matter",
   },
   {
+    value: "lease",
+    label: "Lease or rental",
+    description: "A commercial or residential lease you are reviewing before signing",
+  },
+  {
     value: "employment",
     label: "Employment",
     description: "An employment offer or contract where role, pay, and protections matter",
   },
   {
-    value: "founder",
-    label: "Founder or startup",
-    description: "A co-founder agreement where ownership, vesting, and control matter",
+    value: "freelance",
+    label: "Freelance or client work",
+    description: "Proposal, scope, contract and checklist for work you will deliver",
   },
   {
     value: "generic",
     label: "Any other agreement",
-    description: "A partnership or other agreement you are reviewing before signing",
-  },
-  {
-    value: "lease",
-    label: "Lease or rental",
-    description: "A commercial or residential lease you are reviewing before signing",
+    description: "Any other agreement you are reviewing before signing",
   },
 ]
 

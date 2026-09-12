@@ -6,6 +6,7 @@ import { FileText, Loader2, Trash2, Upload, X } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { sanitizeFilename } from "@/lib/validation/files"
 import { attachFileMetadata, removeFileMetadata, logAuditEvent } from "@/app/audit/[id]/actions"
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".txt"]
@@ -57,7 +58,11 @@ export function FileUpload({ auditId, userId, initialFiles }: FileUploadProps) {
     setProgress(0)
 
     try {
-      const filePath = `${userId}/${auditId}/${file.name}`
+      // Sanitize before storage so the stored key can never contain path
+      // traversal, control characters, or oversized names. The server
+      // re-validates and rejects anything that is not exactly this form.
+      const safeName = sanitizeFilename(file.name)
+      const filePath = `${userId}/${auditId}/${safeName}`
       const storagePath = `audit-files/${filePath}`
 
       const { error: uploadError } = await supabase.storage
@@ -72,7 +77,7 @@ export function FileUpload({ auditId, userId, initialFiles }: FileUploadProps) {
       setProgress(100)
 
       const updatedFiles = await attachFileMetadata(auditId, {
-        name: file.name,
+        name: safeName,
         size: file.size,
         type: file.type,
         path: storagePath,

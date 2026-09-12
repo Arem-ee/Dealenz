@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest"
 import { registeredVerticalKeys, verticalForDealType } from "./index"
 
 describe("vertical dispatcher", () => {
-  it("resolves freelance, lease, purchase_sale, employment, generic, and founder packs and nothing else", () => {
-    expect(registeredVerticalKeys().sort()).toEqual(["employment", "founder", "freelance", "generic", "lease", "purchase_sale"])
+  it("resolves freelance, lease, purchase_sale, employment, generic, founder, and partnership packs and nothing else", () => {
+    expect(registeredVerticalKeys().sort()).toEqual(["employment", "founder", "freelance", "generic", "lease", "partnership", "purchase_sale"])
     const freelance = verticalForDealType("freelance")
     expect(freelance?.key).toBe("freelance")
     expect(typeof freelance?.deriveFacts).toBe("function")
@@ -34,11 +34,15 @@ describe("vertical dispatcher", () => {
     expect(typeof founder?.deriveFacts).toBe("function")
     expect(typeof founder?.registerPack).toBe("function")
     expect(typeof founder?.selectCandidates).toBe("function")
+    const partnership = verticalForDealType("partnership")
+    expect(partnership?.key).toBe("partnership")
+    expect(typeof partnership?.deriveFacts).toBe("function")
+    expect(typeof partnership?.registerPack).toBe("function")
+    expect(typeof partnership?.selectCandidates).toBe("function")
   })
 
   it("returns null for unknown deal types", () => {
     expect(verticalForDealType("unknown")).toBeNull()
     expect(verticalForDealType("")).toBeNull()
-    expect(verticalForDealType("partnership")).toBeNull()
   })
 })

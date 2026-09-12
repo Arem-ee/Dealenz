@@ -10,8 +10,8 @@ import type { ContextFieldKey, DealType } from "./schema"
 
 // Baseline: deal type must be known and confirmed. Everything else is optional
 // until a future module declares otherwise. Lease, purchase_sale,
-// employment, and founder deliberately add no extra requirements: their
-// workflows proceed safely on the same minimal baseline.
+// employment, founder, and partnership deliberately add no extra
+// requirements: their workflows proceed safely on the same minimal baseline.
 const BASELINE_REQUIREMENTS: Record<DealType, ContextFieldKey[]> = {
   freelance: ["dealType"],
   generic: ["dealType"],
@@ -19,6 +19,7 @@ const BASELINE_REQUIREMENTS: Record<DealType, ContextFieldKey[]> = {
   purchase_sale: ["dealType"],
   employment: ["dealType"],
   founder: ["dealType"],
+  partnership: ["dealType"],
 }
 
 // Extension hook for future deal-type modules. Phase 5B registers nothing;

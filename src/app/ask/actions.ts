@@ -24,6 +24,9 @@ import { priceForOperation, STANDARD_CREDIT_POLICY } from "@/lib/credits/pricing
 import { fetchPublishedKnowledge, resolveKnowledge } from "@/lib/knowledge"
 import { parseContextEnvelope } from "@/lib/context/schema"
 import { callAISurface } from "@/lib/ai/client"
+import { AIProviderError } from "@/lib/ai/errors"
+import { reportError } from "@/lib/logger"
+import { publicErrorMessage } from "@/lib/safe-error"
 import {
   addMessage,
   createConversation,
@@ -168,12 +171,14 @@ export async function askQuestionAction(input: AskInput): Promise<ConversationRe
     content: input.text,
   })
 
-  const response = await answerQuestion({
-    text: input.text,
-    auditId: conversation.attached_audit_id ?? input.auditId,
-    userId: user.id,
-    history: serverHistory,
-    idempotencyKey: input.idempotencyKey,
+  let response: Awaited<ReturnType<typeof answerQuestion>>
+  try {
+    response = await answerQuestion({
+      text: input.text,
+      auditId: conversation.attached_audit_id ?? input.auditId,
+      userId: user.id,
+      history: serverHistory,
+      idempotencyKey: input.idempotencyKey,
     ports: {
       loadContext: async (auditId: string) => {
         const { data } = await supabase
@@ -210,13 +215,35 @@ export async function askQuestionAction(input: AskInput): Promise<ConversationRe
         return resolveKnowledge(envelope, items, { asOf: new Date() })
       },
       aiCaller: async ({ systemPrompt, userContent, maxTokens }) => {
-        const { text, meta } = await callAISurface("authenticated", { systemPrompt, userContent, temperature: 0.4, maxTokens })
-        return { text, usage: meta.usage, provider: meta.primary.provider, model: meta.primary.model }
+        try {
+          const { text, meta } = await callAISurface("authenticated", { systemPrompt, userContent, temperature: 0.4, maxTokens })
+          return { text, usage: meta.usage, provider: meta.primary.provider, model: meta.primary.model }
+        } catch (err) {
+          // Durable provider-failure record; the pipeline still owns the
+          // user-facing outcome. Metadata only, never prompts or content.
+          const category = err instanceof AIProviderError ? err.category : "unknown"
+          const provider = err instanceof AIProviderError ? err.provider : "unknown"
+          await reportError(supabase, {
+            phase: "ai_failure",
+            error: err,
+            details: { surface: "authenticated", provider, category, operation: "conversation" },
+            severity: "error",
+            userId: user.id,
+          })
+          throw err
+        }
       },
       ledger,
       policy: STANDARD_CREDIT_POLICY,
     },
-  })
+    })
+  } catch (err) {
+    // Provider/infrastructure details never reach the client. The pipeline
+    // voids the reservation on failure, so the charge claim below holds.
+    throw new Error(
+      publicErrorMessage(err, "I couldn't prepare your answer. Please try again — nothing was charged for this attempt.")
+    )
+  }
 
   // Persist the assistant turn and touch the conversation for ordering.
   // The persisted copy includes the pipeline's operation/intent/objective

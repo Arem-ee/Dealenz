@@ -2,27 +2,26 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { extractAndValidate } from "@/lib/ai/extract"
 import { analyzeRiskForDealType } from "@/lib/ai/risk-analysis"
-import { isSupportedFileType, isValidFileSize, extractTextFromBuffer } from "@/lib/text-extract"
+import { isSupportedFileType, isValidFileSize, extractTextFromBuffer, MAX_TOTAL_UPLOAD_BYTES } from "@/lib/text-extract"
 import { toAnonymousError } from "@/lib/safe-error"
 import { normalizeAnonymousDealType } from "@/lib/deal-type"
+import { getTrustedClientIp, checkAnonymousRateLimit } from "@/lib/rate-limit-anon"
+import { createClient } from "@/lib/supabase/server"
+import { reportAIFallback, reportError } from "@/lib/logger"
+import { AIProviderError } from "@/lib/ai/errors"
 
 const ANONYMOUS_LIMIT = 3
-const ANONYMOUS_WINDOW_MS = 60 * 60 * 1000
+const ANONYMOUS_WINDOW_SECONDS = 60 * 60
 const MAX_ANONYMOUS_INPUT_LENGTH = 100_000
 const MAX_ANONYMOUS_FILES = 10
-
-interface RateEntry {
-  count: number
-  resetAt: number
-}
-
-const anonymousRateLimits = new Map<string, RateEntry>()
+// Unbounded JSON bodies would let one request exhaust memory before any
+// validation runs; legitimate prompts are far smaller than this.
+const MAX_ANONYMOUS_JSON_CHARS = 500_000
 
 function getAnonymousKey(req: NextRequest): string {
-  const xff = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-  const ip = xff || req.headers.get("x-real-ip") || "unknown-ip"
-  const fingerprint = req.headers.get("x-anonymous-fp") || "no-fp"
-  return `${ip}:${fingerprint}`
+  // Platform-derived IP only. x-anonymous-fp is self-asserted and must not
+  // be identity: rotating it previously minted fresh buckets.
+  return `anon:${getTrustedClientIp(req.headers)}`
 }
 
 function insufficientInputResponse() {
@@ -35,23 +34,22 @@ function insufficientInputResponse() {
 
 export async function POST(req: NextRequest) {
   const key = getAnonymousKey(req)
-  const now = Date.now()
-  const existing = anonymousRateLimits.get(key)
-  if (existing && existing.resetAt > now) {
-    if (existing.count >= ANONYMOUS_LIMIT) {
-      return NextResponse.json(
-        { error: "Usage limit reached. Create an account to continue analyzing deals." },
-        { status: 429 }
-      )
-    }
-  } else {
-    anonymousRateLimits.set(key, { count: 0, resetAt: now + ANONYMOUS_WINDOW_MS })
+  const supabase = await createClient()
+
+  // Cheap pre-parse gate: refuse absurd bodies before Next buffers them.
+  // Slack above the aggregate file cap covers multipart framing overhead.
+  const contentLength = Number(req.headers.get("content-length") ?? "0")
+  if (Number.isFinite(contentLength) && contentLength > MAX_TOTAL_UPLOAD_BYTES + 1024 * 1024) {
+    return NextResponse.json(
+      { error: "Request body too large." },
+      { status: 413 }
+    )
   }
 
   const contentType = req.headers.get("content-type") || ""
   let prompt = ""
   let dealTypeInput = ""
-  const files: Array<{ name: string; type: string; arrayBuffer: () => Promise<ArrayBuffer> }> = []
+  const files: Array<{ name: string; type: string; size: number; arrayBuffer: () => Promise<ArrayBuffer> }> = []
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await req.formData()
@@ -63,12 +61,19 @@ export async function POST(req: NextRequest) {
         files.push({
           name: file.name,
           type: file.type,
+          size: file.size,
           arrayBuffer: () => file.arrayBuffer(),
         })
       }
     }
   } else {
     const text = await req.text()
+    if (text.length > MAX_ANONYMOUS_JSON_CHARS) {
+      return NextResponse.json(
+        { error: "Request body too large." },
+        { status: 413 }
+      )
+    }
     let body: { prompt?: string; dealType?: string } = {}
     try {
       body = JSON.parse(text)
@@ -85,6 +90,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: `Too many files. Maximum ${MAX_ANONYMOUS_FILES} files per analysis.` },
       { status: 400 }
+    )
+  }
+
+  const declaredBytes = files.reduce((sum, f) => sum + f.size, 0)
+  if (declaredBytes > MAX_TOTAL_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { error: `Combined upload too large. Maximum ${MAX_TOTAL_UPLOAD_BYTES / 1024 / 1024}MB per analysis.` },
+      { status: 413 }
     )
   }
 
@@ -121,16 +134,26 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // The analysis window is bounded; report truncation explicitly instead of
+  // silently treating a truncated slice as the original document.
+  let truncated = false
+  let originalLength = combinedInput.length
   if (combinedInput.length > MAX_ANONYMOUS_INPUT_LENGTH) {
     combinedInput = combinedInput.slice(0, MAX_ANONYMOUS_INPUT_LENGTH)
+    truncated = true
+  } else {
+    originalLength = combinedInput.length
   }
 
-  if (!anonymousRateLimits.has(key) || anonymousRateLimits.get(key)!.resetAt <= now) {
-    anonymousRateLimits.set(key, { count: 1, resetAt: now + ANONYMOUS_WINDOW_MS })
-  } else {
-    const entry = anonymousRateLimits.get(key)!
-    entry.count += 1
-    anonymousRateLimits.set(key, entry)
+  // Single durable check-and-consume for this well-formed attempt: after
+  // all validation 400s/413s above, before any AI spend below. Fail-closed:
+  // limiter errors deny rather than silently granting unlimited AI.
+  const quota = await checkAnonymousRateLimit(supabase, key, ANONYMOUS_LIMIT, ANONYMOUS_WINDOW_SECONDS)
+  if (!quota.allowed) {
+    return NextResponse.json(
+      { error: "Usage limit reached. Create an account to continue analyzing deals." },
+      { status: 429 }
+    )
   }
 
   try {
@@ -144,20 +167,51 @@ export async function POST(req: NextRequest) {
 
     const riskResult = await analyzeRiskForDealType(validation.extractedData!, dealType, "quick_review")
 
+    if (riskResult.usedFallback) {
+      // Durable degradation record; the user-facing payload is unchanged.
+      await reportAIFallback(supabase, {
+        surface: "quick_review",
+        provider: "risk-analysis",
+        operation: "document_analysis",
+        servedByFallback: true,
+      })
+    }
+
     const response: {
       success: boolean
       data: typeof validation.extractedData
       riskReport: typeof riskResult.report
       usedFallback: boolean
+      truncated: boolean
+      originalLength: number
     } = {
       success: true,
       data: validation.extractedData!,
       riskReport: riskResult.report,
       usedFallback: riskResult.usedFallback,
+      truncated,
+      originalLength,
     }
 
     return NextResponse.json(response, { status: 200 })
   } catch (err) {
+    // Provider failures become durable warn/error records with metadata
+    // only; users still receive the fixed safe-error string.
+    if (err instanceof AIProviderError) {
+      await reportAIFallback(supabase, {
+        surface: "quick_review",
+        provider: err.provider,
+        category: err.category,
+        operation: "document_analysis",
+        servedByFallback: false,
+      })
+    } else {
+      await reportError(supabase, {
+        phase: "anonymous_analysis",
+        error: err,
+        severity: "error",
+      })
+    }
     const { publicMessage } = toAnonymousError(err)
     return NextResponse.json({ error: publicMessage }, { status: 500 })
   }

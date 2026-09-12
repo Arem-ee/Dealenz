@@ -7,7 +7,7 @@
 // authenticated paths and to generic in the anonymous path — never to a
 // specialized vertical.
 
-export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder"
+export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership"
 
 const ALLOWED_DEAL_TYPES: ReadonlySet<string> = new Set([
   "freelance",
@@ -16,6 +16,7 @@ const ALLOWED_DEAL_TYPES: ReadonlySet<string> = new Set([
   "purchase_sale",
   "employment",
   "founder",
+  "partnership",
 ])
 
 export function normalizeDealType(input: unknown): DealType {
@@ -29,6 +30,7 @@ export function normalizeAnonymousDealType(input?: string): DealType {
   if (input === "purchase_sale") return "purchase_sale"
   if (input === "employment") return "employment"
   if (input === "founder") return "founder"
+  if (input === "partnership") return "partnership"
   // Unknown or absent input takes the adaptive generic path, never a
   // specialized vertical. The landing UI always sends an explicit value.
   return "generic"

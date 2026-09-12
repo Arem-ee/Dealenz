@@ -53,6 +53,8 @@ vi.mock("@/lib/logger", () => ({
   logEvent: mockLogEvent,
   logEventWithClient: vi.fn(),
   logDuration: mockLogDuration,
+  reportError: vi.fn(),
+  reportAIFallback: vi.fn(),
 }))
 
 vi.mock("./actions", async () => ({ ...(await vi.importActual<typeof import("./actions")>("./actions")) }))

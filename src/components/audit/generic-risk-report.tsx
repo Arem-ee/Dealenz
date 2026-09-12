@@ -30,7 +30,7 @@ function ScoreGauge({ score, size = "lg" }: { score: number; size?: "sm" | "lg" 
 
 function RiskBadge({ level }: { level: "Low" | "Medium" | "High" }) {
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium", level === "Low" && "bg-green-100 text-green-700", level === "Medium" && "bg-amber-100 text-amber-700", level === "High" && "bg-red-100 text-red-700")}>
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium", level === "Low" && "bg-risk-low/15 text-risk-low-foreground", level === "Medium" && "bg-risk-medium/15 text-risk-medium", level === "High" && "bg-risk-high/10 text-risk-high")}>
       {level === "Low" && <CheckCircle2 className="h-4 w-4" />}
       {level === "Medium" && <ShieldMinus className="h-4 w-4" />}
       {level === "High" && <ShieldAlert className="h-4 w-4" />}
@@ -44,7 +44,7 @@ export function GenericRiskReportView({ report, degraded }: GenericRiskReportPro
   return (
     <div className="space-y-6">
       {degraded && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">This risk analysis is incomplete and was produced from a degraded path. Review the agreement manually before signing.</div>
+        <div className="rounded-lg border border-warning/30 bg-warning/[0.07] p-3 text-sm text-warning-foreground">This risk analysis is incomplete and was produced from a degraded path. Review the agreement manually before signing.</div>
       )}
       <div className="flex flex-col items-center gap-4 rounded-xl border bg-card p-8 text-center">
         <div className="flex items-center gap-4">
@@ -63,7 +63,7 @@ export function GenericRiskReportView({ report, degraded }: GenericRiskReportPro
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {entries.map(([key, cat]) => (
-            <Card key={key} className={cn("border-l-4", cat.severity === "low" ? "border-l-green-500" : cat.severity === "medium" ? "border-l-amber-500" : "border-l-red-500")}>
+            <Card key={key} className={cn("border-l-4", cat.severity === "low" ? "border-l-risk-low" : cat.severity === "medium" ? "border-l-risk-medium" : "border-l-risk-high")}>
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm capitalize">{key.replace(/[-_]/g, " ")}</CardTitle>
                 <ScoreGauge score={cat.score} size="sm" />
@@ -79,7 +79,7 @@ export function GenericRiskReportView({ report, degraded }: GenericRiskReportPro
                   ))
                 ) : (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                     No significant risks detected
                   </div>
                 )}

@@ -22,8 +22,13 @@ function candidate(overrides: Partial<KnowledgeCandidate> = {}): KnowledgeCandid
 }
 
 describe("founder knowledge hooks", () => {
-  it("curates no keys while no founder sources exist", () => {
-    expect(FOUNDER_KNOWLEDGE_KEYS).toEqual([])
+  it("curates Nigeria founder keys (business-owner priority, not empty)", () => {
+    expect(FOUNDER_KNOWLEDGE_KEYS.length).toBeGreaterThanOrEqual(5)
+    expect(FOUNDER_KNOWLEDGE_KEYS).toContain("ng-cama-s18-types-of-companies")
+    expect(FOUNDER_KNOWLEDGE_KEYS).toContain("ng-cama-s140-transfer-of-shares")
+    // All keys must be non-empty and prefixed with ng- for Nigeria scope
+    for (const k of FOUNDER_KNOWLEDGE_KEYS) expect(k.startsWith("ng-")).toBe(true)
+    expect(new Set(FOUNDER_KNOWLEDGE_KEYS).size).toBe(FOUNDER_KNOWLEDGE_KEYS.length)
   })
 
   it("keeps unconstrained and founder-scoped candidates, drops others", () => {

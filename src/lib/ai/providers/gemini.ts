@@ -65,13 +65,18 @@ export async function callGeminiProvider(params: GeminiCallParams): Promise<Prov
 
     if (!response.ok) {
       const errorBody = await response.text()
-      console.error("[Gemini] HTTP", response.status, "Request body was:", {
+      // Metadata only: provider error bodies can echo request content.
+      console.error(JSON.stringify({
+        event: "ai_provider_failure",
+        surface: "gemini",
+        provider: "gemini",
         model,
+        status: response.status,
         systemPromptLength: systemPrompt.length,
         userContentLength: userContent.length,
-        errorBody,
-      })
-      throw new Error(`Gemini request failed — HTTP ${response.status}`)
+        errorBody: errorBody.slice(0, 500),
+      }))
+      throw new Error(`Gemini request failed - HTTP ${response.status}`)
     }
 
     const result = await response.json()

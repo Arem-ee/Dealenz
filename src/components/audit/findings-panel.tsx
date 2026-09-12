@@ -34,11 +34,11 @@ export function parsePersistedFindings(raw: unknown): RuleResult[] {
 function severityBadge(severity: string): string {
   switch (severity) {
     case "critical":
-      return "bg-red-100 text-red-800"
+      return "bg-risk-critical/10 text-risk-critical"
     case "material":
-      return "bg-amber-100 text-amber-800"
+      return "bg-risk-high/10 text-risk-high"
     case "attention":
-      return "bg-blue-50 text-blue-800"
+      return "bg-risk-medium/10 text-risk-medium"
     case "informational":
     default:
       return "bg-muted text-muted-foreground"
@@ -105,7 +105,7 @@ export function FindingsPanel({ auditId, results }: { auditId: string; results: 
       </div>
 
       {fails.length === 0 ? (
-        <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+        <p className="mt-3 rounded-lg border border-success/20 bg-success/[0.05] px-3 py-2 text-xs text-success">
           All evaluated checks passed. If some checks are inconclusive (below), they reflect missing information — not confirmed safety.
         </p>
       ) : null}
@@ -167,19 +167,19 @@ export function FindingsPanel({ auditId, results }: { auditId: string; results: 
 
       {/* UNKNOWN — visually and semantically distinct from FAIL, not a confirmed problem */}
       {unknowns.length > 0 && (
-        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+        <div className="mt-4 rounded-lg border border-warning/25 bg-warning/[0.06] p-3">
           <button
             type="button"
             onClick={() => setShowUnknown((v) => !v)}
             className="flex w-full items-center justify-between text-left"
             aria-expanded={showUnknown}
           >
-            <span className="text-xs font-medium text-amber-900">
+            <span className="text-xs font-medium text-foreground">
               {unknowns.length} inconclusive check{unknowns.length === 1 ? "" : "s"} — needs more information
             </span>
-            <span className="text-xs text-amber-700">{showUnknown ? "Hide" : "Show"}</span>
+            <span className="text-xs text-muted-foreground">{showUnknown ? "Hide" : "Show"}</span>
           </button>
-          <p className="mt-1 text-[11px] leading-relaxed text-amber-800">
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
             These checks could not be determined from the information provided. They are not flagged as problems and do not indicate safety.
           </p>
           {showUnknown && (

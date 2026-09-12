@@ -51,6 +51,8 @@ vi.mock("@/lib/logger", () => ({
   logEvent: mockLogEvent,
   logEventWithClient: vi.fn(),
   logDuration: mockLogDuration,
+  reportError: vi.fn(),
+  reportAIFallback: vi.fn(),
 }))
 
 vi.mock("./actions", async () => ({ ...(await vi.importActual<typeof import("./actions")>("./actions")) }))
@@ -139,7 +141,7 @@ function aiHighReport() {
 // Phase 21 authority boundary: deterministic FAIL + AI LOW → deterministic
 // failure remains authoritative; deterministic PASS + AI HIGH → AI advisory
 // is preserved without fabricating a deterministic failure.
-describe("risk authority boundary (Phase 21, founder Phase 22)", () => {
+describe("risk authority boundary (Phase 21, founder Phase 22, partnership Phase 25)", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCheckRateLimit.mockResolvedValue({ allowed: true })
@@ -262,6 +264,64 @@ describe("risk authority boundary (Phase 21, founder Phase 22)", () => {
     expect(result.success).toBe(true)
     const fails = (result.deterministicFindings ?? []).filter(
       (r) => r.status === "FAIL" && r.ruleKey.startsWith("founder-")
+    )
+    expect(fails).toEqual([])
+    const report = result.riskReport as { overallScore: number; riskLevel: string }
+    expect(report.riskLevel).toBe("High")
+  })
+
+  it("Partnership Case 1: deterministic material FAIL stays authoritative when AI says Low", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+    const audits = auditsQuery(
+      {
+        id: "audit-partnership-1",
+        ai_consent: true,
+        raw_input: "Alice and Bob split profits 50/50. Partners are liable for all partnership debts with no cap.",
+        structured_data: { files: [] },
+        deal_type: "partnership",
+        context_envelope: null,
+      },
+      [{ id: "audit-partnership-1" }]
+    )
+    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockStorageFrom.mockReturnValue({ download: vi.fn() })
+    mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
+    mockAnalyzeGenericRiskFn.mockResolvedValue(aiLowReport())
+
+    const result = await analyzeDeal("audit-partnership-1")
+
+    expect(result.success).toBe(true)
+    const flagged = (result.deterministicFindings ?? []).find((r) => r.ruleKey === "partnership-liability-uncapped")
+    expect(flagged?.status).toBe("FAIL")
+    const report = result.riskReport as { overallScore: number; riskLevel: string }
+    expect(report.overallScore).toBe(20)
+    expect(report.riskLevel).toBe("High")
+  })
+
+  it("Partnership Case 2: deterministic PASS is not converted into failure when AI says High", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+    const audits = auditsQuery(
+      {
+        id: "audit-partnership-2",
+        ai_consent: true,
+        raw_input:
+          "Alice is managing partner and Bob is limited partner. Profits split 60/40. Each partner contributes $50,000 in initial capital. Profits are distributed quarterly. The managing partner runs day-to-day operations. Decisions need a majority vote with reserved matters needing consent. A departing partner's interest is bought out at fair value. Transferring an interest needs the other partners' consent.",
+        structured_data: { files: [] },
+        deal_type: "partnership",
+        context_envelope: null,
+      },
+      [{ id: "audit-partnership-2" }]
+    )
+    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockStorageFrom.mockReturnValue({ download: vi.fn() })
+    mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
+    mockAnalyzeGenericRiskFn.mockResolvedValue(aiHighReport())
+
+    const result = await analyzeDeal("audit-partnership-2")
+
+    expect(result.success).toBe(true)
+    const fails = (result.deterministicFindings ?? []).filter(
+      (r) => r.status === "FAIL" && r.ruleKey.startsWith("partnership-")
     )
     expect(fails).toEqual([])
     const report = result.riskReport as { overallScore: number; riskLevel: string }

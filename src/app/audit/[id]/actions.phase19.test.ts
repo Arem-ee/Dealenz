@@ -38,6 +38,8 @@ vi.mock("@/lib/generate", () => ({
 vi.mock("@/lib/logger", () => ({
   logEvent: vi.fn(),
   logDuration: vi.fn(() => 100),
+  reportError: vi.fn(),
+  reportAIFallback: vi.fn(),
 }))
 
 import { analyzeDeal, removeFileMetadata, markDocumentReviewed } from "./actions"

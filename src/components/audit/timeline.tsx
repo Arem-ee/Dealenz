@@ -53,8 +53,8 @@ export function Timeline({ events, className }: TimelineProps) {
             "shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border",
             event.type === "deal_created" && "bg-primary/10 border-primary/20 text-primary",
             event.type === "risk_analyzed" && "bg-risk-medium/10 border-risk-medium/20 text-risk-medium",
-            event.type === "document_generated" && "bg-violet-50 border-violet-200 text-violet-700",
-            event.type === "document_signed" && "bg-emerald-50 border-emerald-200 text-emerald-700",
+            event.type === "document_generated" && "bg-info/10 border-info/20 text-info",
+            event.type === "document_signed" && "bg-success/10 border-success/20 text-success",
             !["deal_created", "risk_analyzed", "document_generated", "document_signed"].includes(event.type) && "bg-muted border-border/60 text-muted-foreground"
           )}>
             {eventIcons[event.type]}

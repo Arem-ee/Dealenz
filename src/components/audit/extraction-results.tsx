@@ -17,9 +17,9 @@ function TagList({ items, icon: Icon, title, variant }: {
   if (items.length === 0) return null
 
   const colors = variant === "positive"
-    ? "bg-green-50 text-green-700 border-green-200"
+    ? "bg-success/10 text-success border-success/20"
     : variant === "negative"
-    ? "bg-red-50 text-red-700 border-red-200"
+    ? "bg-destructive/10 text-destructive border-destructive/20"
     : "bg-secondary text-secondary-foreground border-border"
 
   return (

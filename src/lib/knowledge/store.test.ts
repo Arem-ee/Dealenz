@@ -9,15 +9,17 @@ import {
   type KnowledgeStoreClient,
 } from "./store"
 
-const ADMIN = { id: "admin-1", user_metadata: { is_admin: true } }
-const USER = { id: "user-2", user_metadata: {} }
+const ADMIN = { id: "00000000-0000-0000-0000-0000000000a1", app_metadata: { is_admin: true } }
+const USER = { id: "00000000-0000-0000-0000-0000000000b2", app_metadata: {} }
+// Forged self-promotion: user-writable metadata must never confer privilege.
+const FORGED = { id: "00000000-0000-0000-0000-0000000000c3", app_metadata: {}, user_metadata: { is_admin: true } }
 
 type Row = Record<string, unknown>
 
 // Minimal in-memory query double supporting exactly the chains store.ts uses:
 // select().eq()...order().limit() (awaited), insert().select().single(),
 // update().select().single(), select().eq().single().
-function mockClient(user: { id: string; user_metadata: Record<string, unknown> } | null, seed: Row[] = []) {
+function mockClient(user: { id: string; app_metadata: Record<string, unknown>; user_metadata?: Record<string, unknown> } | null, seed: Row[] = []) {
   const tables: Record<string, Row[]> = { knowledge_items: seed.map((r) => ({ ...r })) }
   const api = {
     auth: {
@@ -166,6 +168,12 @@ describe("knowledge ingestion", () => {
     const { client: anonClient } = mockClient(null)
     await expect(ingestKnowledgeItem(anonClient, ingestInput())).rejects.toThrow(/signed in/)
     await expect(transitionKnowledgeStatus(userClient, "some-id", "published")).rejects.toThrow(/administrator/)
+  })
+
+  it("rejects forged user_metadata self-promotion", async () => {
+    const { client: forgedClient } = mockClient(FORGED)
+    await expect(ingestKnowledgeItem(forgedClient, ingestInput())).rejects.toThrow(/administrator/)
+    await expect(transitionKnowledgeStatus(forgedClient, "some-id", "published")).rejects.toThrow(/administrator/)
   })
 })
 

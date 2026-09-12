@@ -9,9 +9,15 @@
 
 import type { KnowledgeCandidate } from "@/lib/knowledge/resolver"
 
-// Curated knowledge keys relevant to employment deals. Empty until real
-// employment sources are ingested. Never synthetic lookalikes.
-export const EMPLOYMENT_KNOWLEDGE_KEYS: readonly string[] = []
+// Curated knowledge keys relevant to employment deals. Seeded by migration
+// 00038 (US/UK/DE/FR/NL employment sources). Never synthetic lookalikes.
+export const EMPLOYMENT_KNOWLEDGE_KEYS: readonly string[] = [
+  "us-flsa-wages",
+  "uk-employment-rights-1996",
+  "de-bgb-contracts",
+  "fr-code-civil-contracts",
+  "nl-bw-contracts",
+]
 
 // Narrows resolved candidates to employment-relevant ones: items that are
 // unconstrained by deal type, items scoped to employment, and explicitly

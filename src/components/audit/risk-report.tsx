@@ -68,9 +68,9 @@ function RiskBadge({ level }: { level: "Low" | "Medium" | "High" }) {
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium",
-        level === "Low" && "bg-green-100 text-green-700",
-        level === "Medium" && "bg-amber-100 text-amber-700",
-        level === "High" && "bg-red-100 text-red-700"
+        level === "Low" && "bg-risk-low/15 text-risk-low-foreground",
+        level === "Medium" && "bg-risk-medium/15 text-risk-medium",
+        level === "High" && "bg-risk-high/10 text-risk-high"
       )}
     >
       {level === "Low" && <CheckCircle2 className="h-4 w-4" />}
@@ -85,10 +85,10 @@ function CategoryCard({ category, config }: { category: RiskCategory; config: { 
   const Icon = config.icon
   const borderColor =
     category.severity === "low"
-      ? "border-l-green-500"
+      ? "border-l-risk-low"
       : category.severity === "medium"
-      ? "border-l-amber-500"
-      : "border-l-red-500"
+      ? "border-l-risk-medium"
+      : "border-l-risk-high"
 
   return (
     <Card className={cn("border-l-4", borderColor)}>
@@ -108,7 +108,7 @@ function CategoryCard({ category, config }: { category: RiskCategory; config: { 
           ))
         ) : (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+            <CheckCircle2 className="h-3.5 w-3.5 text-success" />
             No significant risks detected
           </div>
         )}

@@ -27,12 +27,15 @@ import { selectEmploymentCandidates } from "./employment/knowledge"
 import { deriveFounderFacts } from "./founder/facts"
 import { registerFounderPack } from "./founder/rules"
 import { selectFounderCandidates } from "./founder/knowledge"
+import { derivePartnershipFacts } from "./partnership/facts"
+import { registerPartnershipPack } from "./partnership/rules"
+import { selectPartnershipCandidates } from "./partnership/knowledge"
 import { deriveGenericFacts } from "./generic/facts"
 import { registerGenericPack } from "./generic/rules"
 import { selectGenericCandidates } from "./generic/knowledge"
 
 export interface VerticalPack {
-  key: "freelance" | "lease" | "purchase_sale" | "employment" | "generic" | "founder"
+  key: "freelance" | "lease" | "purchase_sale" | "employment" | "generic" | "founder" | "partnership"
   deriveFacts(extracted: ExtractedData, rawText?: string, source?: ObservationSource): unknown
   registerPack(): Rule[]
   selectCandidates(candidates: KnowledgeCandidate[]): KnowledgeCandidate[]
@@ -69,6 +72,12 @@ const PACKS: Record<VerticalPack["key"], VerticalPack> = {
     registerPack: registerFounderPack,
     selectCandidates: selectFounderCandidates,
   },
+  partnership: {
+    key: "partnership",
+    deriveFacts: derivePartnershipFacts,
+    registerPack: registerPartnershipPack,
+    selectCandidates: selectPartnershipCandidates,
+  },
   generic: {
     key: "generic",
     deriveFacts: deriveGenericFacts,
@@ -84,7 +93,8 @@ export function verticalForDealType(dealType: string): VerticalPack | null {
     dealType === "purchase_sale" ||
     dealType === "employment" ||
     dealType === "generic" ||
-    dealType === "founder"
+    dealType === "founder" ||
+    dealType === "partnership"
   )
     return PACKS[dealType]
   return null

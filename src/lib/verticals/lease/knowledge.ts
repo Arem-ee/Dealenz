@@ -9,9 +9,15 @@
 
 import type { KnowledgeCandidate } from "@/lib/knowledge/resolver"
 
-// Curated knowledge keys relevant to lease deals. Empty until real lease
-// sources are ingested. Never synthetic lookalikes.
-export const LEASE_KNOWLEDGE_KEYS: readonly string[] = []
+// Curated knowledge keys relevant to lease deals. Seeded by migration
+// 00038 (US/UK/DE/FR/NL lease sources). Never synthetic lookalikes.
+export const LEASE_KNOWLEDGE_KEYS: readonly string[] = [
+  "us-ca-civil-tenancy",
+  "uk-landlord-tenant-1954",
+  "de-bgb-contracts",
+  "fr-code-civil-contracts",
+  "nl-bw-contracts",
+]
 
 // Narrows resolved candidates to lease-relevant ones: items that are
 // unconstrained by deal type, items scoped to lease, and explicitly curated

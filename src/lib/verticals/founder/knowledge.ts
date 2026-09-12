@@ -9,9 +9,16 @@
 
 import type { KnowledgeCandidate } from "@/lib/knowledge/resolver"
 
-// Curated knowledge keys relevant to founder deals. Empty until real
-// founder sources are ingested. Never synthetic lookalikes.
-export const FOUNDER_KNOWLEDGE_KEYS: readonly string[] = []
+// Curated knowledge keys relevant to founder deals. Phase 27 seeds
+// Nigeria founder items; add new itemKeys here as verified sources are
+// ingested. Never synthetic lookalikes.
+export const FOUNDER_KNOWLEDGE_KEYS: readonly string[] = [
+  "ng-cama-s18-types-of-companies",
+  "ng-cama-s140-transfer-of-shares",
+  "ng-cama-s240-directors-duties",
+  "ng-cama-part3-llp-nature",
+  "ng-cac-business-names",
+]
 
 // Narrows resolved candidates to founder-relevant ones: items that are
 // unconstrained by deal type, items scoped to founder, and explicitly

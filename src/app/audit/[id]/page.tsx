@@ -48,5 +48,18 @@ export default async function AuditPage({ params }: AuditPageProps) {
     created_at: e.created_at as string,
   }))
 
-  return <WorkspaceClient audit={audit} userId={user.id} activityEvents={activityEvents} />
+  const { count: versionCount } = await supabase
+    .from("document_versions")
+    .select("id", { count: "exact", head: true })
+    .eq("audit_id", id)
+    .eq("user_id", user.id)
+
+  return (
+    <WorkspaceClient
+      audit={audit}
+      userId={user.id}
+      activityEvents={activityEvents}
+      hasVersions={(versionCount ?? 0) > 0}
+    />
+  )
 }

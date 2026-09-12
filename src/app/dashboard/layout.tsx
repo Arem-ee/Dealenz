@@ -81,9 +81,19 @@ export default async function DashboardLayout({
 
   const businessName = (businessProfile as { business_name: string | null } | null)?.business_name ?? null
 
+  // Lawyer entry: verified lawyers only. Computed server-side so ordinary
+  // customers never see lawyer tools; the workspace itself re-verifies.
+  const { data: lawyerRow } = await supabase
+    .from("lawyers")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("verification_status", "verified")
+    .maybeSingle()
+  const isLawyer = lawyerRow !== null
+
   return (
     <div className="flex min-h-screen bg-background">
-      <SidebarNav email={email} businessName={businessName} />
+      <SidebarNav email={email} businessName={businessName} isLawyer={isLawyer} />
       <div className="flex flex-1 flex-col min-w-0">
         <TopNav />
         <UsageDisplay />
@@ -92,7 +102,7 @@ export default async function DashboardLayout({
           {children}
         </main>
       </div>
-      <MobileNav />
+      <MobileNav isLawyer={isLawyer} />
     </div>
   )
 }

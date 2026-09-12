@@ -96,13 +96,18 @@ const styles = StyleSheet.create({
   },
 })
 
-interface PdfContentProps {
-  content: string
-}
+// Pure markdown block model: the PDF renderer maps every source line to a
+// block, so completeness is provable (no silent truncation, no dropped
+// sections). There is intentionally no page cap: @react-pdf flows blocks
+// across as many pages as the content requires.
+export type PdfBlock =
+  | { kind: "hr" }
+  | { kind: "h1" | "h2" | "h3" | "paragraph"; text: string }
+  | { kind: "ul" | "ol"; items: string[]; startNum: number }
 
-function PdfContent({ content }: PdfContentProps) {
+export function parsePdfBlocks(content: string): PdfBlock[] {
   const lines = content.split("\n")
-  const elements: React.ReactElement[] = []
+  const blocks: PdfBlock[] = []
 
   let i = 0
   while (i < lines.length) {
@@ -114,28 +119,28 @@ function PdfContent({ content }: PdfContentProps) {
     }
 
     if (line === "---") {
-      elements.push(<View key={`hr-${i}`} style={styles.hr} />)
+      blocks.push({ kind: "hr" })
       i++
       continue
     }
 
     const h1 = line.match(/^# (.+)$/)
     if (h1) {
-      elements.push(<Text key={`h1-${i}`} style={styles.heading1}>{h1[1]}</Text>)
+      blocks.push({ kind: "h1", text: h1[1] })
       i++
       continue
     }
 
     const h2 = line.match(/^## (.+)$/)
     if (h2) {
-      elements.push(<Text key={`h2-${i}`} style={styles.heading2}>{h2[1]}</Text>)
+      blocks.push({ kind: "h2", text: h2[1] })
       i++
       continue
     }
 
     const h3 = line.match(/^### (.+)$/)
     if (h3) {
-      elements.push(<Text key={`h3-${i}`} style={styles.heading3}>{h3[1]}</Text>)
+      blocks.push({ kind: "h3", text: h3[1] })
       i++
       continue
     }
@@ -146,16 +151,7 @@ function PdfContent({ content }: PdfContentProps) {
         items.push(lines[i].trimStart().slice(2))
         i++
       }
-      elements.push(
-        <View key={`ul-${i}`} style={{ marginBottom: 6 }}>
-          {items.map((item, idx) => (
-            <View key={idx} style={styles.listRow}>
-              <Text style={styles.bullet}>{" "}</Text>
-              <Text style={{ flex: 1 }}>{item}</Text>
-            </View>
-          ))}
-        </View>
-      )
+      blocks.push({ kind: "ul", items, startNum: 0 })
       continue
     }
 
@@ -167,16 +163,7 @@ function PdfContent({ content }: PdfContentProps) {
         items.push(lines[i].replace(/^\d+\.\s+/, ""))
         i++
       }
-      elements.push(
-        <View key={`ol-${i}`} style={{ marginBottom: 6 }}>
-          {items.map((item, idx) => (
-            <View key={idx} style={styles.listRow}>
-              <Text style={{ width: 20, fontSize: 11 }}>{startNum + idx}.</Text>
-              <Text style={{ flex: 1 }}>{item}</Text>
-            </View>
-          ))}
-        </View>
-      )
+      blocks.push({ kind: "ol", items, startNum })
       continue
     }
 
@@ -193,14 +180,134 @@ function PdfContent({ content }: PdfContentProps) {
       i++
     }
     if (paraLines.length > 0) {
-      const text = paraLines.join(" ")
-      elements.push(
-        <Text key={`p-${i}`} style={styles.paragraph}>{text}</Text>
-      )
+      blocks.push({ kind: "paragraph", text: paraLines.join(" ") })
     }
   }
 
-  return <>{elements}</>
+  return blocks
+}
+
+interface PdfContentProps {
+  content: string
+}
+
+function PdfContent({ content }: PdfContentProps) {
+  const blocks = parsePdfBlocks(content)
+  return (
+    <>
+      {blocks.map((block, i) => {
+        switch (block.kind) {
+          case "hr":
+            return <View key={`hr-${i}`} style={styles.hr} />
+          case "h1":
+            return <Text key={`h1-${i}`} style={styles.heading1}>{block.text}</Text>
+          case "h2":
+            return <Text key={`h2-${i}`} style={styles.heading2}>{block.text}</Text>
+          case "h3":
+            return <Text key={`h3-${i}`} style={styles.heading3}>{block.text}</Text>
+          case "ul":
+            return (
+              <View key={`ul-${i}`} style={{ marginBottom: 6 }}>
+                {block.items.map((item, idx) => (
+                  <View key={idx} style={styles.listRow}>
+                    <Text style={styles.bullet}>{" "}</Text>
+                    <Text style={{ flex: 1 }}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+            )
+          case "ol":
+            return (
+              <View key={`ol-${i}`} style={{ marginBottom: 6 }}>
+                {block.items.map((item, idx) => (
+                  <View key={idx} style={styles.listRow}>
+                    <Text style={{ width: 20, fontSize: 11 }}>{block.startNum + idx}.</Text>
+                    <Text style={{ flex: 1 }}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+            )
+          case "paragraph":
+            return <Text key={`p-${i}`} style={styles.paragraph}>{block.text}</Text>
+        }
+      })}
+    </>
+  )
+}
+
+export interface VersionSignature {
+  name: string
+  partyLabel: string
+  status: string
+  signedAt: string | null
+}
+
+/**
+ * Signature manifest lines for an executed PDF. Pure and tested: every
+ * bound signer is listed with their server-side status — the manifest
+ * reflects the audit trail, it does not create it. Visual marks carry no
+ * legal significance beyond the recorded workflow state.
+ */
+export function buildSignatureManifest(
+  signers: VersionSignature[],
+  executed: boolean
+): string[] {
+  const lines = [
+    executed ? "Execution status: fully executed" : "Execution status: not yet complete",
+  ]
+  for (const s of signers) {
+    const when = s.status === "signed" && s.signedAt ? ` on ${new Date(s.signedAt).toLocaleDateString()}` : ""
+    const mark = s.status === "signed" ? "✓ Signed" : s.status
+    lines.push(`${s.name} (${s.partyLabel}) — ${mark}${when}`)
+  }
+  return lines
+}
+
+export function VersionPdfDocument({
+  title,
+  subtitle,
+  content,
+  generatedAt,
+  signatures,
+  executed,
+}: {
+  title: string
+  subtitle?: string | null
+  content: string
+  generatedAt: string
+  signatures: VersionSignature[]
+  executed: boolean
+}) {
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        <View style={styles.header} fixed>
+          <Text style={styles.brand}>dealenz</Text>
+          <Text style={styles.docTitle}>{title}</Text>
+          {subtitle ? <Text style={styles.tag}>{subtitle}</Text> : null}
+        </View>
+
+        <PdfContent content={content} />
+
+        {signatures.length > 0 && (
+          <View style={{ marginTop: 16 }}>
+            <Text style={styles.heading2}>Signatures</Text>
+            {buildSignatureManifest(signatures, executed).map((line, idx) => (
+              <Text key={idx} style={styles.paragraph}>{line}</Text>
+            ))}
+            <Text style={styles.disclaimer}>
+              Workflow record of the Dealenz signing process for this exact document version. Not a determination of legal enforceability.
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.footer} fixed>
+          <Text>Exported {new Date(generatedAt).toLocaleDateString()} by Dealenz</Text>
+          <Text style={styles.disclaimer}>{DISCLAIMER_PDF_TEXT}</Text>
+        </View>
+      </Page>
+    </Document>
+  )
 }
 
 export function AuditPdfDocument({
