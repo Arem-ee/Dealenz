@@ -9,7 +9,7 @@ import { createConsultationRequest } from "@/app/audit/[id]/consultation-actions
 
 interface EscalationCardProps {
   auditId: string
-  dealType: "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder"
+  dealType: "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership"
   riskLevel?: "Low" | "Medium" | "High" | "Critical" | null
 }
 
@@ -35,16 +35,16 @@ export function LawyerEscalationCard({ auditId, dealType, riskLevel }: Escalatio
   if (success) {
     const isWaitlist = success.status === "waitlist"
     return (
-      <div className="rounded-xl border border-emerald/50 bg-emerald/5 p-5">
+      <div className="rounded-xl border border-success/25 bg-success/[0.04] p-5">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-success/10">
+            <CheckCircle2 className="h-5 w-5 text-success" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-emerald-800">
+            <h3 className="text-sm font-semibold text-foreground">
               {success.status === "waitlist" ? "Added to Waitlist" : "Request Submitted"}
             </h3>
-            <p className="mt-1 text-sm text-emerald-700">
+            <p className="mt-1 text-sm text-muted-foreground">
               {success.status === "waitlist"
                 ? "The lawyer network is launching soon. We'll notify you when a lawyer is available to review your deal."
                 : "A lawyer will review your deal and reach out shortly."}
@@ -53,7 +53,7 @@ export function LawyerEscalationCard({ auditId, dealType, riskLevel }: Escalatio
               variant="ghost"
               size="sm"
               onClick={() => window.location.reload()}
-              className="mt-3 text-emerald-600 hover:text-emerald-700"
+              className="mt-3 text-muted-foreground hover:text-foreground"
             >
               Close
             </Button>

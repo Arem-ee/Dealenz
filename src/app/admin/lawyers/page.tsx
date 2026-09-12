@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { AssignReviewForm } from "@/components/admin/assign-review-form"
+import { StatusBadge } from "@/components/ui/status-badge"
+import { isAdminSessionUser } from "@/lib/auth/admin"
 
 async function getAdminUser() {
   const supabase = await createClient()
@@ -9,8 +12,8 @@ async function getAdminUser() {
     return null
   }
 
-  const isAdmin = (user.user_metadata?.is_admin) === true
-  if (!isAdmin) {
+  // Server-controlled authorization only (app_metadata, never user_metadata).
+  if (!isAdminSessionUser(user)) {
     return null
   }
 
@@ -30,6 +33,17 @@ export default async function AdminLawyersPage() {
     .select("*")
     .order("created_at", { ascending: false })
 
+  const { data: pendingReviews } = await supabase
+    .from("consultation_requests")
+    .select("id, audit_id, status, created_at")
+    .in("status", ["requested", "waitlist"])
+    .order("created_at", { ascending: true })
+    .limit(50)
+
+  const verifiedLawyers = ((lawyers ?? []) as Array<{ id: string; full_name: string; verification_status: string }>)
+    .filter((l) => l.verification_status === "verified")
+    .map((l) => ({ id: l.id, full_name: l.full_name }))
+
   return (
     <div className="px-4 sm:px-6 py-5 sm:py-7 max-w-6xl mx-auto">
       <div className="mb-6">
@@ -39,8 +53,28 @@ export default async function AdminLawyersPage() {
         </p>
       </div>
 
+      <div className="rounded-xl border border-border/60 bg-card p-5 mb-6">
+        <h2 className="text-sm font-semibold">Pending review assignments</h2>
+        {!pendingReviews || pendingReviews.length === 0 ? (
+          <p className="mt-1 text-xs text-muted-foreground">No reviews waiting for assignment.</p>
+        ) : (
+          <ul className="mt-3 space-y-3">
+            {(pendingReviews as Array<{ id: string; audit_id: string; status: string; created_at: string }>).map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 p-3">
+                <div className="text-xs">
+                  <p className="font-medium">Review {r.id.slice(0, 8)}… · {r.status}</p>
+                  <p className="text-muted-foreground">Requested {new Date(r.created_at).toLocaleDateString()}</p>
+                </div>
+                <AssignReviewForm requestId={r.id} lawyers={verifiedLawyers} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
-        <table className="w-full">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px]">
           <thead>
             <tr className="border-b border-border/60 bg-muted/50">
               <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Lawyer</th>
@@ -91,15 +125,17 @@ export default async function AdminLawyersPage() {
                   {lawyer.years_experience} years
                 </td>
                 <td className="px-4 py-4">
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                    lawyer.verification_status === "verified"
-                      ? "bg-emerald-100 text-emerald-700"
-                      : lawyer.verification_status === "rejected"
-                      ? "bg-destructive/10 text-destructive"
-                      : "bg-amber-100 text-amber-700"
-                  }`}>
+                  <StatusBadge
+                    tone={
+                      lawyer.verification_status === "verified"
+                        ? "success"
+                        : lawyer.verification_status === "rejected"
+                        ? "error"
+                        : "warning"
+                    }
+                  >
                     {lawyer.verification_status}
-                  </span>
+                  </StatusBadge>
                 </td>
                 <td className="px-4 py-4 text-sm text-muted-foreground">
                   {new Date(lawyer.created_at).toLocaleDateString()}
@@ -116,7 +152,7 @@ export default async function AdminLawyersPage() {
                           })
                           if (res.ok) window.location.reload()
                         }}
-                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 transition-colors"
+                        className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                       >
                         Verify
                       </button>
@@ -136,7 +172,40 @@ export default async function AdminLawyersPage() {
                     </div>
                   )}
                   {lawyer.verification_status === "verified" && (
-                    <span className="text-xs text-emerald-600">Verified</span>
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="text-xs text-success">Verified</span>
+                      <button
+                        onClick={async () => {
+                          if (!window.confirm(`Pause ${lawyer.full_name}'s verification? They immediately lose professional access until reinstated.`)) return
+                          const res = await fetch("/api/admin/lawyers/verify", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ lawyer_id: lawyer.id, action: "suspend" }),
+                          })
+                          if (res.ok) window.location.reload()
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg border border-warning/30 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning-foreground hover:bg-warning/20 transition-colors"
+                      >
+                        Suspend
+                      </button>
+                    </div>
+                  )}
+                  {lawyer.verification_status === "suspended" && (
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={async () => {
+                          const res = await fetch("/api/admin/lawyers/verify", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ lawyer_id: lawyer.id, action: "reinstate" }),
+                          })
+                          if (res.ok) window.location.reload()
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg border border-input bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+                      >
+                        Reinstate to review
+                      </button>
+                    </div>
                   )}
                   {lawyer.verification_status === "rejected" && (
                     <span className="text-xs text-destructive">Rejected</span>
@@ -153,6 +222,7 @@ export default async function AdminLawyersPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

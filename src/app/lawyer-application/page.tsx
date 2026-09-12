@@ -96,8 +96,8 @@ export default function LawyerApplicationPage() {
       <div className="flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-xl space-y-6 text-center">
           <div className="flex justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-              <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
+              <CheckCircle2 className="h-8 w-8 text-success" />
             </div>
           </div>
           <div>
