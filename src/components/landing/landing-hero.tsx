@@ -13,7 +13,7 @@ export function LandingHero() {
         <p className="mt-6 max-w-md text-base text-[#141110]/70">
           Dealenz reads your contract and tells you plainly where the risk is before you commit.
         </p>
-        <div className="mt-8 flex items-center gap-4">
+        <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
           <Link
             href="/audit/new"
             className="rounded-full bg-[var(--primary)] text-white px-6 py-3.5 text-sm font-medium"

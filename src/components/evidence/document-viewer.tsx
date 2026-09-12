@@ -107,9 +107,9 @@ export function DocumentViewerModal({
             <p
               className={
                 result.status === "EXACT"
-                  ? "inline-block rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-medium text-emerald-800"
+                  ? "inline-block rounded-full bg-success/10 px-2.5 py-1 text-[11px] font-medium text-success"
                   : result.status === "APPROXIMATE"
-                    ? "inline-block rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-medium text-amber-800"
+                    ? "inline-block rounded-full bg-warning/15 px-2.5 py-1 text-[11px] font-medium text-warning-foreground"
                     : "inline-block rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
               }
             >

@@ -42,7 +42,15 @@ export function PortalView({ document: doc, token }: PortalViewProps) {
   )
 
   const handleSign = async () => {
-    if (!name.trim() || !email.trim()) return
+    // Client-side convenience validation; the RPC enforces server-side.
+    if (!name.trim() || name.trim().length > 120) {
+      setSignError("Enter your full name (max 120 characters)")
+      return
+    }
+    if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email.trim()) || email.trim().length > 254) {
+      setSignError("Enter a valid email address")
+      return
+    }
     setSigning(true)
     setSignError(null)
 
@@ -108,8 +116,8 @@ export function PortalView({ document: doc, token }: PortalViewProps) {
 
         <div className="rounded-lg border bg-card p-6">
           {signed && signatureInfo ? (
-            <div className="flex items-center gap-3 text-green-600">
-              <div className="rounded-full bg-green-100 p-2">
+            <div className="flex items-center gap-3 text-success">
+              <div className="rounded-full bg-success/10 p-2">
                 <Check className="h-5 w-5" />
               </div>
               <div>

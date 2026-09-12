@@ -3,6 +3,9 @@ import { Plus, AlertTriangle, Clock, FileText, ArrowRight, AlertCircle, CheckCir
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 import { IconDeal, IconRiskFlag, IconSeverityHigh, IconSeverityMedium } from "@/components/icons"
+import { ErrorPanel } from "@/components/ui/error-panel"
+import { EmptyState } from "@/components/ui/empty-state"
+import { StatusBadge } from "@/components/ui/status-badge"
 
 export const dynamic = "force-dynamic"
 
@@ -69,6 +72,7 @@ interface AttentionItem {
   dealId: string
   label: string
   reason: string
+  severity?: "Critical" | "High" | "Medium"
 }
 
 export default async function DashboardPage({ searchParams }: PageProps) {
@@ -101,7 +105,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
     // Unresolved risk flags — analyzed with Medium/High/Critical, no documents yet
     if (a.status === "analyzed" && report && (level === "High" || level === "Critical" || level === "Medium") && !docsExist) {
-      items.push({ id: `${a.id}-unresolved-flag`, dealId: a.id, label: a.title, reason: `${level} risk flags unresolved` })
+      items.push({ id: `${a.id}-unresolved-flag`, dealId: a.id, label: a.title, reason: `${level} risk flags unresolved — generate protection documents`, severity: level })
     }
 
     // Analyzed without protection documents — proposals not sent
@@ -122,9 +126,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     return items
   })
 
-  // Risk Alerts: analyzed deals with flags, showing first flagged category
+  // Risk-flagged analyzed deals not already covered above (documents exist,
+  // but flags remain): one informational row per deal, no duplication.
+  const flaggedIds = new Set(
+    attentionItems.filter((i) => i.severity).map((i) => i.dealId)
+  )
   const riskAlerts = allAudits
-    .filter((a) => a.status === "analyzed" && a.risk_report !== null)
+    .filter((a) => a.status === "analyzed" && a.risk_report !== null && !flaggedIds.has(a.id))
     .map((a) => ({ audit: a, report: getRiskReport(a.risk_report) }))
     .filter((r): r is { audit: Audit; report: RiskReport } => r.report !== null)
     .filter((r) => r.report.riskLevel === "High" || r.report.riskLevel === "Critical" || r.report.riskLevel === "Medium")
@@ -139,15 +147,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   return (
     <div className="px-4 sm:px-6 py-5 sm:py-7 max-w-6xl mx-auto">
       {createError && (
-        <div className="flex items-center gap-3 rounded-xl border border-destructive/50 bg-destructive/10 p-4 mb-6">
-          <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
-          <div className="text-sm text-destructive">
-            <span>Something went wrong creating your deal. </span>
-            <Link href="/audit/new" className="font-medium underline underline-offset-2 hover:no-underline">
-              Try again
-            </Link>
-            <span>.</span>
-          </div>
+        <div className="mb-6">
+          <ErrorPanel
+            title="We couldn't create your deal."
+            body="Your input is safe. Please try again — if this keeps happening, contact support."
+            chargeNote="Nothing was charged for this attempt."
+            retryLabel="Back to new deal"
+            retryHref="/audit/new"
+          />
         </div>
       )}
 
@@ -164,8 +171,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 ))}
               </div>
             ) : (
-              <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-card p-3.5 shadow-sm">
-                <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5 shadow-surface">
+                <CheckCircle className="h-4 w-4 text-success shrink-0" />
                 <p className="text-sm text-muted-foreground">Nothing needs attention right now.</p>
               </div>
             )}
@@ -194,33 +201,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           )}
 
           {totalAudits === 0 && (
-            <section>
-              <SectionTitle icon={AlertTriangle} title="Needs Your Attention" />
-              <div className="flex flex-col items-center gap-4 py-16 text-center">
-                <IconDeal className="h-10 w-10 text-muted-foreground/30" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">No deals yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Paste a client brief, even a messy one — Dealenz will flag what&apos;s risky before you reply.
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 mt-2">
-                  <Link
-                    href="/audit/new"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                    New Deal
-                  </Link>
-                  <Link
-                    href="/audit/new"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm text-muted-foreground border border-border hover:text-foreground hover:bg-muted/50 transition-colors"
-                  >
-                    Start with a blank deal
-                  </Link>
-                </div>
-              </div>
-            </section>
+            <EmptyState
+              icon={IconDeal}
+              title="No deals yet"
+              body="Paste a client brief, even a messy one — Dealenz will flag what's risky before you reply."
+              actionLabel="New Deal"
+              actionHref="/audit/new"
+            />
           )}
         </div>
 
@@ -238,15 +225,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 <span className="text-sm font-medium">New Deal</span>
                 <Plus className="h-4 w-4" />
               </Link>
-              {totalAudits === 0 && (
-                <Link
-                  href="/audit/new"
-                  className="flex items-center justify-between rounded-lg border border-border/60 p-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                >
-                  <span>Start with a blank deal</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              )}
             </div>
           </section>
 
@@ -267,7 +245,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                       "h-1.5 w-1.5 rounded-full shrink-0",
                       item.type === "risk_flagged" && "bg-risk-high",
                       item.type === "deal_created" && "bg-muted-foreground/20",
-                      item.type === "documents_generated" && "bg-violet-400",
+                      item.type === "documents_generated" && "bg-info",
                       item.type === "analyzed" && "bg-risk-medium",
                       item.type === "failed" && "bg-destructive",
                     )} />
@@ -348,7 +326,7 @@ function AttentionCard({ item }: { item: AttentionItem }) {
   return (
     <Link
       href={`/audit/${item.dealId}`}
-      className="flex items-center justify-between rounded-xl border border-border/60 bg-card p-3.5 hover:bg-muted/50 transition-colors group shadow-sm"
+      className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-3.5 hover:bg-muted/50 transition-colors group shadow-surface"
     >
       <div className="flex items-center gap-3 min-w-0">
         <AlertCircle className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -357,7 +335,14 @@ function AttentionCard({ item }: { item: AttentionItem }) {
           <p className="text-xs text-muted-foreground">{item.reason}</p>
         </div>
       </div>
-      <ArrowRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-foreground transition-colors shrink-0" />
+      <div className="flex items-center gap-2 shrink-0">
+        {item.severity && (
+          <StatusBadge tone={item.severity === "Medium" ? "warning" : "error"}>
+            {item.severity}
+          </StatusBadge>
+        )}
+        <ArrowRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-foreground transition-colors shrink-0" />
+      </div>
     </Link>
   )
 }
@@ -400,14 +385,7 @@ function RiskAlertCard({ audit, report }: { audit: Audit; report: RiskReport }) 
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0 mt-0.5">
-        <span className={cn(
-          "text-[10px] font-medium rounded-full px-1.5 py-0.5",
-          level === "Critical" && "bg-risk-critical/10 text-risk-critical",
-          level === "High" && "bg-risk-high/10 text-risk-high",
-          level === "Medium" && "bg-risk-medium/10 text-risk-medium",
-        )}>
-          {level}
-        </span>
+        <StatusBadge tone={level === "Medium" ? "warning" : "error"}>{level}</StatusBadge>
         <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-foreground transition-colors" />
       </div>
     </Link>

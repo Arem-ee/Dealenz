@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Loader2, Plus, Send } from "lucide-react"
+import { AiWorking } from "@/components/ui/ai-working"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -26,6 +27,10 @@ interface ChatMessage {
   auditId?: string | null
   findings?: Array<{ ruleKey: string; summary: string; severity: string; guidance?: string; evidence?: Evidence[] }>
   sources?: Array<{ itemKey: string; title: string; authority: string; sourceName: string; sourceReference: string; jurisdiction: string; effectiveFrom: string }>
+  legalCitations?: Array<{ title: string; section: string; url: string | null; passage: string; jurisdiction: string; authorityTier: number; retrievedAt: string; effectiveStatus: string }>
+  researchState?: string | null
+  legalLimitations?: string | null
+  requiresLawyerReview?: boolean
   usageLine?: string | null
 }
 
@@ -112,7 +117,7 @@ export function AskClient({
       response.creditsConsumed === null || response.creditsConsumed === undefined
         ? null
         : `${response.creditsConsumed} credit${response.creditsConsumed === 1 ? "" : "s"} used` +
-          (response.balance !== null && response.balance !== undefined ? ` · ${response.balance} remaining` : "")
+          (response.balance !== null && response.balance !== undefined ? ` — ${response.balance} remaining` : "")
     return {
       id: newId(),
       role: "assistant",
@@ -126,6 +131,10 @@ export function AskClient({
         evidence: f.evidence,
       })),
       sources: response.knowledgeSources,
+      legalCitations: (response as unknown as { legalCitations?: ChatMessage["legalCitations"] }).legalCitations ?? [],
+      researchState: (response as unknown as { researchState?: string | null }).researchState ?? null,
+      legalLimitations: (response as unknown as { legalLimitations?: string | null }).legalLimitations ?? null,
+      requiresLawyerReview: (response as unknown as { requiresLawyerReview?: boolean }).requiresLawyerReview ?? false,
       usageLine,
     }
   }
@@ -139,6 +148,8 @@ export function AskClient({
     setMessages(nextMessages)
     setInput("")
     setSending(true)
+    // Same intentional pacing as deal analysis: never flash working→done.
+    const startedAt = Date.now()
     try {
       const response = await askQuestionAction({
         text: question,
@@ -176,6 +187,8 @@ export function AskClient({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.")
     } finally {
+      const elapsed = Date.now() - startedAt
+      if (elapsed < 900) await new Promise((r) => setTimeout(r, 900 - elapsed))
       setSending(false)
     }
   }
@@ -290,9 +303,39 @@ export function AskClient({
                     <p className="font-medium">Sources</p>
                     {m.sources.map((s) => (
                       <p key={s.itemKey}>
-                        {s.sourceName} · {s.authority.replaceAll("_", " ")} · {s.jurisdiction} · effective {s.effectiveFrom}
+                        {s.sourceName} — {s.authority.replaceAll("_", " ")} — {s.jurisdiction} — effective {s.effectiveFrom}
                       </p>
                     ))}
+                  </div>
+                )}
+                {m.legalCitations && m.legalCitations.length > 0 && (
+                  <div className="mt-2 border-t border-border/60 pt-2 text-xs">
+                    <p className="font-medium text-foreground">Legal sources — {m.researchState ?? "VERIFIED"}</p>
+                    {m.legalCitations.slice(0, 3).map((c) => (
+                      <div key={`${c.title}-${c.section}`} className="mt-1">
+                        <p className="font-medium text-foreground">{c.title} — {c.section}</p>
+                        <p className="text-muted-foreground">“{c.passage}”</p>
+                        {c.url && (
+                          <a href={c.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                            {c.url}
+                          </a>
+                        )}
+                        <p className="text-[11px] text-muted-foreground">
+                          {c.jurisdiction} · Tier {c.authorityTier} · {c.effectiveStatus} · retrieved {c.retrievedAt.slice(0, 10)}
+                        </p>
+                      </div>
+                    ))}
+                    {m.legalLimitations && <p className="mt-1 text-muted-foreground">{m.legalLimitations}</p>}
+                    {m.requiresLawyerReview && <p className="mt-1 font-medium text-warning-foreground">Consider getting a lawyer to confirm this applies to your facts.</p>}
+                  </div>
+                )}
+                {m.researchState && (!m.legalCitations || m.legalCitations.length === 0) && (
+                  <div className="mt-2 border-t border-border/60 pt-2 text-xs text-muted-foreground">
+                    <p>
+                      Legal research: {m.researchState}
+                      {m.legalLimitations ? ` — ${m.legalLimitations}` : ""}
+                    </p>
+                    {m.requiresLawyerReview && <p className="mt-1 font-medium text-warning-foreground">Consider getting a lawyer to confirm.</p>}
                   </div>
                 )}
                 {m.usageLine && <p className="mt-2 text-[11px] text-muted-foreground">{m.usageLine}</p>}
@@ -301,9 +344,8 @@ export function AskClient({
           ))}
           {sending && (
             <div className="flex justify-start">
-              <div className="flex items-center gap-2 rounded-xl bg-muted/70 px-3.5 py-2.5 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Thinking…
+              <div className="rounded-xl bg-muted/70 px-3.5 py-2.5">
+                <AiWorking label="Thinking it through" />
               </div>
             </div>
           )}

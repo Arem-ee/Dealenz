@@ -74,15 +74,16 @@ export default function RegisterPage() {
       })
       if (error) throw error
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Google sign-in failed"
+      const raw = err instanceof Error ? err.message : ""
+      const msg = raw.trim() ? raw : "Google sign-in failed. Please try again."
       setError(msg)
-      logAuthFailure(msg, "register")
+      logAuthFailure(raw || "blank provider error", "register")
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen w-full relative overflow-hidden bg-[#F2F0ED] flex">
+    <div className="min-h-screen w-full relative overflow-hidden bg-background flex">
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-[var(--color-primary)]/40 blur-[140px]" />
       <div className="absolute -bottom-40 -right-20 w-[600px] h-[600px] rounded-full bg-[var(--color-primary)]/30 blur-[140px]" />
       <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-[var(--color-primary)]/20 blur-[120px]" />
@@ -96,12 +97,12 @@ export default function RegisterPage() {
           <div className="md:hidden mb-8">
             <span className="text-xl font-semibold tracking-tight">Dealenz</span>
           </div>
-          <h1 className="font-extrabold text-2xl text-[#141110]">Create an account</h1>
-          <p className="mt-1 text-sm text-[#141110]/60">Get a risk report on your first deal in minutes, free</p>
+          <h1 className="font-extrabold text-2xl text-foreground">Create an account</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Get a risk report on your first deal in minutes, free</p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5 max-w-sm">
             <div>
-              <Label htmlFor="email" className="text-sm font-medium text-[#141110]/80">Email</Label>
+              <Label htmlFor="email" className="text-sm font-medium text-foreground/80">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -115,7 +116,7 @@ export default function RegisterPage() {
             </div>
             <div>
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-sm font-medium text-[#141110]/80">Password</Label>
+                <Label htmlFor="password" className="text-sm font-medium text-foreground/80">Password</Label>
               </div>
               <Input
                 id="password"
@@ -135,6 +136,10 @@ export default function RegisterPage() {
             </Button>
           </form>
 
+          {error && (
+            <p role="alert" className="mt-4 max-w-sm text-sm text-destructive">{error}</p>
+          )}
+
           <button
             type="button"
             onClick={handleGoogleSignIn}
@@ -145,7 +150,7 @@ export default function RegisterPage() {
             Continue with Google
           </button>
 
-          <p className="mt-6 text-center text-sm text-[#141110]/60">
+          <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link href="/login" className="text-[var(--color-primary)] font-medium underline-offset-4 hover:no-underline">
               Sign in

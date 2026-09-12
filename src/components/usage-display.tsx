@@ -6,6 +6,8 @@ import { getUsageStats } from "@/app/dashboard/actions"
 interface UsageStats {
   analyzeDeal: number
   generateProtectionPackage: number
+  analyzeLimit: number
+  generationLimit: number
 }
 
 export function UsageDisplay() {
@@ -19,8 +21,8 @@ export function UsageDisplay() {
 
   return (
     <div className="text-xs text-muted-foreground px-3 py-1 border-t border-border/60">
-      <span className="mr-3">Analyzes: {stats.analyzeDeal}/5</span>
-      <span>Generations: {stats.generateProtectionPackage}/10</span>
+      <span className="mr-3">Analyzes: {stats.analyzeDeal}/{stats.analyzeLimit}</span>
+      <span>Generations: {stats.generateProtectionPackage}/{stats.generationLimit}</span>
     </div>
   )
 }

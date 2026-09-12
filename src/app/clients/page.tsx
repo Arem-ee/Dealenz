@@ -40,10 +40,10 @@ export default async function ClientsPage() {
         <div className="flex flex-col items-center gap-4 py-20 text-center">
           <IconClient className="h-10 w-10 text-muted-foreground/30" />
           <div>
-            <p className="text-sm font-medium">Client profiles build themselves as you run deals</p>
+            <p className="text-sm font-medium">No client profiles yet</p>
             <p className="text-xs text-muted-foreground mt-1 max-w-md">
-              There&apos;s nothing to set up. Once you create a deal, the client profile
-              tracks their history, risk patterns, and past agreements automatically.
+              Client profiles are in preview: create a deal first. Full history,
+              risk patterns, and agreement tracking are not available yet.
             </p>
           </div>
           <Link

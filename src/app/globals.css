@@ -21,6 +21,15 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-burgundy: var(--burgundy);
+  --color-burgundy-foreground: var(--burgundy-foreground);
+  --color-star: var(--star);
   --color-risk-low: var(--risk-low);
   --color-risk-low-foreground: var(--risk-low-foreground);
   --color-risk-medium: var(--risk-medium);
@@ -54,29 +63,61 @@
 }
 
 :root {
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 
-  --primary: oklch(0.34 0.10 18);
-  --primary-foreground: oklch(0.97 0 0);
-  --accent: oklch(0.60 0.14 26);
-  --accent-foreground: oklch(0.97 0 0);
+  /* Dealenz visual system (UX architecture pass).
+   * Star white is the foundation; surfaces step down in strict order:
+   * page (star) -> card (#FFFFFF) -> sunken (#F5F4F2). No greige defaults.
+   * Ink is the default action color. Burgundy is reserved for meaningful
+   * brand emphasis (identity, executed seal, key highlights) — never the
+   * default for buttons, nav, badges, or focus. */
 
-  --background: #F2F0ED;
-  --foreground: #141110;
-  --card: #FDFBF9;
-  --card-foreground: #141110;
-  --popover: #FDFBF9;
-  --popover-foreground: #141110;
-  --secondary: #F2F0ED;
-  --secondary-foreground: #141110;
-  --muted: #F2F0ED;
-  --muted-foreground: #141110;
-  --border: rgba(20, 17, 16, 0.1);
-  --input: rgba(20, 17, 16, 0.1);
-  --ring: var(--primary);
+  --star: #FAFAF8;
+
+  --primary: #1C1917;
+  --primary-foreground: #FAFAF8;
+  --accent: #EDEBE7;
+  --accent-foreground: #1C1917;
+
+  --burgundy: oklch(0.34 0.10 18);
+  --burgundy-foreground: oklch(0.97 0 0);
+
+  --background: var(--star);
+  --foreground: #1C1917;
+  --card: #FFFFFF;
+  --card-foreground: #1C1917;
+  --popover: #FFFFFF;
+  --popover-foreground: #1C1917;
+  --secondary: #F1EFEC;
+  --secondary-foreground: #1C1917;
+  --muted: #F1EFEC;
+  --muted-foreground: #57534E;
+  --border: rgba(28, 25, 23, 0.1);
+  --input: rgba(28, 25, 23, 0.16);
+  --ring: rgba(28, 25, 23, 0.28);
 
   --destructive: oklch(0.55 0.23 25);
   --destructive-foreground: oklch(0.97 0 0);
+
+  --success: oklch(0.55 0.15 150);
+  --success-foreground: oklch(0.97 0 0);
+  --warning: oklch(0.74 0.16 70);
+  --warning-foreground: oklch(0.30 0.10 50);
+  --info: oklch(0.62 0.12 240);
+  --info-foreground: oklch(0.97 0 0);
+
+  /* Shared surface/brand tokens. Historically these lived only under
+   * .landing-theme while the utilities were global, which silently broke
+   * every bg-brand-red/text-brand-red/surface consumer outside that
+   * wrapper (invisible CTA text). Single source lives here now. */
+  --surface: #FFFFFF;
+  --surface-hover: #F1EFEC;
+  --surface-elevated: #FFFFFF;
+  --brand-red: var(--burgundy);
+  --brand-red-hover: oklch(0.46 0.14 22);
+  --text-secondary: #1C1917;
+  --text-muted: rgba(28, 25, 23, 0.55);
+  --border-subtle: rgba(28, 25, 23, 0.06);
 
   --risk-low: oklch(0.87 0.02 240);
   --risk-low-foreground: oklch(0.35 0.04 240);
@@ -87,39 +128,39 @@
   --risk-critical: oklch(0.48 0.26 28);
   --risk-critical-foreground: oklch(1 0 0);
 
-  --sidebar-background: #F2F0ED;
-  --sidebar-foreground: #141110;
-  --sidebar-primary: oklch(0.34 0.10 18);
-  --sidebar-primary-foreground: oklch(0.97 0 0);
-  --sidebar-accent: #F2F0ED;
-  --sidebar-accent-foreground: #141110;
-  --sidebar-border: rgba(20, 17, 16, 0.1);
-  --sidebar-ring: oklch(0.87 0 0);
+  --sidebar-background: var(--star);
+  --sidebar-foreground: #1C1917;
+  --sidebar-primary: #1C1917;
+  --sidebar-primary-foreground: #FAFAF8;
+  --sidebar-accent: #F1EFEC;
+  --sidebar-accent-foreground: #1C1917;
+  --sidebar-border: rgba(28, 25, 23, 0.1);
+  --sidebar-ring: rgba(28, 25, 23, 0.28);
 }
 
 .landing-theme {
-  --background: #F2F0ED;
-  --foreground: #141110;
-  --card: #FDFBF9;
-  --card-foreground: #141110;
-  --popover: #FDFBF9;
-  --popover-foreground: #141110;
-  --secondary: #F2F0ED;
-  --secondary-foreground: #141110;
-  --muted: #F2F0ED;
-  --muted-foreground: #141110;
-  --border: rgba(20, 17, 16, 0.1);
-  --input: rgba(20, 17, 16, 0.1);
-  --accent: var(--primary);
-  --accent-foreground: var(--primary-foreground);
-  --surface: #FDFBF9;
-  --surface-hover: #F2F0ED;
+  --background: var(--star);
+  --foreground: #1C1917;
+  --card: #FFFFFF;
+  --card-foreground: #1C1917;
+  --popover: #FFFFFF;
+  --popover-foreground: #1C1917;
+  --secondary: #F1EFEC;
+  --secondary-foreground: #1C1917;
+  --muted: #F1EFEC;
+  --muted-foreground: #57534E;
+  --border: rgba(28, 25, 23, 0.1);
+  --input: rgba(28, 25, 23, 0.16);
+  --accent: #EDEBE7;
+  --accent-foreground: #1C1917;
+  --surface: #FFFFFF;
+  --surface-hover: #F1EFEC;
   --surface-elevated: #FFFFFF;
-  --brand-red: var(--primary);
+  --brand-red: var(--burgundy);
   --brand-red-hover: oklch(0.46 0.14 22);
-  --text-secondary: #141110;
-  --text-muted: rgba(20, 17, 16, 0.5);
-  --border-subtle: rgba(20, 17, 16, 0.06);
+  --text-secondary: #1C1917;
+  --text-muted: rgba(28, 25, 23, 0.55);
+  --border-subtle: rgba(28, 25, 23, 0.06);
 }
 
 * {
@@ -195,6 +236,44 @@ body {
   [data-numeric] {
     font-variant-numeric: tabular-nums;
   }
+
+  /* Visible, restrained focus everywhere (accessibility pass). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Controlled depth: three elevation levels, nothing else. */
+@utility shadow-surface {
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.05);
+}
+
+@utility shadow-raised {
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.06), 0 4px 12px -4px oklch(0 0 0 / 0.08);
+}
+
+@utility shadow-overlay {
+  box-shadow: 0 8px 32px -8px oklch(0 0 0 / 0.18), 0 2px 8px -2px oklch(0 0 0 / 0.08);
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@utility animate-shimmer {
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* AI working dots: gentle, quiet, single animation for all AI states. */
+@keyframes ai-dots {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+
+@utility animate-ai-dots {
+  animation: ai-dots 1.4s ease-in-out infinite;
 }
 
 @keyframes fade-in {

@@ -1,13 +1,31 @@
 "use server"
 
+import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { logEvent } from "@/lib/logger"
+import { getTrustedClientIp, checkAnonymousRateLimit } from "@/lib/rate-limit-anon"
+
+// Unauthenticated observability with abuse bounds: fixed phase allowlist,
+// truncated messages, durable per-IP rate limiting. Logging must never
+// become an unbounded write path or a sensitive-data sink.
+const AUTH_FAILURE_MODES = ["login", "register"] as const
+const MAX_AUTH_ERROR_CHARS = 500
+const AUTH_LOG_LIMIT = 20
+const AUTH_LOG_WINDOW_SECONDS = 3600
 
 export async function logAuthFailure(errorMessage: string, mode: "login" | "register") {
+  if (!AUTH_FAILURE_MODES.includes(mode)) return
+  if (typeof errorMessage !== "string" || errorMessage.trim().length === 0) return
+
+  const supabase = await createClient()
+  const ip = getTrustedClientIp(await headers())
+  const quota = await checkAnonymousRateLimit(supabase, `authlog:${ip}`, AUTH_LOG_LIMIT, AUTH_LOG_WINDOW_SECONDS)
+  if (!quota.allowed) return
+
   await logEvent({
     phase: `auth_${mode}`,
     status: "failure",
-    error_message: errorMessage,
+    error_message: errorMessage.slice(0, MAX_AUTH_ERROR_CHARS),
   })
 }
 

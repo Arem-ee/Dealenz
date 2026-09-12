@@ -20,8 +20,8 @@ export function VerificationBanner() {
   if (!visible) return null
 
   return (
-    <div ref={bannerRef} className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
-      <p className="text-blue-700">Please check your email for the verification link.</p>
+    <div ref={bannerRef} className="rounded-lg bg-info/10 border border-info/25 p-4 mb-4">
+      <p className="text-sm text-info">Please check your email for the verification link.</p>
     </div>
   )
 }

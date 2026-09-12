@@ -9,7 +9,7 @@ const faqs = [
   },
   {
     q: "What AI does it use?",
-    a: "Google Gemini for analysis and document generation, with a rule-based engine that validates the output. Two layers, not one.",
+    a: "Dealenz AI for analysis and document generation, with a rule-based engine that validates the output. Two layers, not one.",
   },
   {
     q: "What if it misses something?",

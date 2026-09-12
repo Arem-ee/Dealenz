@@ -5,6 +5,8 @@ import { Upload, FileText, Sparkles, Loader2, CheckCircle2, Shield, ShieldAlert,
 import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { AiWorking } from "@/components/ui/ai-working"
+import { publicErrorMessage } from "@/lib/safe-error"
 import Link from "next/link"
 
 type InputMode = "paste" | "upload" | "describe"
@@ -256,15 +258,23 @@ export function LandingMiniDashboard() {
         body: formData,
       })
 
+      // Infrastructure failures (proxy/edge HTML pages) are not JSON and
+      // must never surface parser internals to customers.
+      const contentType = response.headers.get("content-type") ?? ""
+      if (!contentType.includes("application/json")) {
+        throw new Error("Analysis failed. Please try again.")
+      }
       const data: AnalyzeResponse = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Analysis failed")
+        throw new Error(data.error || "Analysis failed. Please try again.")
       }
 
       setResult(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed. Please try again.")
+      // Single sanitizer for every AI surface: curated server messages pass
+      // through, parser/network/infra text collapses to the fallback.
+      setError(publicErrorMessage(err, "Analysis failed. Please try again."))
     } finally {
       setLoading(false)
     }
@@ -366,6 +376,7 @@ export function LandingMiniDashboard() {
               className="ml-auto rounded-full bg-[var(--primary)] text-white p-3"
               onClick={handleAnalyze}
               disabled={!canAnalyze || loading}
+              aria-label={loading ? "Analyzing your deal" : "Analyze deal"}
             >
               {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
             </Button>
@@ -387,6 +398,14 @@ export function LandingMiniDashboard() {
         <p className="mt-4 text-center text-xs text-[#141110]/50">
           No signup needed to try it. Your deal stays private and isn&apos;t used to train any model.
         </p>
+        {error && !loading && (
+          <p role="alert" className="mt-3 text-center text-sm font-medium text-destructive">{error}</p>
+        )}
+        {loading && (
+          <div className="mt-4 flex justify-center">
+            <AiWorking label="Analyzing your deal" />
+          </div>
+        )}
       </div>
 
       <input

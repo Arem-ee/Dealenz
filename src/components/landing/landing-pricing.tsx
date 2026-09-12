@@ -7,11 +7,10 @@ const featureSet = [
   "Activity timeline.",
 ]
 
-const proFeatures = [
-  "Everything in Free, plus:",
-  "Higher daily analysis limit.",
-  "Custom business profile on documents.",
-  "Document version history.",
+const creditFeatures = [
+  "Free daily analyses included.",
+  "Ask credits for deeper conversations.",
+  "Buy packs inside the app when you need them.",
 ]
 
 export function LandingPricing() {
@@ -38,19 +37,19 @@ export function LandingPricing() {
             </Link>
           </div>
           <div className="rounded-2xl border border-brand-red/20 bg-white p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
-            <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Pro</p>
-            <p className="mt-2 text-4xl font-semibold text-[#1a0f0f]">$[price]</p>
-            <p className="mt-1 text-sm text-muted-foreground">For active professionals</p>
+            <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Credits</p>
+            <p className="mt-2 text-4xl font-semibold text-[#1a0f0f]">Pay as you go</p>
+            <p className="mt-1 text-sm text-muted-foreground">For deeper AI work</p>
             <ul className="mt-6 space-y-2">
-              {proFeatures.map((f) => (
+              {creditFeatures.map((f) => (
                 <li key={f} className="text-sm text-muted-foreground">{f}</li>
               ))}
             </ul>
             <Link
-              href="/contact"
+              href="/register"
               className="mt-8 flex w-full items-center justify-center rounded-full bg-brand-red px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-red-hover transition-colors shadow-sm"
             >
-              Contact us
+              Get started free
             </Link>
           </div>
         </div>

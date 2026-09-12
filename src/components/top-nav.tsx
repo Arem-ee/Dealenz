@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { IconDeal } from "@/components/icons"
 import { searchDeals, getRecentNotifications } from "@/app/dashboard/actions"
+import { titleFor } from "@/lib/nav"
 
 interface SearchResult {
   id: string
@@ -73,15 +74,7 @@ export function TopNav() {
     setSearchOpen(false)
   }, [pathname])
 
-  const pageTitle =
-    pathname === "/dashboard" ? "Home" :
-    pathname.startsWith("/dashboard") ? "Home" :
-    pathname.startsWith("/audit") ? "Deal Workspace" :
-    pathname.startsWith("/deals") ? "Deals" :
-    pathname.startsWith("/clients") ? "Clients" :
-    pathname.startsWith("/risk-intelligence") ? "Risk Intelligence" :
-    pathname.startsWith("/templates") ? "Templates" :
-    "Dealenz"
+  const pageTitle = titleFor(pathname)
 
   useEffect(() => {
     const trimmed = query.trim()
@@ -137,7 +130,7 @@ export function TopNav() {
           className="hidden sm:flex flex-1 max-w-xs ml-4 items-center gap-2 h-8 rounded-md border border-input bg-muted/50 px-3 text-xs text-muted-foreground hover:border-muted-foreground/30 transition-colors"
         >
           <Search className="h-3.5 w-3.5 shrink-0" />
-          <span className="flex-1 text-left">Search deals, clients...</span>
+          <span className="flex-1 text-left">Search deals by title...</span>
           <kbd className="hidden lg:inline-flex items-center gap-0.5 rounded border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/60">
             <Command className="h-2.5 w-2.5" />K
           </kbd>
@@ -155,9 +148,6 @@ export function TopNav() {
               <h2 className="sr-only">Notifications</h2>
               <div className="flex items-center justify-between px-4 h-12 border-b border-border/60">
                 <span className="text-sm font-medium">Notifications</span>
-                <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  Mark all read
-                </button>
               </div>
               <div className="divide-y divide-border/60">
                 {notifications.length === 0 ? (
@@ -213,7 +203,7 @@ export function TopNav() {
               <input
                 ref={searchInputRef}
                 type="text"
-                placeholder="Search deals, clients, templates..."
+                placeholder="Search deal titles..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"

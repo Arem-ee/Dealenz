@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import {
   ArrowLeft, Calendar, Sparkles, Loader2, AlertCircle,
   ChevronDown, ChevronRight, ShieldCheck, Save, Check, Pencil,
@@ -19,15 +19,28 @@ import { StageStepper, type StageId } from "@/components/audit/stage-stepper"
 import { ContextualPanel } from "@/components/audit/contextual-panel"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { Button } from "@/components/ui/button"
+import { AiWorking } from "@/components/ui/ai-working"
+import { ErrorPanel } from "@/components/ui/error-panel"
+import { StageBanner, DealStateBadge } from "@/components/audit/stage-banner"
+import { dealStage } from "@/lib/deal/stage"
 import { cn } from "@/lib/utils"
 
 import { Timeline, type TimelineEvent } from "@/components/audit/timeline"
+import { canGenerateDocuments, documentGenerationUnavailableMessage } from "@/lib/protection"
+import { ProtectionIntentsView } from "@/components/audit/protection-intents"
+import { BusinessOwnerDocumentSection } from "@/components/audit/business-owner-document"
 import { analyzeDeal, generateProtectionPackage, updateAudit, getClientProfiles } from "@/app/audit/[id]/actions"
 import { createConsultationRequest, getVerifiedLawyersCount } from "@/app/audit/[id]/consultation-actions"
 import { LawyerEscalationCard } from "@/components/audit/lawyer-escalation"
+import { LawyerHandoffReview } from "@/components/audit/lawyer-handoff-review"
+import { ReviewPanel } from "@/components/audit/review-panel"
+import { FinalDocumentsPanel } from "@/components/audit/final-documents"
 import { ContextPanel } from "@/components/audit/context-panel"
 import { FindingsPanel, parsePersistedFindings } from "@/components/audit/findings-panel"
 import type { RuleResult } from "@/lib/rules/result"
+import { protectionIntentsFromFindings } from "@/lib/protection/intents"
+import { clausesForDealType } from "@/lib/protection/clauses"
+import { buildHandoffPackage } from "@/lib/consultation/handoff"
 import { parseContextEnvelope, type ContextEnvelope } from "@/lib/context/schema"
 import type { ExtractedData } from "@/lib/ai/extract"
 import type { RiskReport } from "@/lib/risk/engine"
@@ -41,7 +54,7 @@ interface ClientProfile {
   email: string | null
 }
 
-type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder"
+type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership"
 
 interface AuditData {
   id: string
@@ -78,26 +91,22 @@ interface WorkspaceClientProps {
   audit: AuditData
   userId: string
   activityEvents?: ActivityEventRow[]
+  hasVersions?: boolean
 }
-
-const PROCESSING_STEPS = [
-  "Analyzing project details...",
-  "Extracting deliverables...",
-  "Identifying signals...",
-  "Structuring information...",
-  "Evaluating scope risk...",
-  "Analyzing payment safety...",
-  "Reviewing timeline...",
-  "Assessing client behavior...",
-]
-
-
-
-
 
 const MOBILE_STAGES: StageId[] = ["intake", "risk-analysis", "proposal", "sow", "contract", "checklist"]
 
-export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClientProps) {
+const MOBILE_STAGES_BY_DEAL_TYPE: Record<string, StageId[]> = {
+  freelance: MOBILE_STAGES,
+  founder: ["intake", "risk-analysis", "documents"],
+  partnership: ["intake", "risk-analysis", "documents"],
+  purchase_sale: ["intake", "risk-analysis", "documents"],
+  lease: ["intake", "risk-analysis", "documents"],
+  employment: ["intake", "risk-analysis", "documents"],
+  generic: ["intake", "risk-analysis"],
+}
+
+export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = false }: WorkspaceClientProps) {
   const [inputType, setInputType] = useState<InputType>(
     (audit.source_type as InputType) ?? "paste"
   )
@@ -112,7 +121,6 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
     notes: ((audit.structured_data as Record<string, string>)?.notes ?? "") as string,
   })
   const [analyzing, setAnalyzing] = useState(false)
-  const [processingStep, setProcessingStep] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(
     ((audit.structured_data as Record<string, unknown>)?.extractedData as ExtractedData | undefined) ?? null
@@ -137,6 +145,9 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
   const [editTitle, setEditTitle] = useState(audit.title)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const defaultTitles = ["New Audit", "New Deal"]
+  const [showHandoff, setShowHandoff] = useState(false)
+  const [handoffPackage, setHandoffPackage] = useState<ReturnType<typeof buildHandoffPackage> | null>(null)
+  const [handoffSubmitted, setHandoffSubmitted] = useState<string | null>(null)
 
   function makeTitleFromInput(text: string): string {
     return text.trim().slice(0, 60).replace(/\s+\S*$/, "").replace(/[,;:.!?]+$/, "").trim() || "Untitled"
@@ -156,13 +167,14 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
   const hasDocuments = documents.length > 0
   const dealTypeRaw = audit.deal_type as DealType
   const dealType: DealType =
-    dealTypeRaw === "generic" || dealTypeRaw === "lease" || dealTypeRaw === "purchase_sale" || dealTypeRaw === "employment" || dealTypeRaw === "founder"
+    dealTypeRaw === "generic" || dealTypeRaw === "lease" || dealTypeRaw === "purchase_sale" || dealTypeRaw === "employment" || dealTypeRaw === "founder" || dealTypeRaw === "partnership"
       ? dealTypeRaw
       : "freelance"
   // Lease, purchase/sale, and employment analyses produce the adaptive
   // generic-shaped report, so they share the generic report view; only
   // freelance uses the 8-category view.
   const isGeneric = dealType !== "freelance"
+  const canGenerate = canGenerateDocuments(dealType)
   // Stored envelope validated defensively: malformed data renders as
   // "no context yet" and is reseeded by ensureContextForAnalysis on analyze.
   let initialContext: ContextEnvelope | null = null
@@ -174,6 +186,13 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
   } catch {
     initialContext = null
   }
+  const jurisdictionForProtection = useMemo(() => {
+    const f = initialContext?.fields.jurisdiction
+    if (f && f.source !== "unknown" && typeof f.value === "string" && (f.value as string).trim().length > 0) {
+      return { scope: "country" as const, country: f.value as string, region: null as string | null }
+    }
+    return null
+  }, [initialContext]) // eslint-disable-line react-hooks/preserve-manual-memoization -- jurisdiction stable per audit load
   const negotiationPoints = (structured?.negotiationPoints as string[] | undefined) ?? []
   const genericDegraded = (structured?.genericRiskDegraded as boolean | undefined) ?? false
   const isDirty = saveState === "unsaved" || saveState === "saving"
@@ -250,19 +269,50 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
       }))),
     ]
 
-  const currentStage: StageId = analyzing
-    ? "risk-analysis"
-    : isFailed
-    ? (!hasContent ? "intake" : "risk-analysis")
-    : hasDocuments
-    ? "checklist"
-    : riskReport
-    ? "risk-analysis"
-    : consented
-    ? "intake"
-    : "intake"
+  const hasAnyDocuments = hasDocuments || hasVersions
+  // Freelance keeps the proposal/sow/contract/checklist pipeline; every other
+  // deal type uses the neutral Intake → Analysis → Documents model so the UI
+  // never implies pipeline stages the backend does not have.
+  const currentStage: StageId =
+    dealType === "freelance"
+      ? analyzing
+        ? "risk-analysis"
+        : isFailed
+        ? (!hasContent ? "intake" : "risk-analysis")
+        : hasDocuments
+        ? "checklist"
+        : riskReport
+        ? "risk-analysis"
+        : consented
+        ? "intake"
+        : "intake"
+      : analyzing
+      ? "risk-analysis"
+      : isFailed
+      ? (!hasContent ? "intake" : "risk-analysis")
+      : hasAnyDocuments
+      ? "documents"
+      : riskReport
+      ? "risk-analysis"
+      : "intake"
 
   const [, setActiveDocTab] = useState<StageId>("proposal")
+
+  // Deal-level stage for the banner: derived from the same server state as
+  // the stepper, plus real outputs. Hidden during consent/analyzing/failed,
+  // which already own the full view.
+  const stage = useMemo(
+    () =>
+      dealStage({
+        status: audit.status,
+        hasContent,
+        hasRisk: riskReport !== null,
+        docsGenerated: documents.length > 0,
+        hasVersions,
+      }),
+    [audit.status, hasContent, riskReport, documents.length, hasVersions]
+  )
+  const showBanner = consented && !analyzing && !isFailed
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -337,7 +387,10 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
   const handleAnalyze = async () => {
     setAnalyzing(true)
     setError(null)
-    setProcessingStep(0)
+    // Intentional minimum presentation: the working state stays visible
+    // briefly even for fast runs so completion never flashes. Small,
+    // fixed, and unrelated to actual model time.
+    const startedAt = Date.now()
 
     if (rawInput.trim() && saveState !== "saved") {
       try {
@@ -357,10 +410,6 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
         return
       }
     }
-
-    const stepInterval = setInterval(() => {
-      setProcessingStep((prev) => Math.min(prev + 1, PROCESSING_STEPS.length - 1))
-    }, 2500)
 
     try {
       const result = await analyzeDeal(audit.id)
@@ -383,13 +432,15 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
     } catch (err) {
       setError(err instanceof Error ? err.message : "Analysis failed")
     } finally {
-      clearInterval(stepInterval)
+      const elapsed = Date.now() - startedAt
+      if (elapsed < 900) await new Promise((r) => setTimeout(r, 900 - elapsed))
       setAnalyzing(false)
     }
   }
 
   const handleGenerate = async () => {
     setGenerating(true)
+    const startedAt = Date.now()
     try {
       const result = await generateProtectionPackage(audit.id)
       if (result.success && result.documents) {
@@ -400,6 +451,8 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed")
     } finally {
+      const elapsed = Date.now() - startedAt
+      if (elapsed < 900) await new Promise((r) => setTimeout(r, 900 - elapsed))
       setGenerating(false)
     }
   }
@@ -418,6 +471,35 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
     } finally {
       setConsenting(false)
     }
+  }
+
+  function handleOpenHandoff() {
+    // Build from already-authoritative outputs — no re-analysis; jurisdiction is explicit, never silently Nigeria
+    const jurisdictionForHandoff = jurisdictionForProtection ?? ({ scope: "custom" as const, country: "UNKNOWN", region: null as string | null } as const)
+    const intents = protectionIntentsFromFindings(dealType, ruleResults, jurisdictionForHandoff as never)
+    const clauses = clausesForDealType(dealType)
+    const jurisdiction = jurisdictionForHandoff
+    // Legal citations: jurisdiction-aware intent legalContext only (never another
+    // jurisdiction's law); for UNKNOWN jurisdiction, honestly no verified citations
+    const legalCitations = intents.map((i) => i.legalContext).filter((c): c is NonNullable<typeof c> => c !== null)
+    // Also include any document draft provenance if available (not yet persisted in this phase — nullable)
+    const pkg = buildHandoffPackage(
+      {
+        audit: { id: audit.id, deal_type: dealType, title: editTitle, raw_input: audit.raw_input },
+        jurisdiction,
+        facts: (structured?.extractedData as Record<string, unknown> | null) ?? null,
+        findings: ruleResults,
+        riskReport: riskReport as unknown as { overallScore?: number | null; riskLevel?: string | null } | null,
+        protectionIntents: intents,
+        clauses,
+        draft: null, // draft is generated separately via BusinessOwnerDocumentSection; handoff remains usable without it
+        legalCitations,
+      },
+      new Date()
+    )
+    // Preserve honest jurisdiction handling: if UNKNOWN, do not invent Nigeria
+    setHandoffPackage(pkg)
+    setShowHandoff(true)
   }
 
   const handleStageClick = (stage: StageId) => {
@@ -485,8 +567,9 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
             currentStage={currentStage}
             intakeComplete={intakeComplete}
             riskComplete={isAnalyzed}
-            documentsExist={hasDocuments}
+            documentsExist={hasAnyDocuments}
             onStageClick={handleStageClick}
+            dealType={dealType}
           />
         </div>
       </aside>
@@ -498,23 +581,18 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <span className="text-sm font-medium truncate">{editTitle}</span>
-          <span className={cn(
-            "ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium capitalize",
-            audit.status === "draft" && "bg-secondary text-secondary-foreground",
-            audit.status === "processing" && "bg-blue-50 text-blue-700",
-            audit.status === "analyzed" && "bg-green-50 text-green-700",
-            audit.status === "failed" && "bg-red-50 text-red-700",
-          )}>
-            {audit.status.replace("_", " ")}
+          <span className="ml-auto">
+            <DealStateBadge status={audit.status} />
           </span>
         </div>
         <div className="flex gap-1 px-3 py-2 overflow-x-auto border-b border-border/60 scrollbar-none">
-          {MOBILE_STAGES.map((sid) => {
+          {(MOBILE_STAGES_BY_DEAL_TYPE[dealType] ?? MOBILE_STAGES).map((sid) => {
             const stage = { id: sid, label: sid.charAt(0).toUpperCase() + sid.slice(1).replace("-", " "), description: "" }
             const isCurrent = sid === currentStage
             const isDone = (sid === "intake" && intakeComplete) ||
               (sid === "risk-analysis" && isAnalyzed) ||
-              (["proposal", "sow", "contract", "checklist"].includes(sid) && hasDocuments)
+              (["proposal", "sow", "contract", "checklist"].includes(sid) && hasDocuments) ||
+              (sid === "documents" && hasAnyDocuments)
             return (
               <button
                 key={sid}
@@ -533,7 +611,12 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
         </div>
 
         {/* Mobile main content */}
-        <div className="flex-1 overflow-y-auto p-4 pb-20">
+        <div className="flex-1 overflow-y-auto p-4 pb-20" aria-busy={analyzing || generating}>
+          {showBanner && (
+            <div className="mb-4">
+              <StageBanner stage={stage} />
+            </div>
+          )}
           {renderMainContent()}
         </div>
       </div>
@@ -542,15 +625,7 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
       <main className="hidden lg:flex lg:flex-col flex-1 overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-3 border-b border-border/60">
           <div className="flex items-center gap-2">
-            <span className={cn(
-              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize",
-              audit.status === "draft" && "bg-secondary text-secondary-foreground",
-              audit.status === "processing" && "bg-blue-50 text-blue-700",
-              audit.status === "analyzed" && "bg-green-50 text-green-700",
-              audit.status === "failed" && "bg-red-50 text-red-700",
-            )}>
-              {audit.status.replace("_", " ")}
-            </span>
+            <DealStateBadge status={audit.status} />
             {lastSaved && saveState === "saved" && (
               <span className="text-xs text-muted-foreground">
                 Saved {new Date(lastSaved).toLocaleTimeString()}
@@ -570,11 +645,11 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
               </Button>
             )}
             {hasContent && !isAnalyzed && (
-              <Button onClick={handleAnalyze} disabled={analyzing}>
+              <Button onClick={handleAnalyze} disabled={analyzing} aria-busy={analyzing}>
                 {analyzing ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Analyzing...
+                    Analyze Deal
                   </>
                 ) : (
                   <>
@@ -588,7 +663,12 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6" aria-busy={analyzing || generating}>
+            {showBanner && (
+              <div className="mb-5">
+                <StageBanner stage={stage} />
+              </div>
+            )}
             {renderMainContent()}
           </div>
 
@@ -602,6 +682,9 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
           </aside>
         </div>
       </main>
+      {showHandoff && handoffPackage && (
+        <LawyerHandoffReview handoff={handoffPackage} auditId={audit.id} onClose={() => setShowHandoff(false)} onSubmitted={(status) => { setHandoffSubmitted(status); setShowHandoff(false) }} />
+      )}
     </div>
   )
 
@@ -613,8 +696,8 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
             <h2 className="text-lg font-semibold">AI Analysis Consent Required</h2>
             <p className="text-sm text-muted-foreground">
               Before analyzing your deal, please note that your project information
-              (text and uploaded file contents) will be sent to Google Gemini AI
-              for processing. No data is stored or used beyond this analysis.
+              (text and uploaded file contents) will be processed by Dealenz AI
+              for this analysis. No data is stored or used beyond this analysis.
             </p>
             <Button onClick={handleConsent} disabled={consenting} size="lg">
               {consenting && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -627,11 +710,10 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
 
     if (analyzing) {
       return (
-        <div className="flex flex-col items-center justify-center gap-3 py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm font-medium">{PROCESSING_STEPS[processingStep]}</p>
+        <div className="flex flex-col items-center justify-center gap-4 py-20">
+          <AiWorking label="Analyzing your deal" />
           <p className="text-xs text-muted-foreground">
-            Processing your project information...
+            Reading your project information and checking it for risk.
           </p>
         </div>
       )
@@ -639,21 +721,20 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
 
     if (isFailed) {
       return (
-        <div className="flex flex-col items-center gap-3 py-16">
-          <AlertCircle className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm font-medium">We couldn&apos;t complete a full audit.</p>
-          <p className="text-xs text-muted-foreground">
-            Your inputs were saved. Please try again.
-          </p>
+        <div className="py-10">
+          <ErrorPanel
+            title="We couldn't finish the analysis."
+            body="Your deal is safe and your inputs were saved. This sometimes happens when the AI provider is unavailable."
+            chargeNote="Nothing was charged for this attempt."
+            retryLabel="Try again"
+            onRetry={() => void handleAnalyze()}
+          />
           {error && (
-            <details className="text-xs text-muted-foreground/60">
+            <details className="mt-3 text-xs text-muted-foreground/60">
               <summary className="cursor-pointer hover:text-foreground">Error details</summary>
               <p className="mt-1">{error}</p>
             </details>
           )}
-          <Button variant="outline" size="sm" onClick={handleAnalyze}>
-            Retry Analysis
-          </Button>
         </div>
       )
     }
@@ -685,12 +766,52 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
             {workspaceTab === "report" ? (
               <div className="space-y-8">
                 <GenericRiskReportView report={riskReport as GenericRiskReport} degraded={genericDegraded} />
-                <FindingsPanel auditId={audit.id} results={ruleResults} />
-                <NegotiationPointsView points={negotiationPoints} />
-                <div className="rounded-xl border border-border/60 bg-card p-5">
-                  <h3 className="text-sm font-semibold">Protection package</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">Coming soon for this deal type. You can still review the deal findings and ask questions about the deal.</p>
-                  <Link href={`/ask?deal=${encodeURIComponent(audit.id)}`} className="mt-3 inline-flex text-xs font-medium text-primary hover:underline">Ask about this deal →</Link>
+                <section className="space-y-4 scroll-mt-20" id="deal-protection">
+                  <h2 className="text-sm font-semibold">Protection</h2>
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What to negotiate</h3>
+                      <div className="mt-3 space-y-4">
+                        <FindingsPanel auditId={audit.id} results={ruleResults} />
+                        <NegotiationPointsView points={negotiationPoints} />
+                        {(dealType === "founder" || dealType === "partnership" || dealType === "purchase_sale" || dealType === "lease" || dealType === "employment") && (
+                          <ProtectionIntentsView dealType={dealType} findings={ruleResults} auditId={audit.id} jurisdiction={jurisdictionForProtection} />
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Documents</h3>
+                      <div className="mt-3 space-y-4 scroll-mt-20" id="deal-documents">
+                        {(dealType === "founder" || dealType === "partnership" || dealType === "purchase_sale" || dealType === "lease" || dealType === "employment") ? (
+                          <BusinessOwnerDocumentSection auditId={audit.id} dealType={dealType} />
+                        ) : (
+                          <div className="rounded-xl border border-border/60 bg-card p-5">
+                            <h3 className="text-sm font-semibold">Protection package</h3>
+                            <p className="mt-1 text-xs text-muted-foreground">{documentGenerationUnavailableMessage(dealType)}</p>
+                            <Link href={`/ask?deal=${encodeURIComponent(audit.id)}`} className="mt-3 inline-flex text-xs font-medium text-primary hover:underline">Ask about this deal →</Link>
+                          </div>
+                        )}
+                        <FinalDocumentsPanel auditId={audit.id} auditStatus={audit.status ?? "draft"} />
+                      </div>
+                    </div>
+                  </div>
+                </section>
+                {(dealType === "founder" || dealType === "partnership" || dealType === "purchase_sale" || dealType === "lease" || dealType === "employment") && (
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+                    <h3 className="text-sm font-semibold">Have a lawyer review this deal</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">Dealenz has organized the deal, identified material issues, and prepared the relevant protection and document context for review.</p>
+                    {handoffSubmitted ? (
+                      <p className="mt-3 text-xs font-medium text-success">Request submitted — {handoffSubmitted}. We will notify you when a lawyer is available.</p>
+                    ) : (
+                      <Button onClick={handleOpenHandoff} className="mt-3" size="sm">
+                        <ShieldCheck className="mr-2 h-4 w-4" />
+                        Review with lawyer
+                      </Button>
+                    )}
+                  </div>
+                )}
+                <div className="scroll-mt-20" id="deal-review">
+                  <ReviewPanel auditId={audit.id} />
                 </div>
                 {extractedData && (
                   <ErrorBoundary>
@@ -745,44 +866,65 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
             <div className="space-y-8">
               <RiskReportView report={riskReport as RiskReport} />
 
-              <FindingsPanel auditId={audit.id} results={ruleResults} />
+              <section className="space-y-4 scroll-mt-20" id="deal-protection">
+                <h2 className="text-sm font-semibold">Protection</h2>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What to negotiate</h3>
+                    <div className="mt-3">
+                      <FindingsPanel auditId={audit.id} results={ruleResults} />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Documents</h3>
+                    <div className="mt-3 space-y-4 scroll-mt-20" id="deal-documents">
+                      {canGenerate ? (
+                        <>
+                          {generating && !hasDocuments && (
+                            <div className="rounded-xl border border-border bg-card p-5 shadow-surface">
+                              <AiWorking label="Generating your protection package" />
+                            </div>
+                          )}
 
-              <LawyerEscalationCard
-                auditId={audit.id}
-                dealType={dealType}
-                riskLevel={riskLevel}
-              />
+                          {!hasDocuments && !generating && (
+                            <div className="flex justify-center">
+                              <Button onClick={handleGenerate} size="lg">
+                                <ShieldCheck className="h-4 w-4" />
+                                Generate Protection Package
+                              </Button>
+                            </div>
+                          )}
 
-              {generating && !hasDocuments && (
-                <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    <p className="text-sm font-medium">Generating protection package...</p>
+                          {hasDocuments && (
+                            <ErrorBoundary>
+                              <ProtectionPackage
+                                documents={documents}
+                                onRegenerate={handleRegenerate}
+                                regenerating={generating}
+                                riskScore={riskReport?.overallScore}
+                                riskLevel={riskLevel}
+                                auditId={audit.id}
+                              />
+                            </ErrorBoundary>
+                          )}
+                        </>
+                      ) : (
+                        <div className="rounded-xl border border-border/60 bg-card p-5">
+                          <p className="text-xs text-muted-foreground">{documentGenerationUnavailableMessage(dealType)}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
+              </section>
 
-              {!hasDocuments && !generating && (
-                <div className="flex justify-center">
-                  <Button onClick={handleGenerate} size="lg">
-                    <ShieldCheck className="h-4 w-4" />
-                    Generate Protection Package
-                  </Button>
-                </div>
-              )}
-
-              {hasDocuments && (
-                <ErrorBoundary>
-                  <ProtectionPackage
-                    documents={documents}
-                    onRegenerate={handleRegenerate}
-                    regenerating={generating}
-                    riskScore={riskReport?.overallScore}
-                    riskLevel={riskLevel}
-                    auditId={audit.id}
-                  />
-                </ErrorBoundary>
-              )}
+              <div className="scroll-mt-20" id="deal-review">
+                <LawyerEscalationCard
+                  auditId={audit.id}
+                  dealType={dealType}
+                  riskLevel={riskLevel}
+                />
+              </div>
 
               {extractedData && (
                 <ErrorBoundary>
@@ -816,7 +958,7 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
 
     if (consented) {
       return (
-        <>
+        <div id="deal-intake" className="scroll-mt-20">
           {!hasContent && (
             <div className="mb-6">
               <InputTypeSelector value={inputType} onChange={setInputType} />
@@ -862,7 +1004,7 @@ export function WorkspaceClient({ audit, userId, activityEvents }: WorkspaceClie
           <div className="mt-6">
             <ContextPanel auditId={audit.id} dealType={dealType} initialEnvelope={initialContext} />
           </div>
-        </>
+        </div>
       )
     }
 

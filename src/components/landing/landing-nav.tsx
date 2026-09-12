@@ -9,11 +9,13 @@ export function LandingNav() {
         <a href="#how-it-works">How it works</a>
         <a href="#pricing">Pricing</a>
       </div>
-      <div className="flex items-center gap-4">
-        <Link href="/login" className="text-sm">Sign in</Link>
+      <div className="flex items-center gap-2 sm:gap-4">
+        <Link href="/login" className="hidden sm:inline text-sm">
+          Sign in
+        </Link>
         <Link
           href="/audit/new"
-          className="rounded-full bg-[var(--primary)] text-white px-5 py-2.5 text-sm font-medium"
+          className="rounded-full bg-[var(--primary)] text-white px-4 sm:px-5 py-2.5 text-sm font-medium whitespace-nowrap"
         >
           Analyze your deal free
         </Link>

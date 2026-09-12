@@ -11,7 +11,16 @@ import {
   IconChecklist,
 } from "@/components/icons"
 
-export type StageId = "intake" | "risk-analysis" | "proposal" | "sow" | "contract" | "checklist" | "active" | "closed"
+export type StageId =
+  | "intake"
+  | "risk-analysis"
+  | "proposal"
+  | "sow"
+  | "contract"
+  | "checklist"
+  | "active"
+  | "closed"
+  | "documents"
 
 export interface Stage {
   id: StageId
@@ -30,6 +39,35 @@ export const STAGES: Stage[] = [
   { id: "closed", label: "Closed", description: "Deal outcome" },
 ]
 
+export type DealTypeForStages =
+  | "freelance"
+  | "generic"
+  | "lease"
+  | "purchase_sale"
+  | "employment"
+  | "founder"
+  | "partnership"
+
+// Stage vocabulary follows actual backend capability per deal type:
+// freelance has the proposal/sow/contract/checklist pipeline; all other
+// deal types with documents get a neutral Documents stage; generic has no
+// document stage at all (neutral representation, no invented stages).
+const DOCUMENT_STAGE: Stage = { id: "documents", label: "Documents", description: "Drafts and finals" }
+
+export function stagesForDealType(dealType: string): Stage[] {
+  if (dealType === "freelance") return STAGES
+  if (
+    dealType === "founder" ||
+    dealType === "partnership" ||
+    dealType === "purchase_sale" ||
+    dealType === "lease" ||
+    dealType === "employment"
+  ) {
+    return [STAGES[0], STAGES[1], DOCUMENT_STAGE]
+  }
+  return [STAGES[0], STAGES[1]]
+}
+
 const stageIcons: Record<StageId, React.ElementType> = {
   intake: IconDeal,
   "risk-analysis": IconRiskFlag,
@@ -39,6 +77,7 @@ const stageIcons: Record<StageId, React.ElementType> = {
   checklist: IconChecklist,
   active: IconDeal,
   closed: Check,
+  documents: IconContract,
 }
 
 export type StageState = "completed" | "current" | "locked" | "coming-soon"
@@ -54,6 +93,9 @@ export function getStageState(
   if (stage.id === currentStage) return "current"
   if (stage.id === "intake") return intakeComplete ? "completed" : "current"
   if (stage.id === "risk-analysis") return riskComplete ? "completed" : intakeComplete ? "current" : "locked"
+  if (stage.id === "documents") {
+    return documentsExist ? "completed" : riskComplete ? "current" : "locked"
+  }
   if (["proposal", "sow", "contract", "checklist"].includes(stage.id)) {
     return documentsExist ? "completed" : riskComplete ? "current" : "locked"
   }
@@ -74,10 +116,11 @@ export function StageStepper({
   riskComplete,
   documentsExist,
   onStageClick,
-}: StageStepperProps) {
+  dealType = "freelance",
+}: StageStepperProps & { dealType?: string }) {
   return (
     <nav className="flex flex-col gap-0.5">
-      {STAGES.map((stage) => {
+      {stagesForDealType(dealType).map((stage) => {
         const state = getStageState(stage, currentStage, intakeComplete, riskComplete, documentsExist)
         const Icon = stageIcons[stage.id]
         const isInteractive = state === "current" || state === "completed"

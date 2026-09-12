@@ -21,24 +21,24 @@ export function DraftBadge({ state, className }: DraftBadgeProps) {
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
-        state === "generating" && "bg-blue-50 text-blue-700 animate-pulse",
-        state === "ai-draft" && "bg-violet-50 text-violet-700",
-        state === "reviewed" && "bg-cyan-50 text-cyan-700",
-        state === "confirmed" && "bg-emerald-50 text-emerald-700",
+        state === "generating" && "bg-info/10 text-info animate-pulse",
+        state === "ai-draft" && "bg-info/10 text-info",
+        state === "reviewed" && "bg-warning/15 text-warning-foreground",
+        state === "confirmed" && "bg-success/10 text-success",
         className
       )}
     >
       {state === "generating" && (
-        <span className="h-1 w-1 rounded-full bg-blue-500 animate-pulse" />
+        <span className="h-1 w-1 rounded-full bg-info animate-pulse" />
       )}
       {state === "ai-draft" && (
-        <span className="h-1 w-1 rounded-full bg-violet-500" />
+        <span className="h-1 w-1 rounded-full bg-info" />
       )}
       {state === "reviewed" && (
-        <span className="h-1 w-1 rounded-full bg-cyan-500" />
+        <span className="h-1 w-1 rounded-full bg-warning" />
       )}
       {state === "confirmed" && (
-        <span className="h-1 w-1 rounded-full bg-emerald-500" />
+        <span className="h-1 w-1 rounded-full bg-success" />
       )}
       {labels[state]}
     </span>

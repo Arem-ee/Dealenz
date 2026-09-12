@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { ArrowRight, FileText } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { IconPipeline, IconDeal } from "@/components/icons"
+import { EmptyState } from "@/components/ui/empty-state"
 
 export const dynamic = "force-dynamic"
 
@@ -79,21 +80,13 @@ export default async function DealsPage() {
       </div>
 
       {all.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 py-20 text-center">
-          <IconPipeline className="h-10 w-10 text-muted-foreground/30" />
-          <div>
-            <p className="text-sm font-medium">Your first deal starts here</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Paste a client brief, even a messy one — Dealenz will flag what&apos;s risky before you reply.
-            </p>
-          </div>
-          <Link
-            href="/audit/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            New Deal
-          </Link>
-        </div>
+        <EmptyState
+          icon={IconPipeline}
+          title="Your first deal starts here"
+          body="Paste a client brief, even a messy one — Dealenz will flag what's risky before you reply."
+          actionLabel="New Deal"
+          actionHref="/audit/new"
+        />
       ) : (
         <div className="space-y-8">
           {sortedGroups.map(([group, items]) => (
