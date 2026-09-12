@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
 const mockAuth = vi.hoisted(() => ({
   getSession: vi.fn(),
@@ -28,8 +28,22 @@ function mockRequest(url: string) {
 }
 
 describe("proxy middleware — auth redirects", () => {
+  const savedUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const savedKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
   beforeEach(() => {
     vi.clearAllMocks()
+    // The middleware under test reads validated public config; pin dummy
+    // values so the tests never depend on ambient environment.
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co"
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "ci-dummy-anon-key"
+  })
+
+  afterEach(() => {
+    if (savedUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = savedUrl
+    if (savedKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = savedKey
   })
 
   it("redirects authenticated user on /login to /dashboard", async () => {
@@ -57,6 +71,26 @@ describe("proxy middleware — auth redirects", () => {
     mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: null })
 
     const res = await proxy(mockRequest("http://localhost:3000/login"))
+
+    expect(res.status).toBe(200)
+  })
+
+  it("redirects unauthenticated user on /lawyer and /admin to /login", async () => {
+    mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null })
+    mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: null })
+
+    for (const path of ["/lawyer/reviews", "/admin/lawyers"]) {
+      const res = await proxy(mockRequest(`http://localhost:3000${path}`))
+      expect(res.status).toBe(307)
+      expect(res.headers.get("location")).toBe("http://localhost:3000/login")
+    }
+  })
+
+  it("keeps /sign public for token-gated invitees", async () => {
+    mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null })
+    mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: null })
+
+    const res = await proxy(mockRequest("http://localhost:3000/sign/abc123"))
 
     expect(res.status).toBe(200)
   })

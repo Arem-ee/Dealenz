@@ -1,32 +1,30 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { logEventWithClient } from "@/lib/logger"
+import { supabasePublicConfig } from "@/lib/config"
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   let supabaseResponse = NextResponse.next({ request })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
+  const { url, anonKey } = supabasePublicConfig()
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
       },
-    }
-  )
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) =>
+          request.cookies.set(name, value)
+        )
+        supabaseResponse = NextResponse.next({ request })
+        cookiesToSet.forEach(({ name, value, options }) =>
+          supabaseResponse.cookies.set(name, value, options)
+        )
+      },
+    },
+  })
 
   let user = null
   try {
@@ -67,7 +65,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/audit") || pathname.startsWith("/ask") || pathname.startsWith("/deals") || pathname.startsWith("/clients") || pathname.startsWith("/risk-intelligence") || pathname.startsWith("/templates") || pathname.startsWith("/billing")) && !pathname.startsWith("/view")) {
+  // /lawyer/* requires a session (verified-lawyer checks run server-side per
+  // action); /admin/* likewise (page-level admin gate runs after this).
+  // /view/* and /sign/* stay public: token-gated RPCs enforce access.
+  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/audit") || pathname.startsWith("/ask") || pathname.startsWith("/deals") || pathname.startsWith("/clients") || pathname.startsWith("/risk-intelligence") || pathname.startsWith("/templates") || pathname.startsWith("/billing") || pathname.startsWith("/lawyer") || pathname.startsWith("/admin")) && !pathname.startsWith("/view")) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     await logEventWithClient(supabase, {
