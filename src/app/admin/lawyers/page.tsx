@@ -44,13 +44,23 @@ export default async function AdminLawyersPage() {
     .filter((l) => l.verification_status === "verified")
     .map((l) => ({ id: l.id, full_name: l.full_name }))
 
+  const pendingCount = ((lawyers ?? []) as Array<{ verification_status: string }>)
+    .filter((l) => l.verification_status === "pending").length
+
   return (
     <div className="px-4 sm:px-6 py-5 sm:py-7 max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Lawyer Verification</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Review and approve or reject lawyer applications
-        </p>
+      <div className="mb-6 flex items-center gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Lawyer Verification</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Review and approve or reject lawyer applications
+          </p>
+        </div>
+        {pendingCount > 0 && (
+          <span className="ml-auto inline-flex items-center rounded-full bg-warning/15 px-3 py-1 text-xs font-medium text-warning-foreground">
+            {pendingCount} pending
+          </span>
+        )}
       </div>
 
       <div className="rounded-xl border border-border/60 bg-card p-5 mb-6">

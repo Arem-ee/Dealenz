@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { validateLawyerIntake } from "@/lib/validation/lawyer-intake"
+import { sendOpsAlert } from "@/lib/logger"
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -58,16 +59,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  void sendOpsAlert({
+    severity: "info",
+    phase: "lawyer_application",
+    summary: `New lawyer application from ${v.full_name} (${v.bar_jurisdiction})`,
+  })
+
   return NextResponse.json({ success: true })
 }
 
 /**
  * Owner correction path: a rejected applicant may return their own
- * application to pending for re-review (optionally with corrected
- * credentials in the same write). Shares the submission rate limit.
- * Verified/suspended/pending rows are refused; suspension is governance
- * and only an admin lifts it. The DB trigger independently enforces that
- * non-admins can only move rejected -> pending without touching the
+ * application to pending for re-review, and a pending applicant may update
+ * the non-identity fields (bio, specialties, years_experience,
+ * notable_cases, certifications) while review is outstanding. Verified and
+ * suspended rows are refused. The DB trigger independently enforces that
+ * non-admins only move rejected -> pending without touching the
+ * verification record, and pending-row edits change neither status nor the
  * verification record.
  */
 export async function PUT(req: NextRequest) {
@@ -95,9 +103,9 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "No application found. Submit an application first." }, { status: 404 })
   }
 
-  if (existing.verification_status !== "rejected") {
+  if (existing.verification_status === "verified" || existing.verification_status === "suspended") {
     return NextResponse.json(
-      { error: "Only rejected applications can be resubmitted for review" },
+      { error: "This application cannot be edited in its current state" },
       { status: 409 }
     )
   }
@@ -107,13 +115,16 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: rate.error ?? "Rate limit exceeded" }, { status: 429 })
   }
 
-  // Optional corrected credentials travel with the resubmission. They are
-  // merged over the stored application and the COMPLETE result is
-  // re-validated, so partial corrections can never store unvalidated data.
-  // Verification record columns can never be set here — the trigger rejects
-  // non-admin writes to them.
   const corrections = data && typeof data === "object" ? (data as Record<string, unknown>) : {}
-  const correctionKeys = [
+  const isPending = existing.verification_status === "pending"
+  const pendingKeys = [
+    "bio",
+    "specialties",
+    "years_experience",
+    "notable_cases",
+    "certifications",
+  ] as const
+  const resubmitKeys = [
     "full_name",
     "bio",
     "bar_license_number",
@@ -123,11 +134,14 @@ export async function PUT(req: NextRequest) {
     "notable_cases",
     "certifications",
   ] as const
+  const correctionKeys: readonly string[] = isPending ? pendingKeys : resubmitKeys
   const hasCorrections = correctionKeys.some((key) => corrections[key] !== undefined)
 
   const patch: Record<string, unknown> = {
-    verification_status: "pending",
     updated_at: new Date().toISOString(),
+  }
+  if (!isPending) {
+    patch.verification_status = "pending"
   }
 
   if (hasCorrections) {
@@ -148,7 +162,13 @@ export async function PUT(req: NextRequest) {
     if (!validated.ok) {
       return NextResponse.json({ error: validated.error }, { status: 400 })
     }
-    Object.assign(patch, validated.value)
+    const editable = { ...validated.value }
+    if (isPending) {
+      delete (editable as Record<string, unknown>).full_name
+      delete (editable as Record<string, unknown>).bar_license_number
+      delete (editable as Record<string, unknown>).bar_jurisdiction
+    }
+    Object.assign(patch, editable)
   }
 
   const { error } = await supabase

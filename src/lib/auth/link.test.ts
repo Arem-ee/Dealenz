@@ -6,6 +6,8 @@ describe("resolveNextPath", () => {
     expect(resolveNextPath("/dashboard")).toBe("/dashboard")
     expect(resolveNextPath("/dashboard/settings")).toBe("/dashboard/settings")
     expect(resolveNextPath("/deals")).toBe("/deals")
+    expect(resolveNextPath("/lawyer-application")).toBe("/lawyer-application")
+    expect(resolveNextPath("/lawyer-application/status")).toBe("/lawyer-application/status")
   })
 
   it("rejects external origins", () => {

@@ -10,9 +10,12 @@ describe("sitemap", () => {
       expect(url).not.toContain("/audit")
       expect(url).not.toContain("/api/")
       expect(url).not.toContain("/sign/")
-      expect(url).not.toContain("/lawyer")
+      expect(url).not.toContain("/lawyer/")
+      expect(url).not.toContain("/lawyer?")
       expect(url).not.toContain("/dashboard")
     }
     expect(urls.some((u) => u.endsWith("/login"))).toBe(true)
+    expect(urls.some((u) => u.endsWith("/lawyer-application"))).toBe(true)
+    expect(urls.some((u) => u.endsWith("/lawyer-application/status"))).toBe(true)
   })
 })

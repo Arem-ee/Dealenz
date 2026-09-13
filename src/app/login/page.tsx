@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { logAuthFailure } from "@/app/login/actions"
+import { resolveNextPath } from "@/lib/auth/link"
 import Link from "next/link"
 import { SlideshowPanel } from "@/components/auth/SlideshowPanel"
 
@@ -26,6 +27,10 @@ export default function LoginPage() {
   // re-clicks must not multiply sends. Success-only (failures stay retryable).
   const [resetCooldown, setResetCooldown] = useState(false)
 
+  function loginDestination(): string {
+    return resolveNextPath(new URLSearchParams(window.location.search).get("next"))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -36,7 +41,7 @@ export default function LoginPage() {
       const supabase = createClient()
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-      router.push("/dashboard")
+      router.push(loginDestination())
       router.refresh()
     } catch (err) {
       // Generic message prevents account enumeration (nonexistent vs wrong password vs unverified)
@@ -59,7 +64,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(loginDestination())}`,
         },
       })
       if (error) throw error
@@ -172,6 +177,12 @@ export default function LoginPage() {
             Don&apos;t have an account?{" "}
             <Link href="/register" className="text-[var(--color-primary)] font-medium underline-offset-4 hover:no-underline">
               Sign up
+            </Link>
+          </p>
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            Applying as a lawyer?{" "}
+            <Link href="/lawyer-application" className="font-medium underline-offset-4 hover:no-underline">
+              Apply to join Dealenz
             </Link>
           </p>
         </div>
