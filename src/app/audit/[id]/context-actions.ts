@@ -171,7 +171,7 @@ export async function confirmContext(  auditId: string,
     if (!updates || typeof updates !== "object" || Array.isArray(updates)) {
       return { success: false, error: "No context updates provided" }
     }
-    if (Object.keys(updates).length > 13) {
+    if (Object.keys(updates).length > 15) {
       return { success: false, error: "Too many context updates in one request" }
     }
     const confirmed = applyUserConfirmation(base, updates)

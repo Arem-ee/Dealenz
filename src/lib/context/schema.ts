@@ -1,3 +1,5 @@
+import type { UserIntent } from "../ai/operations"
+
 // Context Resolution domain model (Phase 5B).
 //
 // Context answers "what kind of deal is this, who are the parties, where does
@@ -7,6 +9,17 @@
 // applicable law, or lawfulness — those belong to later Knowledge/rules layers.
 
 export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership"
+
+export const INTENT_VALUES = [
+  "explore",
+  "understand",
+  "evaluate",
+  "negotiate",
+  "draft",
+  "compare",
+  "review",
+  "decide",
+] as const satisfies readonly UserIntent[]
 
 // How a field value came to be. AI inference is never equivalent to user
 // confirmation, and the distinction survives persistence.
@@ -25,6 +38,8 @@ export interface ContextEnvelope {
   version: number
   fields: {
     dealType: ContextField<DealType>
+    intent: ContextField<UserIntent>
+    priorities: ContextField<string[]>
     jurisdiction: ContextField<string>
     governingLaw: ContextField<string>
     userRole: ContextField<string>
@@ -182,6 +197,25 @@ function checkStringArray(raw: unknown, allowed: readonly string[], fieldName: s
   return [...seen]
 }
 
+function isValidPriorityKey(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= MAX_TEXT_LENGTH &&
+    /^[a-z][a-z0-9_]*$/.test(value)
+  )
+}
+
+function isValidPriorityList(value: unknown): value is string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 6) return false
+  const seen = new Set<string>()
+  for (const entry of value) {
+    if (!isValidPriorityKey(entry)) return false
+    seen.add(entry)
+  }
+  return seen.size === value.length
+}
+
 function isValidCurrency(value: unknown): value is string {
   return typeof value === "string" && /^[A-Z]{3}$/.test(value)
 }
@@ -214,6 +248,8 @@ export function parseContextEnvelope(raw: unknown): ContextEnvelope {
 
   const expectedKeys: ContextFieldKey[] = [
     "dealType",
+    "intent",
+    "priorities",
     "jurisdiction",
     "governingLaw",
     "userRole",
@@ -240,6 +276,13 @@ export function parseContextEnvelope(raw: unknown): ContextEnvelope {
         (v): v is DealType => v === "freelance" || v === "generic" || v === "lease" || v === "purchase_sale" || v === "employment" || v === "founder" || v === "partnership",
         "dealType"
       ),
+      intent: checkField<UserIntent>(
+        fields.intent,
+        (v): v is UserIntent =>
+          typeof v === "string" && (INTENT_VALUES as readonly string[]).includes(v),
+        "intent"
+      ),
+      priorities: checkField<string[]>(fields.priorities, isValidPriorityList, "priorities"),
       jurisdiction: checkField<string>(fields.jurisdiction, isValidText, "jurisdiction"),
       governingLaw: checkField<string>(fields.governingLaw, isValidText, "governingLaw"),
       userRole: checkField<string>(fields.userRole, (v) => isValidEnum(v, ROLE_VALUES), "userRole"),
@@ -298,6 +341,8 @@ export function emptyContextEnvelope(): ContextEnvelope {
     version: 0,
     fields: {
       dealType: unknownField<DealType>(),
+      intent: unknownField<UserIntent>(),
+      priorities: unknownField<string[]>(),
       jurisdiction: unknownField<string>(),
       governingLaw: unknownField<string>(),
       userRole: unknownField<string>(),
