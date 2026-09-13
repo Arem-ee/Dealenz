@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { IconDeal } from "@/components/icons"
 import { searchDeals, getRecentNotifications } from "@/app/dashboard/actions"
-import { titleFor } from "@/lib/nav"
+import { PRIMARY_NAV, isActiveEntry, titleFor } from "@/lib/nav"
+import { CreditControl } from "@/components/home/credit-popover"
 
 interface SearchResult {
   id: string
@@ -121,13 +122,31 @@ export function TopNav() {
 
   return (
     <>
-      <header className="flex h-12 items-center gap-3 px-4 border-b border-border/60 bg-background glass-strong">
+      <header className="flex h-12 items-center gap-3 px-4 border-b border-border/60 bg-background">
         <span className="text-sm font-medium text-muted-foreground md:hidden">dealenz</span>
         <span className="hidden md:block text-sm font-medium">{pageTitle}</span>
 
+        <nav className="hidden md:flex items-center gap-1 ml-6">
+          {PRIMARY_NAV.map((item) => {
+            const active = isActiveEntry(pathname, item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                  active ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+              >
+                {item.label}
+              </Link>
+            )
+          })}
+        </nav>
+
         <button
           onClick={() => setSearchOpen(true)}
-          className="hidden sm:flex flex-1 max-w-xs ml-4 items-center gap-2 h-8 rounded-md border border-input bg-muted/50 px-3 text-xs text-muted-foreground hover:border-muted-foreground/30 transition-colors"
+          className="hidden sm:flex flex-1 max-w-xs ml-4 items-center gap-2 h-8 rounded-md border border-input bg-card px-3 text-xs text-muted-foreground hover:border-muted-foreground/30 transition-colors"
         >
           <Search className="h-3.5 w-3.5 shrink-0" />
           <span className="flex-1 text-left">Search deals by title...</span>
@@ -184,6 +203,7 @@ export function TopNav() {
             </SheetContent>
           </Sheet>
 
+          <CreditControl />
           <Link
             href="/audit/new"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"

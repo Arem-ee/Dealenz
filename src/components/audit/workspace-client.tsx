@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react"
 import {
   ArrowLeft, Calendar, Sparkles, Loader2, AlertCircle,
   ChevronDown, ChevronRight, ShieldCheck, Save, Check, Pencil,
@@ -30,6 +30,7 @@ import { canGenerateDocuments, documentGenerationUnavailableMessage } from "@/li
 import { ProtectionIntentsView } from "@/components/audit/protection-intents"
 import { BusinessOwnerDocumentSection } from "@/components/audit/business-owner-document"
 import { analyzeDeal, generateProtectionPackage, updateAudit, getClientProfiles } from "@/app/audit/[id]/actions"
+import { publicErrorMessage } from "@/lib/safe-error"
 import { createConsultationRequest, getVerifiedLawyersCount } from "@/app/audit/[id]/consultation-actions"
 import { LawyerEscalationCard } from "@/components/audit/lawyer-escalation"
 import { LawyerHandoffReview } from "@/components/audit/lawyer-handoff-review"
@@ -37,6 +38,7 @@ import { ReviewPanel } from "@/components/audit/review-panel"
 import { FinalDocumentsPanel } from "@/components/audit/final-documents"
 import { ContextPanel } from "@/components/audit/context-panel"
 import { FindingsPanel, parsePersistedFindings } from "@/components/audit/findings-panel"
+import { getAllDocumentsForAudit } from "@/lib/documents/vault"
 import type { RuleResult } from "@/lib/rules/result"
 import { protectionIntentsFromFindings } from "@/lib/protection/intents"
 import { clausesForDealType } from "@/lib/protection/clauses"
@@ -140,7 +142,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
   const [consenting, setConsenting] = useState(false)
   const [clientProfiles, setClientProfiles] = useState<ClientProfile[]>([])
   const [clientId, setClientId] = useState<string | null>(audit.client_id)
-  const [workspaceTab, setWorkspaceTab] = useState<"report" | "timeline">("report")
+  const [workspaceTab, setWorkspaceTab] = useState<"overview" | "vault" | "activity">("overview")
   const [titleEditing, setTitleEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(audit.title)
   const titleInputRef = useRef<HTMLInputElement>(null)
@@ -326,7 +328,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEditTitle(audit.title); setTitleEditing(false); setInputType((audit.source_type as InputType) ?? "paste"); setRawInput(audit.raw_input ?? ""); setSaveState("saved"); setConsented(audit.ai_consent); setWorkspaceTab("report"); setActiveDocTab("proposal"); setShowExtraction(false); setClientId(audit.client_id)
+    setEditTitle(audit.title); setTitleEditing(false); setInputType((audit.source_type as InputType) ?? "paste"); setRawInput(audit.raw_input ?? ""); setSaveState("saved"); setConsented(audit.ai_consent); setWorkspaceTab("overview"); setActiveDocTab("proposal"); setShowExtraction(false); setClientId(audit.client_id)
   }, [audit.id])
 
   useEffect(() => {
@@ -427,10 +429,10 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
           setEditTitle(newTitle)
         }
       } else {
-        setError(result.error ?? "Analysis failed")
+        setError(publicErrorMessage(result.error ?? "Analysis failed", "We couldn't analyze that right now. Please try again."))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed")
+      setError(publicErrorMessage(err, "We couldn't analyze that right now. Please try again."))
     } finally {
       const elapsed = Date.now() - startedAt
       if (elapsed < 900) await new Promise((r) => setTimeout(r, 900 - elapsed))
@@ -446,10 +448,10 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
       if (result.success && result.documents) {
         setDocuments(result.documents)
       } else {
-        setError(result.error ?? "Generation failed")
+        setError(publicErrorMessage(result.error ?? "Generation failed", "We couldn't generate those documents. Please try again."))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Generation failed")
+      setError(publicErrorMessage(err, "We couldn't generate those documents. Please try again."))
     } finally {
       const elapsed = Date.now() - startedAt
       if (elapsed < 900) await new Promise((r) => setTimeout(r, 900 - elapsed))
@@ -688,6 +690,113 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
     </div>
   )
 
+  function renderTabBar() {
+    const tabs = [
+      { id: "overview" as const, label: "Overview" },
+      { id: "vault" as const, label: "Vault" },
+      { id: "activity" as const, label: "Activity" },
+    ]
+    return (
+      <div className="flex gap-1 border-b">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setWorkspaceTab(t.id)}
+            className={cn(
+              "px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px",
+              workspaceTab === t.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
+  function renderVaultTab(docUI: ReactNode) {
+    const listing = getAllDocumentsForAudit({
+      rawInput: audit.raw_input,
+      files: uploadedFiles,
+      documents,
+      hasVersions,
+      hasRiskSnapshot: riskReport !== null,
+      hasHandoff: handoffSubmitted !== null || handoffPackage !== null,
+    })
+    return (
+      <div className="space-y-8">
+        {listing.sections.includes("source") && (
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold">Source</h2>
+            {listing.hasSourceText && (
+              <div className="rounded-xl border border-border/60 bg-card p-5">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Deal input — read only</p>
+                <p className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">{audit.raw_input}</p>
+              </div>
+            )}
+            {listing.fileCount > 0 && (
+              <ul className="space-y-1.5">
+                {uploadedFiles.map((f) => (
+                  <li key={f.path} className="flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm">
+                    <span className="truncate">{f.name}</span>
+                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">{(f.size / 1024).toFixed(0)} KB</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+        {listing.sections.includes("drafts") && (
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold">Generated drafts</h2>
+            {listing.draftCount > 0 && (
+              <ul className="space-y-1.5">
+                {documents.map((d) => (
+                  <li key={d.id} className="flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm">
+                    <span className="font-medium capitalize">{d.type.replace(/_/g, " ")}</span>
+                    <span className="truncate text-muted-foreground">{d.title}</span>
+                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">{new Date(d.createdAt).toLocaleDateString()}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {hasVersions && listing.draftCount === 0 && (
+              <p className="text-xs text-muted-foreground">Versioned drafts exist for this deal and are shown below.</p>
+            )}
+          </section>
+        )}
+        <section className="space-y-4 scroll-mt-20" id="deal-documents">
+          {docUI}
+          <FinalDocumentsPanel auditId={audit.id} auditStatus={audit.status ?? "draft"} />
+        </section>
+        {listing.sections.includes("risk") && riskReport && (
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold">Risk report snapshot</h2>
+            <div className="rounded-xl border border-border/60 bg-card p-5">
+              <p className="text-sm">
+                Score <span className="font-semibold tabular-nums" data-numeric>{riskReport.overallScore}</span>/100 — {riskReport.riskLevel} Risk
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{riskReport.summary}</p>
+            </div>
+          </section>
+        )}
+        {listing.sections.includes("handoff") && (
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold">Lawyer handoff snapshot</h2>
+            <div className="rounded-xl border border-border/60 bg-card p-5">
+              <p className="text-xs text-muted-foreground">
+                {handoffSubmitted ? `Request submitted — ${handoffSubmitted}.` : "Handoff package prepared for lawyer review."} Findings, protection plan, evidence, and legal context travel with the request.
+              </p>
+            </div>
+          </section>
+        )}
+        <div className="scroll-mt-20" id="deal-review">
+          <ReviewPanel auditId={audit.id} />
+        </div>
+      </div>
+    )
+  }
+
   function renderMainContent() {
     if (!consented) {
       return (
@@ -741,58 +850,31 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
 
     if (isAnalyzed && riskReport) {
       if (isGeneric) {
+        const docUI = (dealType === "founder" || dealType === "partnership" || dealType === "purchase_sale" || dealType === "lease" || dealType === "employment") ? (
+          <BusinessOwnerDocumentSection auditId={audit.id} dealType={dealType} />
+        ) : (
+          <div className="rounded-xl border border-border/60 bg-card p-5">
+            <h3 className="text-sm font-semibold">Protection package</h3>
+            <p className="mt-1 text-xs text-muted-foreground">{documentGenerationUnavailableMessage(dealType)}</p>
+            <Link href={`/ask?deal=${encodeURIComponent(audit.id)}`} className="mt-3 inline-flex text-xs font-medium text-primary hover:underline">Ask about this deal →</Link>
+          </div>
+        )
         return (
           <div className="space-y-6">
-            <div className="flex gap-1 border-b">
-              <button
-                onClick={() => setWorkspaceTab("report")}
-                className={cn(
-                  "px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px",
-                  workspaceTab === "report" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Risk Report
-              </button>
-              <button
-                onClick={() => setWorkspaceTab("timeline")}
-                className={cn(
-                  "px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px",
-                  workspaceTab === "timeline" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Activity Timeline
-              </button>
-            </div>
-            {workspaceTab === "report" ? (
+            {renderTabBar()}
+            {workspaceTab === "overview" ? (
               <div className="space-y-8">
                 <GenericRiskReportView report={riskReport as GenericRiskReport} degraded={genericDegraded} />
                 <section className="space-y-4 scroll-mt-20" id="deal-protection">
                   <h2 className="text-sm font-semibold">Protection</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What to negotiate</h3>
-                      <div className="mt-3 space-y-4">
-                        <FindingsPanel auditId={audit.id} results={ruleResults} />
-                        <NegotiationPointsView points={negotiationPoints} />
-                        {(dealType === "founder" || dealType === "partnership" || dealType === "purchase_sale" || dealType === "lease" || dealType === "employment") && (
-                          <ProtectionIntentsView dealType={dealType} findings={ruleResults} auditId={audit.id} jurisdiction={jurisdictionForProtection} />
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Documents</h3>
-                      <div className="mt-3 space-y-4 scroll-mt-20" id="deal-documents">
-                        {(dealType === "founder" || dealType === "partnership" || dealType === "purchase_sale" || dealType === "lease" || dealType === "employment") ? (
-                          <BusinessOwnerDocumentSection auditId={audit.id} dealType={dealType} />
-                        ) : (
-                          <div className="rounded-xl border border-border/60 bg-card p-5">
-                            <h3 className="text-sm font-semibold">Protection package</h3>
-                            <p className="mt-1 text-xs text-muted-foreground">{documentGenerationUnavailableMessage(dealType)}</p>
-                            <Link href={`/ask?deal=${encodeURIComponent(audit.id)}`} className="mt-3 inline-flex text-xs font-medium text-primary hover:underline">Ask about this deal →</Link>
-                          </div>
-                        )}
-                        <FinalDocumentsPanel auditId={audit.id} auditStatus={audit.status ?? "draft"} />
-                      </div>
+                  <div>
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What to negotiate</h3>
+                    <div className="mt-3 space-y-4">
+                      <FindingsPanel auditId={audit.id} results={ruleResults} />
+                      <NegotiationPointsView points={negotiationPoints} />
+                      {(dealType === "founder" || dealType === "partnership" || dealType === "purchase_sale" || dealType === "lease" || dealType === "employment") && (
+                        <ProtectionIntentsView dealType={dealType} findings={ruleResults} auditId={audit.id} jurisdiction={jurisdictionForProtection} />
+                      )}
                     </div>
                   </div>
                 </section>
@@ -810,9 +892,6 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
                     )}
                   </div>
                 )}
-                <div className="scroll-mt-20" id="deal-review">
-                  <ReviewPanel auditId={audit.id} />
-                </div>
                 {extractedData && (
                   <ErrorBoundary>
                     <div>
@@ -829,91 +908,63 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
                   </ErrorBoundary>
                 )}
               </div>
+            ) : workspaceTab === "vault" ? (
+              renderVaultTab(docUI)
             ) : (
               <Timeline events={timelineEvents} />
             )}
           </div>
         )
       }
+      const freelanceDocUI = canGenerate ? (
+        <>
+          {generating && !hasDocuments && (
+            <div className="rounded-xl border border-border bg-card p-5 shadow-surface">
+              <AiWorking label="Generating your protection package" />
+            </div>
+          )}
+
+          {!hasDocuments && !generating && (
+            <div className="flex justify-center">
+              <Button onClick={handleGenerate} size="lg">
+                <ShieldCheck className="h-4 w-4" />
+                Generate Protection Package
+              </Button>
+            </div>
+          )}
+
+          {hasDocuments && (
+            <ErrorBoundary>
+              <ProtectionPackage
+                documents={documents}
+                onRegenerate={handleRegenerate}
+                regenerating={generating}
+                riskScore={riskReport?.overallScore}
+                riskLevel={riskLevel}
+                auditId={audit.id}
+              />
+            </ErrorBoundary>
+          )}
+        </>
+      ) : (
+        <div className="rounded-xl border border-border/60 bg-card p-5">
+          <p className="text-xs text-muted-foreground">{documentGenerationUnavailableMessage(dealType)}</p>
+        </div>
+      )
       return (
         <div className="space-y-6">
-          <div className="flex gap-1 border-b">
-            <button
-              onClick={() => setWorkspaceTab("report")}
-              className={cn(
-                "px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px",
-                workspaceTab === "report"
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Risk Report
-            </button>
-            <button
-              onClick={() => setWorkspaceTab("timeline")}
-              className={cn(
-                "px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px",
-                workspaceTab === "timeline"
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Activity Timeline
-            </button>
-          </div>
+          {renderTabBar()}
 
-          {workspaceTab === "report" ? (
+          {workspaceTab === "overview" ? (
             <div className="space-y-8">
               <RiskReportView report={riskReport as RiskReport} />
 
               <section className="space-y-4 scroll-mt-20" id="deal-protection">
                 <h2 className="text-sm font-semibold">Protection</h2>
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What to negotiate</h3>
-                    <div className="mt-3">
-                      <FindingsPanel auditId={audit.id} results={ruleResults} />
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Documents</h3>
-                    <div className="mt-3 space-y-4 scroll-mt-20" id="deal-documents">
-                      {canGenerate ? (
-                        <>
-                          {generating && !hasDocuments && (
-                            <div className="rounded-xl border border-border bg-card p-5 shadow-surface">
-                              <AiWorking label="Generating your protection package" />
-                            </div>
-                          )}
-
-                          {!hasDocuments && !generating && (
-                            <div className="flex justify-center">
-                              <Button onClick={handleGenerate} size="lg">
-                                <ShieldCheck className="h-4 w-4" />
-                                Generate Protection Package
-                              </Button>
-                            </div>
-                          )}
-
-                          {hasDocuments && (
-                            <ErrorBoundary>
-                              <ProtectionPackage
-                                documents={documents}
-                                onRegenerate={handleRegenerate}
-                                regenerating={generating}
-                                riskScore={riskReport?.overallScore}
-                                riskLevel={riskLevel}
-                                auditId={audit.id}
-                              />
-                            </ErrorBoundary>
-                          )}
-                        </>
-                      ) : (
-                        <div className="rounded-xl border border-border/60 bg-card p-5">
-                          <p className="text-xs text-muted-foreground">{documentGenerationUnavailableMessage(dealType)}</p>
-                        </div>
-                      )}
-                    </div>
+                <div>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What to negotiate</h3>
+                  <div className="mt-3">
+                    <FindingsPanel auditId={audit.id} results={ruleResults} />
                   </div>
                 </div>
               </section>
@@ -945,6 +996,8 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
                 </ErrorBoundary>
               )}
             </div>
+          ) : workspaceTab === "vault" ? (
+            renderVaultTab(freelanceDocUI)
           ) : (
             <Timeline events={timelineEvents} />
           )}

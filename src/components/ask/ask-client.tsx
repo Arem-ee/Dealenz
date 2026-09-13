@@ -18,6 +18,7 @@ import { priceForOperation } from "@/lib/credits/pricing"
 import type { ConversationResponse, HistoryTurn } from "@/lib/conversation/request"
 import type { Evidence } from "@/lib/evidence/schema"
 import { EvidenceLine } from "@/components/evidence/evidence-line"
+import { LegalCitationLine } from "@/components/evidence/legal-citation-line"
 import { DocumentViewerModal } from "@/components/evidence/document-viewer"
 
 interface ChatMessage {
@@ -312,17 +313,8 @@ export function AskClient({
                   <div className="mt-2 border-t border-border/60 pt-2 text-xs">
                     <p className="font-medium text-foreground">Legal sources — {m.researchState ?? "VERIFIED"}</p>
                     {m.legalCitations.slice(0, 3).map((c) => (
-                      <div key={`${c.title}-${c.section}`} className="mt-1">
-                        <p className="font-medium text-foreground">{c.title} — {c.section}</p>
-                        <p className="text-muted-foreground">“{c.passage}”</p>
-                        {c.url && (
-                          <a href={c.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                            {c.url}
-                          </a>
-                        )}
-                        <p className="text-[11px] text-muted-foreground">
-                          {c.jurisdiction} · Tier {c.authorityTier} · {c.effectiveStatus} · retrieved {c.retrievedAt.slice(0, 10)}
-                        </p>
+                      <div key={`${c.title}-${c.section}`} className="mt-1 text-xs">
+                        <LegalCitationLine citation={c} />
                       </div>
                     ))}
                     {m.legalLimitations && <p className="mt-1 text-muted-foreground">{m.legalLimitations}</p>}

@@ -8,7 +8,6 @@ import { TopNav } from "@/components/top-nav"
 import { MobileNav } from "@/components/mobile-nav"
 import { resendVerification } from "@/app/login/actions"
 import { VerificationBanner } from "@/components/verification-banner"
-import { UsageDisplay } from "@/components/usage-display"
 
 export const dynamic = "force-dynamic"
 
@@ -94,10 +93,9 @@ export default async function DashboardLayout({
   return (
     <div className="flex min-h-screen bg-background">
       <SidebarNav email={email} businessName={businessName} isLawyer={isLawyer} />
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex flex-1 flex-col min-w-0 bg-background">
         <TopNav />
-        <UsageDisplay />
-        <main className="flex-1 pb-16 md:pb-0">
+        <main className="flex-1 pb-16 md:pb-0 bg-background">
           <VerificationBanner />
           {children}
         </main>

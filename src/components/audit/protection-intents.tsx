@@ -5,6 +5,8 @@ import Link from "next/link"
 import type { RuleResult } from "@/lib/rules/result"
 import { protectionIntentsFromFindings } from "@/lib/protection/intents"
 import { clausesForProtectionCategory, renderClauseTemplate } from "@/lib/protection/clauses"
+import { EvidenceLine } from "@/components/evidence/evidence-line"
+import { LegalCitationLine } from "@/components/evidence/legal-citation-line"
 
 function priorityBadge(priority: string): string {
   switch (priority) {
@@ -134,25 +136,18 @@ export function ProtectionIntentsView({
               <div className="mt-2 border-t border-border/60 pt-2">
                 <p className="text-xs font-medium text-muted-foreground">Evidence</p>
                 {intent.evidence.slice(0, 2).map((e) => (
-                  <p key={e.id} className="text-xs">
-                    “{e.quote}” — <span className="text-muted-foreground">{e.observationKey}</span>
-                  </p>
+                  <div key={e.id} className="mt-1">
+                    <EvidenceLine evidence={e} />
+                  </div>
                 ))}
               </div>
             )}
             {intent.legalContext && (
-              <div className="mt-2 border-t border-border/60 pt-2">
+              <div className="mt-2 border-t border-border/60 pt-2 text-xs">
                 <p className="text-xs font-medium text-muted-foreground">Legal context — verified</p>
-                <p className="text-xs font-medium">{intent.legalContext.title} — {intent.legalContext.section}</p>
-                <p className="text-xs text-muted-foreground">“{intent.legalContext.passage}”</p>
-                {intent.legalContext.url && (
-                  <a href={intent.legalContext.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
-                    {intent.legalContext.url}
-                  </a>
-                )}
-                <p className="text-[11px] text-muted-foreground">
-                  {intent.legalContext.jurisdiction} · Tier {intent.legalContext.authorityTier} · {intent.legalContext.effectiveStatus} · retrieved {intent.legalContext.retrievedAt.slice(0, 10)}
-                </p>
+                <div className="mt-1">
+                  <LegalCitationLine citation={intent.legalContext} />
+                </div>
               </div>
             )}
             <ClausePreview dealType={dealType} category={intent.category} variables={{}} jurisdictionCountry={intent.legalContext?.jurisdiction ?? jurisdiction?.country ?? null} />

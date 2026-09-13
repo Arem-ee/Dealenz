@@ -1,5 +1,5 @@
 import type { ComponentType } from "react"
-import { LayoutDashboard, MessageCircle, CreditCard, Users, Shapes, Flag, History, Settings } from "lucide-react"
+import { LayoutDashboard, MessageCircle, CreditCard, History, Settings, Vault } from "lucide-react"
 import { IconDeal } from "@/components/icons"
 
 export interface NavEntry {
@@ -13,22 +13,20 @@ export interface NavEntry {
  * bar, and top-nav titles all render from here — the three surfaces can no
  * longer drift apart.
  *
- * Primary (always visible): Home, Deals, Ask, Billing.
- * Secondary (progressively disclosed): Clients, Templates, Risk Intelligence.
+ * Primary (always visible): Home, Deals, Ask, Vault, Billing.
+ * Secondary is empty — Clients/Templates/Risk Intelligence stay reachable
+ * by direct link but are no longer surfaced as primary destinations.
  * Account (avatar menu / More sheet): Activity, Settings, Lawyer workspace.
  */
 export const PRIMARY_NAV: NavEntry[] = [
   { label: "Home", href: "/dashboard", icon: LayoutDashboard },
   { label: "Deals", href: "/deals", icon: IconDeal },
   { label: "Ask", href: "/ask", icon: MessageCircle },
+  { label: "Vault", href: "/vault", icon: Vault },
   { label: "Billing", href: "/billing", icon: CreditCard },
 ]
 
-export const SECONDARY_NAV: NavEntry[] = [
-  { label: "Clients", href: "/clients", icon: Users },
-  { label: "Templates", href: "/templates", icon: Shapes },
-  { label: "Risk Intelligence", href: "/risk-intelligence", icon: Flag },
-]
+export const SECONDARY_NAV: NavEntry[] = []
 
 export const ACCOUNT_NAV: NavEntry[] = [
   { label: "Activity", href: "/dashboard/activity", icon: History },
@@ -46,6 +44,7 @@ export function titleFor(pathname: string): string {
   if (pathname.startsWith("/audit")) return "Deal"
   if (pathname.startsWith("/deals")) return "Deals"
   if (pathname.startsWith("/ask")) return "Ask"
+  if (pathname.startsWith("/vault")) return "Vault"
   if (pathname.startsWith("/billing")) return "Billing"
   if (pathname.startsWith("/clients")) return "Clients"
   if (pathname.startsWith("/templates")) return "Templates"

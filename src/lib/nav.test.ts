@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest"
 import { PRIMARY_NAV, SECONDARY_NAV, ACCOUNT_NAV, isActiveEntry, titleFor } from "./nav"
 
 describe("customer navigation IA (single source)", () => {
-  it("keeps exactly four primary destinations: Home, Deals, Ask, Billing", () => {
-    expect(PRIMARY_NAV.map((n) => n.label)).toEqual(["Home", "Deals", "Ask", "Billing"])
-    expect(PRIMARY_NAV.map((n) => n.href)).toEqual(["/dashboard", "/deals", "/ask", "/billing"])
+  it("keeps exactly five primary destinations: Home, Deals, Ask, Vault, Billing", () => {
+    expect(PRIMARY_NAV.map((n) => n.label)).toEqual(["Home", "Deals", "Ask", "Vault", "Billing"])
+    expect(PRIMARY_NAV.map((n) => n.href)).toEqual(["/dashboard", "/deals", "/ask", "/vault", "/billing"])
   })
 
   it("keeps secondary destinations out of primary navigation", () => {
@@ -12,7 +12,7 @@ describe("customer navigation IA (single source)", () => {
     for (const entry of [...SECONDARY_NAV, ...ACCOUNT_NAV]) {
       expect(primaryHrefs.has(entry.href)).toBe(false)
     }
-    expect(SECONDARY_NAV.map((n) => n.label)).toEqual(["Clients", "Templates", "Risk Intelligence"])
+    expect(SECONDARY_NAV).toEqual([])
   })
 
   it("matches nested routes to their entry without drift", () => {
@@ -27,6 +27,7 @@ describe("customer navigation IA (single source)", () => {
     expect(titleFor("/dashboard")).toBe("Home")
     expect(titleFor("/audit/abc")).toBe("Deal")
     expect(titleFor("/ask")).toBe("Ask")
+    expect(titleFor("/vault")).toBe("Vault")
     expect(titleFor("/billing")).toBe("Billing")
     expect(titleFor("/sign/token")).toBe("Signing")
     expect(titleFor("/admin/lawyers")).toBe("Control")

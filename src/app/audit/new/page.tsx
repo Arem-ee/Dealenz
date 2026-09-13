@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { isRedirectError } from "next/dist/client/components/redirect-error"
 import { createAudit } from "./actions"
 import { DealTypeSelector, type DealType } from "@/components/audit/deal-type-selector"
@@ -36,7 +37,12 @@ function NewAuditContent() {
         <DealTypeSelector value={dealType} onChange={setDealType} />
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex items-center justify-between">
-          <Button variant="ghost" onClick={() => router.push("/dashboard")}>Cancel</Button>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" onClick={() => router.push("/dashboard")}>Cancel</Button>
+            <Link href="/templates" className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline">
+              New from template
+            </Link>
+          </div>
           <Button onClick={handleContinue} disabled={!dealType || creating}>
             {creating && <Loader2 className="h-4 w-4 animate-spin" />}
             Continue
