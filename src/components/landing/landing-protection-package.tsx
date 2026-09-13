@@ -38,9 +38,11 @@ export function LandingProtectionPackage() {
           {docs.map((d) => {
             const Icon = d.icon
             return (
-              <div key={d.name} className="rounded-xl border border-black/[0.06] bg-[#fdfaf7] p-6 shadow-sm">
-                <Icon className="mb-3 h-5 w-5 text-brand-red" />
-                <p className="text-base font-semibold text-[#1a0f0f]">{d.name}</p>
+              <div key={d.name} className="rounded-xl border border-black/[0.06] bg-[#fdfaf7] p-6 shadow-[0_4px_20px_rgba(20,17,16,0.06)] hover:shadow-[0_8px_28px_rgba(20,17,16,0.08)] hover:-translate-y-[1px] transition-all">
+                <span className="mb-4 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand-red/10">
+                  <Icon className="h-5 w-5 text-brand-red" />
+                </span>
+                <p className="text-base font-semibold tracking-tight text-[#1a0f0f]">{d.name}</p>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{d.desc}</p>
               </div>
             )
