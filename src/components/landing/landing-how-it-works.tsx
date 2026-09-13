@@ -31,14 +31,14 @@ export function LandingHowItWorks() {
           <br />
           in four steps.
         </p>
-        <div className="mt-16 grid grid-cols-1 gap-10 sm:grid-cols-4 sm:gap-6">
+        <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-4 sm:gap-6">
           {steps.map((s, i) => (
-            <div key={s.num} className="relative rounded-xl border border-black/[0.04] bg-[#fdfaf7] p-5">
-              <p className="text-6xl font-bold text-brand-red/20 leading-none">{s.num}</p>
-              <p className="mt-3 text-base font-semibold text-[#1a0f0f]">{s.title}</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
+            <div key={s.num} className="relative rounded-xl border border-black/[0.04] bg-[#fdfaf7] p-6 shadow-[0_4px_20px_rgba(20,17,16,0.06)] hover:shadow-[0_8px_28px_rgba(20,17,16,0.08)] hover:-translate-y-[1px] transition-all">
+              <p className="text-5xl font-bold tracking-tight text-brand-red/25 leading-none">{s.num}</p>
+              <p className="mt-4 text-base font-semibold text-[#1a0f0f]">{s.title}</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
               {i < steps.length - 1 && (
-                <div className="mt-6 h-px w-full bg-brand-red/10 sm:absolute sm:right-[-12px] sm:top-8 sm:h-px sm:w-8" />
+                <div className="hidden sm:block absolute -right-3 top-10 h-px w-6 bg-brand-red/12" />
               )}
             </div>
           ))}

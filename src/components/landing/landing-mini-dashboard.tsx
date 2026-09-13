@@ -1,7 +1,13 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Upload, FileText, Sparkles, Loader2, CheckCircle2, Shield, ShieldAlert, ShieldMinus, Lightbulb, Scale, Gavel, Timer, DollarSign, MessageSquare, RefreshCw, UserX, ChevronRight, X, Send } from "lucide-react"
+
+const rotatingPlaceholders = [
+  "Paste your deal, upload a file, or just tell us what is going on...",
+  "Try: 8 week website build, no deposit, unlimited revisions promised...",
+  "Example: Client wants all IP before final payment. Is that normal...",
+]
 import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -225,6 +231,15 @@ export function LandingMiniDashboard() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<AnalyzeResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [placeholderIndex, setPlaceholderIndex] = useState(0)
+
+  useEffect(() => {
+    if (pasteValue) return
+    const id = window.setInterval(() => {
+      setPlaceholderIndex((i) => (i + 1) % rotatingPlaceholders.length)
+    }, 3400)
+    return () => window.clearInterval(id)
+  }, [pasteValue])
 
   const handleAnalyze = useCallback(async () => {
     setLoading(true)
@@ -258,8 +273,6 @@ export function LandingMiniDashboard() {
         body: formData,
       })
 
-      // Infrastructure failures (proxy/edge HTML pages) are not JSON and
-      // must never surface parser internals to customers.
       const contentType = response.headers.get("content-type") ?? ""
       if (!contentType.includes("application/json")) {
         throw new Error("Analysis failed. Please try again.")
@@ -272,8 +285,6 @@ export function LandingMiniDashboard() {
 
       setResult(data)
     } catch (err) {
-      // Single sanitizer for every AI surface: curated server messages pass
-      // through, parser/network/infra text collapses to the fallback.
       setError(publicErrorMessage(err, "Analysis failed. Please try again."))
     } finally {
       setLoading(false)
@@ -294,18 +305,21 @@ export function LandingMiniDashboard() {
   if (result) {
     return (
       <section className="relative w-full py-24 lg:py-32 overflow-hidden bg-[#F2F0ED]">
-<div className="absolute -top-32 -left-24 w-[480px] h-[480px] rounded-full bg-[var(--primary)]/40 blur-[120px]" />
-      <div className="absolute -bottom-32 -right-24 w-[480px] h-[480px] rounded-full bg-[var(--primary)]/35 blur-[120px]" />
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-          <span className="text-[clamp(5rem,14vw,12rem)] font-extrabold text-[#141110]/[0.05] whitespace-nowrap">
-            See the risk
-          </span>
+        <div className="absolute -top-32 -left-24 w-[520px] h-[520px] rounded-full bg-[var(--primary)]/28 blur-[120px]" />
+        <div className="absolute -bottom-40 -right-10 w-[600px] h-[600px] rounded-full bg-brand-red/[0.12] blur-[130px]" />
+        <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+          <div className="absolute inset-x-0 top-10 flex justify-center">
+            <span className="text-[clamp(3.5rem,9vw,8.5rem)] font-extrabold tracking-tight text-[#141110]/[0.045] whitespace-nowrap">
+              See the risk
+            </span>
+          </div>
+          <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #1C1917 1px, transparent 0)", backgroundSize: "26px 26px" }} />
         </div>
         <div className="relative max-w-2xl mx-auto px-6">
-          <div className="rounded-[28px] glass-extreme-panel p-6 sm:p-8">
+          <div className="rounded-[28px] glass-extreme-panel p-6 sm:p-8 shadow-[0_26px_72px_-20px_rgba(20,17,16,0.30)] ring-1 ring-black/5 border-white/70">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-[#141110]">Analysis Complete</h3>
-              <Button variant="ghost" size="sm" onClick={resetAnalysis}>
+              <Button variant="ghost" size="sm" onClick={resetAnalysis} aria-label="Start a new analysis">
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -328,19 +342,24 @@ export function LandingMiniDashboard() {
 
   return (
     <section className="relative w-full py-24 lg:py-32 overflow-hidden bg-[#F2F0ED]">
-      <div className="absolute -top-32 -left-24 w-[480px] h-[480px] rounded-full bg-[var(--primary)]/40 blur-[120px]" />
-      <div className="absolute -bottom-32 -right-24 w-[480px] h-[480px] rounded-full bg-[var(--primary)]/35 blur-[120px]" />
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-        <span className="text-[clamp(5rem,14vw,12rem)] font-extrabold text-[#141110]/[0.05] whitespace-nowrap">
-          See the risk
-        </span>
+      <div className="absolute -top-32 -left-24 w-[520px] h-[520px] rounded-full bg-[var(--primary)]/28 blur-[120px]" />
+      <div className="absolute -bottom-40 -right-10 w-[600px] h-[600px] rounded-full bg-brand-red/[0.12] blur-[130px]" />
+      <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+        <div className="absolute inset-x-0 top-10 flex justify-center">
+          <span className="text-[clamp(3.5rem,9vw,8.5rem)] font-extrabold tracking-tight text-[#141110]/[0.045] whitespace-nowrap">
+            See the risk
+          </span>
+        </div>
+        <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #1C1917 1px, transparent 0)", backgroundSize: "26px 26px" }} />
       </div>
       <div className="relative max-w-2xl mx-auto px-6">
-        <div className="rounded-[28px] glass-extreme-panel p-6 sm:p-8">
+        <div className="rounded-[28px] glass-extreme-panel p-6 sm:p-8 shadow-[0_26px_72px_-20px_rgba(20,17,16,0.30)] ring-1 ring-black/5 border-white/70 transition-shadow focus-within:shadow-[0_32px_88px_-22px_rgba(20,17,16,0.36)]">
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
           <textarea
-            placeholder="Paste your deal, upload a file, or just tell us what&apos;s going on..."
+            key={placeholderIndex}
+            placeholder={rotatingPlaceholders[placeholderIndex]}
             rows={4}
-            className="w-full bg-transparent resize-none outline-none text-base sm:text-lg placeholder:text-[#141110]/40"
+            className="w-full bg-transparent resize-none outline-none text-base sm:text-lg placeholder:text-[#141110]/40 animate-fade-in"
             value={pasteValue}
             onChange={(e) => { setPasteValue(e.target.value); resetAnalysis(); }}
           />
@@ -351,6 +370,7 @@ export function LandingMiniDashboard() {
               className="rounded-full glass-extreme bg-white/30 border border-white/60 p-3"
               onClick={() => { setMode("upload"); resetAnalysis(); }}
               disabled={loading}
+              aria-label="Upload a file"
             >
               <Upload className="h-5 w-5" />
             </Button>

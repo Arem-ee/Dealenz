@@ -5,8 +5,9 @@ export function LandingFinalCTA() {
   return (
     <section className="relative overflow-hidden bg-[#1a0f0f] px-6 py-32 sm:py-40">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-t from-brand-red/20 via-transparent to-transparent" />
-        <div className="absolute bottom-0 left-1/2 h-[400px] w-[800px] -translate-x-1/2 rounded-full bg-brand-red/[0.12] blur-[60px]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-brand-red/25 via-brand-red/[0.07] to-transparent" />
+        <div className="absolute bottom-0 left-1/2 h-[400px] w-[800px] -translate-x-1/2 rounded-full bg-brand-red/[0.16] blur-[60px]" />
+        <div className="absolute -bottom-24 -right-24 h-[320px] w-[420px] rounded-full bg-brand-red/[0.10] blur-[80px]" />
       </div>
       <div className="relative mx-auto max-w-[600px] text-center">
         <p className="text-3xl font-semibold leading-[1.15] tracking-tight text-white sm:text-4xl md:text-5xl">
