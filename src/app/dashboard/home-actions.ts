@@ -5,17 +5,6 @@ import { seedEnvelopeForDealType } from "@/lib/context"
 import { applyUserConfirmation } from "@/lib/context/confirm"
 import { normalizeDealType } from "@/lib/deal-type"
 
-function dealTypeFromText(text: string): string {
-  const t = text.toLowerCase()
-  if (t.includes("founder") || t.includes("co-founder") || t.includes("vesting") || t.includes("cap table")) return "founder"
-  if (t.includes("landlord") || t.includes("lease") || t.includes("rent") || t.includes("tenant") || t.includes("amendment")) return "lease"
-  if (t.includes("employment") || t.includes("employee") || t.includes("offer letter") || t.includes("salary")) return "employment"
-  if (t.includes("purchase") || t.includes("sale agreement") || t.includes("acquisition")) return "purchase_sale"
-  if (t.includes("partnership") || t.includes("partner agreement")) return "partnership"
-  if (t.includes("freelance") || t.includes("contractor") || t.includes("scope") || t.includes("sow") || t.includes("client brief") || t.includes("proposal")) return "freelance"
-  return "generic"
-}
-
 function titleFromText(text: string): string {
   const normalized = text.replace(/\s+/g, " ").trim().slice(0, 70)
   if (!normalized) return "New Deal"
@@ -23,14 +12,14 @@ function titleFromText(text: string): string {
   return cut || normalized.slice(0, 60)
 }
 
-export async function createHomeDeal(text: string, jurisdiction?: string): Promise<{ id: string }> {
+export async function createHomeDeal(text: string, jurisdiction?: string, dealTypeHint?: string): Promise<{ id: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("You must be signed in.")
   if (!user.email_confirmed_at) throw new Error("Please verify your email.")
   const trimmed = text.trim().slice(0, 8000)
   if (!trimmed) throw new Error("Tell Dealenz what you are working on.")
-  const hint = dealTypeFromText(trimmed)
+  const hint = dealTypeHint ?? "generic"
   const dealType = normalizeDealType(hint)
   const chosen = (jurisdiction ?? "").trim()
   const seeded = chosen
