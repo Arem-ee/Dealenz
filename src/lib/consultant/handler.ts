@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/server"
 import { normalizeDealType } from "@/lib/deal-type"
 import { applyUserConfirmation, seedEnvelopeForDealType } from "@/lib/context"
 import type { UserIntent } from "@/lib/ai/operations"
+import { checkRateLimit } from "@/lib/rate-limit"
 
 export interface ConsultantTurnInput {
   text: string
@@ -94,8 +95,15 @@ export async function handleConsultantTurn(
   if (!user) throw new Error("You must be signed in.")
   if (!user.email_confirmed_at) throw new Error("Please verify your email address before using this feature.")
 
-  const isFirstTurnFree = !input.conversationId
+  let isFirstTurnFree = !input.conversationId
   const operation: AIOperation = "consultation"
+
+  if (isFirstTurnFree) {
+    const freeTurnCheck = await checkRateLimit("consultant_free_turn")
+    if (!freeTurnCheck.allowed) {
+      isFirstTurnFree = false
+    }
+  }
 
   if (isGreeting(text) && !input.conversationId) {
     const { data: conv } = await supabase

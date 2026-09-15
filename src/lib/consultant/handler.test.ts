@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 const mockGetUser = vi.hoisted(() => vi.fn())
 const mockFrom = vi.hoisted(() => vi.fn())
 const mockRpc = vi.hoisted(() => vi.fn())
+const mockCheckRateLimit = vi.hoisted(() => vi.fn())
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(() => ({
@@ -10,6 +11,10 @@ vi.mock("@/lib/supabase/server", () => ({
     from: mockFrom,
     rpc: mockRpc,
   })),
+}))
+
+vi.mock("@/lib/rate-limit", () => ({
+  checkRateLimit: mockCheckRateLimit,
 }))
 
 import { handleConsultantTurn } from "./handler"
@@ -41,15 +46,16 @@ function ledgerMock() {
   } as unknown as import("@/lib/credits/ledger").LedgerClient
 }
 
-function aiMock(text: string) {
-  return vi.fn(async () => ({ text, usage: undefined, provider: "mock", model: "mock-model" }))
-}
-
 beforeEach(() => {
   vi.clearAllMocks()
   mockGetUser.mockResolvedValue({ data: { user: { id: USER_ID, email_confirmed_at: new Date().toISOString() } } })
   mockRpc.mockResolvedValue({ data: [{ allowed: true }], error: null })
+  mockCheckRateLimit.mockResolvedValue({ allowed: true })
 })
+
+function aiMock(text: string) {
+  return vi.fn(async () => ({ text, usage: undefined, provider: "mock", model: "mock-model" }))
+}
 
 describe("consultant handler", () => {
   it("first greeting is deterministic and free, no ai call", async () => {
@@ -84,6 +90,24 @@ describe("consultant handler", () => {
       { aiCaller: aiMock(aiText), ledger, policy: { estimateMaxCredits: () => 1, creditsForUsage: () => 1 } as unknown as import("@/lib/ai/usage").CreditPolicy }
     )
     expect(authorizeCalled).toBe(true)
+    expect(result.type).toBe("answer")
+  })
+
+  it("first turn checks free turn quota and proceeds when allowed", async () => {
+    mockFrom.mockReturnValue(chainForConversation({}))
+    mockCheckRateLimit.mockResolvedValue({ allowed: true })
+    const ai = aiMock("Which country?\n{\"decision\": \"answer_directly\", \"reason\": \"test\"}")
+    const result = await handleConsultantTurn({ text: "some question" }, { aiCaller: ai, ledger: ledgerMock(), policy: { estimateMaxCredits: () => 1, creditsForUsage: () => 1 } as unknown as import("@/lib/ai/usage").CreditPolicy })
+    expect(mockCheckRateLimit).toHaveBeenCalledWith("consultant_free_turn")
+    expect(result.type).toBe("answer")
+  })
+
+  it("first turn becomes billed when free turn quota is exhausted", async () => {
+    mockFrom.mockReturnValue(chainForConversation({}))
+    mockCheckRateLimit.mockResolvedValue({ allowed: false, error: "Daily free turn limit reached" })
+    const ai = aiMock("Which country?\n{\"decision\": \"answer_directly\", \"reason\": \"test\"}")
+    const result = await handleConsultantTurn({ text: "some question", idempotencyKey: "test-key" }, { aiCaller: ai, ledger: ledgerMock(), policy: { estimateMaxCredits: () => 1, creditsForUsage: () => 1 } as unknown as import("@/lib/ai/usage").CreditPolicy })
+    expect(mockCheckRateLimit).toHaveBeenCalledWith("consultant_free_turn")
     expect(result.type).toBe("answer")
   })
 
