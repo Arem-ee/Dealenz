@@ -59,36 +59,34 @@ function makeMockSupabase() {
   return { service, purchases, ledger }
 }
 
-describe("purchase idempotency + ledger (Lemon Squeezy international)", () => {
+describe("purchase idempotency + ledger (Paddle international)", () => {
   it("successful verified event allocates credits via ledger once", async () => {
     const { service, purchases, ledger } = makeMockSupabase()
     const pkg = getPackage("starter")!
     const adapter = createMockAdapter()
     const body = JSON.stringify({
-      meta: {
-        event_name: "order_created",
-        custom_data: { user_id: "00000000-0000-0000-0000-000000000001", package_id: "starter" },
-        test_mode: false,
-      },
+      event_id: "evt_01test",
+      event_type: "transaction.completed",
+      occurred_at: new Date().toISOString(),
+      notification_id: "ntf_01test",
       data: {
-        type: "orders",
-        id: "order_1",
-        attributes: {
-          status: "paid",
-          total: priceForPackage(pkg, "USD"),
-          currency: "USD",
-          first_order_item: { product_id: 1, variant_id: "starter-variant" },
-        },
+        id: "txn_01test12345678901234567890ab",
+        status: "completed",
+        customer_id: "ctm_01test",
+        currency_code: "USD",
+        custom_data: { user_id: "00000000-0000-0000-0000-000000000001", package_id: "starter" },
+        items: [{ price: { id: "pri_xxx" } }],
+        details: { totals: { total: String(priceForPackage(pkg, "USD")), currency_code: "USD" } },
       },
     })
     const verified = await adapter.verifyWebhook({ body, signature: "test", secret: "" })
     expect(verified.status).toBe("succeeded")
-    expect(verified.variantId).toBe("starter-variant")
+    expect(verified.priceId).toBe("pri_xxx")
     // Simulate webhook handler: idempotency check + insert purchase + ledger
-    const existing = await (service.from("credit_purchases") as any).select().eq("provider", "lemonsqueezy").eq("provider_transaction_id", verified.providerTransactionId).maybeSingle()
+    const existing = await (service.from("credit_purchases") as any).select().eq("provider", "paddle").eq("provider_transaction_id", verified.providerTransactionId).maybeSingle()
     expect((existing as { data: null }).data).toBeNull()
     const ins = await (service.from("credit_purchases") as any).insert({
-      provider: "lemonsqueezy",
+      provider: "paddle",
       provider_transaction_id: verified.providerTransactionId,
       package_id: pkg.id,
       currency: verified.currency,
@@ -114,11 +112,11 @@ describe("purchase idempotency + ledger (Lemon Squeezy international)", () => {
   it("duplicate webhook does not double-credit (idempotent)", async () => {
     const { service, ledger } = makeMockSupabase()
     const pkg = getPackage("starter")!
-    const providerTransactionId = "order_dup"
+    const providerTransactionId = "txn_01test12345678901234567890ab"
     const userId = "00000000-0000-0000-0000-000000000001"
     // First
     await (service.from("credit_purchases") as any).insert({
-      provider: "lemonsqueezy",
+      provider: "paddle",
       provider_transaction_id: providerTransactionId,
       package_id: pkg.id,
       currency: "USD",
@@ -137,7 +135,7 @@ describe("purchase idempotency + ledger (Lemon Squeezy international)", () => {
     })
     // Second (retry)
     const dupPurchase = await (service.from("credit_purchases") as any).insert({
-      provider: "lemonsqueezy",
+      provider: "paddle",
       provider_transaction_id: providerTransactionId,
       package_id: pkg.id,
       currency: "USD",
@@ -171,24 +169,22 @@ describe("purchase idempotency + ledger (Lemon Squeezy international)", () => {
   it("failed/canceled payment allocates nothing", async () => {
     const adapter = createMockAdapter()
     const body = JSON.stringify({
-      meta: {
-        event_name: "order_created",
-        custom_data: { user_id: "00000000-0000-0000-0000-000000000001" },
-        test_mode: false,
-      },
+      event_id: "evt_01test",
+      event_type: "transaction.completed",
+      occurred_at: new Date().toISOString(),
+      notification_id: "ntf_01test",
       data: {
-        type: "orders",
-        id: "order_failed",
-        attributes: {
-          status: "failed",
-          total: 1900,
-          currency: "USD",
-          first_order_item: { variant_id: "starter-variant" },
-        },
+        id: "txn_01failed12345678901234567890ab",
+        status: "canceled",
+        customer_id: "ctm_01test",
+        currency_code: "USD",
+        custom_data: { user_id: "00000000-0000-0000-0000-000000000001" },
+        items: [{ price: { id: "pri_xxx" } }],
+        details: { totals: { total: "1900", currency_code: "USD" } },
       },
     })
     const verified = await adapter.verifyWebhook({ body, signature: "test", secret: "" })
-    expect(verified.status).toBe("failed")
+    expect(verified.status).toBe("canceled")
     // Handler would early return without ledger insert for non-succeeded
     expect(verified.status).not.toBe("succeeded")
   })

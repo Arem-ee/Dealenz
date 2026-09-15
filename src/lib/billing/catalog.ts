@@ -12,7 +12,7 @@ export interface CreditPackage {
   credits: number
   prices: Record<Currency, number> // minor units: e.g. USD 1900 = $19.00
   active: boolean
-  // Lemon Squeezy variant ids live in environment (LEMONSQUEEZY_VARIANT_*,
+  // Paddle price ids live in environment (PADDLE_PRICE_*,
   // resolved by src/lib/billing/provider.ts), never as code constants.
   description: string
 }
