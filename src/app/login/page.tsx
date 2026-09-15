@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { FcGoogle } from "react-icons/fc"
@@ -14,42 +14,101 @@ import Link from "next/link"
 
 export const RESET_RESEND_COOLDOWN_MS = 60_000
 
-function ComicBlobs() {
+const QUOTES = [
+  "Nothing is as good or as bad as it seems.",
+  "The fine print isn't hiding. You just weren't looking.",
+  "Most bad deals aren't a trap. They're just unread.",
+  "A handshake is a feeling. A contract is a fact.",
+  "You can't negotiate what you haven't noticed.",
+  "The best time to ask a question is before you sign.",
+  "Trust the deal. Verify the paperwork.",
+  "Every clause was written by someone with a goal. What's theirs?",
+]
+
+function BubbleShape({ tone }: { tone: "light" | "dark" | "tint" }) {
+  const fill = tone === "dark" ? "#1C1917" : tone === "tint" ? "#F5EDED" : "#FFFFFF"
+  const stroke = tone === "tint" ? "rgba(90,20,30,0.18)" : "rgba(0,0,0,0.08)"
   return (
-    <div className="relative flex h-full w-full items-center justify-center bg-[#FAFAF8] p-8 lg:p-10 overflow-hidden">
-      <div className="absolute -top-24 -left-24 h-[380px] w-[380px] rounded-full bg-[#EDEBE7] blur-[60px] opacity-60" aria-hidden />
-      <div className="absolute -bottom-20 -right-20 h-[420px] w-[420px] rounded-full bg-[#EDEBE7] blur-[70px] opacity-50" aria-hidden />
+    <svg
+      aria-hidden
+      viewBox="0 0 360 132"
+      preserveAspectRatio="none"
+      className="absolute inset-0 h-full w-full"
+    >
+      <rect x="2" y="2" width="356" height="110" rx="24" fill={fill} stroke={stroke} strokeWidth="2" />
+      <path d="M52 112 L40 130 L74 112 Z" fill={fill} stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
+      <rect x="2" y="2" width="356" height="110" rx="24" fill="none" stroke="#FFFFFF" strokeWidth="0" />
+    </svg>
+  )
+}
+
+function ComicBlobs() {
+  const [index, setIndex] = useState(0)
+  const [paused, setPaused] = useState(false)
+
+  useEffect(() => {
+    if (paused) return
+    const id = window.setInterval(() => {
+      setIndex((prev) => (prev + 1) % QUOTES.length)
+    }, 4200)
+    return () => window.clearInterval(id)
+  }, [paused])
+
+  const visible = [0, 1, 2].map((offset) => QUOTES[(index + offset) % QUOTES.length])
+  const tones: Array<"light" | "dark" | "tint"> = ["light", "dark", "tint"]
+  const tilts = ["rotate-[-0.6deg]", "rotate-[0.7deg]", "rotate-[-0.4deg]"]
+  const offsets = ["", "ml-8", "ml-4"]
+
+  return (
+    <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[#FAFAF8] p-8 lg:p-10">
+      <div className="absolute -left-24 -top-24 h-[380px] w-[380px] rounded-full bg-[#EDEBE7] opacity-60 blur-[60px]" aria-hidden />
+      <div className="absolute -bottom-20 -right-20 h-[420px] w-[420px] rounded-full bg-[#EDEBE7] opacity-50 blur-[70px]" aria-hidden />
 
       <div className="relative w-full max-w-[420px]">
-        <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-black/30 mb-6">Dealenz</p>
+        <p className="mb-6 text-[11px] font-semibold uppercase tracking-[0.14em] text-black/30">Dealenz</p>
 
-        <div className="space-y-4">
-          <div className="relative rounded-[20px] border border-black/[0.07] bg-white px-5 py-4 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.12)] rotate-[-0.6deg]">
-            <p className="text-[15px] font-medium leading-snug tracking-[-0.01em]">&ldquo;Nothing is as good or as bad as it seems.&rdquo;</p>
-            <div className="absolute -bottom-2 left-8 h-4 w-4 rotate-45 border-b border-r border-black/[0.07] bg-white" aria-hidden />
-          </div>
-
-          <div className="relative ml-8 rounded-[20px] border border-black/[0.07] bg-[#1C1917] px-5 py-4 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.18)] rotate-[0.7deg]">
-            <p className="text-[15px] font-medium leading-snug tracking-[-0.01em] text-white">
-              &ldquo;It depends on what you&apos;re not seeing.&rdquo;
-            </p>
-            <div className="absolute -bottom-2 right-10 h-4 w-4 rotate-45 bg-[#1C1917]" aria-hidden />
-          </div>
-
-          <div className="relative rounded-[20px] border border-black/[0.07] bg-white px-5 py-4 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.12)] rotate-[-0.4deg]">
-            <p className="text-[15px] font-medium leading-snug tracking-[-0.01em]">&ldquo;Context changes everything.&rdquo;</p>
-            <div className="absolute -bottom-2 left-10 h-4 w-4 rotate-45 border-b border-r border-black/[0.07] bg-white" aria-hidden />
-          </div>
-
-          <div className="relative ml-6 rounded-[20px] border border-[var(--burgundy)]/15 bg-[var(--burgundy)]/[0.06] px-5 py-4 rotate-[0.5deg]">
-            <p className="text-[15px] font-medium leading-snug tracking-[-0.01em] text-[#1C1917]">
-              &ldquo;Before you sign, know what you&apos;re agreeing to.&rdquo;
-            </p>
-          </div>
+        <div
+          className="space-y-5"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+        >
+          {visible.map((quote, i) => (
+            <div key={`${index}-${i}`} className={`relative ${offsets[i]} ${tilts[i]}`}>
+              <div className="relative px-6 pb-8 pt-5">
+                <BubbleShape tone={tones[i]} />
+                <p
+                  className={`relative text-[15px] font-medium leading-snug tracking-[-0.01em] ${
+                    tones[i] === "dark" ? "text-white" : "text-[#1C1917]"
+                  }`}
+                >
+                  &ldquo;{quote}&rdquo;
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
 
-        <p className="mt-8 text-[12px] leading-relaxed text-black/40 max-w-[32ch]">
-          You don&apos;t need to know what to ask. Just explain what&apos;s happening.
+        <div className="mt-6 flex items-center gap-2" role="tablist" aria-label="Quote selector">
+          {QUOTES.map((quote, i) => (
+            <button
+              key={quote}
+              role="tab"
+              aria-selected={i === index}
+              aria-label={`Show quote ${i + 1}`}
+              onClick={() => {
+                setIndex(i)
+                setPaused(true)
+                window.setTimeout(() => setPaused(false), 8000)
+              }}
+              className={`h-2 w-2 rounded-full transition-colors ${
+                i === index ? "bg-[#1C1917]" : "bg-black/15 hover:bg-black/25"
+              }`}
+            />
+          ))}
+        </div>
+
+        <p className="mt-6 max-w-[32ch] text-[12px] leading-relaxed text-black/40">
+          You do not need to know what to ask. Just explain what is happening.
         </p>
       </div>
     </div>
@@ -183,7 +242,7 @@ export default function LoginPage() {
                   disabled={resetCooldown}
                   className="text-[12px] font-medium text-[var(--burgundy)] hover:underline disabled:opacity-50 disabled:no-underline"
                 >
-                  {resetCooldown ? "Reset email sent — check your inbox" : "Forgot password?"}
+                  {resetCooldown ? "Reset email sent. Check your inbox" : "Forgot password?"}
                 </button>
               </div>
             </div>
