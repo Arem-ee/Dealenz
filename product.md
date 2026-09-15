@@ -479,7 +479,7 @@ Orders / Subscriptions / Transactions
 Payment Provider Adapter
 ```
 
-Implemented provider: Lemon Squeezy (buy-link checkout + HMAC-verified webhook, `src/lib/billing/provider.ts`; `credit_purchases` accepts `stripe` (historical) and `lemonsqueezy`, production path writes Lemon Squeezy only). Stripe was an earlier incorrect implementation and is removed from the live path; Paystack and other providers are not implemented.
+Implemented provider: Paddle Billing (transaction-driven checkout via `@paddle/paddle-node-sdk`, custom_data user binding, `Paddle-Signature` HMAC webhook for `transaction.completed`/`transaction.paid`; `credit_purchases` accepts `stripe` (historical), `lemonsqueezy` (historical), and `paddle` (live production path). Stripe was an earlier incorrect implementation and is removed from the live path; Paystack and other providers are not implemented.
 
 Evaluation criteria (international-first): international coverage, subscription support, credit purchases, one-time/recurring purchases, currencies, payout availability for a Nigeria-based company, Merchant of Record capabilities, tax/compliance burden, refunds, chargebacks, billing flexibility, professional-service compatibility, long-term scalability.
 

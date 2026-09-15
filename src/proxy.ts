@@ -68,7 +68,7 @@ export async function proxy(request: NextRequest) {
   // /lawyer/* requires a session (verified-lawyer checks run server-side per
   // action); /admin/* likewise (page-level admin gate runs after this).
   // /view/* and /sign/* stay public: token-gated RPCs enforce access.
-  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/audit") || pathname.startsWith("/ask") || pathname.startsWith("/deals") || pathname.startsWith("/clients") || pathname.startsWith("/risk-intelligence") || pathname.startsWith("/templates") || pathname.startsWith("/billing") || pathname.startsWith("/lawyer") || pathname.startsWith("/admin")) && !pathname.startsWith("/view")) {
+  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/audit") || pathname.startsWith("/ask") || pathname.startsWith("/deals") || pathname.startsWith("/vault") || pathname.startsWith("/clients") || pathname.startsWith("/risk-intelligence") || pathname.startsWith("/templates") || pathname.startsWith("/billing") || pathname.startsWith("/lawyer") || pathname.startsWith("/admin")) && !pathname.startsWith("/view")) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     await logEventWithClient(supabase, {

@@ -16,6 +16,7 @@ import { confirmContext, inferAndPersistContext } from "@/app/audit/[id]/context
 import {
   ENTITY_TYPE_VALUES,
   INDUSTRY_VALUES,
+  INTENT_VALUES,
   ROLE_VALUES,
   STAGE_VALUES,
   STRUCTURE_VALUES,
@@ -34,6 +35,8 @@ interface ContextPanelProps {
 
 const FIELD_LABELS: Record<ContextFieldKey, string> = {
   dealType: "Deal type",
+  intent: "Goal",
+  priorities: "Priority facts",
   jurisdiction: "Jurisdiction",
   governingLaw: "Governing law",
   userRole: "Your role",
@@ -50,6 +53,8 @@ const FIELD_LABELS: Record<ContextFieldKey, string> = {
 
 const DISPLAY_ORDER: ContextFieldKey[] = [
   "dealType",
+  "intent",
+  "priorities",
   "jurisdiction",
   "governingLaw",
   "userRole",
@@ -74,6 +79,8 @@ function formatValue(key: ContextFieldKey, value: unknown): string {
 
 function enumOptions(key: ContextFieldKey): readonly string[] | null {
   switch (key) {
+    case "intent":
+      return INTENT_VALUES
     case "userRole":
     case "counterpartyRole":
       return ROLE_VALUES
@@ -154,6 +161,8 @@ export function ContextPanel({ auditId, dealType, initialEnvelope }: ContextPane
       value = draft === "true" || draft === "yes" || draft === "1"
     } else if (key === "entityTypes") {
       value = draft.split(",").map((s) => s.trim().toLowerCase().replaceAll(" ", "_")).filter(Boolean)
+    } else if (key === "priorities") {
+      value = draft.split(",").map((s) => s.trim()).filter(Boolean)
     }
     void handleConfirm({ [key]: { value } })
   }

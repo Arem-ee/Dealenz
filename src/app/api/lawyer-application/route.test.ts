@@ -157,13 +157,33 @@ describe("PUT /api/lawyer-application correction path", () => {
     expect(updatePatches[0]).not.toHaveProperty("verified_by")
   })
 
-  it("refuses non-rejected rows (verified, suspended, pending)", async () => {
-    for (const status of ["verified", "suspended", "pending"]) {
+  it("refuses verified and suspended rows", async () => {
+    for (const status of ["verified", "suspended"]) {
       mockFrom.mockReturnValue(tableMock({ ...REJECTED_ROW, verification_status: status }))
       const res = await PUT(putReq({}))
       expect(res.status).toBe(409)
     }
     expect(updatePatches).toHaveLength(0)
+  })
+
+  it("lets a pending applicant update non-identity fields without changing status", async () => {
+    mockFrom.mockReturnValue(tableMock({ ...REJECTED_ROW, verification_status: "pending" }))
+    const res = await PUT(putReq({ bio: "Updated commercial practice." }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ success: true, status: "pending" })
+    expect(updatePatches).toHaveLength(1)
+    expect(updatePatches[0].bio).toBe("Updated commercial practice.")
+    expect(updatePatches[0].verification_status).toBeUndefined()
+  })
+
+  it("drops identity fields smuggled into a pending edit", async () => {
+    mockFrom.mockReturnValue(tableMock({ ...REJECTED_ROW, verification_status: "pending" }))
+    const res = await PUT(putReq({ bio: "Still commercial.", bar_license_number: "NBA/00000" }))
+    expect(res.status).toBe(200)
+    expect(updatePatches[0].bio).toBe("Still commercial.")
+    expect(updatePatches[0].bar_license_number).toBeUndefined()
+    expect(updatePatches[0].full_name).toBeUndefined()
+    expect(updatePatches[0].verification_status).toBeUndefined()
   })
 
   it("returns 404 without an application and 401 without auth", async () => {

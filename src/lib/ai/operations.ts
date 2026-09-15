@@ -13,6 +13,7 @@
 export type AIOperation =
   | "document_analysis"
   | "conversation"
+  | "consultation"
   | "negotiation"
   | "drafting"
   | "comparison"
@@ -22,6 +23,7 @@ export type AIOperation =
 export const AI_OPERATIONS: readonly AIOperation[] = [
   "document_analysis",
   "conversation",
+  "consultation",
   "negotiation",
   "drafting",
   "comparison",
@@ -127,6 +129,15 @@ const OPERATION_PROFILES: Record<AIOperation, OperationProfile> = {
     requiresDocument: false,
     requiresContext: false,
     usesRules: true,
+    defaultIntent: "explore",
+    outputBudget: "brief",
+    contextSelection: "minimal",
+  },
+  consultation: {
+    operation: "consultation",
+    requiresDocument: false,
+    requiresContext: false,
+    usesRules: false,
     defaultIntent: "explore",
     outputBudget: "brief",
     contextSelection: "minimal",

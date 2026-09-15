@@ -9,6 +9,7 @@ import { familiesForDealType } from "@/lib/documents/families"
 import { generateBusinessOwnerDraft } from "@/app/audit/[id]/actions"
 import type { DraftDocument } from "@/lib/documents/types"
 import { renderMarkdown } from "@/lib/markdown"
+import { LegalCitationLine } from "@/components/evidence/legal-citation-line"
 
 export function BusinessOwnerDocumentSection({
   auditId,
@@ -157,9 +158,9 @@ export function BusinessOwnerDocumentSection({
               {draft.provenance.dealType} · {draft.provenance.jurisdiction.country} · {draft.provenance.protectionIntents.length} intents · {draft.provenance.clauses.length} clauses · {draft.citations.length} citations
             </p>
             {draft.citations.slice(0, 2).map((c) => (
-              <p key={c.sourceId}>
-                {c.title} — {c.section}: “{c.passage}” [{c.url ?? c.sourceId}]
-              </p>
+              <div key={c.sourceId}>
+                <LegalCitationLine citation={c} />
+              </div>
             ))}
             <p>This draft is drafting assistance, not a determination of enforceability.</p>
           </div>

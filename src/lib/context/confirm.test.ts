@@ -21,6 +21,30 @@ describe("user confirmation", () => {
     expect(next.fields.dealType.source).toBe("user_confirmed")
   })
 
+  it("confirms intent and priorities with the same semantics", () => {
+    const base = seedEnvelopeForDealType("freelance")
+    const next = applyUserConfirmation(base, {
+      intent: { value: "review" },
+      priorities: { value: ["fee_terms", "ip_ownership"] },
+    })
+    expect(next.version).toBe(2)
+    expect(next.fields.intent).toEqual({ value: "review", source: "user_confirmed", confidence: 1 })
+    expect(next.fields.priorities).toEqual({ value: ["fee_terms", "ip_ownership"], source: "user_confirmed", confidence: 1 })
+  })
+
+  it("rejects invalid intent and priority values server-side", () => {
+    expect(() =>
+      applyUserConfirmation(seedEnvelopeForDealType("freelance"), {
+        intent: { value: "litigate" },
+      })
+    ).toThrow(/invalid value/)
+    expect(() =>
+      applyUserConfirmation(seedEnvelopeForDealType("freelance"), {
+        priorities: { value: [] },
+      })
+    ).toThrow()
+  })
+
   it("rejects empty updates", () => {
     expect(() => applyUserConfirmation(seedEnvelopeForDealType("freelance"), {})).toThrow(/No context updates/)
   })

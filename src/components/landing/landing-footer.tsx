@@ -62,6 +62,12 @@ export function LandingFooter() {
           <br />
           2026 Dealenz.
         </p>
+        <p className="mt-3 text-center text-xs text-white/50">
+          Are you a lawyer?{" "}
+          <Link href="/lawyer-application" className="text-white/70 transition-colors hover:text-white">
+            Apply to join Dealenz
+          </Link>
+        </p>
       </div>
     </footer>
   )

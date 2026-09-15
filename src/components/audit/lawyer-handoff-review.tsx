@@ -1,11 +1,13 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Shield, FileText, AlertTriangle, Loader2, ExternalLink, X } from "lucide-react"
+import { Shield, FileText, AlertTriangle, Loader2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { createConsultationRequest } from "@/app/audit/[id]/consultation-actions"
 import type { HandoffPackage } from "@/lib/consultation/handoff"
+import { EvidenceLine } from "@/components/evidence/evidence-line"
+import { LegalCitationLine } from "@/components/evidence/legal-citation-line"
 
 export function LawyerHandoffReview({
   handoff,
@@ -76,9 +78,9 @@ export function LawyerHandoffReview({
                     </p>
                     {f.guidance && <p className="text-muted-foreground">{f.guidance}</p>}
                     {f.evidence.slice(0, 1).map((e) => (
-                      <p key={e.id} className="mt-1 text-muted-foreground">
-                        “{e.quote}” — {e.observationKey}
-                      </p>
+                      <div key={e.id} className="mt-1">
+                        <EvidenceLine evidence={e} />
+                      </div>
                     ))}
                   </li>
                 ))}
@@ -101,14 +103,9 @@ export function LawyerHandoffReview({
                     <p>{intent.recommendation}</p>
                     <p className="text-muted-foreground">{intent.rationale}</p>
                     {intent.legalContext && (
-                      <p className="mt-1">
-                        Legal: {intent.legalContext.title} — {intent.legalContext.section}{" "}
-                        {intent.legalContext.url && (
-                          <a href={intent.legalContext.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                            <ExternalLink className="ml-1 inline h-3 w-3" />
-                          </a>
-                        )}
-                      </p>
+                      <div className="mt-1 text-[11px]">
+                        <LegalCitationLine citation={intent.legalContext} />
+                      </div>
                     )}
                     {intent.variables.length > 0 && <p className="text-warning-foreground">Needs input: {intent.variables.join(", ")} — UNKNOWN</p>}
                   </li>
@@ -123,24 +120,13 @@ export function LawyerHandoffReview({
               {handoff.evidence.length} evidence {handoff.evidence.length === 1 ? "item" : "items"} · {handoff.legalCitations.length} legal citation{handoff.legalCitations.length === 1 ? "" : "s"}
             </p>
             {handoff.evidence.slice(0, 2).map((e) => (
-              <p key={e.id} className="mt-1 text-muted-foreground">
-                “{e.quote}” — {e.observationKey} ({e.location.kind})
-              </p>
+              <div key={e.id} className="mt-1">
+                <EvidenceLine evidence={e} />
+              </div>
             ))}
             {handoff.legalCitations.slice(0, 2).map((c) => (
-              <div key={c.sourceId} className="mt-1 rounded border p-2">
-                <p className="font-medium">
-                  {c.title} — {c.section}
-                </p>
-                <p className="text-muted-foreground">“{c.passage}”</p>
-                {c.url && (
-                  <a href={c.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                    {c.url}
-                  </a>
-                )}
-                <p className="text-muted-foreground">
-                  {c.jurisdiction} · Tier {c.authorityTier} · {c.effectiveStatus} · retrieved {c.retrievedAt.slice(0, 10)}
-                </p>
+              <div key={c.sourceId} className="mt-1 rounded border p-2 text-[11px]">
+                <LegalCitationLine citation={c} />
               </div>
             ))}
             {handoff.legalCitations.length === 0 && <p className="mt-1 text-muted-foreground">No verified legal sources matched this deal — honest limitation, not invented law. The lawyer will still receive deal facts and findings.</p>}

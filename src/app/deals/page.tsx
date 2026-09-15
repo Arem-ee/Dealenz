@@ -30,7 +30,7 @@ const stageLabels: Record<string, string> = {
   failed: "Failed",
 }
 
-export default async function DealsPage() {
+export default async function DealsPage({ searchParams }: { searchParams: Promise<{ flagged?: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -42,6 +42,9 @@ export default async function DealsPage() {
     redirect("/dashboard")
   }
 
+  const sp = await searchParams
+  const flaggedOnly = sp.flagged === "1"
+
   const { data: audits } = await supabase
     .from("audits")
     .select("id, title, status, overall_score, risk_report, created_at")
@@ -51,7 +54,8 @@ export default async function DealsPage() {
     .limit(50)
 
   const all = (audits ?? []) as Audit[]
-  const grouped = all.reduce<Record<string, Audit[]>>((acc, a) => {
+  const visible = flaggedOnly ? all.filter((a) => a.risk_report !== null) : all
+  const grouped = visible.reduce<Record<string, Audit[]>>((acc, a) => {
     const group = stageLabels[a.status] ?? a.status
     if (!acc[group]) acc[group] = []
     acc[group].push(a)
@@ -63,11 +67,11 @@ export default async function DealsPage() {
 
   return (
     <div className="px-4 sm:px-6 py-5 sm:py-7 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-lg font-semibold">Deals</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {all.length} deal{all.length !== 1 ? "s" : ""}
+            {visible.length} deal{visible.length !== 1 ? "s" : ""}
           </p>
         </div>
         <Link
@@ -79,7 +83,30 @@ export default async function DealsPage() {
         </Link>
       </div>
 
-      {all.length === 0 ? (
+      <div className="flex flex-wrap gap-2 mb-6">
+        <Link
+          href="/deals"
+          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${flaggedOnly ? "border-border bg-card text-muted-foreground hover:text-foreground" : "bg-primary text-primary-foreground border-primary"}`}
+        >
+          All deals
+        </Link>
+        <Link
+          href="/deals?flagged=1"
+          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${flaggedOnly ? "bg-primary text-primary-foreground border-primary" : "border-border bg-card text-muted-foreground hover:text-foreground"}`}
+        >
+          Flagged
+        </Link>
+      </div>
+
+      {visible.length === 0 ? (
+        flaggedOnly ? (
+          <div className="flex flex-col items-center gap-3 py-12 text-center rounded-xl border border-dashed border-border/60">
+            <p className="text-sm font-medium">No flagged deals</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+              Once you run a risk analysis, flagged deals will appear here.
+            </p>
+          </div>
+        ) : (
         <EmptyState
           icon={IconPipeline}
           title="Your first deal starts here"
@@ -87,6 +114,7 @@ export default async function DealsPage() {
           actionLabel="New Deal"
           actionHref="/audit/new"
         />
+        )
       ) : (
         <div className="space-y-8">
           {sortedGroups.map(([group, items]) => (

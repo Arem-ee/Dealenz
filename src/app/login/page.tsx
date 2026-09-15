@@ -9,11 +9,52 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { logAuthFailure } from "@/app/login/actions"
+import { resolveNextPath } from "@/lib/auth/link"
 import Link from "next/link"
-import { SlideshowPanel } from "@/components/auth/SlideshowPanel"
 
-// Password-reset resend cooldown: one successful request = one real email.
 export const RESET_RESEND_COOLDOWN_MS = 60_000
+
+function ComicBlobs() {
+  return (
+    <div className="relative flex h-full w-full items-center justify-center bg-[#FAFAF8] p-8 lg:p-10 overflow-hidden">
+      <div className="absolute -top-24 -left-24 h-[380px] w-[380px] rounded-full bg-[#EDEBE7] blur-[60px] opacity-60" aria-hidden />
+      <div className="absolute -bottom-20 -right-20 h-[420px] w-[420px] rounded-full bg-[#EDEBE7] blur-[70px] opacity-50" aria-hidden />
+
+      <div className="relative w-full max-w-[420px]">
+        <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-black/30 mb-6">Dealenz</p>
+
+        <div className="space-y-4">
+          <div className="relative rounded-[20px] border border-black/[0.07] bg-white px-5 py-4 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.12)] rotate-[-0.6deg]">
+            <p className="text-[15px] font-medium leading-snug tracking-[-0.01em]">&ldquo;Nothing is as good or as bad as it seems.&rdquo;</p>
+            <div className="absolute -bottom-2 left-8 h-4 w-4 rotate-45 border-b border-r border-black/[0.07] bg-white" aria-hidden />
+          </div>
+
+          <div className="relative ml-8 rounded-[20px] border border-black/[0.07] bg-[#1C1917] px-5 py-4 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.18)] rotate-[0.7deg]">
+            <p className="text-[15px] font-medium leading-snug tracking-[-0.01em] text-white">
+              &ldquo;It depends on what you&apos;re not seeing.&rdquo;
+            </p>
+            <div className="absolute -bottom-2 right-10 h-4 w-4 rotate-45 bg-[#1C1917]" aria-hidden />
+          </div>
+
+          <div className="relative rounded-[20px] border border-black/[0.07] bg-white px-5 py-4 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.12)] rotate-[-0.4deg]">
+            <p className="text-[15px] font-medium leading-snug tracking-[-0.01em]">&ldquo;Context changes everything.&rdquo;</p>
+            <div className="absolute -bottom-2 left-10 h-4 w-4 rotate-45 border-b border-r border-black/[0.07] bg-white" aria-hidden />
+          </div>
+
+          <div className="relative ml-6 rounded-[20px] border border-[var(--burgundy)]/15 bg-[var(--burgundy)]/[0.06] px-5 py-4 rotate-[0.5deg]">
+            <p className="text-[15px] font-medium leading-snug tracking-[-0.01em] text-[#1C1917]">
+              &ldquo;Before you sign, know what you&apos;re agreeing to.&rdquo;
+            </p>
+          </div>
+        </div>
+
+        <p className="mt-8 text-[12px] leading-relaxed text-black/40 max-w-[32ch]">
+          You don&apos;t need to know what to ask. Just explain what&apos;s happening.
+        </p>
+      </div>
+    </div>
+  )
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -22,9 +63,11 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  // Resend cooldown: each successful request sends a real email, so rapid
-  // re-clicks must not multiply sends. Success-only (failures stay retryable).
   const [resetCooldown, setResetCooldown] = useState(false)
+
+  function loginDestination(): string {
+    return resolveNextPath(new URLSearchParams(window.location.search).get("next"))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,11 +79,10 @@ export default function LoginPage() {
       const supabase = createClient()
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-      router.push("/dashboard")
+      router.push(loginDestination())
       router.refresh()
     } catch (err) {
-      // Generic message prevents account enumeration (nonexistent vs wrong password vs unverified)
-      const msg = "Invalid email or password. Please try again."
+      const msg = "We couldn't sign you in. Check your email and password and try again."
       setError(msg)
       const raw = err instanceof Error ? err.message : "unknown"
       logAuthFailure(raw, "login")
@@ -59,13 +101,13 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(loginDestination())}`,
         },
       })
       if (error) throw error
     } catch (err) {
       const raw = err instanceof Error ? err.message : ""
-      const msg = raw.trim() ? raw : "Google sign-in failed. Please try again."
+      const msg = "We couldn't start Google sign-in. Please try again."
       setError(msg)
       logAuthFailure(raw || "blank provider error", "login")
       setLoading(false)
@@ -76,9 +118,7 @@ export default function LoginPage() {
     if (!email || resetCooldown) return
     const supabase = createClient()
     const { error } = await supabase.auth.resetPasswordForEmail(email)
-    // Always show generic success to prevent enumeration (Supabase itself returns success for non-existent emails, but we normalize all responses)
     if (error) {
-      // Log raw for observability, show generic to user
       logAuthFailure(error.message, "login")
     }
     setError(null)
@@ -88,26 +128,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-full relative overflow-hidden bg-background flex">
-      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-[var(--color-primary)]/40 blur-[140px]" />
-      <div className="absolute -bottom-40 -right-20 w-[600px] h-[600px] rounded-full bg-[var(--color-primary)]/30 blur-[140px]" />
-      <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-[var(--color-primary)]/20 blur-[120px]" />
+    <div className="min-h-screen w-full bg-[#FAFAF8] flex">
+      <div className="hidden md:flex w-[46%] shrink-0 border-r border-black/5">
+        <ComicBlobs />
+      </div>
 
-      <div className="relative w-full min-h-screen grid grid-cols-1 md:grid-cols-2">
-        <div className="hidden md:flex relative overflow-hidden border-r border-black/5">
-          <SlideshowPanel />
-        </div>
+      <div className="flex flex-1 flex-col justify-center px-6 py-10 sm:px-10 lg:px-16 bg-white">
+        <div className="mx-auto w-full max-w-sm">
+          <Link href="/" className="inline-flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-[var(--burgundy)] text-[11px] font-bold tracking-[0.08em] text-white">D</span>
+            <span className="text-[15px] font-semibold tracking-[-0.02em]">dealenz</span>
+          </Link>
 
-        <div className="flex flex-col justify-center p-8 sm:p-16 backdrop-blur-2xl backdrop-saturate-150 bg-white/40 border-l border-white/30 relative">
-          <div className="md:hidden mb-8">
-            <span className="text-xl font-semibold tracking-tight">Dealenz</span>
-          </div>
-          <h1 className="font-extrabold text-2xl text-foreground">Welcome back</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Sign in to your account to continue</p>
+          <h1 className="mt-8 text-[22px] font-semibold tracking-[-0.02em]">Welcome back</h1>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-black/55">Sign in to continue your work.</p>
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5 max-w-sm">
+          <form onSubmit={handleSubmit} className="mt-7 space-y-4" noValidate>
             <div>
-              <Label htmlFor="email" className="text-sm font-medium text-foreground/80">Email</Label>
+              <Label htmlFor="email" className="text-[12px] font-medium">
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -116,12 +156,14 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="mt-1.5 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]/50 focus:ring-2 focus:ring-[var(--color-primary)]/10"
+                className="mt-1.5 h-11 rounded-xl border-black/10 bg-white px-4 text-[14px]"
               />
             </div>
             <div>
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-sm font-medium text-foreground/80">Password</Label>
+                <Label htmlFor="password" className="text-[12px] font-medium">
+                  Password
+                </Label>
               </div>
               <Input
                 id="password"
@@ -132,46 +174,65 @@ export default function LoginPage() {
                 required
                 autoComplete="current-password"
                 minLength={8}
-                className="mt-1.5 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]/50 focus:ring-2 focus:ring-[var(--color-primary)]/10"
+                className="mt-1.5 h-11 rounded-xl border-black/10 bg-white px-4 text-[14px]"
               />
-              <div className="mt-1.5 text-right">
+              <div className="mt-2 text-right">
                 <button
                   type="button"
                   onClick={handleForgotPassword}
                   disabled={resetCooldown}
-                  className="text-sm text-[var(--color-primary)] hover:underline disabled:opacity-50 disabled:no-underline"
+                  className="text-[12px] font-medium text-[var(--burgundy)] hover:underline disabled:opacity-50 disabled:no-underline"
                 >
                   {resetCooldown ? "Reset email sent — check your inbox" : "Forgot password?"}
                 </button>
               </div>
             </div>
-            <Button type="submit" disabled={loading} className="w-full rounded-xl bg-[var(--color-primary)] text-white py-3.5 text-sm font-medium">
+            <Button type="submit" disabled={loading} className="h-11 w-full rounded-full bg-[#1C1917] text-white text-[14px] font-medium hover:bg-black">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Sign in
             </Button>
           </form>
 
           {error && (
-            <p role="alert" className="mt-4 max-w-sm text-sm text-destructive">{error}</p>
+            <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-[13px] leading-relaxed text-red-800">
+              {error}
+            </p>
           )}
           {notice && (
-            <p role="status" className="mt-4 max-w-sm text-sm text-success">{notice}</p>
+            <p role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-[13px] leading-relaxed text-emerald-800">
+              {notice}
+            </p>
           )}
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-black/10" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-white px-3 text-[11px] font-medium tracking-wide uppercase text-black/30">or</span>
+            </div>
+          </div>
 
           <button
             type="button"
             onClick={handleGoogleSignIn}
             disabled={loading}
-            className="mt-4 w-full max-w-sm rounded-xl border border-black/10 bg-white py-3 text-sm font-medium flex items-center justify-center gap-2"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/10 bg-white text-[13px] font-medium hover:bg-black/[0.02] transition-colors"
           >
-            <FcGoogle className="h-5 w-5" />
+            <FcGoogle className="h-[18px] w-[18px]" />
             Continue with Google
           </button>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+          <p className="mt-6 text-center text-[13px] text-black/55">
             Don&apos;t have an account?{" "}
-            <Link href="/register" className="text-[var(--color-primary)] font-medium underline-offset-4 hover:no-underline">
-              Sign up
+            <Link href="/register" className="font-medium text-[#1C1917] underline decoration-black/20 underline-offset-4 hover:decoration-black/40">
+              Create account
+            </Link>
+          </p>
+          <p className="mt-2 text-center text-[12px] text-black/40">
+            Applying as a lawyer?{" "}
+            <Link href="/lawyer-application" className="font-medium underline decoration-black/20 underline-offset-4 hover:decoration-black/40">
+              Apply to join Dealenz
             </Link>
           </p>
         </div>

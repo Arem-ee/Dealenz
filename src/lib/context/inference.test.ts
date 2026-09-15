@@ -100,6 +100,24 @@ describe("context inference", () => {
     expect(merged.fields.dealType.source).toBe("user_confirmed")
   })
 
+  it("never lets inference propose intent or priorities", async () => {
+    fetchMock.mockResolvedValueOnce(anthropicOk(INFERENCE_JSON))
+    const inferred = await inferContextFields({ dealType: "freelance", rawInput: "London client work." })
+    expect(inferred.fields.intent).toEqual({ value: null, source: "unknown", confidence: 0 })
+    expect(inferred.fields.priorities).toEqual({ value: null, source: "unknown", confidence: 0 })
+  })
+
+  it("never lets inference overwrite confirmed intent or priorities", async () => {
+    fetchMock.mockResolvedValueOnce(anthropicOk(INFERENCE_JSON))
+    const stored = seedEnvelopeForDealType("freelance")
+    stored.fields.intent = { value: "review", source: "user_confirmed", confidence: 1 }
+    stored.fields.priorities = { value: ["fee_terms"], source: "user_confirmed", confidence: 1 }
+    const inferred = await inferContextFields({ dealType: "freelance", rawInput: "London client work." })
+    const merged = mergeInferredContext(stored, inferred)
+    expect(merged.fields.intent).toEqual({ value: "review", source: "user_confirmed", confidence: 1 })
+    expect(merged.fields.priorities).toEqual({ value: ["fee_terms"], source: "user_confirmed", confidence: 1 })
+  })
+
   it("requires input before calling the model", async () => {
     await expect(inferContextFields({ dealType: "freelance" })).rejects.toThrow(/No input/)
     expect(fetchMock).not.toHaveBeenCalled()

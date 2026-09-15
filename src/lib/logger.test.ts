@@ -31,7 +31,7 @@ describe("reportError", () => {
     await reportError(db as never, {
       phase: "billing_webhook",
       error: new Error("card declined for alice@example.com sk_live_abc123"),
-      details: { provider: "lemonsqueezy", step: "ledger_grant", count: 2 },
+      details: { provider: "paddle", step: "ledger_grant", count: 2 },
       severity: "critical",
       userId: "00000000-0000-0000-0000-000000000001",
     })
@@ -51,7 +51,7 @@ describe("reportError", () => {
     expect(row.user_id).toBe("00000000-0000-0000-0000-000000000001")
     expect(String(row.error_message)).not.toContain("sk_live_abc123")
     expect(String(row.error_message)).not.toContain("alice@")
-    expect(row.metadata?.provider).toBe("lemonsqueezy")
+    expect(row.metadata?.provider).toBe("paddle")
   })
 
   it("survives a broken client without throwing", async () => {

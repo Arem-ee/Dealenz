@@ -34,7 +34,7 @@ Direct inspection performed for this plan (read or searched in full unless noted
 - `src/components/audit/workspace-client.tsx` (830 lines, `dealType` at line 149, `LawyerEscalationCard` at lines 713-717), `protection-package.tsx` (hardcoded freelance tabs), `risk-report.tsx`, `generic-risk-report.tsx`, `lawyer-escalation.tsx:35-64` (waitlist/active states), `deal-type-selector.tsx:12-23` (two options only), `landing-mini-dashboard.tsx`, `landing-hero.tsx`, `auth/SlideshowPanel.tsx`, `settings-client.tsx`
 - `supabase/migrations/00001_create_audits.sql` through `00020_lawyers_and_consultations.sql` (20 files); `SECURITY DEFINER` found only in `00004_usage_tracking.sql:21`, `00013_share_and_sign.sql:61,128`, `00018_fix_rate_limit.sql:11`; no `CREATE EXTENSION` statements found
 - `supabase/migrations/00019_add_deal_type.sql` (`CHECK (deal_type in ('freelance','generic'))`), `00020_lawyers_and_consultations.sql` (lawyers + consultation_requests with RLS)
-- Searches: no credit or ledger domain code in `src` (only marketing copy); no payment provider code in `src` (no stripe, paystack, lemon squeezy, paddle, paypal matches); no background job infrastructure (only UI timers and AI abort timeouts); no hardcoded `supabase.co` URLs in `src`
+- Searches: no credit or ledger domain code in `src` (only marketing copy); no payment provider code in `src` (no stripe, paystack, lemon squeezy, paddle, paypal matches at Phase 3; Paddle migration implemented later in Phase 29/31); no background job infrastructure (only UI timers and AI abort timeouts); no hardcoded `supabase.co` URLs in `src`
 
 ## 3. Non-Negotiable Architectural Principles
 

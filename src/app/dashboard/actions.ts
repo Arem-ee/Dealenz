@@ -52,6 +52,21 @@ export async function getRecentNotifications() {
   return { success: true, events: data ?? [] }
 }
 
+export async function getCreditBalanceForHome(): Promise<number | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  try {
+    const { data } = await supabase.rpc("credit_balance" as never)
+    if (Array.isArray(data)) return typeof (data as unknown as { balance?: number }[])[0]?.balance === "number" ? (data as unknown as { balance: number }[])[0].balance : null
+    if (data && typeof data === "object" && "balance" in (data as Record<string, unknown>)) return (data as Record<string, unknown>).balance as number
+    if (typeof data === "number") return data
+    return null
+  } catch {
+    return null
+  }
+}
+
 export async function getUsageStats() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

@@ -35,7 +35,7 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000"
   mockGetUser.mockResolvedValue({ data: { user: USER } })
   mockCheckRateLimit.mockResolvedValue({ allowed: true })
-  mockCreateSession.mockResolvedValue({ id: "co_standard_1", url: "https://dealenz.lemonsqueezy.com/buy/222?x=1", provider: "lemonsqueezy" })
+  mockCreateSession.mockResolvedValue({ id: "txn_01test12345678901234567890ab", url: "https://checkout.paddle.com/txn_01test?x=1", provider: "paddle" })
 })
 
 describe("POST /api/billing/checkout", () => {
@@ -45,7 +45,6 @@ describe("POST /api/billing/checkout", () => {
     expect(mockCreateSession).toHaveBeenCalledTimes(1)
     const sessionCalls = mockCreateSession.mock.calls as unknown as Array<[Record<string, unknown>]>
     const input = sessionCalls[0]![0] as { amountMinor: number; currency: string; package: { id: string; credits: number } }
-    // Client-supplied amountMinor/credits are ignored: catalog decides.
     expect(input.amountMinor).toBe(3900)
     expect(input.currency).toBe("GBP")
     expect(input.package.id).toBe("standard")
@@ -67,5 +66,11 @@ describe("POST /api/billing/checkout", () => {
     const res = await POST(req({ packageId: "starter", currency: "USD" }))
     expect(res.status).toBe(429)
     expect(mockCreateSession).not.toHaveBeenCalled()
+  })
+
+  it("returns 500 when provider fails to create session", async () => {
+    mockCreateSession.mockRejectedValue(new Error("Paddle API down"))
+    const res = await POST(req({ packageId: "starter", currency: "USD" }))
+    expect(res.status).toBe(500)
   })
 })

@@ -61,6 +61,15 @@ describe("context gate", () => {
     expect(envelope.fields.counterpartyRole.source).toBe("unknown")
   })
 
+  it("never blocks on unknown intent or priorities", () => {
+    expect(requiredContextFields("freelance")).toEqual(["dealType"])
+    const envelope = confirmedDealType()
+    expect(envelope.fields.intent.source).toBe("unknown")
+    expect(envelope.fields.priorities.source).toBe("unknown")
+    const result = evaluateContextGate(envelope, "freelance")
+    expect(result.state).toBe("READY")
+  })
+
   it("lets future modules declare additional requirements", () => {
     registerContextRequirements("generic", ["jurisdiction"])
     try {

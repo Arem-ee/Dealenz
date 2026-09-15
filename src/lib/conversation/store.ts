@@ -15,6 +15,8 @@ export interface ConversationRow {
   updated_at: string
 }
 
+export type MessageType = "message" | "consultation_turn" | "inline_confirmation"
+
 export interface MessageRow {
   id: string
   conversation_id: string
@@ -24,6 +26,7 @@ export interface MessageRow {
   operation: string | null
   intent: string | null
   objective: string | null
+  message_type: MessageType
   metadata: Record<string, unknown>
   created_at: string
 }
@@ -95,6 +98,7 @@ export async function addMessage(
     operation?: string | null
     intent?: string | null
     objective?: string | null
+    messageType?: MessageType
     metadata?: Record<string, unknown>
   }
 ): Promise<MessageRow> {
@@ -108,9 +112,10 @@ export async function addMessage(
       operation: input.operation ?? null,
       intent: input.intent ?? null,
       objective: input.objective ?? null,
+      message_type: input.messageType ?? "message",
       metadata: input.metadata ?? {},
     })
-    .select("id, conversation_id, user_id, role, content, operation, intent, objective, metadata, created_at")
+    .select("id, conversation_id, user_id, role, content, operation, intent, objective, message_type, metadata, created_at")
     .single()
   if (error || !data) throw new Error("Failed to store message")
   return data as MessageRow
@@ -119,7 +124,7 @@ export async function addMessage(
 export async function listMessages(client: Client, userId: string, conversationId: string, limit = 20): Promise<MessageRow[]> {
   const { data, error } = await client
     .from("conversation_messages")
-    .select("id, conversation_id, user_id, role, content, operation, intent, objective, metadata, created_at")
+    .select("id, conversation_id, user_id, role, content, operation, intent, objective, message_type, metadata, created_at")
     .eq("conversation_id", conversationId)
     .eq("user_id", userId)
     .order("created_at", { ascending: true })

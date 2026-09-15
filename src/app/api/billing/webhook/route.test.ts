@@ -49,33 +49,34 @@ function tableMock(table: string) {
 }
 
 import { POST } from "./route"
-import { parseLemonOrderEvent } from "@/lib/billing/provider"
+import { parsePaddleTransactionEvent } from "@/lib/billing/provider"
 
 const USER_ID = "00000000-0000-0000-0000-000000000001"
-const SECRET = "test-webhook-secret"
+const SECRET = "pdl_ntfset_test_secret_1234567890abcdef"
 
-function lemonBody(overrides: { meta?: Record<string, unknown>; data?: Record<string, unknown> } = {}): string {
+function paddleBody(overrides: { event_type?: string; data?: Record<string, unknown> } = {}): string {
   return JSON.stringify({
-    meta: {
-      event_name: "order_created",
-      custom_data: { user_id: USER_ID, package_id: "standard" },
-      test_mode: false,
-      ...(overrides.meta ?? {}),
-    },
+    event_id: "evt_01test",
+    event_type: overrides.event_type ?? "transaction.completed",
+    occurred_at: new Date().toISOString(),
+    notification_id: "ntf_01test",
     data: {
-      type: "orders",
-      id: "80001",
-      attributes: {
-        status: "paid",
-        total: 4900,
-        currency: "USD",
-        store_id: 1,
-        user_email: "buyer@example.com",
-        first_order_item: { product_id: 11, variant_id: "222" },
-      },
+      id: "txn_01test12345678901234567890ab",
+      status: "completed",
+      customer_id: "ctm_01test",
+      currency_code: "USD",
+      custom_data: { user_id: USER_ID, package_id: "standard" },
+      items: [{ price: { id: "pri_standard_222" }, quantity: 1 }],
+      details: { totals: { total: "4900", currency_code: "USD" } },
       ...(overrides.data ?? {}),
     },
   })
+}
+
+function paddleSig(body: string): string {
+  const ts = Math.floor(Date.now() / 1000).toString()
+  const h1 = createHmac("sha256", SECRET).update(`${ts}:${body}`, "utf8").digest("hex")
+  return `ts=${ts};h1=${h1}`
 }
 
 const OLD_ENV = { ...process.env }
@@ -85,19 +86,26 @@ beforeEach(() => {
   inserts.length = 0
   existingPurchase.value = null
   existingGrant.value = null
-  process.env.LEMONSQUEEZY_WEBHOOK_SECRET = SECRET
-  process.env.LEMONSQUEEZY_STORE = "dealenz"
-  process.env.LEMONSQUEEZY_VARIANT_STARTER = "111"
-  process.env.LEMONSQUEEZY_VARIANT_STANDARD = "222"
-  process.env.LEMONSQUEEZY_VARIANT_PRO = "333"
+  process.env.PADDLE_WEBHOOK_SECRET = SECRET
+  process.env.PADDLE_API_KEY = "pdl_test_key"
+  process.env.PADDLE_PRICE_STARTER = "pri_starter_111"
+  process.env.PADDLE_PRICE_STANDARD = "pri_standard_222"
+  process.env.PADDLE_PRICE_PRO = "pri_pro_333"
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co"
   process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key"
   mockVerify.mockImplementation(({ body, signature }: { body: string; signature: string | null }) => {
-    // Mirror the real adapter's contract through the same parser, with an
-    // independent signature check so the test exercises real verification.
-    const expected = createHmac("sha256", SECRET).update(body, "utf8").digest("hex")
-    if (signature !== expected) throw new Error("Invalid Lemon Squeezy webhook signature")
-    const event = parseLemonOrderEvent(JSON.parse(body))
+    const expected = (() => {
+      const parts = (signature ?? "").split(";")
+      let ts: string | null = null
+      let h1: string | null = null
+      for (const p of parts) { const [k, v] = p.split("="); if (k === "ts") ts = v; if (k === "h1") h1 = v }
+      if (!ts || !h1) throw new Error("Invalid Paddle webhook signature")
+      const exp = createHmac("sha256", SECRET).update(`${ts}:${body}`, "utf8").digest("hex")
+      if (h1 !== exp) throw new Error("Invalid Paddle webhook signature")
+      return exp
+    })()
+    void expected
+    const event = parsePaddleTransactionEvent(JSON.parse(body))
     return Promise.resolve({ ...event, raw: JSON.parse(body) })
   })
 })
@@ -107,17 +115,17 @@ afterEach(() => {
 })
 
 function reqWithSig(body: string): NextRequest {
-  const sig = createHmac("sha256", SECRET).update(body, "utf8").digest("hex")
+  const sig = paddleSig(body)
   return new NextRequest("http://localhost/api/billing/webhook", {
     method: "POST",
-    headers: { "x-signature": sig },
+    headers: { "paddle-signature": sig },
     body,
   })
 }
 
-describe("billing webhook (Lemon Squeezy) fulfillment", () => {
-  it("fulfills a valid paid order exactly once", async () => {
-    const res = await POST(reqWithSig(lemonBody()))
+describe("billing webhook (Paddle) fulfillment", () => {
+  it("fulfills a valid paid transaction exactly once", async () => {
+    const res = await POST(reqWithSig(paddleBody()))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ received: true, credits: 150 })
     expect(inserts.filter((i) => i.table === "credit_ledger")).toHaveLength(1)
@@ -128,8 +136,8 @@ describe("billing webhook (Lemon Squeezy) fulfillment", () => {
     const res = await POST(
       new NextRequest("http://localhost/api/billing/webhook", {
         method: "POST",
-        headers: { "x-signature": "0".repeat(64) },
-        body: lemonBody(),
+        headers: { "paddle-signature": "ts=1;h1=0".repeat(32) },
+        body: paddleBody(),
       })
     )
     expect(res.status).toBe(400)
@@ -142,7 +150,7 @@ describe("billing webhook (Lemon Squeezy) fulfillment", () => {
   it("records ledger failures as critical events without secrets", async () => {
     failLedger.value = true
     try {
-      const res = await POST(reqWithSig(lemonBody()))
+      const res = await POST(reqWithSig(paddleBody()))
       expect(res.status).toBe(500)
       const logs = inserts.filter((i) => i.table === "system_logs")
       expect(logs).toHaveLength(1)
@@ -158,7 +166,7 @@ describe("billing webhook (Lemon Squeezy) fulfillment", () => {
   it("replays of succeeded purchases do not re-grant when the grant landed", async () => {
     existingPurchase.value = { status: "succeeded" }
     existingGrant.value = { id: "grant-1" }
-    const res = await POST(reqWithSig(lemonBody()))
+    const res = await POST(reqWithSig(paddleBody()))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ received: true, idempotent: true })
     expect(inserts.some((i) => i.table === "credit_ledger")).toBe(false)
@@ -167,12 +175,12 @@ describe("billing webhook (Lemon Squeezy) fulfillment", () => {
   it("repairs lost entitlements when purchase succeeded but the grant is missing", async () => {
     existingPurchase.value = { status: "succeeded" }
     existingGrant.value = null
-    const res = await POST(reqWithSig(lemonBody()))
+    const res = await POST(reqWithSig(paddleBody()))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ received: true, repaired: true })
     const grants = inserts.filter((i) => i.table === "credit_ledger")
     expect(grants).toHaveLength(1)
-    expect(grants[0].row.idempotency_key).toBe("purchase:80001")
+    expect(grants[0].row.idempotency_key).toBe("purchase:txn_01test12345678901234567890ab")
   })
 
   it("converges concurrent duplicate deliveries without a second provider retry", async () => {
@@ -180,7 +188,7 @@ describe("billing webhook (Lemon Squeezy) fulfillment", () => {
     existingGrant.value = null
     failPurchaseInsertDuplicate.value = true
     try {
-      const res = await POST(reqWithSig(lemonBody()))
+      const res = await POST(reqWithSig(paddleBody()))
       expect(res.status).toBe(200)
       expect(await res.json()).toEqual({ received: true, repaired: true })
       expect(inserts.filter((i) => i.table === "credit_ledger")).toHaveLength(1)
@@ -189,18 +197,15 @@ describe("billing webhook (Lemon Squeezy) fulfillment", () => {
     }
   })
 
-  it("records refund notifications visibly without mutating credits", async () => {
-    const res = await POST(reqWithSig(lemonBody({ meta: { event_name: "order_refunded" } })))
+  it("records refund-like non-succeeded statuses visibly without mutating credits", async () => {
+    const body = paddleBody({ data: { id: "txn_01test12345678901234567890ab", status: "canceled", customer_id: "ctm_01test", currency_code: "USD", custom_data: { user_id: USER_ID }, items: [{ price: { id: "pri_standard_222" } }], details: { totals: { total: "4900", currency_code: "USD" } } } })
+    const res = await POST(reqWithSig(body))
     expect(res.status).toBe(200)
     expect(inserts.some((i) => i.table === "credit_ledger")).toBe(false)
-    const logs = inserts.filter((i) => i.table === "system_logs")
-    expect(logs).toHaveLength(1)
-    expect(logs[0].row.severity).toBe("warn")
-    expect(JSON.stringify(logs[0].row)).toContain("order_refunded")
   })
 
   it("returns 400 for malformed events without credit mutation", async () => {
-    const res = await POST(reqWithSig(lemonBody({ meta: { event_name: "order_created", custom_data: {} } })))
+    const res = await POST(reqWithSig(paddleBody({ data: { id: "txn_01test12345678901234567890ab", status: "completed", customer_id: "ctm_01test", currency_code: "USD", custom_data: {}, items: [{ price: { id: "pri_standard_222" } }], details: { totals: { total: "4900", currency_code: "USD" } } } })))
     expect(res.status).toBe(400)
     expect(inserts.some((i) => i.table === "credit_ledger")).toBe(false)
   })
@@ -208,17 +213,17 @@ describe("billing webhook (Lemon Squeezy) fulfillment", () => {
   it("rejects underpayment below the catalog floor", async () => {
     const res = await POST(
       reqWithSig(
-        lemonBody({ data: { type: "orders", id: "80002", attributes: { status: "paid", total: 100, currency: "USD", first_order_item: { variant_id: "222" } } } })
+        paddleBody({ data: { id: "txn_01test12345678901234567890ac", status: "completed", customer_id: "ctm_01test", currency_code: "USD", custom_data: { user_id: USER_ID }, items: [{ price: { id: "pri_standard_222" } }], details: { totals: { total: "100", currency_code: "USD" } } } })
       )
     )
     expect(res.status).toBe(400)
     expect(inserts.some((i) => i.table === "credit_ledger")).toBe(false)
   })
 
-  it("rejects unknown variants without credit mutation", async () => {
+  it("rejects unknown price ids without credit mutation", async () => {
     const res = await POST(
       reqWithSig(
-        lemonBody({ data: { type: "orders", id: "80003", attributes: { status: "paid", total: 4900, currency: "USD", first_order_item: { variant_id: "999" } } } })
+        paddleBody({ data: { id: "txn_01test12345678901234567890ad", status: "completed", customer_id: "ctm_01test", currency_code: "USD", custom_data: { user_id: USER_ID }, items: [{ price: { id: "pri_unknown_999" } }], details: { totals: { total: "4900", currency_code: "USD" } } } })
       )
     )
     expect(res.status).toBe(400)

@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
       const service = createServiceClient(serviceUrl, serviceKey)
       await service.from("credit_purchases").insert({
         user_id: user.id,
-        provider: "lemonsqueezy",
+        provider: "paddle",
         provider_transaction_id: checkoutId,
         package_id: pkg.id,
         currency,
