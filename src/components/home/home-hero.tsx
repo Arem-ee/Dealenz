@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowUp, FileUp, MessageCircle, Sparkles, Loader2, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { askQuestionAction } from "@/app/ask/actions"
+import { getConsultantEntryPricing, type ConsultantEntryPricing } from "@/app/consultant/actions"
 import { createHomeDeal } from "@/app/dashboard/home-actions"
 import { publicErrorMessage } from "@/lib/safe-error"
 
@@ -39,8 +40,24 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
   const [error, setError] = useState<string | null>(null)
   const [jurisdiction, setJurisdiction] = useState("")
   const [choosingJurisdiction, setChoosingJurisdiction] = useState(false)
+  const [pricing, setPricing] = useState<ConsultantEntryPricing | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const hasContent = value.trim().length > 0
+  const isDealPath = hasContent && !looksLikeQuestion(value)
+
+  useEffect(() => {
+    if (!isDealPath) {
+      setPricing(null)
+      return
+    }
+    const current = value
+    const timer = setTimeout(() => {
+      void getConsultantEntryPricing(current)
+        .then((result) => setPricing(result))
+        .catch(() => setPricing(null))
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [value, isDealPath])
 
   async function handleSubmit() {
     const text = value.trim()
@@ -116,6 +133,15 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
             Enter to send · Shift+Enter for new line
           </span>
           <div className="ml-auto flex items-center gap-2">
+            {isDealPath && pricing ? (
+              <span className="text-xs text-muted-foreground" aria-live="polite">
+                {pricing.cost === 0
+                  ? "Free"
+                  : pricing.isFree
+                    ? `Free first turn · ${pricing.freeTurnsRemaining} of ${pricing.freeTurnsLimit} left`
+                    : `First turn: ${pricing.cost} credit${pricing.cost === 1 ? "" : "s"} · free turns used`}
+              </span>
+            ) : null}
             {error && <span role="alert" className="text-xs text-destructive max-w-[180px] truncate">{error}</span>}
             <Button
               size="icon"
