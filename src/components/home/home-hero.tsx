@@ -47,6 +47,7 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
 
   useEffect(() => {
     if (!isDealPath) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing stale pricing when path switches is intentional
       setPricing(null)
       return
     }
