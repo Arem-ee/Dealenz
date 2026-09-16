@@ -75,6 +75,10 @@ function tableMock(singleResult: unknown) {
   return builder
 }
 
+function consentedMock() {
+  return tableMock({ data: { has_consented_to_ai_analysis: true }, error: null })
+}
+
 const mockUser = { id: "user-1", email: "t@t.com", email_confirmed_at: "2024-01-01" }
 
 beforeEach(() => {
@@ -98,7 +102,10 @@ describe("ask actions security", () => {
 
   it("rejects audits the user does not own", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
-    mockFrom.mockImplementation(() => tableMock({ data: null, error: { message: "none" } }))
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_ai_consents") return consentedMock() as never
+      return tableMock({ data: null, error: { message: "none" } }) as never
+    })
     await expect(askQuestionAction({ text: "Review this.", auditId: "audit-x" })).rejects.toThrow(/not found/)
     expect(answerQuestion).not.toHaveBeenCalled()
   })
@@ -149,7 +156,10 @@ describe("ask actions security", () => {
 
   it("sanitizes provider failures before they reach the client", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
-    mockFrom.mockImplementation(() => tableMock({ data: { id: "audit-1" }, error: null }))
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_ai_consents") return consentedMock() as never
+      return tableMock({ data: { id: "audit-1" }, error: null }) as never
+    })
     vi.mocked(answerQuestion).mockRejectedValueOnce(new Error("Gemini request failed - HTTP 503"))
     const err = await askQuestionAction({ text: "Review this.", auditId: "audit-1" }).catch((e) => e)
     expect(err).toBeInstanceOf(Error)

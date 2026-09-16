@@ -79,7 +79,11 @@ describe("Phase19 — atomic rate limiting (F-04)", () => {
   it("denied request does not analyze and returns rate-limit error", async () => {
     mockRpc.mockResolvedValueOnce({ data: [{ allowed: false, current_count: 5 }], error: null })
     const audits = qbAudit({ id: "audit-1", ai_consent: true, raw_input: "hello", structured_data: { files: [] } })
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : { select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })) })) })) })) } as any))
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "audits") return audits as never
+      if (table === "user_ai_consents") return { select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn(() => Promise.resolve({ data: { has_consented_to_ai_analysis: true }, error: null })) })) })) } as never
+      return { select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })) })) })) })) } as never
+    })
     const result = await analyzeDeal("audit-1")
     expect(result.success).toBe(false)
     expect(result.error).toMatch(/usage limit/i)
@@ -89,7 +93,11 @@ describe("Phase19 — atomic rate limiting (F-04)", () => {
   it("RPC failure fails closed", async () => {
     mockRpc.mockResolvedValueOnce({ data: null, error: { message: "db down" } })
     const audits = qbAudit({ id: "audit-1", ai_consent: true, raw_input: "hello", structured_data: { files: [] } })
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : { select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })) })) })) })) } as any))
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "audits") return audits as never
+      if (table === "user_ai_consents") return { select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn(() => Promise.resolve({ data: { has_consented_to_ai_analysis: true }, error: null })) })) })) } as never
+      return { select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })) })) })) })) } as never
+    })
     const result = await analyzeDeal("audit-1")
     expect(result.success).toBe(false)
     expect(result.error).toMatch(/Usage tracking unavailable|Rate limit check failed/i)

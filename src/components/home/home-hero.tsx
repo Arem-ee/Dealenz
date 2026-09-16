@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowUp, FileUp, MessageCircle, Sparkles, Loader2, MapPin } from "lucide-react"
+import { ArrowUp, FileUp, Sparkles, Loader2, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { AiConsentModal } from "@/components/ai-consent-modal"
+import { getAiConsentStatus, grantAiConsent } from "@/lib/ai-consent"
 import { askQuestionAction } from "@/app/ask/actions"
 import { getConsultantEntryPricing, type ConsultantEntryPricing } from "@/app/consultant/actions"
 import { createHomeDeal } from "@/app/dashboard/home-actions"
@@ -18,12 +20,6 @@ function looksLikeQuestion(text: string): boolean {
   return false
 }
 
-const EXAMPLES = [
-  "I'm about to sign a freelance contract for $4,000.",
-  "My landlord sent me this amendment.",
-  "Can you explain this indemnity clause?",
-]
-
 const JURISDICTIONS = [
   "United States",
   "United Kingdom",
@@ -34,6 +30,7 @@ const JURISDICTIONS = [
 ]
 
 export function HomeHero({ onExample }: { onExample?: (text: string) => void }) {
+  void onExample
   const router = useRouter()
   const [value, setValue] = useState("")
   const [sending, setSending] = useState(false)
@@ -41,9 +38,19 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
   const [jurisdiction, setJurisdiction] = useState("")
   const [choosingJurisdiction, setChoosingJurisdiction] = useState(false)
   const [pricing, setPricing] = useState<ConsultantEntryPricing | null>(null)
+  const [aiConsented, setAiConsented] = useState<boolean | null>(null)
+  const [showConsentModal, setShowConsentModal] = useState(false)
+  const [consenting, setConsenting] = useState(false)
+  const [pendingText, setPendingText] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const hasContent = value.trim().length > 0
   const isDealPath = hasContent && !looksLikeQuestion(value)
+
+  useEffect(() => {
+    getAiConsentStatus()
+      .then((v) => setAiConsented(v))
+      .catch(() => setAiConsented(false))
+  }, [])
 
   useEffect(() => {
     if (!isDealPath) {
@@ -60,11 +67,7 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
     return () => clearTimeout(timer)
   }, [value, isDealPath])
 
-  async function handleSubmit() {
-    const text = value.trim()
-    if (!text || sending) return
-    setSending(true)
-    setError(null)
+  async function doSubmit(text: string) {
     const isQuestion = looksLikeQuestion(text)
     try {
       if (isQuestion) {
@@ -77,8 +80,59 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
         router.push(`/audit/${id}`)
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : ""
+      if (msg.includes("CONSENT_REQUIRED")) {
+        setPendingText(text)
+        setShowConsentModal(true)
+        setSending(false)
+        return
+      }
       setError(publicErrorMessage(err, "We couldn't start that. Please try again."))
       setSending(false)
+    }
+  }
+
+  async function handleSubmit() {
+    const text = value.trim()
+    if (!text || sending) return
+    const needsConsent = looksLikeQuestion(text)
+    if (needsConsent && aiConsented === false) {
+      setPendingText(text)
+      setShowConsentModal(true)
+      return
+    }
+    if (needsConsent && aiConsented === null) {
+      const fresh = await getAiConsentStatus().catch(() => false)
+      setAiConsented(fresh)
+      if (!fresh) {
+        setPendingText(text)
+        setShowConsentModal(true)
+        return
+      }
+    }
+    setSending(true)
+    setError(null)
+    await doSubmit(text)
+  }
+
+  async function handleConsentConfirm() {
+    setConsenting(true)
+    try {
+      const res = await grantAiConsent()
+      if (!res.success) throw new Error(res.error ?? "Failed")
+      setAiConsented(true)
+      setShowConsentModal(false)
+      const text = pendingText ?? value.trim()
+      if (text) {
+        setPendingText(null)
+        setSending(true)
+        setError(null)
+        await doSubmit(text)
+      }
+    } catch {
+      setError("Failed to save consent. Please try again.")
+    } finally {
+      setConsenting(false)
     }
   }
 
@@ -157,27 +211,6 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap justify-center gap-2">
-        {EXAMPLES.map((ex) => (
-          <button
-            key={ex}
-            type="button"
-            onClick={() => setValue(ex)}
-            className="rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-          >
-            {ex}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => router.push("/ask")}
-          className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <MessageCircle className="h-3 w-3" />
-          Just asking
-        </button>
-      </div>
-
       <div className="mt-2 flex justify-center">
         {choosingJurisdiction ? (
           <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -216,6 +249,15 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
       <p className="mt-4 text-center text-xs text-muted-foreground/70">
         Dealenz routes your input to the right workflow. No credits used until you analyze or ask deeply.
       </p>
+      <AiConsentModal
+        open={showConsentModal}
+        consenting={consenting}
+        onConsent={() => void handleConsentConfirm()}
+        onClose={() => {
+          setShowConsentModal(false)
+          setPendingText(null)
+        }}
+      />
     </div>
   )
 }

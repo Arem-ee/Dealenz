@@ -338,8 +338,18 @@ export async function analyzeDeal(
     return { success: false, error: "Audit not found" }
   }
 
-  if (!audit.ai_consent) {
-    return { success: false, error: "You must consent to AI analysis before proceeding." }
+  {
+    const { data: consentRow } = await supabase
+      .from("user_ai_consents")
+      .select("has_consented_to_ai_analysis")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    const hasConsented =
+      (consentRow as { has_consented_to_ai_analysis?: boolean } | null)?.has_consented_to_ai_analysis === true ||
+      (audit as { ai_consent?: boolean }).ai_consent === true
+    if (!hasConsented) {
+      return { success: false, error: "CONSENT_REQUIRED" }
+    }
   }
 
   const ttlThreshold = new Date(Date.now() - LOCK_TTL_MS).toISOString()
