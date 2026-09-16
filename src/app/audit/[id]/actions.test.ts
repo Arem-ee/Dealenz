@@ -111,6 +111,12 @@ function auditsQuery(auditRow: unknown, lockRows: unknown[]) {
   return builder
 }
 
+function consentedMock() {
+  const b = qb({ data: { has_consented_to_ai_analysis: true }, error: null })
+  b.maybeSingle = vi.fn().mockResolvedValue({ data: { has_consented_to_ai_analysis: true }, error: null })
+  return b
+}
+
 // ── Test data ──
 
 const mockUser = { id: "00000000-0000-0000-0000-000000000001", email: "test@test.com", email_confirmed_at: "2024-01-01" }
@@ -158,7 +164,10 @@ describe("analyzeDeal", () => {
       { id: "audit-1", ai_consent: true, raw_input: "Build a website", structured_data: { files: [] } },
       [{ id: "audit-1" }]
     )
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_ai_consents") return consentedMock() as never
+      return (table === "audits" ? audits : qb()) as never
+    })
     mockStorageFrom.mockReturnValue({ download: vi.fn() })
     mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
     mockAnalyzeRiskFn.mockResolvedValue({ report: mockRiskReport, usedFallback: false })
@@ -177,7 +186,10 @@ describe("analyzeDeal", () => {
       { id: "audit-1", ai_consent: true, raw_input: "", structured_data: { files: [] } },
       [{ id: "audit-1" }]
     )
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_ai_consents") return consentedMock() as never
+      return (table === "audits" ? audits : qb()) as never
+    })
 
     const result = await analyzeDeal("audit-1")
     expect(result.success).toBe(false)
@@ -191,7 +203,10 @@ describe("analyzeDeal", () => {
       { id: "audit-1", ai_consent: true, raw_input: "test", structured_data: { files: [] } },
       [] // empty → lock fails
     )
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_ai_consents") return consentedMock() as never
+      return (table === "audits" ? audits : qb()) as never
+    })
 
     const result = await analyzeDeal("audit-1")
     expect(result.success).toBe(false)
@@ -212,7 +227,10 @@ describe("analyzeDeal", () => {
       },
       [{ id: "audit-lease-1" }]
     )
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_ai_consents") return consentedMock() as never
+      return (table === "audits" ? audits : qb()) as never
+    })
     mockStorageFrom.mockReturnValue({ download: vi.fn() })
     mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
     mockAnalyzeGenericRiskFn.mockResolvedValue({
@@ -286,16 +304,18 @@ describe("generateProtectionPackage", () => {
   it("generates documents on valid audit with extracted data and risk report", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
 
-    const query = qb()
-    query.single = vi.fn().mockResolvedValueOnce({
+    const auditQuery = qb()
+    auditQuery.single = vi.fn().mockResolvedValueOnce({
       data: { id: "audit-1", structured_data: { extractedData: mockExtractedData }, risk_report: mockRiskReport },
       error: null,
     })
-    query.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
-    query.limit = vi.fn(() => query)
-    query.update = vi.fn(() => query)
+    auditQuery.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
+    auditQuery.limit = vi.fn(() => auditQuery)
+    auditQuery.update = vi.fn(() => auditQuery)
+    const consentQuery = qb({ data: { has_consented_to_ai_analysis: true }, error: null })
+    consentQuery.maybeSingle = vi.fn().mockResolvedValue({ data: { has_consented_to_ai_analysis: true }, error: null })
 
-    mockFrom.mockReturnValue(query)
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQuery : auditQuery) as never)
 
     mockGenerateDocuments.mockResolvedValue({
       proposal: { content: "# Proposal", method: "ai" },
@@ -317,16 +337,18 @@ describe("generateProtectionPackage", () => {
   it("returns fallback documents when all AI generation uses templates", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
 
-    const query = qb()
-    query.single = vi.fn().mockResolvedValueOnce({
+    const auditQuery = qb()
+    auditQuery.single = vi.fn().mockResolvedValueOnce({
       data: { id: "audit-1", structured_data: { extractedData: mockExtractedData }, risk_report: mockRiskReport },
       error: null,
     })
-    query.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
-    query.limit = vi.fn(() => query)
-    query.update = vi.fn(() => query)
+    auditQuery.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
+    auditQuery.limit = vi.fn(() => auditQuery)
+    auditQuery.update = vi.fn(() => auditQuery)
+    const consentQuery = qb({ data: { has_consented_to_ai_analysis: true }, error: null })
+    consentQuery.maybeSingle = vi.fn().mockResolvedValue({ data: { has_consented_to_ai_analysis: true }, error: null })
 
-    mockFrom.mockReturnValue(query)
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQuery : auditQuery) as never)
 
     mockGenerateDocuments.mockResolvedValue({
       proposal: { content: "# Proposal (template)", method: "template" },
@@ -343,12 +365,15 @@ describe("generateProtectionPackage", () => {
   it("returns error when audit has no extracted data", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
 
-    const query = qb()
-    query.single = vi.fn().mockResolvedValueOnce({
+    const auditQuery = qb()
+    auditQuery.single = vi.fn().mockResolvedValueOnce({
       data: { id: "audit-1", structured_data: {}, risk_report: null },
       error: null,
     })
-    mockFrom.mockReturnValue(query)
+    const consentQuery = qb({ data: { has_consented_to_ai_analysis: true }, error: null })
+    consentQuery.maybeSingle = vi.fn().mockResolvedValue({ data: { has_consented_to_ai_analysis: true }, error: null })
+
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQuery : auditQuery) as never)
 
     const result = await generateProtectionPackage("audit-1")
     expect(result.success).toBe(false)

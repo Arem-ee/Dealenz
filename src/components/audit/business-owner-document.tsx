@@ -1,12 +1,14 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Loader2, FileText, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { familiesForDealType } from "@/lib/documents/families"
 import { generateBusinessOwnerDraft } from "@/app/audit/[id]/actions"
+import { AiConsentModal } from "@/components/ai-consent-modal"
+import { useAiConsent } from "@/hooks/use-ai-consent"
 import type { DraftDocument } from "@/lib/documents/types"
 import { renderMarkdown } from "@/lib/markdown"
 import { LegalCitationLine } from "@/components/evidence/legal-citation-line"
@@ -14,24 +16,37 @@ import { LegalCitationLine } from "@/components/evidence/legal-citation-line"
 export function BusinessOwnerDocumentSection({
   auditId,
   dealType,
+  initialJurisdiction,
 }: {
   auditId: string
   dealType: string
+  initialJurisdiction?: string | null
 }) {
   const families = useMemo(() => familiesForDealType(dealType), [dealType])
   const [familyId, setFamilyId] = useState<string>(families[0]?.id ?? "")
-  // No jurisdiction default: the user must choose explicitly (server requires it).
-  const [jurisdiction, setJurisdiction] = useState<string>("")
+  const [jurisdiction, setJurisdiction] = useState<string>(initialJurisdiction ?? "")
   const [variables, setVariables] = useState<Record<string, string>>({})
   const [draft, setDraft] = useState<DraftDocument | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
 
+  useEffect(() => {
+    if (initialJurisdiction && !jurisdiction) {
+      setJurisdiction(initialJurisdiction)
+    }
+  }, [initialJurisdiction])
+  const { consented: aiConsented, consenting, grant: grantConsent } = useAiConsent()
+  const [showConsentModal, setShowConsentModal] = useState(false)
+  const [pendingGenerate, setPendingGenerate] = useState(false)
+
   if (families.length === 0) return null
 
   const selectedFamily = families.find((f) => f.id === familyId) ?? families[0]
+  const jurisdictionMissing = !jurisdiction.trim()
+  const partnershipStructureMissing = dealType === "partnership" && !(variables.partnership_structure ?? "").trim()
+  const canGenerate = !jurisdictionMissing && !partnershipStructureMissing
 
-  async function handleGenerate() {
+  async function doGenerate() {
     setGenerating(true)
     setError(null)
     setDraft(null)
@@ -39,14 +54,60 @@ export function BusinessOwnerDocumentSection({
       const res = await generateBusinessOwnerDraft(auditId, familyId, jurisdiction, variables)
       if (res.success && res.draft) {
         setDraft(res.draft)
+      } else if (res.error?.includes("CONSENT_REQUIRED")) {
+        setPendingGenerate(true)
+        setShowConsentModal(true)
       } else {
         setError(res.error ?? "Generation failed")
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Generation failed")
+      const msg = e instanceof Error ? e.message : "Generation failed"
+      if (msg.includes("CONSENT_REQUIRED")) {
+        setPendingGenerate(true)
+        setShowConsentModal(true)
+      } else {
+        setError(msg)
+      }
     } finally {
       setGenerating(false)
     }
+  }
+
+  async function handleGenerate() {
+    if (aiConsented === false) {
+      setPendingGenerate(true)
+      setShowConsentModal(true)
+      return
+    }
+    if (aiConsented === null) {
+      const { getAiConsentStatus: fetchStatus } = await import("@/lib/ai-consent")
+      const fresh = await fetchStatus().catch(() => false)
+      if (!fresh) {
+        setPendingGenerate(true)
+        setShowConsentModal(true)
+        return
+      }
+    }
+    await doGenerate()
+  }
+
+  async function handleConsentConfirm() {
+    const ok = await grantConsent()
+    if (!ok) {
+      setError("Failed to save consent. Please try again.")
+      return
+    }
+    setShowConsentModal(false)
+    if (pendingGenerate) {
+      await doGenerate()
+      setPendingGenerate(false)
+    }
+  }
+
+  const handleConsentDismiss = () => {
+    if (consenting) return
+    setShowConsentModal(false)
+    setPendingGenerate(false)
   }
 
   return (
@@ -73,12 +134,14 @@ export function BusinessOwnerDocumentSection({
           <p className="text-xs text-muted-foreground">{selectedFamily?.description}</p>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="jurisdiction">Jurisdiction — country</Label>
+          <Label htmlFor="jurisdiction">Jurisdiction — country <span className="text-destructive">*</span></Label>
           <select
             id="jurisdiction"
             value={jurisdiction}
             onChange={(e) => setJurisdiction(e.target.value)}
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            required
+            aria-required="true"
           >
             <option value="">Select jurisdiction…</option>
             <option value="United States">United States</option>
@@ -117,8 +180,9 @@ export function BusinessOwnerDocumentSection({
             <Input id="var-cliff" placeholder="e.g. 12 months" value={variables.cliff ?? ""} onChange={(e) => setVariables((v) => ({ ...v, cliff: e.target.value }))} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="var-structure">Partnership structure (if partnership)</Label>
-            <select id="var-structure" value={variables.partnership_structure ?? "UNKNOWN"} onChange={(e) => setVariables((v) => ({ ...v, partnership_structure: e.target.value }))} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+            <Label htmlFor="var-structure">Partnership structure (if partnership) <span className="text-destructive">*</span></Label>
+            <select id="var-structure" value={variables.partnership_structure ?? ""} onChange={(e) => setVariables((v) => ({ ...v, partnership_structure: e.target.value }))} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" required aria-required="true">
+              <option value="">Select structure…</option>
               <option value="UNKNOWN">UNKNOWN — ask for clarification</option>
               <option value="ordinary partnership">Ordinary partnership</option>
               <option value="LLP">LLP</option>
@@ -130,10 +194,15 @@ export function BusinessOwnerDocumentSection({
         <p className="text-xs text-muted-foreground">Unknown stays as <code>{"{{var}}"}</code>. Do not invent percentages, dates, or names.</p>
       </div>
 
-      <Button onClick={handleGenerate} disabled={generating} className="w-full sm:w-auto">
+      <Button onClick={handleGenerate} disabled={generating || !canGenerate} className="w-full sm:w-auto" title={!canGenerate ? "Select required fields above" : undefined}>
         {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
         Generate draft
       </Button>
+      {!canGenerate && !generating && (
+        <p className="text-xs text-muted-foreground">
+          {jurisdictionMissing ? "Jurisdiction is required." : "Partnership structure is required."}
+        </p>
+      )}
 
       {error && (
         <div className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-xs text-destructive">
@@ -141,6 +210,8 @@ export function BusinessOwnerDocumentSection({
           <span>{error}</span>
         </div>
       )}
+
+      <AiConsentModal open={showConsentModal} consenting={consenting} onConsent={() => void handleConsentConfirm()} onClose={handleConsentDismiss} />
 
       {draft && (
         <div className="space-y-3 rounded-lg border bg-muted/30 p-4">

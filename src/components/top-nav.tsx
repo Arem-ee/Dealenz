@@ -160,7 +160,9 @@ export function TopNav() {
             <SheetTrigger asChild>
               <button className="relative p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors">
                 <Bell className="h-4 w-4" />
-                <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-primary" />
+                {notifications.some((n) => !n.read) && (
+                  <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-primary" />
+                )}
               </button>
             </SheetTrigger>
             <SheetContent side="right" className="w-80 p-0">

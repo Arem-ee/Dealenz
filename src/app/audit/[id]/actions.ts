@@ -107,7 +107,6 @@ const ALLOWED_FIELDS = new Set([
   "source_type",
   "structured_data",
   "status",
-  "ai_consent",
   "client_id",
 ] as const)
 
@@ -121,7 +120,6 @@ export async function updateAudit(
     source_type?: string | null
     structured_data?: Record<string, unknown> | null
     status?: string
-    ai_consent?: boolean
     client_id?: string | null
   }
 ) {
@@ -338,8 +336,17 @@ export async function analyzeDeal(
     return { success: false, error: "Audit not found" }
   }
 
-  if (!audit.ai_consent) {
-    return { success: false, error: "You must consent to AI analysis before proceeding." }
+  {
+    const { data: consentRow } = await supabase
+      .from("user_ai_consents")
+      .select("has_consented_to_ai_analysis")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    const hasConsented =
+      (consentRow as { has_consented_to_ai_analysis?: boolean } | null)?.has_consented_to_ai_analysis === true
+    if (!hasConsented) {
+      return { success: false, error: "CONSENT_REQUIRED" }
+    }
   }
 
   const ttlThreshold = new Date(Date.now() - LOCK_TTL_MS).toISOString()
@@ -835,6 +842,19 @@ export async function generateProtectionPackage(
     return { success: false, error: "Audit not found" }
   }
 
+  {
+    const { data: consentRow } = await supabase
+      .from("user_ai_consents")
+      .select("has_consented_to_ai_analysis")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    const hasConsented =
+      (consentRow as { has_consented_to_ai_analysis?: boolean } | null)?.has_consented_to_ai_analysis === true
+    if (!hasConsented) {
+      return { success: false, error: "CONSENT_REQUIRED" }
+    }
+  }
+
   const auditDealTypeRaw = (audit as Record<string, unknown>).deal_type as string
   const auditDealType =
     auditDealTypeRaw === "generic" ||
@@ -1049,6 +1069,18 @@ export async function generateBusinessOwnerDraft(
   const { data: audit } = await supabase.from("audits").select("*").eq("id", auditId).eq("user_id", user.id).single()
   if (!audit) {
     return { success: false, error: "Audit not found" }
+  }
+  {
+    const { data: consentRow } = await supabase
+      .from("user_ai_consents")
+      .select("has_consented_to_ai_analysis")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    const hasConsented =
+      (consentRow as { has_consented_to_ai_analysis?: boolean } | null)?.has_consented_to_ai_analysis === true
+    if (!hasConsented) {
+      return { success: false, error: "CONSENT_REQUIRED" }
+    }
   }
   const auditDealTypeRaw = (audit as Record<string, unknown>).deal_type as string
   const DRAFT_SUPPORTED_DEAL_TYPES = ["founder", "partnership", "purchase_sale", "lease", "employment"] as const

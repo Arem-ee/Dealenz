@@ -25,6 +25,10 @@ import { StageBanner, DealStateBadge } from "@/components/audit/stage-banner"
 import { dealStage } from "@/lib/deal/stage"
 import { cn } from "@/lib/utils"
 
+import { AiConsentModal } from "@/components/ai-consent-modal"
+import { useAiConsent } from "@/hooks/use-ai-consent"
+import { isGreeting } from "@/lib/conversation/classify"
+import { getPendingFile, clearPendingFile } from "@/lib/pending-file"
 import { Timeline, type TimelineEvent } from "@/components/audit/timeline"
 import { canGenerateDocuments, documentGenerationUnavailableMessage } from "@/lib/protection"
 import { ProtectionIntentsView } from "@/components/audit/protection-intents"
@@ -138,8 +142,11 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
   )
   const [generating, setGenerating] = useState(false)
   const [showExtraction, setShowExtraction] = useState(false)
-  const [consented, setConsented] = useState(audit.ai_consent)
-  const [consenting, setConsenting] = useState(false)
+  const { consented: aiConsented, consenting, grant: grantConsent } = useAiConsent()
+  const [showConsentModal, setShowConsentModal] = useState(false)
+  const [pendingAnalyze, setPendingAnalyze] = useState(false)
+  const [pendingInputSnapshot, setPendingInputSnapshot] = useState<string | null>(null)
+  const [pendingGenerate, setPendingGenerate] = useState(false)
   const [clientProfiles, setClientProfiles] = useState<ClientProfile[]>([])
   const [clientId, setClientId] = useState<string | null>(audit.client_id)
   const [workspaceTab, setWorkspaceTab] = useState<"overview" | "vault" | "activity">("overview")
@@ -285,8 +292,6 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
         ? "checklist"
         : riskReport
         ? "risk-analysis"
-        : consented
-        ? "intake"
         : "intake"
       : analyzing
       ? "risk-analysis"
@@ -314,7 +319,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
       }),
     [audit.status, hasContent, riskReport, documents.length, hasVersions]
   )
-  const showBanner = consented && !analyzing && !isFailed
+  const showBanner = !analyzing && !isFailed
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -328,7 +333,37 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEditTitle(audit.title); setTitleEditing(false); setInputType((audit.source_type as InputType) ?? "paste"); setRawInput(audit.raw_input ?? ""); setSaveState("saved"); setConsented(audit.ai_consent); setWorkspaceTab("overview"); setActiveDocTab("proposal"); setShowExtraction(false); setClientId(audit.client_id)
+    setEditTitle(audit.title)
+    setTitleEditing(false)
+    setInputType((audit.source_type as InputType) ?? "paste")
+    setRawInput(audit.raw_input ?? "")
+    setSaveState("saved")
+    setWorkspaceTab("overview")
+    setActiveDocTab("proposal")
+    setShowExtraction(false)
+    setClientId(audit.client_id)
+    setExtractedData((audit.structured_data as Record<string, unknown>)?.extractedData as ExtractedData | null ?? null)
+    setRiskReport(audit.risk_report as RiskReport | GenericRiskReport | null)
+    setDocuments((audit.structured_data as Record<string, unknown>)?.generatedDocuments as GeneratedDocument[] | undefined ?? [])
+    setRuleResults(parsePersistedFindings((audit.structured_data as Record<string, unknown>)?.deterministicFindings))
+    setAnalyzing(false)
+    setGenerating(false)
+    setError(null)
+    setShowHandoff(false)
+    setHandoffPackage(null)
+    setHandoffSubmitted(null)
+    setPendingAnalyze(false)
+    setPendingInputSnapshot(null)
+    setPendingGenerate(false)
+    setShowConsentModal(false)
+    setLastSaved(null)
+    setFormData({
+      project_type: ((audit.structured_data as Record<string, string>)?.project_type ?? "") as string,
+      budget: ((audit.structured_data as Record<string, string>)?.budget ?? "") as string,
+      timeline: ((audit.structured_data as Record<string, string>)?.timeline ?? "") as string,
+      deliverables: ((audit.structured_data as Record<string, string>)?.deliverables ?? "") as string,
+      notes: ((audit.structured_data as Record<string, string>)?.notes ?? "") as string,
+    })
   }, [audit.id])
 
   useEffect(() => {
@@ -338,6 +373,42 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
       }
     })
   }, [])
+
+  useEffect(() => {
+    const f = getPendingFile()
+    if (!f) return
+    if (uploadedFiles.length > 0) return
+    let cancelled = false
+    const run = async () => {
+      try {
+        const { sanitizeFilename } = await import("@/lib/validation/files")
+        const { createClient } = await import("@/lib/supabase/client")
+        const safeName = sanitizeFilename(f.name)
+        const filePath = `${userId}/${audit.id}/${safeName}`
+        const supabase = createClient()
+        const { error: uploadError } = await supabase.storage
+          .from("audit-files")
+          .upload(filePath, f, { cacheControl: "3600", upsert: false })
+        if (uploadError) throw new Error(uploadError.message)
+        const { attachFileMetadata } = await import("@/app/audit/[id]/actions")
+        const updated = await attachFileMetadata(audit.id, {
+          name: safeName,
+          size: f.size,
+          type: f.type,
+          path: `audit-files/${filePath}`,
+        })
+        if (cancelled) return
+        clearPendingFile()
+        void updated
+      } catch {
+        clearPendingFile()
+      }
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [audit.id, userId, uploadedFiles.length])
 
   const handleChangeClientId = useCallback(async (id: string | null) => {
     setClientId(id)
@@ -386,12 +457,9 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
     setSaveState("unsaved")
   }, [])
 
-  const handleAnalyze = async () => {
+  const doAnalyze = async () => {
     setAnalyzing(true)
     setError(null)
-    // Intentional minimum presentation: the working state stays visible
-    // briefly even for fast runs so completion never flashes. Small,
-    // fixed, and unrelated to actual model time.
     const startedAt = Date.now()
 
     if (rawInput.trim() && saveState !== "saved") {
@@ -440,7 +508,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
     }
   }
 
-  const handleGenerate = async () => {
+  const doGenerate = async () => {
     setGenerating(true)
     const startedAt = Date.now()
     try {
@@ -459,20 +527,77 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
     }
   }
 
+  const handleGenerate = async () => {
+    if (aiConsented === false) {
+      setPendingGenerate(true)
+      setShowConsentModal(true)
+      return
+    }
+    if (aiConsented === null) {
+      const { getAiConsentStatus: fetchStatus } = await import("@/lib/ai-consent")
+      const fresh = await fetchStatus().catch(() => false)
+      if (!fresh) {
+        setPendingGenerate(true)
+        setShowConsentModal(true)
+        return
+      }
+    }
+    await doGenerate()
+  }
+
   const handleRegenerate = async () => {
     await handleGenerate()
   }
 
-  const handleConsent = async () => {
-    setConsenting(true)
-    try {
-      await updateAudit(audit.id, { ai_consent: true })
-      setConsented(true)
-    } catch {
-      setError("Failed to save consent. Please try again.")
-    } finally {
-      setConsenting(false)
+  const handleAnalyze = async () => {
+    const trimmed = rawInput.trim()
+    if (trimmed && isGreeting(trimmed) && uploadedFiles.length === 0) {
+      await doAnalyze()
+      return
     }
+    if (aiConsented === false) {
+      setPendingAnalyze(true)
+      setPendingInputSnapshot(trimmed || "__analyze__")
+      setShowConsentModal(true)
+      return
+    }
+    if (aiConsented === null) {
+      const { getAiConsentStatus: fetchStatus } = await import("@/lib/ai-consent")
+      const fresh = await fetchStatus().catch(() => false)
+      if (!fresh) {
+        setPendingAnalyze(true)
+        setPendingInputSnapshot(trimmed || "__analyze__")
+        setShowConsentModal(true)
+        return
+      }
+    }
+    await doAnalyze()
+  }
+
+  const handleConsentConfirm = async () => {
+    const ok = await grantConsent()
+    if (!ok) {
+      setError("Failed to save consent. Please try again.")
+      return
+    }
+    setShowConsentModal(false)
+    if (pendingAnalyze) {
+      await doAnalyze()
+      setPendingAnalyze(false)
+      setPendingInputSnapshot(null)
+    }
+    if (pendingGenerate) {
+      await doGenerate()
+      setPendingGenerate(false)
+    }
+  }
+
+  const handleConsentDismiss = () => {
+    if (consenting) return
+    setShowConsentModal(false)
+    setPendingAnalyze(false)
+    setPendingInputSnapshot(null)
+    setPendingGenerate(false)
   }
 
   function handleOpenHandoff() {
@@ -508,6 +633,21 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
     if (stage === "intake" || stage === "risk-analysis") {
       // Allowed to navigate to these
     }
+  }
+
+  const handleBannerPrimary = (target: string) => {
+    if (target === "#deal-documents") {
+      setWorkspaceTab("vault")
+    } else if (target === "#deal-protection" || target === "#deal-review") {
+      setWorkspaceTab("overview")
+    } else if (target === "#deal-intake") {
+      setWorkspaceTab("overview")
+    }
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        document.querySelector(target)?.scrollIntoView({ behavior: "smooth", block: "start" })
+      }, 60)
+    })
   }
 
   const saveButtonLabel = saveState === "saving" ? "Saving..." :
@@ -616,7 +756,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
         <div className="flex-1 overflow-y-auto p-4 pb-20" aria-busy={analyzing || generating}>
           {showBanner && (
             <div className="mb-4">
-              <StageBanner stage={stage} />
+              <StageBanner stage={stage} onPrimaryClick={handleBannerPrimary} />
             </div>
           )}
           {renderMainContent()}
@@ -635,7 +775,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
             )}
           </div>
           <div className="flex items-center gap-2">
-            {saveState !== "saved" && !isAnalyzed && !isFailed && consented && (
+            {saveState !== "saved" && !isAnalyzed && !isFailed && (
               <Button
                 variant={saveState === "unsaved" ? "default" : "outline"}
                 size="sm"
@@ -668,7 +808,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
           <div className="flex-1 overflow-y-auto p-6" aria-busy={analyzing || generating}>
             {showBanner && (
               <div className="mb-5">
-                <StageBanner stage={stage} />
+                <StageBanner stage={stage} onPrimaryClick={handleBannerPrimary} />
               </div>
             )}
             {renderMainContent()}
@@ -687,6 +827,12 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
       {showHandoff && handoffPackage && (
         <LawyerHandoffReview handoff={handoffPackage} auditId={audit.id} onClose={() => setShowHandoff(false)} onSubmitted={(status) => { setHandoffSubmitted(status); setShowHandoff(false) }} />
       )}
+      <AiConsentModal
+        open={showConsentModal}
+        consenting={consenting}
+        onConsent={() => void handleConsentConfirm()}
+        onClose={handleConsentDismiss}
+      />
     </div>
   )
 
@@ -798,25 +944,6 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
   }
 
   function renderMainContent() {
-    if (!consented) {
-      return (
-        <div className="flex flex-col items-center gap-4 py-16 text-center">
-          <div className="max-w-lg space-y-4">
-            <h2 className="text-lg font-semibold">AI Analysis Consent Required</h2>
-            <p className="text-sm text-muted-foreground">
-              Before analyzing your deal, please note that your project information
-              (text and uploaded file contents) will be processed by Dealenz AI
-              for this analysis. No data is stored or used beyond this analysis.
-            </p>
-            <Button onClick={handleConsent} disabled={consenting} size="lg">
-              {consenting && <Loader2 className="h-4 w-4 animate-spin" />}
-              I Understand &amp; Consent
-            </Button>
-          </div>
-        </div>
-      )
-    }
-
     if (analyzing) {
       return (
         <div className="flex flex-col items-center justify-center gap-4 py-20">
@@ -851,7 +978,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
     if (isAnalyzed && riskReport) {
       if (isGeneric) {
         const docUI = (dealType === "founder" || dealType === "partnership" || dealType === "purchase_sale" || dealType === "lease" || dealType === "employment") ? (
-          <BusinessOwnerDocumentSection auditId={audit.id} dealType={dealType} />
+          <BusinessOwnerDocumentSection auditId={audit.id} dealType={dealType} initialJurisdiction={jurisdictionForProtection?.country ?? null} />
         ) : (
           <div className="rounded-xl border border-border/60 bg-card p-5">
             <h3 className="text-sm font-semibold">Protection package</h3>
@@ -1009,9 +1136,8 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
       return <ExtractionResults data={extractedData} />
     }
 
-    if (consented) {
-      return (
-        <div id="deal-intake" className="scroll-mt-20">
+    return (
+      <div id="deal-intake" className="scroll-mt-20">
           {!hasContent && (
             <div className="mb-6">
               <InputTypeSelector value={inputType} onChange={setInputType} />
@@ -1059,8 +1185,5 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
           </div>
         </div>
       )
-    }
-
-    return null
   }
 }

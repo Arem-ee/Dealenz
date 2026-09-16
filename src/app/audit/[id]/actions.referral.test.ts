@@ -138,6 +138,12 @@ function auditsQuery(auditRow: unknown, lockRows: unknown[], priorAnalyzed: unkn
 
 const mockUser = { id: "00000000-0000-0000-0000-000000000001", email: "test@test.com", email_confirmed_at: "2024-01-01" }
 
+function consentQb(): Builder {
+  const b = qb({ data: { has_consented_to_ai_analysis: true }, error: null })
+  b.maybeSingle = vi.fn().mockResolvedValue({ data: { has_consented_to_ai_analysis: true }, error: null }) as unknown as Builder["maybeSingle"]
+  return b as unknown as Builder
+}
+
 const mockExtractedData: ExtractedData = {
   goals: ["Launch website"],
   deliverables: ["Design", "Development"],
@@ -181,7 +187,7 @@ describe("analyzeDeal referral edge cases", () => {
       [{ id: "audit-1" }],
       []
     )
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : table === "audits" ? audits : qb()))
     mockStorageFrom.mockReturnValue({ download: vi.fn() })
     mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
     mockAnalyzeRiskFn.mockResolvedValue({ report: mockRiskReport, usedFallback: false })
@@ -203,7 +209,7 @@ describe("analyzeDeal referral edge cases", () => {
       [{ id: "audit-1" }],
       [{ id: "older-audit" }]
     )
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : table === "audits" ? audits : qb()))
     mockStorageFrom.mockReturnValue({ download: vi.fn() })
     mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
     mockAnalyzeRiskFn.mockResolvedValue({ report: mockRiskReport, usedFallback: false })
@@ -223,7 +229,7 @@ describe("analyzeDeal referral edge cases", () => {
       [{ id: "audit-1" }],
       []
     )
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : table === "audits" ? audits : qb()))
     mockStorageFrom.mockReturnValue({ download: vi.fn() })
     mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
     mockAnalyzeRiskFn.mockResolvedValue({ report: mockRiskReport, usedFallback: false })

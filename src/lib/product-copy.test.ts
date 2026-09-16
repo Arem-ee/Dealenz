@@ -38,7 +38,10 @@ describe("user-facing copy never names AI providers", () => {
   }
 
   it("consent copy frames processing as Dealenz AI, not a provider", () => {
-    const source = readFileSync(join(process.cwd(), "src/components/audit/workspace-client.tsx"), "utf8")
-    expect(source).toContain("Dealenz AI")
+    const sources = [
+      readFileSync(join(process.cwd(), "src/components/audit/workspace-client.tsx"), "utf8"),
+      readFileSync(join(process.cwd(), "src/components/ai-consent-modal.tsx"), "utf8"),
+    ].join("\n")
+    expect(sources).toContain("Dealenz AI")
   })
 })

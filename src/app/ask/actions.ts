@@ -108,7 +108,6 @@ export async function askQuestionAction(input: AskInput): Promise<ConversationRe
   if (!user) throw new Error("You must be signed in to ask Dealenz.")
   if (!user.email_confirmed_at) throw new Error("Please verify your email address before using this feature.")
   if (!input.text || !input.text.trim()) throw new Error("A question is required.")
-
   // Ownership gate for attached documents: a row the user cannot see through
   // RLS is treated as missing, and the request is rejected, never degraded.
   if (input.auditId) {
@@ -144,6 +143,16 @@ export async function askQuestionAction(input: AskInput): Promise<ConversationRe
       firstText: input.text,
       attachedAuditId: input.auditId ?? null,
     })
+  }
+
+  if (!isGreeting(input.text)) {
+    const { data: consentRow } = await supabase
+      .from("user_ai_consents")
+      .select("has_consented_to_ai_analysis")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    const hasConsented = (consentRow as { has_consented_to_ai_analysis?: boolean } | null)?.has_consented_to_ai_analysis === true
+    if (!hasConsented) throw new Error("CONSENT_REQUIRED")
   }
 
   const ledger: LedgerClient = {

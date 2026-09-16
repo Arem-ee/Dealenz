@@ -2,8 +2,12 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowUp, FileUp, MessageCircle, Sparkles, Loader2, MapPin } from "lucide-react"
+import { ArrowUp, FileUp, Sparkles, Loader2, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { AiConsentModal } from "@/components/ai-consent-modal"
+import { useAiConsent } from "@/hooks/use-ai-consent"
+import { isGreeting } from "@/lib/conversation/classify"
+import { setPendingFile } from "@/lib/pending-file"
 import { askQuestionAction } from "@/app/ask/actions"
 import { getConsultantEntryPricing, type ConsultantEntryPricing } from "@/app/consultant/actions"
 import { createHomeDeal } from "@/app/dashboard/home-actions"
@@ -18,12 +22,6 @@ function looksLikeQuestion(text: string): boolean {
   return false
 }
 
-const EXAMPLES = [
-  "I'm about to sign a freelance contract for $4,000.",
-  "My landlord sent me this amendment.",
-  "Can you explain this indemnity clause?",
-]
-
 const JURISDICTIONS = [
   "United States",
   "United Kingdom",
@@ -34,6 +32,7 @@ const JURISDICTIONS = [
 ]
 
 export function HomeHero({ onExample }: { onExample?: (text: string) => void }) {
+  void onExample
   const router = useRouter()
   const [value, setValue] = useState("")
   const [sending, setSending] = useState(false)
@@ -41,6 +40,9 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
   const [jurisdiction, setJurisdiction] = useState("")
   const [choosingJurisdiction, setChoosingJurisdiction] = useState(false)
   const [pricing, setPricing] = useState<ConsultantEntryPricing | null>(null)
+  const { consented: aiConsented, consenting, grant: grantConsent } = useAiConsent()
+  const [showConsentModal, setShowConsentModal] = useState(false)
+  const [pendingText, setPendingText] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const hasContent = value.trim().length > 0
   const isDealPath = hasContent && !looksLikeQuestion(value)
@@ -60,11 +62,7 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
     return () => clearTimeout(timer)
   }, [value, isDealPath])
 
-  async function handleSubmit() {
-    const text = value.trim()
-    if (!text || sending) return
-    setSending(true)
-    setError(null)
+  async function doSubmit(text: string) {
     const isQuestion = looksLikeQuestion(text)
     try {
       if (isQuestion) {
@@ -77,9 +75,69 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
         router.push(`/audit/${id}`)
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : ""
+      if (msg.includes("CONSENT_REQUIRED")) {
+        setPendingText(text)
+        setShowConsentModal(true)
+        setSending(false)
+        return
+      }
       setError(publicErrorMessage(err, "We couldn't start that. Please try again."))
       setSending(false)
     }
+  }
+
+  async function handleSubmit() {
+    const text = value.trim()
+    if (!text || sending) return
+    if (isGreeting(text)) {
+      setSending(true)
+      setError(null)
+      await doSubmit(text)
+      return
+    }
+    const needsConsent = looksLikeQuestion(text)
+    if (needsConsent && aiConsented === false) {
+      setPendingText(text)
+      setShowConsentModal(true)
+      return
+    }
+    if (needsConsent && aiConsented === null) {
+      const { getAiConsentStatus: fetchStatus } = await import("@/lib/ai-consent")
+      const fresh = await fetchStatus().catch(() => false)
+      if (!fresh) {
+        setPendingText(text)
+        setShowConsentModal(true)
+        return
+      }
+    }
+    setSending(true)
+    setError(null)
+    await doSubmit(text)
+  }
+
+  async function handleConsentConfirm() {
+    const ok = await grantConsent()
+    if (!ok) {
+      setError("Failed to save consent. Please try again.")
+      return
+    }
+    setShowConsentModal(false)
+    const text = pendingText
+    if (text) {
+      setSending(true)
+      setError(null)
+      await doSubmit(text)
+      setPendingText(null)
+    } else {
+      setPendingText(null)
+    }
+  }
+
+  const handleConsentDismiss = () => {
+    if (consenting) return
+    setShowConsentModal(false)
+    setPendingText(null)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -100,7 +158,18 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
         </p>
       </div>
 
-      <div className="mt-7 rounded-2xl border border-border/60 bg-card shadow-raised overflow-hidden">
+      <div
+        className="mt-7 rounded-2xl border border-border/60 bg-card shadow-raised overflow-hidden"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault()
+          const f = e.dataTransfer.files?.[0]
+          if (f) {
+            setPendingFile(f)
+            router.push("/audit/new?hasFile=1")
+          }
+        }}
+      >
         <div className="p-4 sm:p-5">
           <label htmlFor="home-input" className="sr-only">Tell Dealenz what you are dealing with</label>
           <textarea
@@ -118,7 +187,10 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
         <div className="flex items-center gap-2 px-3 py-3 border-t border-border/60 bg-muted/20">
           <input ref={fileRef} type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={() => {
             const f = fileRef.current?.files?.[0]
-            if (f) router.push("/audit/new")
+            if (f) {
+              setPendingFile(f)
+              router.push("/audit/new?hasFile=1")
+            }
           }} />
           <button
             type="button"
@@ -155,27 +227,6 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
             </Button>
           </div>
         </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap justify-center gap-2">
-        {EXAMPLES.map((ex) => (
-          <button
-            key={ex}
-            type="button"
-            onClick={() => setValue(ex)}
-            className="rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-          >
-            {ex}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => router.push("/ask")}
-          className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <MessageCircle className="h-3 w-3" />
-          Just asking
-        </button>
       </div>
 
       <div className="mt-2 flex justify-center">
@@ -216,6 +267,12 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
       <p className="mt-4 text-center text-xs text-muted-foreground/70">
         Dealenz routes your input to the right workflow. No credits used until you analyze or ask deeply.
       </p>
+      <AiConsentModal
+        open={showConsentModal}
+        consenting={consenting}
+        onConsent={() => void handleConsentConfirm()}
+        onClose={handleConsentDismiss}
+      />
     </div>
   )
 }

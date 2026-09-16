@@ -70,6 +70,15 @@ export default async function VaultPage() {
           <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
             Upload a source, run risk analysis, and generate drafts. They will appear here versioned and ready to share or finalize.
           </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <Link href="/audit/new" className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+              New deal
+            </Link>
+            <Link href="/templates" className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">
+              <Shapes className="h-3.5 w-3.5" />
+              New from template
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="mt-8 space-y-6">

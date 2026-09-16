@@ -123,7 +123,8 @@ export function StageStepper({
       {stagesForDealType(dealType).map((stage) => {
         const state = getStageState(stage, currentStage, intakeComplete, riskComplete, documentsExist)
         const Icon = stageIcons[stage.id]
-        const isInteractive = state === "current" || state === "completed"
+        const navigable = stage.id === "intake" || stage.id === "risk-analysis" || stage.id === "documents"
+        const isInteractive = navigable && (state === "current" || state === "completed")
 
         return (
           <button
@@ -132,8 +133,10 @@ export function StageStepper({
             disabled={!isInteractive}
             className={cn(
               "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-left transition-colors",
-              state === "current" && "bg-primary/10 text-primary",
-              state === "completed" && "text-muted-foreground hover:bg-muted/50",
+              state === "current" && isInteractive && "bg-primary/10 text-primary",
+              state === "current" && !isInteractive && "text-muted-foreground/40 cursor-default",
+              state === "completed" && isInteractive && "text-muted-foreground hover:bg-muted/50",
+              state === "completed" && !isInteractive && "text-muted-foreground/40 cursor-default",
               state === "locked" && "text-muted-foreground/40 cursor-not-allowed",
               state === "coming-soon" && "text-muted-foreground/30 cursor-not-allowed"
             )}

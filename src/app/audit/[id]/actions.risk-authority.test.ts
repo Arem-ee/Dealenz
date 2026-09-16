@@ -97,6 +97,12 @@ function auditsQuery(auditRow: unknown, lockRows: unknown[]) {
 
 const mockUser = { id: "00000000-0000-0000-0000-000000000001", email: "test@test.com", email_confirmed_at: "2024-01-01" }
 
+function consentQb() {
+  const b = qb({ data: { has_consented_to_ai_analysis: true }, error: null })
+  b.maybeSingle = vi.fn().mockResolvedValue({ data: { has_consented_to_ai_analysis: true }, error: null })
+  return b
+}
+
 const mockExtractedData: ExtractedData = {
   goals: ["Lease shop"],
   deliverables: ["Premises"],
@@ -161,7 +167,7 @@ describe("risk authority boundary (Phase 21, founder Phase 22, partnership Phase
       },
       [{ id: "audit-lease-1" }]
     )
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : table === "audits" ? audits : qb()))
     mockStorageFrom.mockReturnValue({ download: vi.fn() })
     mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
     mockAnalyzeGenericRiskFn.mockResolvedValue(aiLowReport())
@@ -192,7 +198,7 @@ describe("risk authority boundary (Phase 21, founder Phase 22, partnership Phase
       },
       [{ id: "audit-lease-2" }]
     )
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : table === "audits" ? audits : qb()))
     mockStorageFrom.mockReturnValue({ download: vi.fn() })
     mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
     mockAnalyzeGenericRiskFn.mockResolvedValue(aiHighReport())
@@ -225,7 +231,7 @@ describe("risk authority boundary (Phase 21, founder Phase 22, partnership Phase
       },
       [{ id: "audit-founder-1" }]
     )
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : table === "audits" ? audits : qb()))
     mockStorageFrom.mockReturnValue({ download: vi.fn() })
     mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
     mockAnalyzeGenericRiskFn.mockResolvedValue(aiLowReport())
@@ -254,7 +260,7 @@ describe("risk authority boundary (Phase 21, founder Phase 22, partnership Phase
       },
       [{ id: "audit-founder-2" }]
     )
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : table === "audits" ? audits : qb()))
     mockStorageFrom.mockReturnValue({ download: vi.fn() })
     mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
     mockAnalyzeGenericRiskFn.mockResolvedValue(aiHighReport())
@@ -283,7 +289,7 @@ describe("risk authority boundary (Phase 21, founder Phase 22, partnership Phase
       },
       [{ id: "audit-partnership-1" }]
     )
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : table === "audits" ? audits : qb()))
     mockStorageFrom.mockReturnValue({ download: vi.fn() })
     mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
     mockAnalyzeGenericRiskFn.mockResolvedValue(aiLowReport())
@@ -312,7 +318,7 @@ describe("risk authority boundary (Phase 21, founder Phase 22, partnership Phase
       },
       [{ id: "audit-partnership-2" }]
     )
-    mockFrom.mockImplementation((table: string) => (table === "audits" ? audits : qb()))
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : table === "audits" ? audits : qb()))
     mockStorageFrom.mockReturnValue({ download: vi.fn() })
     mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
     mockAnalyzeGenericRiskFn.mockResolvedValue(aiHighReport())
