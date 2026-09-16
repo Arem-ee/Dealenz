@@ -635,6 +635,21 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
     }
   }
 
+  const handleBannerPrimary = (target: string) => {
+    if (target === "#deal-documents") {
+      setWorkspaceTab("vault")
+    } else if (target === "#deal-protection" || target === "#deal-review") {
+      setWorkspaceTab("overview")
+    } else if (target === "#deal-intake") {
+      setWorkspaceTab("overview")
+    }
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        document.querySelector(target)?.scrollIntoView({ behavior: "smooth", block: "start" })
+      }, 60)
+    })
+  }
+
   const saveButtonLabel = saveState === "saving" ? "Saving..." :
     saveState === "unsaved" ? "Save" :
     saveState === "saved" ? "Saved" :
@@ -741,7 +756,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
         <div className="flex-1 overflow-y-auto p-4 pb-20" aria-busy={analyzing || generating}>
           {showBanner && (
             <div className="mb-4">
-              <StageBanner stage={stage} />
+              <StageBanner stage={stage} onPrimaryClick={handleBannerPrimary} />
             </div>
           )}
           {renderMainContent()}
@@ -793,7 +808,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
           <div className="flex-1 overflow-y-auto p-6" aria-busy={analyzing || generating}>
             {showBanner && (
               <div className="mb-5">
-                <StageBanner stage={stage} />
+                <StageBanner stage={stage} onPrimaryClick={handleBannerPrimary} />
               </div>
             )}
             {renderMainContent()}
@@ -963,7 +978,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
     if (isAnalyzed && riskReport) {
       if (isGeneric) {
         const docUI = (dealType === "founder" || dealType === "partnership" || dealType === "purchase_sale" || dealType === "lease" || dealType === "employment") ? (
-          <BusinessOwnerDocumentSection auditId={audit.id} dealType={dealType} />
+          <BusinessOwnerDocumentSection auditId={audit.id} dealType={dealType} initialJurisdiction={jurisdictionForProtection?.country ?? null} />
         ) : (
           <div className="rounded-xl border border-border/60 bg-card p-5">
             <h3 className="text-sm font-semibold">Protection package</h3>

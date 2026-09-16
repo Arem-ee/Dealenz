@@ -7,7 +7,7 @@ import type { DealStage } from "@/lib/deal/stage"
  * content on every viewport. Primary actions are anchor links to real
  * in-page sections — never dead buttons, never backend claims.
  */
-export function StageBanner({ stage }: { stage: DealStage }) {
+export function StageBanner({ stage, onPrimaryClick }: { stage: DealStage; onPrimaryClick?: (target: string) => void }) {
   return (
     <div
       className="rounded-xl border border-border bg-card px-4 py-3.5 shadow-surface"
@@ -21,7 +21,19 @@ export function StageBanner({ stage }: { stage: DealStage }) {
         </div>
         {stage.primary && (
           <Button asChild size="sm" className="shrink-0">
-            <a href={stage.primary.target}>{stage.primary.label}</a>
+            {onPrimaryClick ? (
+              <a
+                href={stage.primary.target}
+                onClick={(e) => {
+                  e.preventDefault()
+                  onPrimaryClick(stage.primary!.target)
+                }}
+              >
+                {stage.primary.label}
+              </a>
+            ) : (
+              <a href={stage.primary.target}>{stage.primary.label}</a>
+            )}
           </Button>
         )}
       </div>
