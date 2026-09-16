@@ -105,6 +105,14 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
             <p className="text-xs text-muted-foreground mt-1 max-w-sm">
               Once you run a risk analysis, flagged deals will appear here.
             </p>
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+              <Link href="/deals" className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors">
+                View all deals
+              </Link>
+              <Link href="/audit/new" className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+                New deal
+              </Link>
+            </div>
           </div>
         ) : (
         <EmptyState

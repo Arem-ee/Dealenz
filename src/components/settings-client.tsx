@@ -263,12 +263,15 @@ function NotificationsSection() {
           { label: "Document signed", desc: "When a client signs or accepts" },
           { label: "Deal stage changes", desc: "When a deal moves to a new stage" },
         ].map((item) => (
-          <div key={item.label} className="flex items-center justify-between rounded-lg border p-3">
+          <div key={item.label} className="flex items-center justify-between rounded-lg border p-3 opacity-60">
             <div>
               <p className="text-sm font-medium">{item.label}</p>
               <p className="text-xs text-muted-foreground">{item.desc}</p>
             </div>
-            <div className="h-5 w-9 rounded-full bg-muted-foreground/20" />
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-medium text-muted-foreground rounded-full border bg-muted px-1.5 py-0.5">Coming soon</span>
+              <div className="h-5 w-9 rounded-full bg-muted-foreground/20 cursor-not-allowed" title="Coming soon" />
+            </div>
           </div>
         ))}
       </div>
@@ -280,14 +283,17 @@ function IntegrationsSection() {
   return (
     <SectionCard title="Integrations" description="API keys and connected accounts">
       <div className="space-y-3 text-sm text-muted-foreground">
-        <div className="flex items-center justify-between rounded-lg border p-3">
+        <div className="flex items-center justify-between rounded-lg border p-3 opacity-60">
           <div>
             <p className="text-sm font-medium text-foreground">API Key</p>
             <p className="text-xs text-muted-foreground">Access your data programmatically</p>
           </div>
-          <Button variant="outline" size="sm" disabled>
-            Generate
-          </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-medium text-muted-foreground rounded-full border bg-muted px-1.5 py-0.5">Coming soon</span>
+            <Button variant="outline" size="sm" disabled title="Coming soon">
+              Generate
+            </Button>
+          </div>
         </div>
         <p className="text-xs">
           API access and webhook integrations are coming soon.
@@ -359,23 +365,29 @@ function SecuritySection({ email, googleConnected }: { email: string; googleConn
             <Input id="settings-email" value={email} readOnly className="bg-muted/50" />
             <p className="text-xs text-muted-foreground">Used for sign-in and notifications</p>
           </div>
-          <div className="flex items-center justify-between rounded-lg border p-3">
+          <div className="flex items-center justify-between rounded-lg border p-3 opacity-60">
             <div>
               <p className="text-sm font-medium">Password</p>
               <p className="text-xs text-muted-foreground">Last changed —</p>
             </div>
-            <Button variant="outline" size="sm" disabled>
-              Change
-            </Button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-medium text-muted-foreground rounded-full border bg-muted px-1.5 py-0.5">Coming soon</span>
+              <Button variant="outline" size="sm" disabled title="Coming soon">
+                Change
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center justify-between rounded-lg border p-3">
+          <div className="flex items-center justify-between rounded-lg border p-3 opacity-60">
             <div>
               <p className="text-sm font-medium">Two-factor authentication</p>
               <p className="text-xs text-muted-foreground">Add an extra layer of security</p>
             </div>
-            <Button variant="outline" size="sm" disabled>
-              Set Up
-            </Button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-medium text-muted-foreground rounded-full border bg-muted px-1.5 py-0.5">Coming soon</span>
+              <Button variant="outline" size="sm" disabled title="Coming soon">
+                Set Up
+              </Button>
+            </div>
           </div>
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
@@ -398,16 +410,19 @@ function TeamSection() {
   return (
     <SectionCard title="Team" description="Invite collaborators and manage roles">
       <div className="space-y-3">
-        <div className="flex items-center justify-between rounded-lg border border-dashed p-4">
+        <div className="flex items-center justify-between rounded-lg border border-dashed p-4 opacity-60">
           <div>
             <p className="text-sm font-medium">Invite team members</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Share access with collaborators, reviewers, or assistants
             </p>
           </div>
-          <Button variant="outline" size="sm" disabled>
-            Invite
-          </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-medium text-muted-foreground rounded-full border bg-muted px-1.5 py-0.5">Coming soon</span>
+            <Button variant="outline" size="sm" disabled title="Coming soon">
+              Invite
+            </Button>
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">
           Team management is coming soon. You&apos;ll be able to invite collaborators with
