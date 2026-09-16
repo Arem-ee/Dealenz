@@ -77,7 +77,11 @@ describe("generateProtectionPackage deal-type boundary (Phase 26)", () => {
     q.order = vi.fn(() => q)
     q.is = vi.fn(() => q)
     q.insert = vi.fn(() => Promise.resolve({ error: null })) as unknown as ReturnType<typeof vi.fn>
-    mockFrom.mockReturnValue(q as never)
+    const consentQ = qb() as unknown as Record<string, ReturnType<typeof vi.fn>>
+    consentQ.select = vi.fn(() => consentQ)
+    consentQ.eq = vi.fn(() => consentQ)
+    consentQ.maybeSingle = vi.fn().mockResolvedValue({ data: { has_consented_to_ai_analysis: true }, error: null })
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? (consentQ as never) : (q as never)))
     mockGenerateDocuments.mockResolvedValue({
       proposal: { content: "# Proposal", method: "ai" },
       sow: { content: "# SOW", method: "ai" },
@@ -100,7 +104,11 @@ describe("generateProtectionPackage deal-type boundary (Phase 26)", () => {
       mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
       const q = qb() as unknown as Record<string, ReturnType<typeof vi.fn>>
       q.single = vi.fn().mockResolvedValue({ data: auditRow(dealType), error: null })
-      mockFrom.mockReturnValue(q as never)
+      const consentQ = qb() as unknown as Record<string, ReturnType<typeof vi.fn>>
+      consentQ.select = vi.fn(() => consentQ)
+      consentQ.eq = vi.fn(() => consentQ)
+      consentQ.maybeSingle = vi.fn().mockResolvedValue({ data: { has_consented_to_ai_analysis: true }, error: null })
+      mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? (consentQ as never) : (q as never)))
       const res = await generateProtectionPackage("audit-1")
       expect(res.success).toBe(false)
       expect(res.error).toMatch(/freelance deals only/i)

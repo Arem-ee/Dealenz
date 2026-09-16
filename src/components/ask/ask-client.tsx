@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { AiConsentModal } from "@/components/ai-consent-modal"
-import { getAiConsentStatus, grantAiConsent } from "@/lib/ai-consent"
+import { useAiConsent } from "@/hooks/use-ai-consent"
 import {
   askQuestionAction,
   getAskConversation,
@@ -74,17 +74,10 @@ export function AskClient({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [viewer, setViewer] = useState<{ auditId: string; evidence: Evidence } | null>(null)
-  const [aiConsented, setAiConsented] = useState<boolean | null>(null)
+  const { consented: aiConsented, consenting, grant: grantConsent } = useAiConsent()
   const [showConsentModal, setShowConsentModal] = useState(false)
-  const [consenting, setConsenting] = useState(false)
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    getAiConsentStatus()
-      .then((v) => setAiConsented(v))
-      .catch(() => setAiConsented(false))
-  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -214,8 +207,8 @@ export function AskClient({
         return
       }
       if (aiConsented === null) {
-        const fresh = await getAiConsentStatus().catch(() => false)
-        setAiConsented(fresh)
+        const { getAiConsentStatus: fetchStatus } = await import("@/lib/ai-consent")
+        const fresh = await fetchStatus().catch(() => false)
         if (!fresh) {
           setPendingQuestion(question)
           setShowConsentModal(true)
@@ -227,20 +220,25 @@ export function AskClient({
   }
 
   async function handleConsentConfirm() {
-    setConsenting(true)
-    try {
-      const res = await grantAiConsent()
-      if (!res.success) throw new Error(res.error ?? "Failed")
-      setAiConsented(true)
-      setShowConsentModal(false)
-      const q = pendingQuestion
-      setPendingQuestion(null)
-      if (q) await doSend(q)
-    } catch {
+    const ok = await grantConsent()
+    if (!ok) {
       setError("Failed to save consent. Please try again.")
-    } finally {
-      setConsenting(false)
+      return
     }
+    setShowConsentModal(false)
+    const q = pendingQuestion
+    if (q) {
+      await doSend(q)
+      setPendingQuestion(null)
+    } else {
+      setPendingQuestion(null)
+    }
+  }
+
+  const handleConsentDismiss = () => {
+    if (consenting) return
+    setShowConsentModal(false)
+    setPendingQuestion(null)
   }
 
   const estimate = estimatedCost(input, Boolean(auditId))
@@ -442,10 +440,7 @@ export function AskClient({
           open={showConsentModal}
           consenting={consenting}
           onConsent={() => void handleConsentConfirm()}
-          onClose={() => {
-            setShowConsentModal(false)
-            setPendingQuestion(null)
-          }}
+          onClose={handleConsentDismiss}
         />
       </div>
     </div>

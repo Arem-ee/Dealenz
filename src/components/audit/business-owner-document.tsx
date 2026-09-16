@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { familiesForDealType } from "@/lib/documents/families"
 import { generateBusinessOwnerDraft } from "@/app/audit/[id]/actions"
+import { AiConsentModal } from "@/components/ai-consent-modal"
+import { useAiConsent } from "@/hooks/use-ai-consent"
 import type { DraftDocument } from "@/lib/documents/types"
 import { renderMarkdown } from "@/lib/markdown"
 import { LegalCitationLine } from "@/components/evidence/legal-citation-line"
@@ -26,12 +28,15 @@ export function BusinessOwnerDocumentSection({
   const [draft, setDraft] = useState<DraftDocument | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
+  const { consented: aiConsented, consenting, grant: grantConsent } = useAiConsent()
+  const [showConsentModal, setShowConsentModal] = useState(false)
+  const [pendingGenerate, setPendingGenerate] = useState(false)
 
   if (families.length === 0) return null
 
   const selectedFamily = families.find((f) => f.id === familyId) ?? families[0]
 
-  async function handleGenerate() {
+  async function doGenerate() {
     setGenerating(true)
     setError(null)
     setDraft(null)
@@ -39,14 +44,60 @@ export function BusinessOwnerDocumentSection({
       const res = await generateBusinessOwnerDraft(auditId, familyId, jurisdiction, variables)
       if (res.success && res.draft) {
         setDraft(res.draft)
+      } else if (res.error?.includes("CONSENT_REQUIRED")) {
+        setPendingGenerate(true)
+        setShowConsentModal(true)
       } else {
         setError(res.error ?? "Generation failed")
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Generation failed")
+      const msg = e instanceof Error ? e.message : "Generation failed"
+      if (msg.includes("CONSENT_REQUIRED")) {
+        setPendingGenerate(true)
+        setShowConsentModal(true)
+      } else {
+        setError(msg)
+      }
     } finally {
       setGenerating(false)
     }
+  }
+
+  async function handleGenerate() {
+    if (aiConsented === false) {
+      setPendingGenerate(true)
+      setShowConsentModal(true)
+      return
+    }
+    if (aiConsented === null) {
+      const { getAiConsentStatus: fetchStatus } = await import("@/lib/ai-consent")
+      const fresh = await fetchStatus().catch(() => false)
+      if (!fresh) {
+        setPendingGenerate(true)
+        setShowConsentModal(true)
+        return
+      }
+    }
+    await doGenerate()
+  }
+
+  async function handleConsentConfirm() {
+    const ok = await grantConsent()
+    if (!ok) {
+      setError("Failed to save consent. Please try again.")
+      return
+    }
+    setShowConsentModal(false)
+    if (pendingGenerate) {
+      await doGenerate()
+      setPendingGenerate(false)
+    }
+  }
+
+  const handleConsentDismiss = () => {
+    if (consenting) return
+    setShowConsentModal(false)
+    setPendingGenerate(false)
   }
 
   return (
@@ -141,6 +192,8 @@ export function BusinessOwnerDocumentSection({
           <span>{error}</span>
         </div>
       )}
+
+      <AiConsentModal open={showConsentModal} consenting={consenting} onConsent={() => void handleConsentConfirm()} onClose={handleConsentDismiss} />
 
       {draft && (
         <div className="space-y-3 rounded-lg border bg-muted/30 p-4">

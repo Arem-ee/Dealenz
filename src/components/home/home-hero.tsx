@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation"
 import { ArrowUp, FileUp, Sparkles, Loader2, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AiConsentModal } from "@/components/ai-consent-modal"
-import { getAiConsentStatus, grantAiConsent } from "@/lib/ai-consent"
+import { useAiConsent } from "@/hooks/use-ai-consent"
+import { isGreeting } from "@/lib/conversation/classify"
+import { setPendingFile } from "@/lib/pending-file"
 import { askQuestionAction } from "@/app/ask/actions"
 import { getConsultantEntryPricing, type ConsultantEntryPricing } from "@/app/consultant/actions"
 import { createHomeDeal } from "@/app/dashboard/home-actions"
@@ -38,19 +40,12 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
   const [jurisdiction, setJurisdiction] = useState("")
   const [choosingJurisdiction, setChoosingJurisdiction] = useState(false)
   const [pricing, setPricing] = useState<ConsultantEntryPricing | null>(null)
-  const [aiConsented, setAiConsented] = useState<boolean | null>(null)
+  const { consented: aiConsented, consenting, grant: grantConsent } = useAiConsent()
   const [showConsentModal, setShowConsentModal] = useState(false)
-  const [consenting, setConsenting] = useState(false)
   const [pendingText, setPendingText] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const hasContent = value.trim().length > 0
   const isDealPath = hasContent && !looksLikeQuestion(value)
-
-  useEffect(() => {
-    getAiConsentStatus()
-      .then((v) => setAiConsented(v))
-      .catch(() => setAiConsented(false))
-  }, [])
 
   useEffect(() => {
     if (!isDealPath) {
@@ -95,6 +90,12 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
   async function handleSubmit() {
     const text = value.trim()
     if (!text || sending) return
+    if (isGreeting(text)) {
+      setSending(true)
+      setError(null)
+      await doSubmit(text)
+      return
+    }
     const needsConsent = looksLikeQuestion(text)
     if (needsConsent && aiConsented === false) {
       setPendingText(text)
@@ -102,8 +103,8 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
       return
     }
     if (needsConsent && aiConsented === null) {
-      const fresh = await getAiConsentStatus().catch(() => false)
-      setAiConsented(fresh)
+      const { getAiConsentStatus: fetchStatus } = await import("@/lib/ai-consent")
+      const fresh = await fetchStatus().catch(() => false)
       if (!fresh) {
         setPendingText(text)
         setShowConsentModal(true)
@@ -116,24 +117,27 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
   }
 
   async function handleConsentConfirm() {
-    setConsenting(true)
-    try {
-      const res = await grantAiConsent()
-      if (!res.success) throw new Error(res.error ?? "Failed")
-      setAiConsented(true)
-      setShowConsentModal(false)
-      const text = pendingText ?? value.trim()
-      if (text) {
-        setPendingText(null)
-        setSending(true)
-        setError(null)
-        await doSubmit(text)
-      }
-    } catch {
+    const ok = await grantConsent()
+    if (!ok) {
       setError("Failed to save consent. Please try again.")
-    } finally {
-      setConsenting(false)
+      return
     }
+    setShowConsentModal(false)
+    const text = pendingText
+    if (text) {
+      setSending(true)
+      setError(null)
+      await doSubmit(text)
+      setPendingText(null)
+    } else {
+      setPendingText(null)
+    }
+  }
+
+  const handleConsentDismiss = () => {
+    if (consenting) return
+    setShowConsentModal(false)
+    setPendingText(null)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -154,7 +158,18 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
         </p>
       </div>
 
-      <div className="mt-7 rounded-2xl border border-border/60 bg-card shadow-raised overflow-hidden">
+      <div
+        className="mt-7 rounded-2xl border border-border/60 bg-card shadow-raised overflow-hidden"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault()
+          const f = e.dataTransfer.files?.[0]
+          if (f) {
+            setPendingFile(f)
+            router.push("/audit/new?hasFile=1")
+          }
+        }}
+      >
         <div className="p-4 sm:p-5">
           <label htmlFor="home-input" className="sr-only">Tell Dealenz what you are dealing with</label>
           <textarea
@@ -172,7 +187,10 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
         <div className="flex items-center gap-2 px-3 py-3 border-t border-border/60 bg-muted/20">
           <input ref={fileRef} type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={() => {
             const f = fileRef.current?.files?.[0]
-            if (f) router.push("/audit/new")
+            if (f) {
+              setPendingFile(f)
+              router.push("/audit/new?hasFile=1")
+            }
           }} />
           <button
             type="button"
@@ -253,10 +271,7 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
         open={showConsentModal}
         consenting={consenting}
         onConsent={() => void handleConsentConfirm()}
-        onClose={() => {
-          setShowConsentModal(false)
-          setPendingText(null)
-        }}
+        onClose={handleConsentDismiss}
       />
     </div>
   )

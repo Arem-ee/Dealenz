@@ -21,6 +21,15 @@ vi.mock("@/lib/logger", () => ({ logEvent: vi.fn(), logDuration: vi.fn(() => 1),
 
 const mockUser = { id: "00000000-0000-0000-0000-000000000001", email: "test@test.com", email_confirmed_at: "2024-01-01" }
 
+function consentQb() {
+  const b: Record<string, unknown> = {
+    select: vi.fn(() => b),
+    eq: vi.fn(() => b),
+    maybeSingle: vi.fn(() => Promise.resolve({ data: { has_consented_to_ai_analysis: true }, error: null })),
+  }
+  return b as never
+}
+
 function qb() {
   const builder: Record<string, unknown> = {
     select: vi.fn(() => builder),
@@ -80,7 +89,7 @@ describe("generateBusinessOwnerDraft — international business-owner generation
     const q = qb() as unknown as Record<string, ReturnType<typeof vi.fn>>
     q.single = vi.fn().mockResolvedValue({ data: auditRow("founder"), error: null })
     q.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
-    mockFrom.mockReturnValue(q as never)
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : (q as never)))
     const res = await generateBusinessOwnerDraft("00000000-0000-0000-0000-000000000011", "founder-agreement", "Nigeria", { company_name: "Acme Ltd", founder_names: "Alice and Bob", ownership_percentages: "60/40" })
     expect(res.success).toBe(true)
     expect(res.draft).toBeDefined()
@@ -98,7 +107,7 @@ describe("generateBusinessOwnerDraft — international business-owner generation
     const q = qb() as unknown as Record<string, ReturnType<typeof vi.fn>>
     q.single = vi.fn().mockResolvedValue({ data: partnershipAudit, error: null })
     q.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
-    mockFrom.mockReturnValue(q as never)
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : (q as never)))
     const nigeria = await generateBusinessOwnerDraft("00000000-0000-0000-0000-000000000011", "llp-agreement", "Nigeria", { partner_names: "Alice and Bob" })
     expect(nigeria.success).toBe(true)
     expect(nigeria.draft!.citations.length).toBeGreaterThan(0)
@@ -121,7 +130,7 @@ describe("generateBusinessOwnerDraft — international business-owner generation
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
     const q = qb() as unknown as Record<string, ReturnType<typeof vi.fn>>
     q.single = vi.fn().mockResolvedValue({ data: auditRow("founder"), error: null })
-    mockFrom.mockReturnValue(q as never)
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : (q as never)))
     const res = await generateBusinessOwnerDraft("00000000-0000-0000-0000-000000000011", "partnership-agreement", "Nigeria", {})
     expect(res.success).toBe(false)
     expect(res.error).toMatch(/does not support deal type/)
@@ -132,7 +141,7 @@ describe("generateBusinessOwnerDraft — international business-owner generation
     const q = qb() as unknown as Record<string, ReturnType<typeof vi.fn>>
     q.single = vi.fn().mockResolvedValue({ data: auditRow("founder"), error: null })
     q.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
-    mockFrom.mockReturnValue(q as never)
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : (q as never)))
     const res = await generateBusinessOwnerDraft("00000000-0000-0000-0000-000000000011", "founder-agreement", "Nigeria", {})
     expect(res.success).toBe(true)
     expect(res.draft!.missingVariables.length).toBeGreaterThan(0)
@@ -145,7 +154,7 @@ describe("generateBusinessOwnerDraft — international business-owner generation
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
     const q = qb() as unknown as Record<string, ReturnType<typeof vi.fn>>
     q.single = vi.fn().mockResolvedValue({ data: auditRow("freelance"), error: null })
-    mockFrom.mockReturnValue(q as never)
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : (q as never)))
     const res = await generateBusinessOwnerDraft("00000000-0000-0000-0000-000000000011", "founder-agreement", "Nigeria", {})
     expect(res.success).toBe(false)
   })
@@ -156,7 +165,7 @@ describe("generateBusinessOwnerDraft — international business-owner generation
     const q = qb() as unknown as Record<string, ReturnType<typeof vi.fn>>
     q.single = vi.fn().mockResolvedValue({ data: purchaseAudit, error: null })
     q.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
-    mockFrom.mockReturnValue(q as never)
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : (q as never)))
     const res = await generateBusinessOwnerDraft("00000000-0000-0000-0000-000000000011", "purchase-terms-sheet", "United States", { purchase_price: "50,000", currency: "USD" })
     expect(res.success).toBe(true)
     expect(res.draft!.title).toBe("Purchase Terms Sheet")
@@ -172,7 +181,7 @@ describe("generateBusinessOwnerDraft — international business-owner generation
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
     const q = qb() as unknown as Record<string, ReturnType<typeof vi.fn>>
     q.single = vi.fn().mockResolvedValue({ data: auditRow("lease"), error: null })
-    mockFrom.mockReturnValue(q as never)
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : (q as never)))
     const res = await generateBusinessOwnerDraft("00000000-0000-0000-0000-000000000011", "purchase-terms-sheet", "United States", {})
     expect(res.success).toBe(false)
     expect(res.error).toMatch(/does not support deal type/)
@@ -184,7 +193,7 @@ describe("generateBusinessOwnerDraft — international business-owner generation
     q.single = vi.fn().mockResolvedValue({ data: auditRow("founder"), error: null })
     q.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
     q.insert = vi.fn().mockResolvedValue({ error: { message: "connection reset" } })
-    mockFrom.mockReturnValue(q as never)
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : (q as never)))
     const res = await generateBusinessOwnerDraft("00000000-0000-0000-0000-000000000011", "founder-agreement", "Nigeria", {})
     expect(res.success).toBe(true)
     expect(res.draft).toBeDefined()
@@ -205,7 +214,7 @@ describe("generateBusinessOwnerDraft — international business-owner generation
       .mockResolvedValueOnce({ error: { message: 'duplicate key value violates unique constraint "uq_document_version"' } })
       .mockResolvedValueOnce({ error: null })
     q.insert = insertMock
-    mockFrom.mockReturnValue(q as never)
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : (q as never)))
     const res = await generateBusinessOwnerDraft("00000000-0000-0000-0000-000000000011", "founder-agreement", "Nigeria", {})
     expect(res.success).toBe(true)
     expect(insertMock).toHaveBeenCalledTimes(2)

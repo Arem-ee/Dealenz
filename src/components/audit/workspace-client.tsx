@@ -26,7 +26,9 @@ import { dealStage } from "@/lib/deal/stage"
 import { cn } from "@/lib/utils"
 
 import { AiConsentModal } from "@/components/ai-consent-modal"
-import { getAiConsentStatus, grantAiConsent } from "@/lib/ai-consent"
+import { useAiConsent } from "@/hooks/use-ai-consent"
+import { isGreeting } from "@/lib/conversation/classify"
+import { getPendingFile, clearPendingFile } from "@/lib/pending-file"
 import { Timeline, type TimelineEvent } from "@/components/audit/timeline"
 import { canGenerateDocuments, documentGenerationUnavailableMessage } from "@/lib/protection"
 import { ProtectionIntentsView } from "@/components/audit/protection-intents"
@@ -140,10 +142,11 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
   )
   const [generating, setGenerating] = useState(false)
   const [showExtraction, setShowExtraction] = useState(false)
-  const [aiConsented, setAiConsented] = useState<boolean | null>(null)
+  const { consented: aiConsented, consenting, grant: grantConsent } = useAiConsent()
   const [showConsentModal, setShowConsentModal] = useState(false)
-  const [consenting, setConsenting] = useState(false)
   const [pendingAnalyze, setPendingAnalyze] = useState(false)
+  const [pendingInputSnapshot, setPendingInputSnapshot] = useState<string | null>(null)
+  const [pendingGenerate, setPendingGenerate] = useState(false)
   const [clientProfiles, setClientProfiles] = useState<ClientProfile[]>([])
   const [clientId, setClientId] = useState<string | null>(audit.client_id)
   const [workspaceTab, setWorkspaceTab] = useState<"overview" | "vault" | "activity">("overview")
@@ -330,14 +333,38 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEditTitle(audit.title); setTitleEditing(false); setInputType((audit.source_type as InputType) ?? "paste"); setRawInput(audit.raw_input ?? ""); setSaveState("saved"); setWorkspaceTab("overview"); setActiveDocTab("proposal"); setShowExtraction(false); setClientId(audit.client_id)
+    setEditTitle(audit.title)
+    setTitleEditing(false)
+    setInputType((audit.source_type as InputType) ?? "paste")
+    setRawInput(audit.raw_input ?? "")
+    setSaveState("saved")
+    setWorkspaceTab("overview")
+    setActiveDocTab("proposal")
+    setShowExtraction(false)
+    setClientId(audit.client_id)
+    setExtractedData((audit.structured_data as Record<string, unknown>)?.extractedData as ExtractedData | null ?? null)
+    setRiskReport(audit.risk_report as RiskReport | GenericRiskReport | null)
+    setDocuments((audit.structured_data as Record<string, unknown>)?.generatedDocuments as GeneratedDocument[] | undefined ?? [])
+    setRuleResults(parsePersistedFindings((audit.structured_data as Record<string, unknown>)?.deterministicFindings))
+    setAnalyzing(false)
+    setGenerating(false)
+    setError(null)
+    setShowHandoff(false)
+    setHandoffPackage(null)
+    setHandoffSubmitted(null)
+    setPendingAnalyze(false)
+    setPendingInputSnapshot(null)
+    setPendingGenerate(false)
+    setShowConsentModal(false)
+    setLastSaved(null)
+    setFormData({
+      project_type: ((audit.structured_data as Record<string, string>)?.project_type ?? "") as string,
+      budget: ((audit.structured_data as Record<string, string>)?.budget ?? "") as string,
+      timeline: ((audit.structured_data as Record<string, string>)?.timeline ?? "") as string,
+      deliverables: ((audit.structured_data as Record<string, string>)?.deliverables ?? "") as string,
+      notes: ((audit.structured_data as Record<string, string>)?.notes ?? "") as string,
+    })
   }, [audit.id])
-
-  useEffect(() => {
-    getAiConsentStatus()
-      .then((v) => setAiConsented(v))
-      .catch(() => setAiConsented(false))
-  }, [])
 
   useEffect(() => {
     getClientProfiles().then((res) => {
@@ -346,6 +373,42 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
       }
     })
   }, [])
+
+  useEffect(() => {
+    const f = getPendingFile()
+    if (!f) return
+    if (uploadedFiles.length > 0) return
+    let cancelled = false
+    const run = async () => {
+      try {
+        const { sanitizeFilename } = await import("@/lib/validation/files")
+        const { createClient } = await import("@/lib/supabase/client")
+        const safeName = sanitizeFilename(f.name)
+        const filePath = `${userId}/${audit.id}/${safeName}`
+        const supabase = createClient()
+        const { error: uploadError } = await supabase.storage
+          .from("audit-files")
+          .upload(filePath, f, { cacheControl: "3600", upsert: false })
+        if (uploadError) throw new Error(uploadError.message)
+        const { attachFileMetadata } = await import("@/app/audit/[id]/actions")
+        const updated = await attachFileMetadata(audit.id, {
+          name: safeName,
+          size: f.size,
+          type: f.type,
+          path: `audit-files/${filePath}`,
+        })
+        if (cancelled) return
+        clearPendingFile()
+        void updated
+      } catch {
+        clearPendingFile()
+      }
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [audit.id, userId, uploadedFiles.length])
 
   const handleChangeClientId = useCallback(async (id: string | null) => {
     setClientId(id)
@@ -445,7 +508,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
     }
   }
 
-  const handleGenerate = async () => {
+  const doGenerate = async () => {
     setGenerating(true)
     const startedAt = Date.now()
     try {
@@ -464,21 +527,46 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
     }
   }
 
+  const handleGenerate = async () => {
+    if (aiConsented === false) {
+      setPendingGenerate(true)
+      setShowConsentModal(true)
+      return
+    }
+    if (aiConsented === null) {
+      const { getAiConsentStatus: fetchStatus } = await import("@/lib/ai-consent")
+      const fresh = await fetchStatus().catch(() => false)
+      if (!fresh) {
+        setPendingGenerate(true)
+        setShowConsentModal(true)
+        return
+      }
+    }
+    await doGenerate()
+  }
+
   const handleRegenerate = async () => {
     await handleGenerate()
   }
 
   const handleAnalyze = async () => {
+    const trimmed = rawInput.trim()
+    if (trimmed && isGreeting(trimmed) && uploadedFiles.length === 0) {
+      await doAnalyze()
+      return
+    }
     if (aiConsented === false) {
       setPendingAnalyze(true)
+      setPendingInputSnapshot(trimmed || "__analyze__")
       setShowConsentModal(true)
       return
     }
     if (aiConsented === null) {
-      const fresh = await getAiConsentStatus().catch(() => false)
-      setAiConsented(fresh)
+      const { getAiConsentStatus: fetchStatus } = await import("@/lib/ai-consent")
+      const fresh = await fetchStatus().catch(() => false)
       if (!fresh) {
         setPendingAnalyze(true)
+        setPendingInputSnapshot(trimmed || "__analyze__")
         setShowConsentModal(true)
         return
       }
@@ -487,21 +575,29 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
   }
 
   const handleConsentConfirm = async () => {
-    setConsenting(true)
-    try {
-      const res = await grantAiConsent()
-      if (!res.success) throw new Error(res.error ?? "Failed to save consent")
-      setAiConsented(true)
-      setShowConsentModal(false)
-      if (pendingAnalyze) {
-        setPendingAnalyze(false)
-        await doAnalyze()
-      }
-    } catch {
+    const ok = await grantConsent()
+    if (!ok) {
       setError("Failed to save consent. Please try again.")
-    } finally {
-      setConsenting(false)
+      return
     }
+    setShowConsentModal(false)
+    if (pendingAnalyze) {
+      await doAnalyze()
+      setPendingAnalyze(false)
+      setPendingInputSnapshot(null)
+    }
+    if (pendingGenerate) {
+      await doGenerate()
+      setPendingGenerate(false)
+    }
+  }
+
+  const handleConsentDismiss = () => {
+    if (consenting) return
+    setShowConsentModal(false)
+    setPendingAnalyze(false)
+    setPendingInputSnapshot(null)
+    setPendingGenerate(false)
   }
 
   function handleOpenHandoff() {
@@ -720,10 +816,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
         open={showConsentModal}
         consenting={consenting}
         onConsent={() => void handleConsentConfirm()}
-        onClose={() => {
-          setShowConsentModal(false)
-          setPendingAnalyze(false)
-        }}
+        onClose={handleConsentDismiss}
       />
     </div>
   )

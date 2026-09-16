@@ -145,6 +145,16 @@ export async function askQuestionAction(input: AskInput): Promise<ConversationRe
     })
   }
 
+  if (!isGreeting(input.text)) {
+    const { data: consentRow } = await supabase
+      .from("user_ai_consents")
+      .select("has_consented_to_ai_analysis")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    const hasConsented = (consentRow as { has_consented_to_ai_analysis?: boolean } | null)?.has_consented_to_ai_analysis === true
+    if (!hasConsented) throw new Error("CONSENT_REQUIRED")
+  }
+
   const ledger: LedgerClient = {
     rpc: async (functionName: string, args: Record<string, unknown> = {}) => {
       const result = await (supabase.rpc as unknown as (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>)(
@@ -169,16 +179,6 @@ export async function askQuestionAction(input: AskInput): Promise<ConversationRe
     role: "user",
     content: input.text,
   })
-
-  if (!isGreeting(input.text)) {
-    const { data: consentRow } = await supabase
-      .from("user_ai_consents")
-      .select("has_consented_to_ai_analysis")
-      .eq("user_id", user.id)
-      .maybeSingle()
-    const hasConsented = (consentRow as { has_consented_to_ai_analysis?: boolean } | null)?.has_consented_to_ai_analysis === true
-    if (!hasConsented) throw new Error("CONSENT_REQUIRED")
-  }
 
   let response: Awaited<ReturnType<typeof answerQuestion>>
   try {

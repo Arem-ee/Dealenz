@@ -1,22 +1,30 @@
 "use client"
 
-import { Suspense, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { isRedirectError } from "next/dist/client/components/redirect-error"
 import { createAudit } from "./actions"
 import { DealTypeSelector, type DealType } from "@/components/audit/deal-type-selector"
 import { Button } from "@/components/ui/button"
-import { Loader2 } from "lucide-react"
+import { Loader2, FileText, X } from "lucide-react"
+import { clearPendingFile, getPendingFile } from "@/lib/pending-file"
 
 function NewAuditContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const template = searchParams.get("template") || undefined
   const initialType = searchParams.get("deal_type") as DealType | null
+  const hasFileParam = searchParams.get("hasFile") === "1"
   const [dealType, setDealType] = useState<DealType | null>(initialType ?? null)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingFileName, setPendingFileName] = useState<string | null>(null)
+
+  useEffect(() => {
+    const f = getPendingFile()
+    if (f && hasFileParam) setPendingFileName(`${f.name} — ${(f.size / 1024).toFixed(0)} KB`)
+  }, [hasFileParam])
 
   async function handleContinue() {
     if (!dealType) return
@@ -34,6 +42,24 @@ function NewAuditContent() {
   return (
     <div className="flex items-center justify-center min-h-screen px-4">
       <div className="w-full max-w-xl space-y-6">
+        {pendingFileName && (
+          <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm">
+            <FileText className="h-4 w-4 text-primary" />
+            <span className="flex-1 truncate">{pendingFileName}</span>
+            <span className="text-xs text-muted-foreground">ready to upload</span>
+            <button
+              type="button"
+              onClick={() => {
+                clearPendingFile()
+                setPendingFileName(null)
+              }}
+              className="ml-2 rounded p-1 hover:bg-muted"
+              aria-label="Remove pending file"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
         <DealTypeSelector value={dealType} onChange={setDealType} />
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex items-center justify-between">
