@@ -19,6 +19,7 @@ export type AIOperation =
   | "comparison"
   | "explanation"
   | "decision_support"
+  | "proposal"
 
 export const AI_OPERATIONS: readonly AIOperation[] = [
   "document_analysis",
@@ -29,6 +30,7 @@ export const AI_OPERATIONS: readonly AIOperation[] = [
   "comparison",
   "explanation",
   "decision_support",
+  "proposal",
 ]
 
 // What the user is trying to accomplish. Deliberately small: intent refines
@@ -42,6 +44,7 @@ export type UserIntent =
   | "compare"
   | "review"
   | "decide"
+  | "propose"
 
 // What the user is trying to achieve, preserved separately from deal facts,
 // knowledge, rules, findings, and AI explanation.
@@ -186,6 +189,15 @@ const OPERATION_PROFILES: Record<AIOperation, OperationProfile> = {
     defaultIntent: "decide",
     outputBudget: "standard",
     contextSelection: "standard",
+  },
+  proposal: {
+    operation: "proposal",
+    requiresDocument: false,
+    requiresContext: false,
+    usesRules: true,
+    defaultIntent: "propose",
+    outputBudget: "extended",
+    contextSelection: "expanded",
   },
 }
 

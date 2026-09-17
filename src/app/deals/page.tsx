@@ -75,7 +75,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
           </p>
         </div>
         <Link
-          href="/audit/new"
+          href="/chat"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
         >
           <IconDeal className="h-4 w-4" />
@@ -109,7 +109,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
               <Link href="/deals" className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors">
                 View all deals
               </Link>
-              <Link href="/audit/new" className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+              <Link href="/chat" className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
                 New deal
               </Link>
             </div>
@@ -120,7 +120,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
           title="Your first deal starts here"
           body="Paste a client brief, even a messy one — Dealenz will flag what's risky before you reply."
           actionLabel="New Deal"
-          actionHref="/audit/new"
+          actionHref="/chat"
         />
         )
       ) : (
@@ -135,7 +135,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
                 {items.map((a) => (
                   <Link
                     key={a.id}
-                    href={`/audit/${a.id}`}
+                    href={`/chat/${a.id}`}
                     className="flex items-center justify-between rounded-xl border border-border/60 bg-card p-3.5 hover:bg-muted/50 transition-colors group shadow-sm"
                   >
                     <div className="flex items-center gap-3 min-w-0">

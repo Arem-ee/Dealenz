@@ -6,6 +6,7 @@
 // Observation helpers are shared from @/lib/verticals/observe.
 
 import type { ExtractedData } from "@/lib/ai/extract"
+import { makeEvidence } from "@/lib/evidence/schema"
 import {
   observePattern,
   sectionedParts,
@@ -17,6 +18,7 @@ export interface FounderFacts {
   founderRoles: ObservedText
   ownershipSplit: ObservedText
   valuation: ObservedText
+  dealValue: ObservedText
   vesting: ObservedText
   governance: ObservedText
   decisionRights: ObservedText
@@ -39,6 +41,26 @@ export function deriveFounderFacts(
   const parts = sectionedParts(extracted, rawText)
   const key = (field: string) => `facts.founder.${field}`
   const obs = (field: string, pattern: RegExp) => observePattern(parts, pattern, { key: key(field), source: src })
+  const inspectable = src.type === "audit_input" && src.id !== null
+
+  const dealValueFromBudget = extracted.budget
+    ? {
+        text: extracted.budget,
+        evidence: extracted.budget.slice(0, 200),
+        evidenceRefs: [
+          makeEvidence({
+            sourceType: "extraction",
+            sourceId: src.id,
+            quote: extracted.budget.slice(0, 200),
+            observationKey: key("dealValue"),
+            method: "ai_extraction",
+            confidence: extracted.confidence,
+            inspectable,
+            location: { kind: "unavailable" },
+          }),
+        ],
+      }
+    : null
 
   return {
     founderRoles: obs(
@@ -50,6 +72,12 @@ export function deriveFounderFacts(
       /ownership split|split.{0,24}ownership|equity split|sharehold|owns? \d|percent|cap table|capitali[sz]ation|fully diluted/i
     ),
     valuation: obs("valuation", /valuation|valued at|pre-money|post-money|valuation cap/i),
+    dealValue:
+      dealValueFromBudget ??
+      obs(
+        "dealValue",
+        /deal value|transaction value|equity value|funding (amount|round)?|investment (amount|size)?|contribution|capital (contribution|investment)|amount of[^\n]{0,40}(?:\$|£|€|USD|GBP|EUR|NGN)/i
+      ),
     vesting: obs("vesting", /vesting|vest(ed|s)?\b|cliff|acceleration|reverse vesting/i),
     governance: obs("governance", /governance|board of directors|\bboard\b|deadlock|quorum/i),
     decisionRights: obs(

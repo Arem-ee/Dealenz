@@ -19,6 +19,7 @@ export const INTENT_VALUES = [
   "compare",
   "review",
   "decide",
+  "propose",
 ] as const satisfies readonly UserIntent[]
 
 // How a field value came to be. AI inference is never equivalent to user

@@ -38,10 +38,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
         <div className="flex flex-col items-center justify-center gap-4 py-16">
           <AlertCircle className="h-8 w-8 text-destructive" />
           <div className="text-center">
-            <p className="text-sm font-medium">Something went wrong</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {this.state.error?.message ?? "An unexpected error occurred"}
-            </p>
+            <p className="text-sm font-medium">{this.state.error?.message ?? "An unexpected error occurred"}</p>
+            <p className="text-xs text-muted-foreground mt-1">Your data is safe — try again, and contact support if it keeps happening.</p>
           </div>
           <Button variant="outline" size="sm" onClick={this.handleRetry}>
             <RefreshCw className="h-3.5 w-3.5" />

@@ -33,6 +33,7 @@ import { Timeline, type TimelineEvent } from "@/components/audit/timeline"
 import { canGenerateDocuments, documentGenerationUnavailableMessage } from "@/lib/protection"
 import { ProtectionIntentsView } from "@/components/audit/protection-intents"
 import { BusinessOwnerDocumentSection } from "@/components/audit/business-owner-document"
+import { ProposalSection } from "@/components/audit/proposal-section"
 import { analyzeDeal, generateProtectionPackage, updateAudit, getClientProfiles } from "@/app/audit/[id]/actions"
 import { publicErrorMessage } from "@/lib/safe-error"
 import { createConsultationRequest, getVerifiedLawyersCount } from "@/app/audit/[id]/consultation-actions"
@@ -992,6 +993,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
             {workspaceTab === "overview" ? (
               <div className="space-y-8">
                 <GenericRiskReportView report={riskReport as GenericRiskReport} degraded={genericDegraded} />
+                <ProposalSection auditId={audit.id} />
                 <section className="space-y-4 scroll-mt-20" id="deal-protection">
                   <h2 className="text-sm font-semibold">Protection</h2>
                   <div>
@@ -1085,7 +1087,7 @@ export function WorkspaceClient({ audit, userId, activityEvents, hasVersions = f
           {workspaceTab === "overview" ? (
             <div className="space-y-8">
               <RiskReportView report={riskReport as RiskReport} />
-
+              <ProposalSection auditId={audit.id} />
               <section className="space-y-4 scroll-mt-20" id="deal-protection">
                 <h2 className="text-sm font-semibold">Protection</h2>
                 <div>

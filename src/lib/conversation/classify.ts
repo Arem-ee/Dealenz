@@ -22,6 +22,7 @@ const has = (text: string, pattern: RegExp): boolean => pattern.test(text)
 export function classifyOperation(text: string, hasDocument: boolean): AIOperation {
   if (isGreeting(text)) return "conversation"
   const t = text.toLowerCase().trim()
+  if (/\b(need.*proposal|proposal for|send.*proposal|create.*proposal|prepare.*proposal|write.*proposal|turn.*proposal|pitch|something to send|serious proposal)\b/.test(t)) return "proposal"
   if (/negotiat|push back|counter(-|\s*)offer|ask for more|lower the|raise the|how should i respond|how to respond/.test(t)) return "negotiation"
   if (/compar|which (one|offer)|better deal|better offer|two offers/.test(t)) return "comparison"
   if (/\b(draft|write|word|respond|reply|email|letter|redline|suggest (a |the )?clause|safer version)\b/.test(t)) return "drafting"
@@ -36,6 +37,7 @@ export function classifyOperation(text: string, hasDocument: boolean): AIOperati
 
 export function inferIntent(text: string, operation: AIOperation): UserIntent {
   const t = text.toLowerCase()
+  if (operation === "proposal") return "propose"
   if (operation === "negotiation") return "negotiate"
   if (operation === "drafting") return "draft"
   if (operation === "comparison") return "compare"

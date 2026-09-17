@@ -35,10 +35,9 @@ export default function GlobalError({
     <html>
       <body>
         <div style={{ maxWidth: 560, margin: "10vh auto", padding: 24, fontFamily: "'Mona Sans Variable', system-ui, sans-serif" }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700 }}>Something went wrong</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700 }}>{error?.message ? String(error.message).slice(0, 300) : "An unexpected error occurred"}</h1>
           <p style={{ marginTop: 8, color: "#555" }}>
-            Dealenz hit an unexpected error. Your data is safe — try again, and contact support if it
-            keeps happening.
+            Your data is safe — try again, and contact support if it keeps happening.
           </p>
           <button
             onClick={() => reset()}
