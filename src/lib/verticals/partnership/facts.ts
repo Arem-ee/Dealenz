@@ -6,6 +6,7 @@
 // Observation helpers are shared from @/lib/verticals/observe.
 
 import type { ExtractedData } from "@/lib/ai/extract"
+import { makeEvidence } from "@/lib/evidence/schema"
 import {
   observePattern,
   sectionedParts,
@@ -31,6 +32,7 @@ export interface PartnershipFacts {
   disputeResolution: ObservedText
   ipAssignment: ObservedText
   confidentiality: ObservedText
+  dealValue: ObservedText
 }
 
 // Pure: same extraction + same raw text + same source → same facts.
@@ -43,6 +45,26 @@ export function derivePartnershipFacts(
   const parts = sectionedParts(extracted, rawText)
   const key = (field: string) => `facts.partnership.${field}`
   const obs = (field: string, pattern: RegExp) => observePattern(parts, pattern, { key: key(field), source: src })
+  const inspectable = src.type === "audit_input" && src.id !== null
+
+  const dealValueFromBudget = extracted.budget
+    ? {
+        text: extracted.budget,
+        evidence: extracted.budget.slice(0, 200),
+        evidenceRefs: [
+          makeEvidence({
+            sourceType: "extraction",
+            sourceId: src.id,
+            quote: extracted.budget.slice(0, 200),
+            observationKey: key("dealValue"),
+            method: "ai_extraction",
+            confidence: extracted.confidence,
+            inspectable,
+            location: { kind: "unavailable" },
+          }),
+        ],
+      }
+    : null
 
   return {
     partnershipStructure: obs(
@@ -109,5 +131,11 @@ export function derivePartnershipFacts(
       /intellectual property|\bIP\b|assign(s|ment)?|inventions?|ownership of (work|IP)/i
     ),
     confidentiality: obs("confidentiality", /confidential|nda|non.?disclosure/i),
+    dealValue:
+      dealValueFromBudget ??
+      obs(
+        "dealValue",
+        /deal value|transaction value|equity value|funding (amount|round)?|investment (amount|size)?|contribution|capital (contribution|investment)|amount of[^\n]{0,40}(?:\$|£|€|USD|GBP|EUR|NGN)/i
+      ),
   }
 }

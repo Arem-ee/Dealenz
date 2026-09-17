@@ -7,20 +7,12 @@ import { Button } from "@/components/ui/button"
 import { AiConsentModal } from "@/components/ai-consent-modal"
 import { useAiConsent } from "@/hooks/use-ai-consent"
 import { isGreeting } from "@/lib/conversation/classify"
+import { classifyInput } from "@/lib/chat/classifier"
 import { setPendingFile } from "@/lib/pending-file"
 import { askQuestionAction } from "@/app/ask/actions"
 import { getConsultantEntryPricing, type ConsultantEntryPricing } from "@/app/consultant/actions"
 import { createHomeDeal } from "@/app/dashboard/home-actions"
 import { publicErrorMessage } from "@/lib/safe-error"
-
-function looksLikeQuestion(text: string): boolean {
-  const t = text.trim().toLowerCase()
-  if (!t) return false
-  if (t.endsWith("?")) return true
-  if (t.startsWith("what ") || t.startsWith("can you") || t.startsWith("could you") || t.startsWith("explain") || t.startsWith("how ") || t.startsWith("why ") || t.startsWith("should i")) return true
-  if (t.includes("what is") || t.includes("what does") || t.includes("explain this") || t.includes("can you explain")) return true
-  return false
-}
 
 const JURISDICTIONS = [
   "United States",
@@ -45,7 +37,7 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
   const [pendingText, setPendingText] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const hasContent = value.trim().length > 0
-  const isDealPath = hasContent && !looksLikeQuestion(value)
+  const isDealPath = hasContent && classifyInput(value, false).outcome === "deal"
 
   useEffect(() => {
     if (!isDealPath) {
@@ -63,17 +55,24 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
   }, [value, isDealPath])
 
   async function doSubmit(text: string) {
-    const isQuestion = looksLikeQuestion(text)
+    const { outcome } = classifyInput(text, false)
     try {
-      if (isQuestion) {
+      if (outcome === "greeting") {
         const res = await askQuestionAction({ text, idempotencyKey: crypto.randomUUID() })
         const id = (res as { conversationId?: string }).conversationId
-        if (id) router.push(`/ask?conversation=${encodeURIComponent(id)}`)
-        else router.push("/ask")
-      } else {
-        const { id } = await createHomeDeal(text, jurisdiction || undefined)
-        router.push(`/audit/${id}`)
+        if (id) router.push(`/chat/${id}`)
+        else router.push("/chat")
+        return
       }
+      if (outcome === "question" || outcome === "action") {
+        const res = await askQuestionAction({ text, idempotencyKey: crypto.randomUUID() })
+        const id = (res as { conversationId?: string }).conversationId
+        if (id) router.push(`/chat/${id}`)
+        else router.push("/chat")
+        return
+      }
+      const { id } = await createHomeDeal(text, jurisdiction || undefined)
+      router.push(`/chat/${id}`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : ""
       if (msg.includes("CONSENT_REQUIRED")) {
@@ -90,13 +89,8 @@ export function HomeHero({ onExample }: { onExample?: (text: string) => void }) 
   async function handleSubmit() {
     const text = value.trim()
     if (!text || sending) return
-    if (isGreeting(text)) {
-      setSending(true)
-      setError(null)
-      await doSubmit(text)
-      return
-    }
-    const needsConsent = looksLikeQuestion(text)
+    const { outcome } = classifyInput(text, false)
+    const needsConsent = outcome !== "greeting"
     if (needsConsent && aiConsented === false) {
       setPendingText(text)
       setShowConsentModal(true)

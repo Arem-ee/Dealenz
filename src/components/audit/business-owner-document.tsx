@@ -183,7 +183,7 @@ export function BusinessOwnerDocumentSection({
             <Label htmlFor="var-structure">Partnership structure (if partnership) <span className="text-destructive">*</span></Label>
             <select id="var-structure" value={variables.partnership_structure ?? ""} onChange={(e) => setVariables((v) => ({ ...v, partnership_structure: e.target.value }))} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" required aria-required="true">
               <option value="">Select structure…</option>
-              <option value="UNKNOWN">UNKNOWN — ask for clarification</option>
+              <option value="UNKNOWN">Not sure yet — we'll flag it</option>
               <option value="ordinary partnership">Ordinary partnership</option>
               <option value="LLP">LLP</option>
               <option value="LP">LP</option>
