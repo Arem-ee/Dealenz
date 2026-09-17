@@ -207,7 +207,7 @@ export function TopNav() {
 
           <CreditControl />
           <Link
-            href="/audit/new"
+            href="/dashboard"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />

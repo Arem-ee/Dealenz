@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { listMessages, addMessage, createConversation } from "@/lib/conversation/store"
+import { isGreeting } from "@/lib/conversation/classify"
 import { toThreadMessage, type ThreadMessage } from "./types"
 import { createHomeDeal } from "@/app/dashboard/home-actions"
 
@@ -187,7 +188,7 @@ export async function listThreads(): Promise<Array<{ id: string; title: string; 
   const convs = await listConversations(supabase as never, user.id)
   const { data: audits } = await supabase
     .from("audits")
-    .select("id, title, updated_at, created_at")
+    .select("id, title, status, updated_at, created_at")
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false })
     .limit(50)
@@ -202,12 +203,17 @@ export async function listThreads(): Promise<Array<{ id: string; title: string; 
       updatedAt: c.updated_at,
     }
   })
-  // Also include audits without a conversation as standalone threads (legacy)
+  // Also include audits without a conversation as standalone threads (legacy).
+  // Junk rows must never resurface as phantom "deals": greeting-titled rows
+  // (e.g. a pre-classifier-fix "hello" audit) and the old "New Deal"
+  // placeholder drafts are skipped. Greeting *conversations* still appear
+  // above as question threads (no audit attached) — that is correct.
   const attachedIds = new Set(convs.map((c) => c.attached_audit_id).filter(Boolean))
-  for (const a of (audits ?? []) as Array<{ id: string; title: string; updated_at: string }>) {
-    if (!attachedIds.has(a.id)) {
-      threads.push({ id: a.id, title: a.title, auditId: a.id, updatedAt: a.updated_at })
-    }
+  for (const a of (audits ?? []) as Array<{ id: string; title: string; status: string; updated_at: string }>) {
+    if (attachedIds.has(a.id)) continue
+    if (isGreeting(a.title)) continue
+    if (a.status === "draft" && (a.title === "New Deal" || a.title.trim().length === 0)) continue
+    threads.push({ id: a.id, title: a.title, auditId: a.id, updatedAt: a.updated_at })
   }
   threads.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
   return threads.slice(0, 30)

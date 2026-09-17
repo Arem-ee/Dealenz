@@ -9,8 +9,13 @@ import { createClient } from "@/lib/supabase/client"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { PRIMARY_NAV, SECONDARY_NAV, ACCOUNT_NAV, isActiveEntry } from "@/lib/nav"
 
-/** Bottom bar renders the same IA: Home, Deals, create, Ask, More. */
-const BAR_TABS = [PRIMARY_NAV[0], PRIMARY_NAV[1], PRIMARY_NAV[2]]
+/** Bottom bar renders the chat-first IA: Home, Vault, create (new chat), More. */
+const BAR_TABS = [PRIMARY_NAV[0], PRIMARY_NAV[1]]
+
+/** Overflow sheet: everything else, deduplicated by destination. */
+const MORE_ITEMS = [...PRIMARY_NAV.slice(2), ...SECONDARY_NAV, ...ACCOUNT_NAV].filter(
+  (item, index, arr) => arr.findIndex((other) => other.href === item.href) === index
+)
 
 export function MobileNav({ isLawyer = false }: { isLawyer?: boolean }) {
   const pathname = usePathname()
@@ -28,7 +33,7 @@ export function MobileNav({ isLawyer = false }: { isLawyer?: boolean }) {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/60 bg-background md:hidden" aria-label="Primary">
       <div className="flex items-center justify-around h-14 px-2">
-        {BAR_TABS.slice(0, 2).map((item) => {
+        {BAR_TABS.map((item) => {
           const Icon = item.icon
           const isActive = isActiveEntry(pathname, item.href)
           return (
@@ -47,30 +52,12 @@ export function MobileNav({ isLawyer = false }: { isLawyer?: boolean }) {
           )
         })}
         <Link
-          href="/audit/new"
-          aria-label="Create deal"
+          href="/dashboard"
+          aria-label="New chat"
           className="flex items-center justify-center h-10 w-10 rounded-full bg-primary text-primary-foreground shadow-raised -mt-5 hover:bg-primary/90 transition-colors"
         >
           <Plus className="h-5 w-5" />
         </Link>
-        {BAR_TABS.slice(2).map((item) => {
-          const Icon = item.icon
-          const isActive = isActiveEntry(pathname, item.href)
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              aria-current={isActive ? "page" : undefined}
-              className={cn(
-                "flex flex-col items-center gap-0.5 px-3 py-1 text-[10px] font-medium transition-colors",
-                isActive ? "text-primary" : "text-muted-foreground"
-              )}
-            >
-              <Icon className="h-5 w-5" />
-              <span>{item.label}</span>
-            </Link>
-          )
-        })}
         <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
           <SheetTrigger asChild>
             <button
@@ -101,7 +88,7 @@ export function MobileNav({ isLawyer = false }: { isLawyer?: boolean }) {
                   <span>Lawyer workspace</span>
                 </Link>
               )}
-              {[...PRIMARY_NAV.slice(3), ...SECONDARY_NAV, ...ACCOUNT_NAV].map((mi) => {
+              {MORE_ITEMS.map((mi) => {
                 const Mi = mi.icon
                 const isActive = isActiveEntry(pathname, mi.href)
                 return (

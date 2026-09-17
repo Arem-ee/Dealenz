@@ -5,9 +5,9 @@ import { PRIMARY_NAV, SECONDARY_NAV, ACCOUNT_NAV } from "@/lib/nav"
 import type { LegalCitation } from "@/lib/legal-research/types"
 
 describe("app IA consolidation", () => {
-  it("primary nav is Home, Deals, Ask, Vault, Billing with no secondary group", () => {
-    expect(PRIMARY_NAV.map((n) => n.label)).toEqual(["Home", "Deals", "Ask", "Vault", "Billing"])
-    expect(PRIMARY_NAV.map((n) => n.href)).toEqual(["/dashboard", "/deals", "/ask", "/vault", "/billing"])
+  it("primary nav is Home, Vault, Settings with no secondary group", () => {
+    expect(PRIMARY_NAV.map((n) => n.label)).toEqual(["Home", "Vault", "Settings"])
+    expect(PRIMARY_NAV.map((n) => n.href)).toEqual(["/dashboard", "/vault", "/settings"])
     expect(SECONDARY_NAV).toEqual([])
     expect(ACCOUNT_NAV.map((n) => n.href)).toContain("/dashboard/activity")
   })

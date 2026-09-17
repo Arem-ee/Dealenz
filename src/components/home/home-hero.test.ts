@@ -39,13 +39,15 @@ describe("Home workspace", () => {
     expect(css).toContain("--card: #FFFFFF")
   })
 
-  it("home page no longer contains legacy dashboard headings", () => {
+  it("dashboard landing is the chat interface, not the legacy hero", () => {
     const page = fs.readFileSync(path.join(process.cwd(), "src/app/dashboard/page.tsx"), "utf-8")
     expect(page).not.toContain("Needs Your Attention")
     expect(page).not.toContain("In Progress")
     expect(page).not.toContain("Quick Start")
-    expect(page).toContain("HomeHero")
-    expect(page).toContain("HomeContinuation")
+    expect(page).not.toContain("HomeHero")
+    expect(page).not.toContain("HomeContinuation")
+    expect(page).not.toContain("What are you working on?")
+    expect(page).toContain("ChatLanding")
   })
 
   it("top nav contains quiet credit control and light nav", () => {

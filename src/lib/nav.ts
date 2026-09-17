@@ -1,6 +1,5 @@
 import type { ComponentType } from "react"
-import { LayoutDashboard, MessageCircle, CreditCard, History, Settings, Vault } from "lucide-react"
-import { IconDeal } from "@/components/icons"
+import { LayoutDashboard, History, Settings, Vault } from "lucide-react"
 
 export interface NavEntry {
   label: string
@@ -9,28 +8,22 @@ export interface NavEntry {
 }
 
 /**
- * Single customer information architecture. Desktop sidebar, mobile bottom
- * bar, and top-nav titles all render from here — the three surfaces can no
- * longer drift apart.
- *
- * Primary (always visible): Home, Deals, Ask, Vault, Billing.
- * Secondary is empty — Clients/Templates/Risk Intelligence stay reachable
- * by direct link but are no longer surfaced as primary destinations.
- * Account (avatar menu / More sheet): Activity, Settings, Lawyer workspace.
+ * Single customer information architecture — chat-first.
+ * Home is the chat landing (composer + recent threads). Deals is folded into
+ * Home (same thread list), so no separate Deals nav item. Ask is just the
+ * composer (classifier), not a destination. Vault is the Vault chat.
+ * Billing is inside Settings.
  */
 export const PRIMARY_NAV: NavEntry[] = [
   { label: "Home", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Deals", href: "/deals", icon: IconDeal },
-  { label: "Ask", href: "/ask", icon: MessageCircle },
   { label: "Vault", href: "/vault", icon: Vault },
-  { label: "Billing", href: "/billing", icon: CreditCard },
+  { label: "Settings", href: "/settings", icon: Settings },
 ]
 
 export const SECONDARY_NAV: NavEntry[] = []
 
 export const ACCOUNT_NAV: NavEntry[] = [
   { label: "Activity", href: "/dashboard/activity", icon: History },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ]
 
 /** True when the pathname belongs to the entry (covers nested routes). */
@@ -41,10 +34,13 @@ export function isActiveEntry(pathname: string, href: string): boolean {
 /** Human title for any customer route, used by the top bar. */
 export function titleFor(pathname: string): string {
   if (pathname === "/dashboard" || pathname.startsWith("/dashboard")) return "Home"
+  if (pathname.startsWith("/chat")) return "Chat"
+  if (pathname.startsWith("/document")) return "Document"
+  if (pathname.startsWith("/review")) return "Review"
   if (pathname.startsWith("/audit")) return "Deal"
   if (pathname.startsWith("/deals")) return "Deals"
-  if (pathname.startsWith("/ask")) return "Ask"
   if (pathname.startsWith("/vault")) return "Vault"
+  if (pathname.startsWith("/settings")) return "Settings"
   if (pathname.startsWith("/billing")) return "Billing"
   if (pathname.startsWith("/clients")) return "Clients"
   if (pathname.startsWith("/templates")) return "Templates"

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import Link from "next/link"
 import { upsertBusinessProfile } from "@/app/audit/[id]/actions"
 import { getGoogleLinkPath } from "@/app/dashboard/settings/actions"
 import { createClient } from "@/lib/supabase/client"
@@ -10,10 +11,11 @@ import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { Loader2, Check, AlertCircle } from "lucide-react"
 
-type Section = "business" | "notifications" | "integrations" | "security" | "team"
+type Section = "business" | "billing" | "notifications" | "integrations" | "security" | "team"
 
 const sections: { key: Section; label: string }[] = [
   { key: "business", label: "Business Profile" },
+  { key: "billing", label: "Billing" },
   { key: "notifications", label: "Notifications" },
   { key: "integrations", label: "Integrations" },
   { key: "security", label: "Security" },
@@ -118,6 +120,7 @@ export default function SettingsClient({ initialProfile, email, googleConnected 
               saveState={saveState}
             />
           )}
+          {activeSection === "billing" && <BillingSection />}
           {activeSection === "notifications" && <NotificationsSection />}
           {activeSection === "integrations" && <IntegrationsSection />}
           {activeSection === "security" && <SecuritySection email={email} googleConnected={googleConnected} />}
@@ -250,6 +253,22 @@ function BusinessProfileSection({
         </Button>
       </div>
     </div>
+  )
+}
+
+function BillingSection() {
+  return (
+    <SectionCard title="Billing" description="Credits, purchases, and usage live on the Billing page">
+      <div className="flex items-center justify-between rounded-lg border p-3">
+        <div>
+          <p className="text-sm font-medium">Credits & purchases</p>
+          <p className="text-xs text-muted-foreground">Free daily analyses, Ask credit packs, and purchase history.</p>
+        </div>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/billing">Open billing</Link>
+        </Button>
+      </div>
+    </SectionCard>
   )
 }
 

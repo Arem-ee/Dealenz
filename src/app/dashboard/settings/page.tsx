@@ -1,27 +1,12 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import SettingsClient from "@/components/settings-client"
 
 export const dynamic = "force-dynamic"
 
+/**
+ * Consolidated into the top-level Settings container (/settings). Kept as a
+ * redirect so any bookmarked or in-app /dashboard/settings link lands on the
+ * single Settings destination instead of a duplicate screen.
+ */
 export default async function SettingsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
-
-  const { data: profile } = await supabase
-    .from("business_profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  const initialProfile = profile as Record<string, unknown> | null
-  const email = user.email ?? ""
-  const googleConnected =
-    Array.isArray(user.identities) && user.identities.some((i) => i.provider === "google")
-
-  return <SettingsClient initialProfile={initialProfile} email={email} googleConnected={googleConnected} />
+  redirect("/settings")
 }
