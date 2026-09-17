@@ -162,7 +162,16 @@ export function AskClient({
         history: toHistory(nextMessages.slice(0, -1)),
         idempotencyKey: userMessage.id,
       })
-      const newConversationId = (response as { conversationId?: string }).conversationId as string | undefined
+      if (response.type === "error") {
+        if (response.error === "CONSENT_REQUIRED") {
+          setPendingQuestion(question)
+          setShowConsentModal(true)
+          return
+        }
+        setError(response.error)
+        return
+      }
+      const newConversationId = response.conversationId as string | undefined
       if (newConversationId && newConversationId !== selectedId) {
         setSelectedId(newConversationId)
         setConversations((prev) => {

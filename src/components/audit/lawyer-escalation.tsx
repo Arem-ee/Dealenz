@@ -1,19 +1,18 @@
 "use client"
 
 import { useState } from "react"
-import { Shield, Loader2, Mail, AlertCircle, CheckCircle2, Clock } from "lucide-react"
+import { Shield, Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
 import { createConsultationRequest } from "@/app/audit/[id]/consultation-actions"
 
 interface EscalationCardProps {
   auditId: string
-  dealType: "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership"
+  dealType?: "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership"
   riskLevel?: "Low" | "Medium" | "High" | "Critical" | null
 }
 
-export function LawyerEscalationCard({ auditId, dealType, riskLevel }: EscalationCardProps) {
+export function LawyerEscalationCard({ auditId, riskLevel }: EscalationCardProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<{ status: string } | null>(null)
@@ -24,7 +23,11 @@ export function LawyerEscalationCard({ auditId, dealType, riskLevel }: Escalatio
     setError(null)
     try {
       const result = await createConsultationRequest(auditId, note)
-      setSuccess(result)
+      if (!result.success || !result.status) {
+        setError(result.error ?? "Failed to request consultation")
+      } else {
+        setSuccess({ status: result.status })
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to request consultation")
     } finally {
@@ -33,7 +36,6 @@ export function LawyerEscalationCard({ auditId, dealType, riskLevel }: Escalatio
   }
 
   if (success) {
-    const isWaitlist = success.status === "waitlist"
     return (
       <div className="rounded-xl border border-success/25 bg-success/[0.04] p-5">
         <div className="flex items-start gap-3">

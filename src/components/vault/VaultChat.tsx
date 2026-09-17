@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Send, Loader2, Archive } from "lucide-react"
+import { Send, Archive } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { vaultChatAction } from "@/app/vault/actions"
@@ -32,6 +32,12 @@ export function VaultChat() {
     setSending(true)
     try {
       const res = await vaultChatAction({ text })
+      if (!res.ok) {
+        const msg = res.error
+        setError(msg)
+        setMessages((m) => [...m, { id: `${Date.now()}-e`, role: "assistant", content: msg }])
+        return
+      }
       const assistantMsg: VaultMessage = { id: `${Date.now()}-a`, role: "assistant", content: res.content }
       setMessages((m) => [...m, assistantMsg])
     } catch (e) {

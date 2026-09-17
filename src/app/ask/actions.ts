@@ -12,6 +12,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { isRedirectError } from "next/dist/client/components/redirect-error"
 import {
   answerQuestion,
   classifyOperation,
@@ -70,6 +71,17 @@ export interface AuditOption {
   status: string
 }
 
+// Failure half of the ask-action contract. Production redacts anything thrown
+// across the Server Action boundary (client: "Minified React error #441"),
+// so failures return as data and the real message reaches the UI.
+export interface AskActionError {
+  type: "error"
+  error: string
+  conversationId?: string
+}
+
+export type AskActionResult = (ConversationResponse & { conversationId?: string }) | AskActionError
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
@@ -102,7 +114,22 @@ function estimatedCreditsFor(text: string, hasDocument: boolean): number {
   }
 }
 
-export async function askQuestionAction(input: AskInput): Promise<ConversationResponse & { conversationId?: string }> {
+export async function askQuestionAction(input: AskInput): Promise<AskActionResult> {
+  try {
+    return await askQuestionInner(input)
+  } catch (err) {
+    // Production redacts anything thrown across the action boundary into an
+    // opaque digest (client: "Minified React error #441"), so every failure
+    // mode returns as data instead. Curated messages pass through verbatim.
+    if (isRedirectError(err)) throw err
+    return {
+      type: "error",
+      error: publicErrorMessage(err, "I couldn't prepare your answer. Please try again — nothing was charged for this attempt."),
+    }
+  }
+}
+
+async function askQuestionInner(input: AskInput): Promise<ConversationResponse & { conversationId?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("You must be signed in to ask Dealenz.")

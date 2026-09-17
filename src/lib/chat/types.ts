@@ -31,7 +31,8 @@ export interface Thread {
 }
 
 // Helper to convert DB rows to ThreadMessage — handles both current plain rows
-// and future rich payloads stored in metadata.
+// and future rich payloads stored in metadata. Defensive coercion: a corrupt
+// row must never crash render (or hand React a non-renderable child).
 export function toThreadMessage(row: {
   id: string
   role: string
@@ -43,16 +44,16 @@ export function toThreadMessage(row: {
   created_at: string
 }): ThreadMessage {
   const meta = (row.metadata ?? {}) as Record<string, unknown>
-  const type = (meta.type as string) ?? "text"
+  const type = typeof meta.type === "string" && meta.type ? meta.type : "text"
   const payload = (meta.payload as Record<string, unknown> | undefined) ?? null
   return {
-    id: row.id,
-    role: row.role as "user" | "assistant",
-    content: row.content,
+    id: String(row.id ?? ""),
+    role: row.role === "user" ? "user" : "assistant",
+    content: typeof row.content === "string" ? row.content : String(row.content ?? ""),
     type,
     payload,
     operation: row.operation ?? null,
     intent: row.intent ?? null,
-    createdAt: row.created_at,
+    createdAt: typeof row.created_at === "string" && row.created_at ? row.created_at : new Date().toISOString(),
   }
 }

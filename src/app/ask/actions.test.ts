@@ -90,13 +90,19 @@ beforeEach(() => {
 describe("ask actions security", () => {
   it("rejects unauthenticated questions", async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null })
-    await expect(askQuestionAction({ text: "Hello" })).rejects.toThrow(/signed in/)
+    const res = await askQuestionAction({ text: "Hello" })
+    expect(res.type).toBe("error")
+    if (res.type !== "error") throw new Error("unreachable")
+    expect(res.error).toMatch(/signed in/)
     expect(answerQuestion).not.toHaveBeenCalled()
   })
 
   it("rejects unverified users", async () => {
     mockGetUser.mockResolvedValue({ data: { user: { ...mockUser, email_confirmed_at: null } }, error: null })
-    await expect(askQuestionAction({ text: "Hello" })).rejects.toThrow(/verify/)
+    const res = await askQuestionAction({ text: "Hello" })
+    expect(res.type).toBe("error")
+    if (res.type !== "error") throw new Error("unreachable")
+    expect(res.error).toMatch(/verify/)
     expect(answerQuestion).not.toHaveBeenCalled()
   })
 
@@ -106,8 +112,19 @@ describe("ask actions security", () => {
       if (table === "user_ai_consents") return consentedMock() as never
       return tableMock({ data: null, error: { message: "none" } }) as never
     })
-    await expect(askQuestionAction({ text: "Review this.", auditId: "audit-x" })).rejects.toThrow(/not found/)
+    const res = await askQuestionAction({ text: "Review this.", auditId: "audit-x" })
+    expect(res.type).toBe("error")
+    if (res.type !== "error") throw new Error("unreachable")
+    expect(res.error).toMatch(/not found/)
     expect(answerQuestion).not.toHaveBeenCalled()
+  })
+
+  it("returns empty input as data, never a throw (no #441)", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+    const res = await askQuestionAction({ text: "   " })
+    expect(res.type).toBe("error")
+    if (res.type !== "error") throw new Error("unreachable")
+    expect(res.error).toBe("A question is required.")
   })
 
   it("accepts owned audits and forwards only user content", async () => {
@@ -161,11 +178,12 @@ describe("ask actions security", () => {
       return tableMock({ data: { id: "audit-1" }, error: null }) as never
     })
     vi.mocked(answerQuestion).mockRejectedValueOnce(new Error("Gemini request failed - HTTP 503"))
-    const err = await askQuestionAction({ text: "Review this.", auditId: "audit-1" }).catch((e) => e)
-    expect(err).toBeInstanceOf(Error)
-    expect(String(err.message)).not.toMatch(/gemini/i)
-    expect(String(err.message)).not.toMatch(/503/)
-    expect(String(err.message)).toMatch(/nothing was charged/)
+    const res = await askQuestionAction({ text: "Review this.", auditId: "audit-1" })
+    expect(res.type).toBe("error")
+    if (res.type !== "error") throw new Error("unreachable")
+    expect(res.error).not.toMatch(/gemini/i)
+    expect(res.error).not.toMatch(/503/)
+    expect(res.error).toMatch(/nothing was charged/)
   })
 
   it("keeps provider credentials out of the client bundle", () => {    for (const file of ["src/components/ask/ask-client.tsx", "src/app/ask/page.tsx"]) {

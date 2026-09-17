@@ -32,6 +32,11 @@ export function LawyerHandoffReview({
     setError(null)
     try {
       const res = await createConsultationRequest(auditId, note, handoff as unknown as Record<string, unknown>)
+      if (!res.success || !res.status) {
+        setError(res.error ?? "Failed to submit request")
+        setSubmitting(false)
+        return
+      }
       onSubmitted(res.status)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to submit request")

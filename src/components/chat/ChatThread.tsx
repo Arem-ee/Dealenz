@@ -4,30 +4,13 @@ import { useEffect, useState } from "react"
 import { MessageList } from "./MessageList"
 import { Composer } from "./Composer"
 import type { ThreadMessage } from "@/lib/chat/types"
-import { getThreadMessages, postRichMessage } from "@/lib/chat/actions"
+import { getThreadMessages } from "@/lib/chat/actions"
 import { createClient } from "@/lib/supabase/client"
 
 export function ChatThread({ threadId, auditId, initialMessages }: { threadId: string; auditId?: string | null; initialMessages?: ThreadMessage[] }) {
   const [messages, setMessages] = useState<ThreadMessage[]>(initialMessages ?? [])
-  const [loading, setLoading] = useState(!initialMessages)
+  const [threadError, setThreadError] = useState<string | null>(null)
   const [dealMeta, setDealMeta] = useState<{ dealType: string | null; jurisdiction: string | null } | null>(null)
-
-  useEffect(() => {
-    if (initialMessages) return
-    let cancelled = false
-    setLoading(true)
-    getThreadMessages(threadId)
-      .then((msgs) => {
-        if (!cancelled) setMessages(msgs)
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [threadId, initialMessages])
 
   useEffect(() => {
     if (!auditId) return
@@ -49,10 +32,15 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   }, [auditId])
 
   const handleSent = () => {
-    getThreadMessages(threadId).then(setMessages).catch(() => {})
+    setThreadError(null)
+    getThreadMessages(threadId).then((res) => {
+      if (res.ok) setMessages(res.messages)
+      else setThreadError(res.error)
+    }).catch(() => setThreadError("We couldn't refresh these messages. Please try again."))
   }
 
   async function handleContextConfirm(messageId: string, corrections: Record<string, string>) {
+    setThreadError(null)
     try {
       const { confirmContext } = await import("@/app/audit/[id]/context-actions")
       // Use auditId if available
@@ -62,23 +50,44 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
           if (v.trim()) updates[k] = { value: v.trim() }
         }
         if (Object.keys(updates).length > 0) {
-          await confirmContext(auditId, updates as never)
+          const confirmed = await confirmContext(auditId, updates as never)
+          if (!confirmed.success) {
+            setThreadError(confirmed.error ?? "We couldn't confirm that context. Please try again.")
+            return
+          }
         }
         // Re-run analysis after confirmation
         const { analyzeAndPostRisk } = await import("@/lib/chat/actions")
-        await analyzeAndPostRisk(threadId, auditId)
+        const result = await analyzeAndPostRisk(threadId, auditId)
+        if (!result.ok) {
+          setThreadError(result.error)
+          return
+        }
         const msgs = await getThreadMessages(threadId)
-        setMessages(msgs)
+        if (msgs.ok) setMessages(msgs.messages)
+        else setThreadError(msgs.error)
       }
-    } catch {}
+    } catch {
+      setThreadError("We couldn't confirm that context. Please try again.")
+    }
   }
 
   async function handleDocumentGenerate(messageId: string, vars: Record<string, string>) {
     if (!auditId) return
-    const { generateDocumentAndPost } = await import("@/lib/chat/actions")
-    await generateDocumentAndPost(threadId, auditId, vars)
-    const msgs = await getThreadMessages(threadId)
-    setMessages(msgs)
+    setThreadError(null)
+    try {
+      const { generateDocumentAndPost } = await import("@/lib/chat/actions")
+      const generated = await generateDocumentAndPost(threadId, auditId, vars)
+      if (!generated.ok) {
+        setThreadError(generated.error)
+        return
+      }
+      const msgs = await getThreadMessages(threadId)
+      if (msgs.ok) setMessages(msgs.messages)
+      else setThreadError(msgs.error)
+    } catch {
+      setThreadError("We couldn't generate that document. Please try again.")
+    }
   }
 
   return (
@@ -99,7 +108,12 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
       )}
       <div className="flex-1 overflow-y-auto px-4 py-6">
         <div className="mx-auto max-w-3xl">
-          <MessageList messages={messages} isLoading={loading} onContextConfirm={handleContextConfirm} onDocumentGenerate={handleDocumentGenerate} />
+          {threadError && (
+            <div role="alert" className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-xs text-destructive">
+              {threadError}
+            </div>
+          )}
+          <MessageList messages={messages} onContextConfirm={handleContextConfirm} onDocumentGenerate={handleDocumentGenerate} />
         </div>
       </div>
       <div className="border-t border-border/60 bg-background p-4">

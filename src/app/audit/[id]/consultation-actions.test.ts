@@ -145,13 +145,19 @@ describe("retryAutoAssignment", () => {
 
   it("rejects unauthenticated callers without touching the database", async () => {
     state.opts.user = null
-    await expect(retryAutoAssignment(REQUEST_ID)).rejects.toThrow("signed in")
+    const res = await retryAutoAssignment(REQUEST_ID)
+    expect(res.success).toBe(false)
+    if (res.success) throw new Error("unreachable")
+    expect(res.error).toMatch("signed in")
     expect(mockRpc).not.toHaveBeenCalled()
   })
 
   it("rejects requests the caller does not own", async () => {
     state.opts.retryRequest = null
-    await expect(retryAutoAssignment(REQUEST_ID)).rejects.toThrow("not found")
+    const res = await retryAutoAssignment(REQUEST_ID)
+    expect(res.success).toBe(false)
+    if (res.success) throw new Error("unreachable")
+    expect(res.error).toMatch("not found")
     expect(mockRpc).not.toHaveBeenCalled()
   })
 })

@@ -8,20 +8,23 @@
 export const LINK_FLOW_PARAM = "flow"
 export const LINK_FLOW_VALUE = "link"
 
+// Canonical post-link destination (top-level Settings container).
+export const SETTINGS_PATH = "/settings"
+
 // Fixed callback path for the link flow. The client prefixes
 // window.location.origin; the path itself is server-owned, never
 // attacker-controlled.
-export const LINK_CALLBACK_PATH = "/auth/callback?flow=link&next=/dashboard/settings"
+export const LINK_CALLBACK_PATH = "/auth/callback?flow=link&next=/settings"
 
 // Internal destinations the OAuth callback may redirect to. Anything else
 // (external origins, protocol-relative URLs, javascript:/data:) falls back
 // to /dashboard. Keep in sync with actual app routes.
 const ALLOWED_NEXT_PATHS = new Set([
   "/dashboard",
-  "/dashboard/settings",
+  "/settings",
   "/dashboard/activity",
-  "/deals",
-  "/ask",
+  "/chat",
+  "/vault",
   "/billing",
   "/audit/new",
   "/lawyer-application",

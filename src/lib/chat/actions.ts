@@ -3,45 +3,73 @@
 import { createClient } from "@/lib/supabase/server"
 import { listMessages, addMessage, createConversation } from "@/lib/conversation/store"
 import { isGreeting } from "@/lib/conversation/classify"
+import { toActionFailure } from "@/lib/action-result"
 import { toThreadMessage, type ThreadMessage } from "./types"
 import { createHomeDeal } from "@/app/dashboard/home-actions"
 
-export async function getThreadMessages(threadId: string): Promise<ThreadMessage[]> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return []
-  const rows = await listMessages(supabase as never, user.id, threadId, 50)
-  return rows.map((r) => toThreadMessage(r as never))
+export type ThreadMessagesResult = { ok: true; messages: ThreadMessage[] } | { ok: false; error: string }
+export type PostMessageResult = { ok: true; message: ThreadMessage } | { ok: false; error: string }
+export type DealThreadResult = { ok: true; threadId: string; auditId: string } | { ok: false; error: string }
+export type RiskAnalysisResult = { ok: true; status: "done" | "failed" | "needs_confirm" } | { ok: false; error: string }
+export type DocumentDraftResult = { ok: true } | { ok: false; error: string }
+
+export async function getThreadMessages(threadId: string): Promise<ThreadMessagesResult> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: true, messages: [] }
+    const rows = await listMessages(supabase as never, user.id, threadId, 50)
+    return { ok: true, messages: rows.map((r) => toThreadMessage(r as never)) }
+  } catch (err) {
+    return toActionFailure(err, "We couldn't load these messages. Please refresh and try again.")
+  }
 }
 
-export async function postRichMessage(threadId: string, input: { type: string; payload: Record<string, unknown>; content: string; role?: "user" | "assistant" }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("Unauthorized")
-  const row = await addMessage(supabase as never, {
-    conversationId: threadId,
-    userId: user.id,
-    role: input.role ?? "assistant",
-    content: input.content,
-    metadata: { type: input.type, payload: input.payload },
-  })
-  return toThreadMessage(row as never)
+export async function postRichMessage(threadId: string, input: { type: string; payload: Record<string, unknown>; content: string; role?: "user" | "assistant" }): Promise<PostMessageResult> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, error: "You must be signed in." }
+    const row = await addMessage(supabase as never, {
+      conversationId: threadId,
+      userId: user.id,
+      role: input.role ?? "assistant",
+      content: input.content,
+      metadata: { type: input.type, payload: input.payload },
+    })
+    return { ok: true, message: toThreadMessage(row as never) }
+  } catch (err) {
+    return toActionFailure(err, "We couldn't post that message. Please try again.")
+  }
 }
 
-export async function createDealThread(text: string): Promise<{ threadId: string; auditId: string }> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("Unauthorized")
-  const { id: auditId } = await createHomeDeal(text, undefined)
-  const conv = await createConversation(supabase as never, user.id, { firstText: text, attachedAuditId: auditId })
-  await addMessage(supabase as never, { conversationId: conv.id, userId: user.id, role: "user", content: text })
-  return { threadId: conv.id, auditId }
+export async function createDealThread(text: string): Promise<DealThreadResult> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, error: "You must be signed in." }
+    const { id: auditId } = await createHomeDeal(text, undefined)
+    const conv = await createConversation(supabase as never, user.id, { firstText: text, attachedAuditId: auditId })
+    await addMessage(supabase as never, { conversationId: conv.id, userId: user.id, role: "user", content: text })
+    return { ok: true, threadId: conv.id, auditId }
+  } catch (err) {
+    return toActionFailure(err, "We couldn't start your deal. Please try again.")
+  }
 }
 
-export async function analyzeAndPostRisk(threadId: string, auditId: string) {
+export async function analyzeAndPostRisk(threadId: string, auditId: string): Promise<RiskAnalysisResult> {
+  try {
+    const inner = await analyzeAndPostRiskInner(threadId, auditId)
+    return { ok: true, status: inner.status }
+  } catch (err) {
+    return toActionFailure(err, "Risk analysis failed. Please try again — nothing was charged for this attempt.")
+  }
+}
+
+async function analyzeAndPostRiskInner(threadId: string, auditId: string): Promise<{ status: "done" | "failed" | "needs_confirm" }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("Unauthorized")
+  if (!user) throw new Error("You must be signed in.")
   const { analyzeDeal } = await import("@/app/audit/[id]/actions")
   const { parseContextEnvelope } = await import("@/lib/context/schema")
   const { data: audit } = await supabase.from("audits").select("context_envelope, deal_type, raw_input, structured_data").eq("id", auditId).eq("user_id", user.id).maybeSingle()
@@ -52,12 +80,14 @@ export async function analyzeAndPostRisk(threadId: string, auditId: string) {
   const gate = envelope ? (await import("@/lib/context/gate")).evaluateContextGate(envelope, (audit as { deal_type?: string })?.deal_type as never) : null
   if (gate && gate.state !== "READY") {
     const fields = [...gate.missingRequired, ...gate.unconfirmedRequired].slice(0, 3).map((k) => ({ key: k, label: k.replace(/([A-Z])/g, " $1").replace(/_/g, " "), value: String((envelope?.fields as Record<string, { value?: unknown }>)[k]?.value ?? ""), confidence: (envelope?.fields as Record<string, { confidence?: number }>)[k]?.confidence ?? 0 }))
-    await postRichMessage(threadId, { type: "context_confirm", payload: { fields }, content: "Quick check — is this right?" })
+    const posted = await postRichMessage(threadId, { type: "context_confirm", payload: { fields }, content: "Quick check — is this right?" })
+    if (!posted.ok) throw new Error(posted.error)
     return { status: "needs_confirm" as const }
   }
   const result = await analyzeDeal(auditId)
   if (!result.success || !result.riskReport) {
-    await postRichMessage(threadId, { type: "text", payload: {}, content: result.error ?? "Analysis failed." })
+    const posted = await postRichMessage(threadId, { type: "text", payload: {}, content: result.error ?? "Analysis failed." })
+    if (!posted.ok) throw new Error(posted.error)
     return { status: "failed" as const }
   }
   const findings = (result.deterministicFindings ?? []) as Array<{ finding?: { severity: string; summary: string; guidance?: string }; severity?: string; summary?: string; guidance?: string }>
@@ -69,7 +99,8 @@ export async function analyzeAndPostRisk(threadId: string, auditId: string) {
       return { severity: src.severity, summary: src.summary, whyItMatters: src.guidance }
     }),
   }
-  await postRichMessage(threadId, { type: "risk_report", payload, content: `Risk analysis complete: ${payload.riskLevel}` })
+  const riskPosted = await postRichMessage(threadId, { type: "risk_report", payload, content: `Risk analysis complete: ${payload.riskLevel}` })
+  if (!riskPosted.ok) throw new Error(riskPosted.error)
 
   // Lawyer-review trigger — dual condition, once per deal
   try {
@@ -100,11 +131,12 @@ export async function analyzeAndPostRisk(threadId: string, auditId: string) {
         if (fallback) should = true
       }
       if (should) {
-        await postRichMessage(threadId, {
+        const posted = await postRichMessage(threadId, {
           type: "lawyer_recommendation",
           payload: { auditId, threadId, reason: "This deal has meaningful stakes and an exposure pattern where a review would help. You can request a lawyer review when ready." },
           content: "Consider a lawyer review for this deal.",
         })
+        if (!posted.ok) throw new Error(posted.error)
         await supabase
           .from("audits")
           .update({ structured_data: { ...structured, lawyerReviewSuggested: true, lawyerReviewSuggestedAt: new Date().toISOString() }, updated_at: new Date().toISOString() })
@@ -117,12 +149,20 @@ export async function analyzeAndPostRisk(threadId: string, auditId: string) {
   return { status: "done" as const }
 }
 
-export async function generateDocumentAndPost(threadId: string, auditId: string, vars: Record<string, string> = {}) {
+export async function generateDocumentAndPost(threadId: string, auditId: string, vars: Record<string, string> = {}): Promise<DocumentDraftResult> {
+  try {
+    return await generateDocumentAndPostInner(threadId, auditId, vars)
+  } catch (err) {
+    return toActionFailure(err, "We couldn't generate that document. Please try again — nothing was charged for this attempt.")
+  }
+}
+
+async function generateDocumentAndPostInner(threadId: string, auditId: string, vars: Record<string, string> = {}): Promise<{ ok: true }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("Unauthorized")
+  if (!user) throw new Error("You must be signed in.")
   const { data: audit } = await supabase.from("audits").select("deal_type, context_envelope").eq("id", auditId).eq("user_id", user.id).maybeSingle()
-  if (!audit) throw new Error("Audit not found")
+  if (!audit) throw new Error("Deal not found.")
   const dealType = (audit as { deal_type?: string })?.deal_type ?? "generic"
   let payload: Record<string, unknown> = {}
   let content = "Document draft ready."
@@ -155,8 +195,9 @@ export async function generateDocumentAndPost(threadId: string, auditId: string,
         if (!effectiveJurisdiction) {
           payload = { title: families[0].title, preview: "", auditId, threadId, status: "needs_input", missingVars: ["jurisdiction"], vars }
           content = "Need jurisdiction to generate."
-          await postRichMessage(threadId, { type: "document_draft", payload, content })
-          return
+          const posted = await postRichMessage(threadId, { type: "document_draft", payload, content })
+          if (!posted.ok) throw new Error(posted.error)
+          return { ok: true }
         }
         const { generateBusinessOwnerDraft } = await import("@/app/audit/[id]/actions")
         const res = await generateBusinessOwnerDraft(auditId, familyId, effectiveJurisdiction, vars)
@@ -175,7 +216,9 @@ export async function generateDocumentAndPost(threadId: string, auditId: string,
     payload = { title: "Document", preview: msg, auditId, threadId, status: "error" }
     content = msg
   }
-  await postRichMessage(threadId, { type: "document_draft", payload, content })
+  const posted = await postRichMessage(threadId, { type: "document_draft", payload, content })
+  if (!posted.ok) throw new Error(posted.error)
+  return { ok: true }
 }
 
 export async function listThreads(): Promise<Array<{ id: string; title: string; auditId: string | null; updatedAt: string; preview?: string }>> {

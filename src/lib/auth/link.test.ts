@@ -4,8 +4,9 @@ import { isLinkFlow, LINK_CALLBACK_PATH, resolveNextPath } from "./link"
 describe("resolveNextPath", () => {
   it("accepts known internal destinations", () => {
     expect(resolveNextPath("/dashboard")).toBe("/dashboard")
-    expect(resolveNextPath("/dashboard/settings")).toBe("/dashboard/settings")
-    expect(resolveNextPath("/deals")).toBe("/deals")
+    expect(resolveNextPath("/settings")).toBe("/settings")
+    expect(resolveNextPath("/chat")).toBe("/chat")
+    expect(resolveNextPath("/vault")).toBe("/vault")
     expect(resolveNextPath("/lawyer-application")).toBe("/lawyer-application")
     expect(resolveNextPath("/lawyer-application/status")).toBe("/lawyer-application/status")
   })

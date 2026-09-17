@@ -55,12 +55,19 @@ async function tryAutoAssign(
   return { status: fromStatus, autoAssigned: false }
 }
 
-export async function createConsultationRequest(auditId: string, note: string, handoffSnapshot?: Record<string, unknown> | null) {
+export interface ConsultationResult {
+  success: boolean
+  status?: string
+  autoAssigned?: boolean
+  error?: string
+}
+
+export async function createConsultationRequest(auditId: string, note: string, handoffSnapshot?: Record<string, unknown> | null): Promise<ConsultationResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    throw new Error("You must be signed in to request a consultation")
+    return { success: false, error: "You must be signed in to request a consultation" }
   }
 
   const { data: audit, error: auditError } = await supabase
@@ -71,7 +78,7 @@ export async function createConsultationRequest(auditId: string, note: string, h
     .single()
 
   if (auditError || !audit) {
-    throw new Error("Audit not found")
+    return { success: false, error: "Deal not found." }
   }
 
   // Check if there's already a pending/active request for this audit
@@ -84,7 +91,7 @@ export async function createConsultationRequest(auditId: string, note: string, h
     .maybeSingle()
 
   if (existing) {
-    throw new Error("You already have an active consultation request for this audit")
+    return { success: false, error: "You already have an active consultation request for this audit" }
   }
 
   // Check if there are any verified lawyers
@@ -141,7 +148,7 @@ export async function createConsultationRequest(auditId: string, note: string, h
           userId: user.id,
           auditId,
         })
-        throw new Error(`Failed to create consultation request: ${retryError.message}`)
+        return { success: false, error: "We couldn't submit your review request. Please try again." }
       }
       const matched = await tryAutoAssign(supabase, retried.id, status, user.id, auditId)
       return { success: true, ...matched }
@@ -154,7 +161,7 @@ export async function createConsultationRequest(auditId: string, note: string, h
       userId: user.id,
       auditId,
     })
-    throw new Error(`Failed to create consultation request: ${error.message}`)
+    return { success: false, error: "We couldn't submit your review request. Please try again." }
   }
 
   const matched = await tryAutoAssign(supabase, created.id, status, user.id, auditId)
@@ -167,10 +174,10 @@ export async function createConsultationRequest(auditId: string, note: string, h
  * later, or a decliner frees the request, the owner (or admin exception
  * path) can retry matching without any job queue.
  */
-export async function retryAutoAssignment(requestId: string) {
+export async function retryAutoAssignment(requestId: string): Promise<ConsultationResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("You must be signed in to retry matching")
+  if (!user) return { success: false, error: "You must be signed in to retry matching" }
 
   const { data: request } = await supabase
     .from("consultation_requests")
@@ -178,7 +185,7 @@ export async function retryAutoAssignment(requestId: string) {
     .eq("id", requestId)
     .eq("user_id", user.id)
     .maybeSingle<{ id: string; audit_id: string; status: string }>()
-  if (!request) throw new Error("Review request not found")
+  if (!request) return { success: false, error: "Review request not found." }
   const matched = await tryAutoAssign(supabase, request.id, request.status, user.id, request.audit_id)
   return { success: true, ...matched }
 }

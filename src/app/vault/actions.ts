@@ -29,12 +29,16 @@ function findingsForAudit(audit: VaultAudit): Array<{ summary: string; severity:
     .filter((f) => f.summary)
 }
 
-export async function vaultChatAction(input: { text: string; conversationId?: string }) {
+export type VaultChatResult =
+  | { ok: true; content: string; matches: Array<{ id: string; title: string; dealType: string | null; updatedAt: string; riskLevel: string | null }> }
+  | { ok: false; error: string }
+
+export async function vaultChatAction(input: { text: string; conversationId?: string }): Promise<VaultChatResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("You must be signed in.")
+  if (!user) return { ok: false, error: "You must be signed in." } as const
   const text = input.text.trim()
-  if (!text) throw new Error("Message required.")
+  if (!text) return { ok: false, error: "Type a question about your vault first." } as const
 
   const { data: auditsRaw } = await supabase
     .from("audits")
@@ -58,7 +62,6 @@ export async function vaultChatAction(input: { text: string; conversationId?: st
     // Fallback: also check raw liabilityCap missing pattern
     if (matches.length === 0) {
       matches = audits.filter((a) => {
-        const sd = a.structured_data as Record<string, unknown> | null
         const findings = findingsForAudit(a)
         return findings.some((f) => (f.ruleKey ?? "").includes("liability"))
       })
@@ -87,7 +90,7 @@ export async function vaultChatAction(input: { text: string; conversationId?: st
   })
 
   const content = [answerPrefix, ...lines].join("\n")
-  return { content, matches: matches.map((m) => ({ id: m.id, title: m.title, dealType: m.deal_type, updatedAt: m.updated_at, riskLevel: (m.risk_report as { riskLevel?: string } | null)?.riskLevel ?? null })) }
+  return { ok: true, content, matches: matches.map((m) => ({ id: m.id, title: m.title, dealType: m.deal_type, updatedAt: m.updated_at, riskLevel: (m.risk_report as { riskLevel?: string } | null)?.riskLevel ?? null })) }
 }
 
 export async function getVaultList(search?: string) {

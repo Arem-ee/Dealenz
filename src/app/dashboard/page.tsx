@@ -9,11 +9,19 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return <div />
 
-  const threads = await listThreads().catch(() => [])
+  // Surface load failures honestly in the landing instead of pretending the
+  // user has no threads.
+  let threads: Awaited<ReturnType<typeof listThreads>> = []
+  let loadError: string | null = null
+  try {
+    threads = await listThreads()
+  } catch (err) {
+    loadError = err instanceof Error && err.message ? err.message : "Please refresh and try again."
+  }
 
   return (
-    <div className="min-h-[calc(100vh-3rem)] bg-background">
-      <ChatLanding threads={threads} />
+    <div className="flex h-[calc(100dvh-3rem)] flex-col bg-background">
+      <ChatLanding threads={threads} loadError={loadError} />
     </div>
   )
 }

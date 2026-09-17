@@ -8,9 +8,7 @@ import { useAiConsent } from "@/hooks/use-ai-consent"
 import { classifyInput } from "@/lib/chat/classifier"
 import { setPendingFile } from "@/lib/pending-file"
 import { askQuestionAction } from "@/app/ask/actions"
-import { publicErrorMessage } from "@/lib/safe-error"
 import { AiConsentModal } from "@/components/ai-consent-modal"
-import { createDealThread, analyzeAndPostRisk, generateDocumentAndPost } from "@/lib/chat/actions"
 
 interface ComposerProps {
   threadId?: string | null
@@ -31,86 +29,140 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
   const [pendingFile, setPendingFileLocal] = useState<File | null>(null)
   const hasContent = value.trim().length > 0 || !!pendingFile
 
-  async function doSend(text: string, hasDocument: boolean) {
+  async function doSend(text: string, hasDocument: boolean): Promise<boolean> {
     const { outcome } = classifyInput(text, hasDocument)
-    try {
-      if (outcome === "greeting") {
-        const res = await askQuestionAction({ text, idempotencyKey: crypto.randomUUID() })
-        const id = (res as { conversationId?: string }).conversationId
-        if (!threadId && id) router.push(`/chat/${id}`)
-        else onMessageSent?.()
-        return
+    if (outcome === "greeting" || outcome === "question") {
+      const res = await askQuestionAction({
+        text,
+        auditId: outcome === "question" ? auditId || undefined : undefined,
+        conversationId: outcome === "question" ? threadId || undefined : undefined,
+        idempotencyKey: crypto.randomUUID(),
+      })
+      if (res.type === "error") {
+        handleActionError(res.error, text, hasDocument)
+        return false
       }
-      if (outcome === "question") {
-        const res = await askQuestionAction({
-          text,
-          auditId: auditId || undefined,
-          conversationId: threadId || undefined,
-          idempotencyKey: crypto.randomUUID(),
-        })
-        const id = (res as { conversationId?: string }).conversationId
-        if (!threadId && id) router.push(`/chat/${id}`)
-        else onMessageSent?.()
-        return
-      }
-      if (outcome === "deal") {
-        if (threadId && auditId) {
-          const { analyzeAndPostRisk: postRisk } = await import("@/lib/chat/actions")
-          // Append deal content as user message already handled by doSend? For existing thread, post and analyze
-          const { postRichMessage } = await import("@/lib/chat/actions")
-          await postRichMessage(threadId, { type: "text", payload: {}, content: text, role: "user" })
-          await postRisk(threadId, auditId)
-          onMessageSent?.()
-          return
-        }
-        const { threadId: newThreadId, auditId: newAuditId } = await createDealThread(text)
-        await analyzeAndPostRisk(newThreadId, newAuditId)
-        router.push(`/chat/${newThreadId}`)
-        return
-      }
-      if (outcome === "action") {
-        if (auditId && threadId) {
-          const lower = text.toLowerCase()
-          if (lower.includes("lawyer") || lower.includes("attorney") || lower.includes("review")) {
-            const { postRichMessage } = await import("@/lib/chat/actions")
-            await postRichMessage(threadId, { type: "text", payload: {}, content: text, role: "user" })
-            const { createConsultationRequest } = await import("@/app/audit/[id]/consultation-actions")
-            try {
-              await createConsultationRequest(auditId, text)
-            } catch {}
-            const { postRichMessage: post } = await import("@/lib/chat/actions")
-            await post(threadId, { type: "text", payload: { threadId, auditId, link: `/review/${auditId}?threadId=${threadId}` }, content: `Lawyer review requested — [Open case file](/review/${auditId}?threadId=${threadId})` })
-            onMessageSent?.()
-            return
-          }
-          const { postRichMessage } = await import("@/lib/chat/actions")
-          await postRichMessage(threadId, { type: "text", payload: {}, content: text, role: "user" })
-          await generateDocumentAndPost(threadId, auditId, {})
-          onMessageSent?.()
-          return
-        }
-        const res = await askQuestionAction({
-          text,
-          auditId: auditId || undefined,
-          conversationId: threadId || undefined,
-          idempotencyKey: crypto.randomUUID(),
-        })
-        const id = (res as { conversationId?: string }).conversationId
-        if (!threadId && id) router.push(`/chat/${id}`)
-        else onMessageSent?.()
-        return
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : ""
-      if (msg.includes("CONSENT_REQUIRED")) {
-        setPendingText(text)
-        setPendingHasDocument(hasDocument)
-        setShowConsentModal(true)
-        setSending(false)
-        return
-      }
-      throw err
+      const id = res.conversationId
+      if (!threadId && id) router.push(`/chat/${id}`)
+      else onMessageSent?.()
+      return true
     }
+    if (outcome === "deal") {
+      if (threadId && auditId) {
+        const { postRichMessage } = await import("@/lib/chat/actions")
+        const posted = await postRichMessage(threadId, { type: "text", payload: {}, content: text, role: "user" })
+        if (!posted.ok) {
+          handleActionError(posted.error, text, hasDocument)
+          return false
+        }
+        const { analyzeAndPostRisk: postRisk } = await import("@/lib/chat/actions")
+        const result = await postRisk(threadId, auditId)
+        if (!result.ok) {
+          handleActionError(result.error, text, hasDocument)
+          return false
+        }
+        onMessageSent?.()
+        return true
+      }
+      const { createDealThread, analyzeAndPostRisk } = await import("@/lib/chat/actions")
+      const created = await createDealThread(text)
+      if (!created.ok) {
+        handleActionError(created.error, text, hasDocument)
+        return false
+      }
+      const result = await analyzeAndPostRisk(created.threadId, created.auditId)
+      if (!result.ok) {
+        handleActionError(result.error, text, hasDocument)
+        return false
+      }
+      router.push(`/chat/${created.threadId}`)
+      return true
+    }
+    if (outcome === "action") {
+      if (auditId && threadId) {
+        const lower = text.toLowerCase()
+        const { postRichMessage } = await import("@/lib/chat/actions")
+        if (lower.includes("lawyer") || lower.includes("attorney") || lower.includes("review")) {
+          const posted = await postRichMessage(threadId, { type: "text", payload: {}, content: text, role: "user" })
+          if (!posted.ok) {
+            handleActionError(posted.error, text, hasDocument)
+            return false
+          }
+          const { createConsultationRequest } = await import("@/app/audit/[id]/consultation-actions")
+          const request = await createConsultationRequest(auditId, text)
+          if (!request.success) {
+            // Never confirm a request that was not stored.
+            handleActionError(request.error ?? "We couldn't request lawyer review. Please try again.", text, hasDocument)
+            return false
+          }
+          const confirmed = await postRichMessage(threadId, { type: "text", payload: { threadId, auditId, link: `/review/${auditId}?threadId=${threadId}` }, content: `Lawyer review requested — [Open case file](/review/${auditId}?threadId=${threadId})` })
+          if (!confirmed.ok) {
+            handleActionError(confirmed.error, text, hasDocument)
+            return false
+          }
+          onMessageSent?.()
+          return true
+        }
+        const posted = await postRichMessage(threadId, { type: "text", payload: {}, content: text, role: "user" })
+        if (!posted.ok) {
+          handleActionError(posted.error, text, hasDocument)
+          return false
+        }
+        const { generateDocumentAndPost } = await import("@/lib/chat/actions")
+        const generated = await generateDocumentAndPost(threadId, auditId, {})
+        if (!generated.ok) {
+          handleActionError(generated.error, text, hasDocument)
+          return false
+        }
+        onMessageSent?.()
+        return true
+      }
+      const res = await askQuestionAction({
+        text,
+        auditId: auditId || undefined,
+        conversationId: threadId || undefined,
+        idempotencyKey: crypto.randomUUID(),
+      })
+      if (res.type === "error") {
+        handleActionError(res.error, text, hasDocument)
+        return false
+      }
+      const id = res.conversationId
+      if (!threadId && id) router.push(`/chat/${id}`)
+      else onMessageSent?.()
+      return true
+    }
+    // Unreachable: classifyInput covers every outcome. Fail closed (keep input).
+    return false
+  }
+
+  function handleActionError(message: string, text: string, hasDocument: boolean) {
+    if (message === "CONSENT_REQUIRED") {
+      setPendingText(text)
+      setPendingHasDocument(hasDocument)
+      setShowConsentModal(true)
+      return
+    }
+    setError(message)
+  }
+
+  async function reportSubmitFailure(err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err ?? "")
+    try {
+      // Anything below the action layer (expired session, redirect to login
+      // followed by an unparseable page, network drop) arrives here without a
+      // real message. If the browser holds no session, say so plainly.
+      const { createClient } = await import("@/lib/supabase/client")
+      const { data } = await createClient().auth.getSession()
+      if (!data.session) {
+        setError("Your session expired. Please sign in again.")
+        router.push("/login")
+        return
+      }
+    } catch {
+      // Session probe failed — fall through to the raw message.
+    }
+    setError(msg || "We couldn't send that. Please try again.")
   }
 
   async function handleSubmit() {
@@ -139,13 +191,14 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
     setSending(true)
     setError(null)
     try {
-      await doSend(text, hasDocument)
-      setValue("")
-      setPendingFileLocal(null)
-      setPendingFile(null)
+      const sent = await doSend(text, hasDocument)
+      if (sent) {
+        setValue("")
+        setPendingFileLocal(null)
+        setPendingFile(null)
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      setError(msg || "We couldn't send that. Please try again — " + msg)
+      await reportSubmitFailure(err)
     } finally {
       setSending(false)
     }
@@ -165,12 +218,14 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
       setSending(true)
       setError(null)
       try {
-        await doSend(text, hasDoc)
-        setValue("")
-        setPendingFileLocal(null)
-        setPendingFile(null)
+        const sent = await doSend(text, hasDoc)
+        if (sent) {
+          setValue("")
+          setPendingFileLocal(null)
+          setPendingFile(null)
+        }
       } catch (err) {
-        setError(publicErrorMessage(err, "We couldn't send that. Please try again."))
+        await reportSubmitFailure(err)
       } finally {
         setSending(false)
       }

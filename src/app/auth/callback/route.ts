@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { isLinkFlow, resolveNextPath } from "@/lib/auth/link"
+import { isLinkFlow, resolveNextPath, SETTINGS_PATH } from "@/lib/auth/link"
 
 function failure(req: NextRequest, forLinkFlow: boolean): NextResponse {
   // Generic failure in both flows: never reveal whether an account,
   // identity, or email exists.
-  const target = forLinkFlow ? "/dashboard/settings?error=link_failed" : "/login?error=auth_failed"
+  const target = forLinkFlow ? `${SETTINGS_PATH}?error=link_failed` : "/login?error=auth_failed"
   return NextResponse.redirect(new URL(target, req.url))
 }
 
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get("code")
   const forLinkFlow = isLinkFlow(searchParams)
-  const next = resolveNextPath(searchParams.get("next") ?? (forLinkFlow ? "/dashboard/settings" : "/dashboard"))
+  const next = resolveNextPath(searchParams.get("next") ?? (forLinkFlow ? SETTINGS_PATH : "/dashboard"))
 
   if (!code) {
     return failure(req, forLinkFlow)
