@@ -3,10 +3,11 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { FileText, ArrowLeft, Check, Clock, AlertTriangle, History, Send, Plus } from "lucide-react"
+import { FileText, ArrowLeft, Check, Clock, History, Send, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useToast } from "@/components/ui/toast"
 import { renderMarkdown } from "@/lib/markdown"
 
 interface VersionItem {
@@ -49,19 +50,24 @@ export function DocumentReader({
   const [counterpartyName, setCounterpartyName] = useState("")
   const [counterpartyEmail, setCounterpartyEmail] = useState("")
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [sideOpen, setSideOpen] = useState(false)
+  const { showError, showSuccess } = useToast()
+
+  function fail(message: string) {
+    // Real server message in a toast; success notices stay inline next to the action.
+    showError(message)
+  }
 
   const ownerSigner = signers.find((s) => s.partyLabel === "owner" || s.partyLabel === "Owner")
   const counterpartySigner = signers.find((s) => s.partyLabel !== "owner" && s.partyLabel !== "Owner")
 
   async function handleAddCounterparty() {
     if (!counterpartyName.trim() || !counterpartyEmail.trim()) {
-      setError("Enter name and email for counterparty")
+      fail("Enter name and email for counterparty")
       return
     }
     setBusy(true)
-    setError(null)
     try {
       const res = await fetch(`/api/document/${auditId}/invite`, {
         method: "POST",
@@ -71,9 +77,10 @@ export function DocumentReader({
       const data = await res.json()
       if (!data.success) throw new Error(data.error ?? "Failed to add counterparty")
       setNotice("Counterparty added. They will be notified when you send for signature.")
+      showSuccess("Counterparty added. They will be notified when you send for signature.", "Counterparty added")
       router.refresh()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed")
+      fail(e instanceof Error ? e.message : "Failed to add counterparty")
     } finally {
       setBusy(false)
     }
@@ -81,15 +88,15 @@ export function DocumentReader({
 
   async function handleSend() {
     setBusy(true)
-    setError(null)
     try {
       const res = await fetch(`/api/document/${auditId}/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ documentVersionId: selected?.id }) })
       const data = await res.json()
       if (!data.success) throw new Error(data.error ?? "Failed to send")
       setNotice("Sent for signature — counterparty notified.")
+      showSuccess("Sent for signature. The counterparty can now sign their link.", "Sent")
       router.refresh()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed")
+      fail(e instanceof Error ? e.message : "Failed to send")
     } finally {
       setBusy(false)
     }
@@ -98,15 +105,15 @@ export function DocumentReader({
   async function handleOwnerSign() {
     if (!ownerSigner) return
     setBusy(true)
-    setError(null)
     try {
       const res = await fetch(`/api/document/${auditId}/sign-owner`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ signerId: ownerSigner.id }) })
       const data = await res.json()
       if (!data.success) throw new Error(data.error ?? "Signing failed")
       setNotice("You signed. Counterparty has been notified.")
+      showSuccess("You signed. The counterparty can now sign.", "Signed")
       router.refresh()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Signing failed")
+      fail(e instanceof Error ? e.message : "Signing failed")
     } finally {
       setBusy(false)
     }
@@ -135,7 +142,7 @@ export function DocumentReader({
 
       <div className="mx-auto max-w-6xl px-4 py-6 grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
-          <div className="rounded-xl border bg-card p-6 prose prose-sm max-w-none">
+          <div className="rounded-xl border bg-card p-6 prose prose-sm max-w-none font-serif">
             {selected ? renderMarkdown(selected.content) : <p className="text-sm text-muted-foreground">No document versions yet. Generate a draft in chat first.</p>}
           </div>
           {executed && (
@@ -145,7 +152,19 @@ export function DocumentReader({
           )}
         </div>
 
-        <div className="space-y-4">
+        {/* Thin sidebar on desktop; collapsible section on mobile. */}
+        <div className="lg:hidden">
+          <button
+            type="button"
+            onClick={() => setSideOpen((v) => !v)}
+            aria-expanded={sideOpen}
+            className="flex w-full items-center justify-between rounded-xl border bg-card px-4 py-3 text-sm font-medium"
+          >
+            Details and signing
+            <span className="text-xs text-muted-foreground">{sideOpen ? "Hide" : "Show"}</span>
+          </button>
+        </div>
+        <div className={`space-y-4 ${sideOpen ? "block" : "hidden"} lg:block`}>
           <div className="rounded-xl border bg-card p-4">
             <h3 className="text-sm font-semibold flex items-center gap-2"><History className="h-4 w-4" /> Versions</h3>
             <div className="mt-3 space-y-1">
@@ -212,7 +231,6 @@ export function DocumentReader({
               </>
             )}
 
-            {error && <div className="mt-3 flex items-start gap-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive"><AlertTriangle className="h-4 w-4 shrink-0" /><span>{error}</span></div>}
             {notice && <div className="mt-3 rounded-md bg-success/10 p-2 text-xs text-success">{notice}</div>}
           </div>
 

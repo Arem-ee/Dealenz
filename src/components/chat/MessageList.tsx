@@ -13,11 +13,15 @@ export function MessageList({
   isLoading,
   onContextConfirm,
   onDocumentGenerate,
+  richMode = "inline",
 }: {
   messages: ThreadMessage[]
   isLoading?: boolean
   onContextConfirm?: (messageId: string, corrections: Record<string, string>) => void
   onDocumentGenerate?: (messageId: string, vars: Record<string, string>) => void
+  // "inline" renders rich cards in the scroll (mobile base). "hidden" skips
+  // them because the desktop split-pane panel shows the same payload.
+  richMode?: "inline" | "hidden"
 }) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -33,9 +37,14 @@ export function MessageList({
     )
   }
 
+  const showRich = richMode === "inline"
+
   return (
     <div className="space-y-4">
       {messages.map((m) => {
+        if (!showRich && (m.type === "risk_report" || m.type === "context_confirm" || m.type === "document_draft" || m.type === "document_draft_turn" || m.type === "lawyer_recommendation")) {
+          return null
+        }
         if (m.type === "risk_report") {
           return (
             <div key={m.id} className="flex justify-start">

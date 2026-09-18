@@ -11,13 +11,11 @@ import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { Loader2, Check, AlertCircle } from "lucide-react"
 
-type Section = "business" | "billing" | "notifications" | "integrations" | "security" | "team"
+type Section = "account" | "billing" | "security" | "team"
 
 const sections: { key: Section; label: string }[] = [
-  { key: "business", label: "Business Profile" },
+  { key: "account", label: "Account" },
   { key: "billing", label: "Billing" },
-  { key: "notifications", label: "Notifications" },
-  { key: "integrations", label: "Integrations" },
   { key: "security", label: "Security" },
   { key: "team", label: "Team" },
 ]
@@ -29,7 +27,7 @@ interface SettingsClientProps {
 }
 
 export default function SettingsClient({ initialProfile, email, googleConnected }: SettingsClientProps) {
-  const [activeSection, setActiveSection] = useState<Section>("business")
+  const [activeSection, setActiveSection] = useState<Section>("account")
   const [saving, setSaving] = useState(false)
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
 
@@ -78,7 +76,7 @@ export default function SettingsClient({ initialProfile, email, googleConnected 
       <div>
         <h1 className="text-lg font-semibold">Settings</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Manage your business profile, team, and integrations
+          Your account, billing, security, and team
         </p>
       </div>
 
@@ -101,7 +99,7 @@ export default function SettingsClient({ initialProfile, email, googleConnected 
         </nav>
 
         <div className="mt-6 lg:mt-0">
-          {activeSection === "business" && (
+          {activeSection === "account" && (
             <BusinessProfileSection
               businessName={businessName} onBusinessNameChange={setBusinessName}
               legalEntity={legalEntity} onLegalEntityChange={setLegalEntity}
@@ -121,8 +119,6 @@ export default function SettingsClient({ initialProfile, email, googleConnected 
             />
           )}
           {activeSection === "billing" && <BillingSection />}
-          {activeSection === "notifications" && <NotificationsSection />}
-          {activeSection === "integrations" && <IntegrationsSection />}
           {activeSection === "security" && <SecuritySection email={email} googleConnected={googleConnected} />}
           {activeSection === "team" && <TeamSection />}
         </div>
@@ -267,56 +263,6 @@ function BillingSection() {
         <Button variant="outline" size="sm" asChild>
           <Link href="/billing">Open billing</Link>
         </Button>
-      </div>
-    </SectionCard>
-  )
-}
-
-function NotificationsSection() {
-  return (
-    <SectionCard title="Notifications" description="Which events trigger alerts">
-      <div className="space-y-3">
-        {[
-          { label: "Risk flags raised", desc: "When AI detects a new risk pattern" },
-          { label: "Document viewed", desc: "When a client opens a proposal or contract" },
-          { label: "Document signed", desc: "When a client signs or accepts" },
-          { label: "Deal stage changes", desc: "When a deal moves to a new stage" },
-        ].map((item) => (
-          <div key={item.label} className="flex items-center justify-between rounded-lg border p-3 opacity-60">
-            <div>
-              <p className="text-sm font-medium">{item.label}</p>
-              <p className="text-xs text-muted-foreground">{item.desc}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-medium text-muted-foreground rounded-full border bg-muted px-1.5 py-0.5">Coming soon</span>
-              <div className="h-5 w-9 rounded-full bg-muted-foreground/20 cursor-not-allowed" title="Coming soon" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </SectionCard>
-  )
-}
-
-function IntegrationsSection() {
-  return (
-    <SectionCard title="Integrations" description="API keys and connected accounts">
-      <div className="space-y-3 text-sm text-muted-foreground">
-        <div className="flex items-center justify-between rounded-lg border p-3 opacity-60">
-          <div>
-            <p className="text-sm font-medium text-foreground">API Key</p>
-            <p className="text-xs text-muted-foreground">Access your data programmatically</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-medium text-muted-foreground rounded-full border bg-muted px-1.5 py-0.5">Coming soon</span>
-            <Button variant="outline" size="sm" disabled title="Coming soon">
-              Generate
-            </Button>
-          </div>
-        </div>
-        <p className="text-xs">
-          API access and webhook integrations are coming soon.
-        </p>
       </div>
     </SectionCard>
   )

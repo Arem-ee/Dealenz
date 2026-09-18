@@ -1,9 +1,44 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createClient as createServiceClient } from "@supabase/supabase-js"
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{10,200}$/
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
+
+// Default signing order is owner-first-then-counterparty. The counterparty
+// link stays valid, but a counterparty signature is refused while the owner
+// signer on the same document version is still pending. Owner signatures
+// themselves are never gated. This is enforced here (application layer);
+// the underlying RPCs remain the security boundary for identity and version.
+async function ownerStillPending(token: string): Promise<boolean> {
+  try {
+    const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!serviceUrl || !serviceKey) return false
+    const service = createServiceClient(serviceUrl, serviceKey)
+    const { data: me } = await service
+      .from("document_signers")
+      .select("audit_id, document_version_id, party_label")
+      .eq("token", token)
+      .maybeSingle()
+    const mine = me as { audit_id?: string; document_version_id?: string; party_label?: string } | null
+    if (!mine || mine.party_label === "owner" || mine.party_label === "Owner") return false
+    if (!mine.audit_id || !mine.document_version_id) return false
+    const { data: owner } = await service
+      .from("document_signers")
+      .select("id, status")
+      .eq("audit_id", mine.audit_id)
+      .eq("document_version_id", mine.document_version_id)
+      .in("party_label", ["owner", "Owner"])
+      .maybeSingle()
+    const ownerRow = owner as { status?: string } | null
+    return ownerRow?.status === "pending"
+  } catch {
+    // Ordering check is best-effort: never block signing on infra failure.
+    return false
+  }
+}
 
 export interface SignerView {
   signerName: string
@@ -56,6 +91,9 @@ export async function signInviteeDocument(token: string, name: string, email: st
   if (!cleanName || cleanName.length > 120) return { success: false, error: "Enter your full name" }
   if (!EMAIL_RE.test(cleanEmail) || cleanEmail.length > 254) {
     return { success: false, error: "Enter a valid email address" }
+  }
+  if (await ownerStillPending(token)) {
+    return { success: false, error: "The owner needs to sign first. You will be able to sign once they have." }
   }
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("sign_as_invitee", {

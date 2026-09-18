@@ -181,7 +181,7 @@ function RiskReportView({ report }: { report: RiskReport }) {
         <div className="flex items-center gap-4">
           <ScoreGauge score={report.overallScore} size="lg" />
           <div className="text-left">
-            <p className="text-sm text-muted-foreground">Deal Health Score</p>
+            <p className="text-sm text-muted-foreground">How this deal looks</p>
             <RiskBadge level={report.riskLevel} />
           </div>
         </div>

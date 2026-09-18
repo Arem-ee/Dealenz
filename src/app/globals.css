@@ -60,6 +60,10 @@
   --radius-xl: calc(var(--radius) + 6px);
   --font-sans: "Mona Sans Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  /* Document serif: actual report/document bodies (risk reports, generated
+   * drafts, the Document Reader). Interface chrome stays in Mona Sans. The
+   * serif/sans contrast signals "this is a real document." */
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Charter, Georgia, "Times New Roman", serif;
 }
 
 :root {

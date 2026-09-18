@@ -4,8 +4,8 @@ import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { SidebarNav } from "@/components/sidebar-nav"
-import { TopNav } from "@/components/top-nav"
 import { MobileNav } from "@/components/mobile-nav"
+import { getCreditBalanceForHome } from "@/app/dashboard/actions"
 import { resendVerification } from "@/app/login/actions"
 import { VerificationBanner } from "@/components/verification-banner"
 
@@ -90,11 +90,12 @@ export default async function DashboardLayout({
     .maybeSingle()
   const isLawyer = lawyerRow !== null
 
+  const creditBalance = await getCreditBalanceForHome()
+
   return (
     <div className="flex min-h-screen bg-background">
-      <SidebarNav email={email} businessName={businessName} isLawyer={isLawyer} />
+      <SidebarNav email={email} businessName={businessName} isLawyer={isLawyer} creditBalance={creditBalance} />
       <div className="flex flex-1 flex-col min-w-0 bg-background">
-        <TopNav />
         <main className="flex-1 pb-16 md:pb-0 bg-background">
           <VerificationBanner />
           {children}

@@ -65,8 +65,8 @@ export function RiskReportCard({ payload }: { payload: Record<string, unknown> }
                 <div className="px-4 pb-3 space-y-2">
                   {items.map((f, i) => (
                     <div key={i} className="rounded-lg border p-3 bg-card">
-                      <p className="text-sm font-medium">{f.summary}</p>
-                      {f.whyItMatters && <p className="mt-1 text-xs text-muted-foreground">Why it matters: {f.whyItMatters}</p>}
+                      <p className="font-serif text-sm font-medium leading-relaxed">{f.summary}</p>
+                      {f.whyItMatters && <p className="mt-1 font-serif text-xs leading-relaxed text-muted-foreground">Why it matters: {f.whyItMatters}</p>}
                       {f.guidance && <p className="mt-1 text-xs text-muted-foreground">What to do: {f.guidance}</p>}
                     </div>
                   ))}

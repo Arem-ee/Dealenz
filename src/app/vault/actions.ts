@@ -29,8 +29,18 @@ function findingsForAudit(audit: VaultAudit): Array<{ summary: string; severity:
     .filter((f) => f.summary)
 }
 
+export interface VaultMatch {
+  id: string
+  title: string
+  dealType: string | null
+  updatedAt: string
+  riskLevel: string | null
+  overallScore: number | null
+  topFinding: { summary: string; severity: string } | null
+}
+
 export type VaultChatResult =
-  | { ok: true; content: string; matches: Array<{ id: string; title: string; dealType: string | null; updatedAt: string; riskLevel: string | null }> }
+  | { ok: true; content: string; matches: VaultMatch[] }
   | { ok: false; error: string }
 
 export async function vaultChatAction(input: { text: string; conversationId?: string }): Promise<VaultChatResult> {
@@ -90,7 +100,26 @@ export async function vaultChatAction(input: { text: string; conversationId?: st
   })
 
   const content = [answerPrefix, ...lines].join("\n")
-  return { ok: true, content, matches: matches.map((m) => ({ id: m.id, title: m.title, dealType: m.deal_type, updatedAt: m.updated_at, riskLevel: (m.risk_report as { riskLevel?: string } | null)?.riskLevel ?? null })) }
+  return {
+    ok: true,
+    content,
+    matches: matches.map((m) => {
+      const findings = findingsForAudit(m)
+      const top = findings.find((f) => f.severity === "critical")
+        ?? findings.find((f) => f.severity === "material")
+        ?? findings[0]
+        ?? null
+      return {
+        id: m.id,
+        title: m.title,
+        dealType: m.deal_type,
+        updatedAt: m.updated_at,
+        riskLevel: (m.risk_report as { riskLevel?: string } | null)?.riskLevel ?? null,
+        overallScore: m.overall_score,
+        topFinding: top ? { summary: top.summary, severity: top.severity } : null,
+      }
+    }),
+  }
 }
 
 export async function getVaultList(search?: string) {

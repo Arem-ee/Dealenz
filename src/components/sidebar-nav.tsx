@@ -20,9 +20,10 @@ interface SidebarNavProps {
   email: string
   businessName?: string | null
   isLawyer?: boolean
+  creditBalance?: number | null
 }
 
-export function SidebarNav({ email, businessName, isLawyer = false }: SidebarNavProps) {
+export function SidebarNav({ email, businessName, isLawyer = false, creditBalance = null }: SidebarNavProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -100,7 +101,12 @@ export function SidebarNav({ email, businessName, isLawyer = false }: SidebarNav
               <Avatar className="h-6 w-6">
                 <AvatarFallback className="text-[10px] font-medium">{initials}</AvatarFallback>
               </Avatar>
-              <span className="truncate text-xs">{displayName}</span>
+              <span className="min-w-0 flex-1 text-left">
+                <span className="block truncate text-xs">{displayName}</span>
+                <span className="block text-[10px] text-muted-foreground/70">
+                  {typeof creditBalance === "number" ? `${creditBalance} credits` : email}
+                </span>
+              </span>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-48" align="start" side="right">

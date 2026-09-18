@@ -25,6 +25,7 @@ const ALLOWED_NEXT_PATHS = new Set([
   "/dashboard/activity",
   "/chat",
   "/vault",
+  "/library",
   "/billing",
   "/audit/new",
   "/lawyer-application",

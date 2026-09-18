@@ -4,6 +4,7 @@ import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowUp, FileUp, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/ui/toast"
 import { useAiConsent } from "@/hooks/use-ai-consent"
 import { classifyInput } from "@/lib/chat/classifier"
 import { setPendingFile } from "@/lib/pending-file"
@@ -20,14 +21,16 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
   const router = useRouter()
   const [value, setValue] = useState("")
   const [sending, setSending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [showConsentModal, setShowConsentModal] = useState(false)
   const [pendingText, setPendingText] = useState<string | null>(null)
   const [pendingHasDocument, setPendingHasDocument] = useState(false)
+  const { showError } = useToast()
   const { consented: aiConsented, consenting, grant: grantConsent } = useAiConsent()
   const fileRef = useRef<HTMLInputElement>(null)
   const [pendingFile, setPendingFileLocal] = useState<File | null>(null)
   const hasContent = value.trim().length > 0 || !!pendingFile
+
+  const [ephemeral, setEphemeral] = useState<Array<{ role: "user" | "assistant"; content: string }>>([])
 
   async function doSend(text: string, hasDocument: boolean): Promise<boolean> {
     const { outcome } = classifyInput(text, hasDocument)
@@ -44,7 +47,11 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
       }
       const id = res.conversationId
       if (!threadId && id) router.push(`/chat/${id}`)
-      else onMessageSent?.()
+      else if (!id && res.type === "answer") {
+        // Free inline answer (e.g. greeting): no thread was created, so show
+        // the exchange ephemerally instead of navigating anywhere.
+        setEphemeral((prev) => [...prev.slice(-3), { role: "user", content: text }, { role: "assistant", content: res.text }])
+      } else onMessageSent?.()
       return true
     }
     if (outcome === "deal") {
@@ -82,7 +89,7 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
       if (auditId && threadId) {
         const lower = text.toLowerCase()
         const { postRichMessage } = await import("@/lib/chat/actions")
-        if (lower.includes("lawyer") || lower.includes("attorney") || lower.includes("review")) {
+        if (lower.includes("lawyer") || lower.includes("attorney")) {
           const posted = await postRichMessage(threadId, { type: "text", payload: {}, content: text, role: "user" })
           if (!posted.ok) {
             handleActionError(posted.error, text, hasDocument)
@@ -143,7 +150,8 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
       setShowConsentModal(true)
       return
     }
-    setError(message)
+    // Real server message, surfaced as a toast (never a minified digest).
+    showError(message)
   }
 
   async function reportSubmitFailure(err: unknown) {
@@ -155,14 +163,14 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
       const { createClient } = await import("@/lib/supabase/client")
       const { data } = await createClient().auth.getSession()
       if (!data.session) {
-        setError("Your session expired. Please sign in again.")
+        showError("Your session expired. Please sign in again.")
         router.push("/login")
         return
       }
     } catch {
       // Session probe failed — fall through to the raw message.
     }
-    setError(msg || "We couldn't send that. Please try again.")
+    showError(msg || "We couldn't send that. Please try again.")
   }
 
   async function handleSubmit() {
@@ -189,7 +197,6 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
       }
     }
     setSending(true)
-    setError(null)
     try {
       const sent = await doSend(text, hasDocument)
       if (sent) {
@@ -207,7 +214,7 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
   async function handleConsentConfirm() {
     const ok = await grantConsent()
     if (!ok) {
-      setError("Failed to save consent. Please try again — server did not confirm.")
+      showError("Failed to save consent. Please try again — server did not confirm.")
       return
     }
     setShowConsentModal(false)
@@ -216,7 +223,6 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
     setPendingText(null)
     if (text) {
       setSending(true)
-      setError(null)
       try {
         const sent = await doSend(text, hasDoc)
         if (sent) {
@@ -252,6 +258,23 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
 
   return (
     <>
+      {ephemeral.length > 0 && (
+        <div className="mb-3 space-y-2" aria-live="polite">
+          {ephemeral.map((m, i) => (
+            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={
+                  m.role === "user"
+                    ? "max-w-[85%] rounded-2xl bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground"
+                    : "max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm leading-relaxed"
+                }
+              >
+                <p className="whitespace-pre-wrap">{m.content}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <div
         className="rounded-2xl border border-border/60 bg-card shadow-raised overflow-hidden"
         onDragOver={(e) => e.preventDefault()}
@@ -302,7 +325,6 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
           </button>
           <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground/60">Enter to send · Shift+Enter for new line</span>
           <div className="ml-auto flex items-center gap-2">
-            {error && <span role="alert" className="text-xs text-destructive max-w-[180px] truncate">{error}</span>}
             <Button size="icon" onClick={() => void handleSubmit()} disabled={!hasContent || sending} aria-label={sending ? "Sending" : "Send"} className="h-8 w-8 rounded-full">
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
             </Button>

@@ -16,6 +16,7 @@ import { isRedirectError } from "next/dist/client/components/redirect-error"
 import {
   answerQuestion,
   classifyOperation,
+  DETERMINISTIC_GREETING,
   isGreeting,
   type ConversationResponse,
   type HistoryTurn,
@@ -135,6 +136,27 @@ async function askQuestionInner(input: AskInput): Promise<ConversationResponse &
   if (!user) throw new Error("You must be signed in to ask Dealenz.")
   if (!user.email_confirmed_at) throw new Error("Please verify your email address before using this feature.")
   if (!input.text || !input.text.trim()) throw new Error("A question is required.")
+  // Greetings are a free inline answer with no thread ceremony: no
+  // conversation row, no persisted turns, no credits, no consent prompt.
+  if (isGreeting(input.text)) {
+    return {
+      type: "answer",
+      text: DETERMINISTIC_GREETING,
+      operation: "conversation",
+      intent: "explore",
+      findingsUsed: [],
+      knowledgeSources: [],
+      legalCitations: [],
+      researchState: null,
+      legalLimitations: null,
+      requiresLawyerReview: false,
+      deterministic: true,
+      usageRecord: null,
+      creditsConsumed: null,
+      balance: null,
+      contractViolations: [],
+    }
+  }
   // Ownership gate for attached documents: a row the user cannot see through
   // RLS is treated as missing, and the request is rejected, never degraded.
   if (input.auditId) {

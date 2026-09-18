@@ -1,6 +1,22 @@
 import { describe, it, expect } from "vitest"
-import { parsePersistedFindings } from "./findings-panel"
+import type { RuleResult } from "@/lib/rules/result"
 import { makeEvidence, checkEvidence } from "@/lib/evidence/schema"
+
+// Local copy of the persisted-findings guard formerly co-located with the
+// deleted workspace findings panel: only well-formed rule results survive.
+function isRuleResult(value: unknown): value is RuleResult {
+  if (typeof value !== "object" || value === null) return false
+  const record = value as Record<string, unknown>
+  return (
+    typeof record.ruleKey === "string" &&
+    (record.status === "PASS" || record.status === "FAIL" || record.status === "UNKNOWN")
+  )
+}
+
+function parsePersistedFindings(raw: unknown): RuleResult[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter(isRuleResult)
+}
 import { inspectEvidence } from "@/lib/evidence/inspect"
 import { evaluateApplicableRules, clearRegistry } from "@/lib/rules/registry"
 import { deriveFreelanceFacts } from "@/lib/verticals/freelance/facts"

@@ -1,5 +1,5 @@
 import type { ComponentType } from "react"
-import { LayoutDashboard, History, Settings, Vault } from "lucide-react"
+import { LayoutDashboard, Settings, Library, ReceiptText, LifeBuoy } from "lucide-react"
 
 export interface NavEntry {
   label: string
@@ -9,21 +9,23 @@ export interface NavEntry {
 
 /**
  * Single customer information architecture — chat-first.
- * Home is the chat landing (composer + recent threads). Deals is folded into
- * Home (same thread list), so no separate Deals nav item. Ask is just the
- * composer (classifier), not a destination. Vault is the Vault chat.
- * Billing is inside Settings.
+ * Home is the chat landing (composer + recent threads). Library is
+ * natural-language search over the user's deals with structured results.
+ * Ask is just the composer (classifier), not a destination.
+ * The sidebar holds only these two primary items; everything account-level
+ * lives in the account dropdown at the bottom.
  */
 export const PRIMARY_NAV: NavEntry[] = [
   { label: "Home", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Vault", href: "/vault", icon: Vault },
-  { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Library", href: "/library", icon: Library },
 ]
 
 export const SECONDARY_NAV: NavEntry[] = []
 
 export const ACCOUNT_NAV: NavEntry[] = [
-  { label: "Activity", href: "/dashboard/activity", icon: History },
+  { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Billing", href: "/billing", icon: ReceiptText },
+  { label: "Get help", href: "/help", icon: LifeBuoy },
 ]
 
 /** True when the pathname belongs to the entry (covers nested routes). */
@@ -39,9 +41,10 @@ export function titleFor(pathname: string): string {
   if (pathname.startsWith("/review")) return "Review"
   if (pathname.startsWith("/audit")) return "Deal"
   if (pathname.startsWith("/deals")) return "Deals"
-  if (pathname.startsWith("/vault")) return "Vault"
+  if (pathname.startsWith("/library") || pathname.startsWith("/vault")) return "Library"
   if (pathname.startsWith("/settings")) return "Settings"
   if (pathname.startsWith("/billing")) return "Billing"
+  if (pathname === "/help") return "Get help"
   if (pathname.startsWith("/clients")) return "Clients"
   if (pathname.startsWith("/templates")) return "Templates"
   if (pathname.startsWith("/risk-intelligence")) return "Risk Intelligence"

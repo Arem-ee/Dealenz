@@ -7,6 +7,13 @@ import type { AIOperation } from "@/lib/ai/operations"
 
 export type InputOutcome = "greeting" | "question" | "deal" | "action"
 
+// Explicit in-chat actions. Kept tight on purpose: phrases like "review
+// this" or "sign" usually mean "analyze my deal", which is the deal path —
+// only unambiguous commands ("generate a proposal", "get a lawyer") route
+// to the in-chat action handlers.
+const EXPLICIT_ACTION_RE =
+  /\b(generate|create|prepare|write)\s+(a\s+|this\s+|that\s+|the\s+)?proposal\b|\b(get|need|want|have)\s+(a\s+)?(lawyer|attorney)\b|\blawyer\s+review\b/i
+
 export function classifyInput(text: string, hasDocument: boolean): { outcome: InputOutcome; operation: AIOperation } {
   if (hasDocument) {
     return { outcome: "deal", operation: "document_analysis" }
@@ -15,6 +22,9 @@ export function classifyInput(text: string, hasDocument: boolean): { outcome: In
     return { outcome: "greeting", operation: "conversation" }
   }
   const op = classifyOperation(text, hasDocument)
+  if (EXPLICIT_ACTION_RE.test(text)) {
+    return { outcome: "action", operation: op }
+  }
   if (op === "document_analysis" || op === "proposal") {
     return { outcome: "deal", operation: op }
   }
@@ -22,12 +32,6 @@ export function classifyInput(text: string, hasDocument: boolean): { outcome: In
     return { outcome: "deal", operation: op }
   }
   if (op === "drafting" || op === "negotiation" || op === "comparison" || op === "decision_support" || op === "explanation") {
-    // Without a document, treat as question unless explicitly deal-like text
-    // For now, questions go to Ask pipeline; explicit actions (later phases) will be "action"
-    // Detect explicit action phrases for future phases
-    if (/\b(generate.*proposal|get.*lawyer|review this|sign)\b/i.test(text)) {
-      return { outcome: "action", operation: op }
-    }
     return { outcome: "question", operation: op }
   }
   return { outcome: "question", operation: op }

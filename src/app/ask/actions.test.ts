@@ -61,6 +61,7 @@ vi.mock("@/lib/conversation/request", async (importOriginal) => {
 })
 
 import { answerQuestion } from "@/lib/conversation/request"
+import { createConversation, addMessage } from "@/lib/conversation/store"
 
 function tableMock(singleResult: unknown) {
   const builder: Record<string, unknown> = {}
@@ -127,13 +128,28 @@ describe("ask actions security", () => {
     expect(res.error).toBe("A question is required.")
   })
 
+  it("answers greetings inline with no thread ceremony", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+    const response = await askQuestionAction({ text: "Hello" })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    expect(response.deterministic).toBe(true)
+    expect(response.conversationId).toBeUndefined()
+    expect(answerQuestion).not.toHaveBeenCalled()
+    expect(createConversation).not.toHaveBeenCalled()
+    expect(addMessage).not.toHaveBeenCalled()
+  })
+
   it("accepts owned audits and forwards only user content", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
-    mockFrom.mockImplementation(() => tableMock({ data: { id: "audit-1" }, error: null }))
-    const response = await askQuestionAction({ text: "Hello", auditId: "audit-1", history: [] })
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_ai_consents") return consentedMock() as never
+      return tableMock({ data: { id: "audit-1" }, error: null }) as never
+    })
+    const response = await askQuestionAction({ text: "Please review this deal", auditId: "audit-1", history: [] })
     expect(response.type).toBe("answer")
     const call = vi.mocked(answerQuestion).mock.calls[0][0]
-    expect(call.text).toBe("Hello")
+    expect(call.text).toBe("Please review this deal")
     expect(call.auditId).toBe("audit-1")
     expect(call).not.toHaveProperty("creditsConsumed")
     expect(call).not.toHaveProperty("provider")
@@ -142,9 +158,12 @@ describe("ask actions security", () => {
 
   it("ignores client-supplied credit fields instead of trusting them", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
-    mockFrom.mockImplementation(() => tableMock({ data: { id: "audit-1" }, error: null }))
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_ai_consents") return consentedMock() as never
+      return tableMock({ data: { id: "audit-1" }, error: null }) as never
+    })
     const response = await askQuestionAction({
-      text: "Hello",
+      text: "Please review this deal",
       creditsConsumed: 0,
       provider: "cheap-model",
     } as unknown as { text: string })
@@ -156,9 +175,12 @@ describe("ask actions security", () => {
 
   it("ignores client-supplied evidence and ownership instead of trusting them", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
-    mockFrom.mockImplementation(() => tableMock({ data: { id: "audit-1" }, error: null }))
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_ai_consents") return consentedMock() as never
+      return tableMock({ data: { id: "audit-1" }, error: null }) as never
+    })
     await askQuestionAction({
-      text: "Hello",
+      text: "Please review this deal",
       auditId: "audit-1",
       findingsUsed: [{ ruleKey: "fake", summary: "Fake.", severity: "critical" }],
       knowledgeSources: [{ itemKey: "fake" }],

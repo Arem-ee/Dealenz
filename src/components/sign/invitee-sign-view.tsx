@@ -5,6 +5,7 @@ import { FileText, Check, Loader2, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useToast } from "@/components/ui/toast"
 import { renderMarkdown } from "@/lib/markdown"
 import { signInviteeDocument, declineInviteeDocument, type SignerView } from "@/app/sign/[token]/actions"
 
@@ -16,21 +17,21 @@ export function InviteeSignView({ token, initial }: { token: string; initial: Si
   const [name, setName] = useState(initial.signerName)
   const [email, setEmail] = useState(initial.signerEmail)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [declined, setDeclined] = useState(false)
+  const { showError, showSuccess } = useToast()
 
   async function handleSign() {
     setBusy(true)
-    setError(null)
     try {
       const res = await signInviteeDocument(token, name, email)
       if (!res.success) {
-        setError(res.error ?? "Signing failed")
+        showError(res.error ?? "Signing failed")
         return
       }
+      showSuccess("Your signature was recorded.", "Signed")
       setView({ ...view, signStatus: "signed", signedAt: new Date().toISOString() })
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Signing failed")
+      showError(e instanceof Error ? e.message : "Signing failed")
     } finally {
       setBusy(false)
     }
@@ -38,16 +39,15 @@ export function InviteeSignView({ token, initial }: { token: string; initial: Si
 
   async function handleDecline() {
     setBusy(true)
-    setError(null)
     try {
       const res = await declineInviteeDocument(token)
       if (!res.success) {
-        setError(res.error ?? "Request failed")
+        showError(res.error ?? "Request failed")
         return
       }
       setDeclined(true)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Request failed")
+      showError(e instanceof Error ? e.message : "Request failed")
     } finally {
       setBusy(false)
     }
@@ -106,12 +106,6 @@ export function InviteeSignView({ token, initial }: { token: string; initial: Si
                 <Input id="sign-email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               </div>
             </div>
-            {error && (
-              <div className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-xs text-destructive">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
             <div className="flex gap-2">
               <Button onClick={() => void handleSign()} disabled={busy}>
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

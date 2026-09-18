@@ -59,5 +59,14 @@ export async function createAudit(template?: string, dealTypeInput?: string) {
     throw new Error(`Failed to create audit: ${error?.message ?? "unknown error"}`)
   }
 
-  redirect(`/audit/${data.id}`)
+  // Chat-first: a new deal opens as a thread, not the old workspace view.
+  const { createConversation } = await import("@/lib/conversation/store")
+  const conv = await createConversation(supabase as never, user.id, {
+    firstText: "New Deal",
+    attachedAuditId: data.id,
+  }).catch(() => null)
+  if (!conv) {
+    throw new Error("Deal created, but we couldn't open its chat. Please try again from Home.")
+  }
+  redirect(`/chat/${conv.id}`)
 }
