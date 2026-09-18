@@ -11,6 +11,9 @@ import { getThreadMessages } from "@/lib/chat/actions"
 import { createClient } from "@/lib/supabase/client"
 import { getOpenItemsFromConversation } from "@/lib/open-items"
 import { AlertCircle, ChevronDown, ChevronUp } from "lucide-react"
+import { PlanPreview } from "@/components/work/PlanPreview"
+import { ExecutionProgress } from "@/components/work/ExecutionProgress"
+import type { PlanRow, PlanStepRow, WorkExecutionRow } from "@/lib/work/schema"
 
 export function ChatThread({ threadId, auditId, initialMessages }: { threadId: string; auditId?: string | null; initialMessages?: ThreadMessage[] }) {
   const isDesktop = useIsDesktop()
@@ -20,6 +23,11 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   const [dealMeta, setDealMeta] = useState<{ dealType: string | null; jurisdiction: string | null } | null>(null)
   const [openItems, setOpenItems] = useState<{ items: Array<{ id: string; title: string; severity: string; category: string; summary?: string; guidance?: string }>; counts: { total: number; critical: number; material: number; attention: number; informational: number } }>({ items: [], counts: { total: 0, critical: 0, material: 0, attention: 0, informational: 0 } })
   const [openItemsExpanded, setOpenItemsExpanded] = useState(false)
+  const [workPlan, setWorkPlan] = useState<PlanRow | null>(null)
+  const [workSteps, setWorkSteps] = useState<PlanStepRow[]>([])
+  const [workExecution, setWorkExecution] = useState<WorkExecutionRow | null>(null)
+  const [planLoading, setPlanLoading] = useState(false)
+  const [analysisUsage, setAnalysisUsage] = useState<{ count: number; limit: number } | null>(null)
 
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
@@ -52,6 +60,107 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
       })
   }, [auditId, messages])
 
+  // Work plan — fetch latest plan for this thread (work-first)
+  const refreshWorkPlan = async () => {
+    if (!threadId) return
+    setPlanLoading(true)
+    try {
+      const { getLatestPlanForThread } = await import("@/lib/work/actions")
+      const res = await getLatestPlanForThread(threadId)
+      if (res.ok && res.plan) {
+        setWorkPlan(res.plan)
+        setWorkSteps(res.steps)
+        setWorkExecution(res.execution)
+      } else {
+        setWorkPlan(null)
+        setWorkSteps([])
+        setWorkExecution(null)
+      }
+      // Live usage awareness — authoritative server-side source, frontend not authoritative
+      try {
+        const { getAnalysisUsage } = await import("@/lib/work/actions")
+        const usageRes = await getAnalysisUsage()
+        if (usageRes.ok) setAnalysisUsage({ count: usageRes.count, limit: usageRes.limit })
+      } catch {}
+    } catch {
+      // keep previous
+    } finally {
+      setPlanLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void refreshWorkPlan()
+  }, [threadId, messages.length])
+
+  const handlePlanApprove = async (planId: string) => {
+    try {
+      const { approveWorkPlan, executeApprovedPlan } = await import("@/lib/work/actions")
+      const idempotencyKey = crypto.randomUUID()
+      const appr = await approveWorkPlan(planId, idempotencyKey)
+      if (!appr.ok) {
+        fail(appr.error)
+        return
+      }
+      // Fetch approval id for execution
+      const { createClient } = await import("@/lib/supabase/client")
+      const supabase = createClient()
+      const { data: approval } = await supabase.from("work_approvals").select("id").eq("plan_id", planId).order("approved_at", { ascending: false }).limit(1).maybeSingle()
+      if (!approval) {
+        fail("Approval not found after approve")
+        return
+      }
+      const exec = await executeApprovedPlan(planId, (approval as { id: string }).id)
+      if (!exec.ok) {
+        fail(exec.error)
+        await refreshWorkPlan()
+        return
+      }
+      await refreshWorkPlan()
+      // Refresh conversation to show risk_report published by executor (one authoritative publication)
+      const msgs = await getThreadMessages(threadId)
+      if (msgs.ok) setMessages(msgs.messages)
+    } catch {
+      fail("We couldn't approve and execute that plan. Please try again.")
+    }
+  }
+
+  const handlePlanReject = async (planId: string) => {
+    try {
+      const { rejectWorkPlan } = await import("@/lib/work/actions")
+      const res = await rejectWorkPlan(planId)
+      if (!res.ok) fail(res.error)
+      await refreshWorkPlan()
+    } catch {
+      fail("We couldn't reject that plan. Please try again.")
+    }
+  }
+
+  const handlePlanResume = async (planId: string) => {
+    try {
+      const { resumeWorkPlan } = await import("@/lib/work/actions")
+      const res = await resumeWorkPlan(planId)
+      if (!res.ok) {
+        fail(res.error)
+        return
+      }
+      // After resume, re-execute with same approval
+      const { createClient } = await import("@/lib/supabase/client")
+      const supabase = createClient()
+      const { data: approval } = await supabase.from("work_approvals").select("id").eq("plan_id", planId).order("approved_at", { ascending: false }).limit(1).maybeSingle()
+      if (approval) {
+        const { executeApprovedPlan } = await import("@/lib/work/actions")
+        const exec = await executeApprovedPlan(planId, (approval as { id: string }).id)
+        if (!exec.ok) fail(exec.error)
+      }
+      await refreshWorkPlan()
+      const msgs = await getThreadMessages(threadId)
+      if (msgs.ok) setMessages(msgs.messages)
+    } catch {
+      fail("We couldn't resume that plan. Please try again.")
+    }
+  }
+
   function fail(message: string) {
     showError(message)
   }
@@ -66,7 +175,6 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   async function handleContextConfirm(messageId: string, corrections: Record<string, string>) {
     try {
       const { confirmContext } = await import("@/app/audit/[id]/context-actions")
-      // Use auditId if available
       if (auditId) {
         const updates: Record<string, { value: string }> = {}
         for (const [k, v] of Object.entries(corrections)) {
@@ -79,7 +187,29 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
             return
           }
         }
-        // Re-run analysis after confirmation
+        // If a work plan is in needs_input, resume it instead of direct analysis (preserves plan identity, hash, audit trail)
+        if (workPlan && workPlan.status === "needs_input") {
+          const { resumeWorkPlan } = await import("@/lib/work/actions")
+          const resumed = await resumeWorkPlan(workPlan.id)
+          if (!resumed.ok) {
+            fail(resumed.error)
+            return
+          }
+          // After resume, re-execute the approved plan (same approval, same payload_hash)
+          const { createClient } = await import("@/lib/supabase/client")
+          const supabase = createClient()
+          const { data: approval } = await supabase.from("work_approvals").select("id").eq("plan_id", workPlan.id).order("approved_at", { ascending: false }).limit(1).maybeSingle()
+          if (approval) {
+            const { executeApprovedPlan } = await import("@/lib/work/actions")
+            const exec = await executeApprovedPlan(workPlan.id, (approval as { id: string }).id)
+            if (!exec.ok) fail(exec.error)
+          }
+          await refreshWorkPlan()
+          const msgs = await getThreadMessages(threadId)
+          if (msgs.ok) setMessages(msgs.messages)
+          return
+        }
+        // Fallback: direct analysis for non-plan path (preserves existing callers)
         const { analyzeAndPostRisk } = await import("@/lib/chat/actions")
         const result = await analyzeAndPostRisk(threadId, auditId)
         if (!result.ok) {
@@ -183,6 +313,17 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
           </div>
         </div>
       )}
+      {/* Work plan — approval-gated, 0 credits + 5/day limit (mobile inline; desktop in work surface) */}
+      {!isDesktop && workPlan && (
+        <div className="mx-auto w-full max-w-3xl px-4 pb-3">
+          <PlanPreview plan={workPlan} steps={workSteps} usage={analysisUsage} onApprove={handlePlanApprove} onReject={handlePlanReject} onResume={handlePlanResume} />
+          {workExecution && workPlan.status !== "awaiting_approval" && (
+            <div className="mt-3">
+              <ExecutionProgress execution={workExecution} steps={workSteps} />
+            </div>
+          )}
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto px-4 py-6">
         <div className="mx-auto max-w-3xl">
           <MessageList
@@ -215,12 +356,26 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         paneKey={`thread-${threadId}`}
         primary={<div className="flex h-full min-h-0 flex-col">{conversation}</div>}
         panel={
-          <ThreadPanel
-            messages={messages}
-            auditId={auditId}
-            onContextConfirm={handleContextConfirm}
-            onDocumentGenerate={handleDocumentGenerate}
-          />
+          <div className="flex h-full min-h-0 flex-col">
+            {workPlan && (
+              <div className="shrink-0 border-b border-border/60 bg-card p-3">
+                <PlanPreview plan={workPlan} steps={workSteps} usage={analysisUsage} onApprove={handlePlanApprove} onReject={handlePlanReject} onResume={handlePlanResume} />
+                {workExecution && workPlan.status !== "awaiting_approval" && (
+                  <div className="mt-3">
+                    <ExecutionProgress execution={workExecution} steps={workSteps} />
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <ThreadPanel
+                messages={messages}
+                auditId={auditId}
+                onContextConfirm={handleContextConfirm}
+                onDocumentGenerate={handleDocumentGenerate}
+              />
+            </div>
+          </div>
         }
       />
     </div>

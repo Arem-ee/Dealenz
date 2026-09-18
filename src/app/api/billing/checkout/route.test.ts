@@ -17,6 +17,7 @@ vi.mock("@/lib/rate-limit", () => ({
 
 vi.mock("@/lib/billing/provider", () => ({
   getProviderAdapter: vi.fn(() => ({ createCheckoutSession: mockCreateSession })),
+  isPaddleConfigured: vi.fn(() => true),
 }))
 
 import { POST } from "./route"
@@ -72,5 +73,18 @@ describe("POST /api/billing/checkout", () => {
     mockCreateSession.mockRejectedValue(new Error("Paddle API down"))
     const res = await POST(req({ packageId: "starter", currency: "USD" }))
     expect(res.status).toBe(500)
+  })
+
+  it("fails closed with 503 on Vercel production when Paddle is unconfigured", async () => {
+    const { isPaddleConfigured } = await import("@/lib/billing/provider")
+    vi.mocked(isPaddleConfigured).mockReturnValueOnce(false)
+    process.env.VERCEL_ENV = "production"
+    try {
+      const res = await POST(req({ packageId: "starter", currency: "USD" }))
+      expect(res.status).toBe(503)
+      expect(mockCreateSession).not.toHaveBeenCalled()
+    } finally {
+      delete process.env.VERCEL_ENV
+    }
   })
 })

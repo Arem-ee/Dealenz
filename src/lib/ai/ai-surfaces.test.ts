@@ -53,8 +53,6 @@ const AI_ENV_KEYS = [
   "AUTH_AI_PROVIDER",
   "AUTH_AI_MODEL",
   "AUTH_AI_FALLBACK_MODEL",
-  "QUICK_REVIEW_AI_PROVIDER",
-  "QUICK_REVIEW_AI_MODEL",
   "AI_PROVIDER",
   "AI_API_KEY",
   "AI_BASE_URL",
@@ -189,31 +187,6 @@ describe("provider selection", () => {
     expect(config.fallbackModel).toBeUndefined()
   })
 
-  it("keeps Quick Review on the legacy path unless explicitly configured", () => {
-    vi.stubEnv("AI_PROVIDER", "openai_compatible")
-
-    const config = resolveSurfaceConfig("quick_review")
-    expect(config.provider).toBe("openai_compatible")
-    expect(config.fallbackModel).toBeUndefined()
-  })
-
-  it("lets Quick Review select its provider independently", async () => {
-    vi.stubEnv("QUICK_REVIEW_AI_PROVIDER", "gemini")
-    vi.stubEnv("QUICK_REVIEW_AI_MODEL", "gemini-2.0-flash")
-    vi.stubEnv("AI_API_KEY", "ci-dummy-key")
-
-    const config = resolveSurfaceConfig("quick_review")
-    expect(config.provider).toBe("gemini")
-    expect(config.model).toBe("gemini-2.0-flash")
-
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { candidates: [{ content: { parts: [{ text: "ok" }] } }] })
-    )
-    await callAIForSurface("quick_review", { systemPrompt: "s", userContent: "u" })
-
-    const [url] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(url).toContain("generativelanguage.googleapis.com")
-  })
 })
 
 describe("secret redaction", () => {
@@ -265,29 +238,6 @@ describe("surface routing regression", () => {
     expect(url).toBe("https://api.anthropic.com/v1/messages")
   })
 
-  it("routes Quick Review extraction through the legacy path, not Claude", async () => {
-    vi.stubEnv("AI_PROVIDER", "openai_compatible")
-    vi.stubEnv("AI_API_KEY", "ci-dummy-key")
-    vi.stubEnv("AI_BASE_URL", "https://integrate.api.nvidia.com/v1")
-    vi.stubEnv("AI_MODEL", "ci-dummy-model")
-    vi.stubEnv("ANTHROPIC_API_KEY", SENTINEL_KEY)
-
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { choices: [{ message: { content: VALID_EXTRACTION_JSON } }] })
-    )
-
-    const result = await extractAndValidate(
-      "Build a website with design and build phases",
-      "freelance",
-      "quick_review"
-    )
-
-    expect(result.valid).toBe(true)
-    const [url] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(url).toContain("/chat/completions")
-    expect(url).not.toContain("anthropic")
-  })
-
   it("marks usedFallback accurately when the authenticated fallback serves", async () => {
     stubAuthenticated()
     const extracted = {
@@ -308,32 +258,6 @@ describe("surface routing regression", () => {
 
     expect(usedFallback).toBe(true)
     expect(report.overallScore).toBe(80)
-  })
-
-  it("routes Quick Review generic analysis through the legacy path", async () => {
-    vi.stubEnv("AI_PROVIDER", "openai_compatible")
-    vi.stubEnv("AI_API_KEY", "ci-dummy-key")
-    vi.stubEnv("AI_BASE_URL", "https://integrate.api.nvidia.com/v1")
-    vi.stubEnv("AI_MODEL", "ci-dummy-model")
-    const extracted = {
-      goals: ["g"],
-      deliverables: ["d"],
-      timeline: null,
-      budget: null,
-      projectType: null,
-      clientSignals: [],
-      missingInformation: [],
-      confidence: 0.9,
-    }
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { choices: [{ message: { content: RISK_JSON } }] })
-    )
-
-    const result = await analyzeRiskForDealType(extracted, "generic", "quick_review")
-
-    expect(result.genericAnalysisUnavailable).toBe(false)
-    const [url] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(url).toContain("/chat/completions")
   })
 
   it("routes negotiation points through the authenticated provider by default", async () => {

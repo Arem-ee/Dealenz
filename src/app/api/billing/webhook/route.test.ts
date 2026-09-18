@@ -4,6 +4,7 @@ import { createHmac } from "node:crypto"
 
 const mockVerify = vi.hoisted(() => vi.fn())
 const inserts: Array<{ table: string; row: Record<string, unknown> }> = vi.hoisted(() => [])
+const updates: Array<{ table: string; row: Record<string, unknown> }> = vi.hoisted(() => [])
 const failLedger = vi.hoisted(() => ({ value: false }))
 const failPurchaseInsertDuplicate = vi.hoisted(() => ({ value: false }))
 const existingPurchase = vi.hoisted(() => ({ value: null as null | { status: string } }))
@@ -34,7 +35,10 @@ function tableMock(table: string) {
     }
     return Promise.resolve({ data: null, error: null })
   })
-  builder.update = vi.fn(() => builder)
+  builder.update = vi.fn((row: Record<string, unknown>) => {
+    updates.push({ table, row })
+    return builder
+  })
   builder.insert = vi.fn((row: Record<string, unknown>) => {
     inserts.push({ table, row })
     if (table === "credit_ledger" && failLedger.value) {
@@ -84,6 +88,7 @@ const OLD_ENV = { ...process.env }
 beforeEach(() => {
   vi.clearAllMocks()
   inserts.length = 0
+  updates.length = 0
   existingPurchase.value = null
   existingGrant.value = null
   process.env.PADDLE_WEBHOOK_SECRET = SECRET
@@ -183,6 +188,20 @@ describe("billing webhook (Paddle) fulfillment", () => {
     expect(grants[0].row.idempotency_key).toBe("purchase:txn_01test12345678901234567890ab")
   })
 
+  it("finalizes a pending purchase to succeeded and grants exactly once", async () => {
+    existingPurchase.value = { status: "pending" }
+    existingGrant.value = null
+    const res = await POST(reqWithSig(paddleBody()))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ received: true, credits: 150 })
+    const purchaseUpdates = updates.filter((u) => u.table === "credit_purchases")
+    expect(purchaseUpdates).toHaveLength(1)
+    expect(purchaseUpdates[0].row.status).toBe("succeeded")
+    const grants = inserts.filter((i) => i.table === "credit_ledger")
+    expect(grants).toHaveLength(1)
+    expect(grants[0].row.idempotency_key).toBe("purchase:txn_01test12345678901234567890ab")
+  })
+
   it("converges concurrent duplicate deliveries without a second provider retry", async () => {
     existingPurchase.value = null
     existingGrant.value = null
@@ -208,6 +227,13 @@ describe("billing webhook (Paddle) fulfillment", () => {
     const res = await POST(reqWithSig(paddleBody({ data: { id: "txn_01test12345678901234567890ab", status: "completed", customer_id: "ctm_01test", currency_code: "USD", custom_data: {}, items: [{ price: { id: "pri_standard_222" } }], details: { totals: { total: "4900", currency_code: "USD" } } } })))
     expect(res.status).toBe(400)
     expect(inserts.some((i) => i.table === "credit_ledger")).toBe(false)
+  })
+
+  it("returns 400 for non-UUID user attribution without credit mutation", async () => {
+    const res = await POST(reqWithSig(paddleBody({ data: { id: "txn_01test12345678901234567890ab", status: "completed", customer_id: "ctm_01test", currency_code: "USD", custom_data: { user_id: "not-a-uuid" }, items: [{ price: { id: "pri_standard_222" } }], details: { totals: { total: "4900", currency_code: "USD" } } } })))
+    expect(res.status).toBe(400)
+    expect(inserts.some((i) => i.table === "credit_ledger")).toBe(false)
+    expect(inserts.some((i) => i.table === "credit_purchases")).toBe(false)
   })
 
   it("rejects underpayment below the catalog floor", async () => {

@@ -32,8 +32,8 @@ Return a JSON object with exactly these fields:
 Rules:
 - goals: Extract explicit and implicit goals. 1-5 items.
 - deliverables: Extract specific deliverables mentioned. 1-10 items.
-- timeline: Exact quote or paraphrase. null if not mentioned.
-- budget: Exact quote or paraphrase. null if not mentioned.
+- timeline: Exact quote or paraphrase of all time terms; if multiple conflicting terms exist, list them verbatim separated by '; ', do not generalize or pick one. null if not mentioned.
+- budget: Exact quote or paraphrase of all money/payment terms; if multiple conflicting terms exist, list them verbatim separated by '; ', do not generalize or pick one. null if not mentioned.
 - projectType: Categorize the project. null if unclear.
 - clientSignals: Include both positive and negative signals.
 - missingInformation: List critical missing information for a complete project scope.
@@ -86,8 +86,8 @@ Return a JSON object with exactly these fields, matching the existing extraction
 Rules:
 - goals: List parties and intent. 1 to 5 items. Include both named parties and their apparent intent.
 - deliverables: List what is being agreed to. 1 to 10 items. Be specific to the input text.
-- timeline: Exact quote or paraphrase of time-bound language. null if no time terms appear.
-- budget: Exact quote or paraphrase of money language. null if no money terms appear.
+- timeline: Exact quote or paraphrase of all time-bound language; if multiple conflicting terms exist, list them verbatim separated by '; ', do not generalize or pick one. null if no time terms appear.
+- budget: Exact quote or paraphrase of all money language; if multiple conflicting terms exist, list them verbatim separated by '; ', do not generalize or pick one. null if no money terms appear.
 - projectType: Short agreement type label. null if unclear.
 - clientSignals: Include unusual or one-sided clauses, pressure language, and missing protections.
 - missingInformation: List what a careful reviewer would still need before signing.

@@ -1,11 +1,8 @@
 // Canonical deal-type normalization (Phase 22).
 //
-// Single home for the pure string→DealType mappings previously duplicated
+// Single home for the pure string→DealType mapping previously duplicated
 // across server-action modules (which cannot export sync helpers: "use
-// server" modules may only export async functions). Semantics preserved
-// exactly: unknown/unrecognized input falls back to freelance in
-// authenticated paths and to generic in the anonymous path — never to a
-// specialized vertical.
+// server" modules may only export async functions).
 
 export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership"
 
@@ -24,14 +21,4 @@ export function normalizeDealType(input: unknown): DealType {
   return "freelance"
 }
 
-export function normalizeAnonymousDealType(input?: string): DealType {
-  if (input === "freelance") return "freelance"
-  if (input === "lease") return "lease"
-  if (input === "purchase_sale") return "purchase_sale"
-  if (input === "employment") return "employment"
-  if (input === "founder") return "founder"
-  if (input === "partnership") return "partnership"
-  // Unknown or absent input takes the adaptive generic path, never a
-  // specialized vertical. The landing UI always sends an explicit value.
-  return "generic"
-}
+

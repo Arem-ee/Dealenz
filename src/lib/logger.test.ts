@@ -86,7 +86,7 @@ describe("reportAIFallback", () => {
   it("records unserved failures as error ai_failure", async () => {
     const db = dbClient()
     await reportAIFallback(db as never, {
-      surface: "quick_review",
+      surface: "authenticated",
       provider: "gemini",
       category: "auth",
       servedByFallback: false,

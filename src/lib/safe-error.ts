@@ -1,14 +1,3 @@
-export const ANONYMOUS_ANALYSIS_FAILURE =
-  "Analysis failed. Please try again with more detail about your deal."
-
-export function toAnonymousError(err: unknown): { publicMessage: string } {
-  console.error(
-    "[analyze-anonymous] failure:",
-    err instanceof Error ? err.name : typeof err
-  )
-  return { publicMessage: ANONYMOUS_ANALYSIS_FAILURE }
-}
-
 // Provider/internal markers that must never reach customers. Curated
 // product errors ("Deal not found.", "That doesn't look like a deal yet…")
 // contain none of these, so they pass through untouched.

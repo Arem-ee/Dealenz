@@ -62,24 +62,36 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
           handleActionError(posted.error, text, hasDocument)
           return false
         }
-        const { analyzeAndPostRisk: postRisk } = await import("@/lib/chat/actions")
-        const result = await postRisk(threadId, auditId)
-        if (!result.ok) {
-          handleActionError(result.error, text, hasDocument)
+        // Work-first: create bounded analysis plan (0 credits, 5/day limit) and request approval instead of direct analysis
+        const { createDealAnalysisPlan, requestApproval } = await import("@/lib/work/actions")
+        const created = await createDealAnalysisPlan({ conversationId: threadId, dealId: auditId })
+        if (!created.ok) {
+          handleActionError(created.error, text, hasDocument)
+          return false
+        }
+        const appr = await requestApproval(created.planId)
+        if (!appr.ok) {
+          handleActionError(appr.error, text, hasDocument)
           return false
         }
         onMessageSent?.()
         return true
       }
-      const { createDealThread, analyzeAndPostRisk } = await import("@/lib/chat/actions")
+      const { createDealThread } = await import("@/lib/chat/actions")
       const created = await createDealThread(text)
       if (!created.ok) {
         handleActionError(created.error, text, hasDocument)
         return false
       }
-      const result = await analyzeAndPostRisk(created.threadId, created.auditId)
-      if (!result.ok) {
-        handleActionError(result.error, text, hasDocument)
+      const { createDealAnalysisPlan, requestApproval } = await import("@/lib/work/actions")
+      const planRes = await createDealAnalysisPlan({ conversationId: created.threadId, dealId: created.auditId })
+      if (!planRes.ok) {
+        handleActionError(planRes.error, text, hasDocument)
+        return false
+      }
+      const appr = await requestApproval(planRes.planId)
+      if (!appr.ok) {
+        handleActionError(appr.error, text, hasDocument)
         return false
       }
       router.push(`/chat/${created.threadId}`)

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { verticalForDealType } from "../index"
-import { normalizeAnonymousDealType, normalizeDealType } from "@/lib/deal-type"
+import { normalizeDealType } from "@/lib/deal-type"
 
 describe("founder registration", () => {
   it("resolves founder through the single dispatcher", () => {
@@ -16,12 +16,6 @@ describe("founder registration", () => {
     expect(normalizeDealType("bogus")).toBe("freelance")
     expect(normalizeDealType(null)).toBe("freelance")
     expect(normalizeDealType(undefined)).toBe("freelance")
-  })
-
-  it("normalizes founder in anonymous analysis", () => {
-    expect(normalizeAnonymousDealType("founder")).toBe("founder")
-    expect(normalizeAnonymousDealType("bogus")).toBe("generic")
-    expect(normalizeAnonymousDealType()).toBe("generic")
   })
 
   it("migration 00032 extends the deal_type check to founder", () => {

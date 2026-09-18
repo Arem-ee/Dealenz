@@ -11,10 +11,9 @@ import type { ProviderResult, TokenUsage } from "./operations"
 
 export type AIProviderName = "gemini" | "openai_compatible" | "anthropic"
 
-// Product surfaces. Authenticated Deal Intelligence uses Claude Sonnet 5 with
-// an Opus 5 fallback; the anonymous Quick Review stays on the cheaper
-// Gemini/NVIDIA path. Every domain call declares its surface explicitly.
-export type AISurface = "authenticated" | "quick_review"
+// Product surface. Authenticated Deal Intelligence uses Claude Sonnet 5 with
+// an Opus 5 fallback. Every domain call declares its surface explicitly.
+export type AISurface = "authenticated"
 
 export interface CallAIParams {
   systemPrompt: string
@@ -83,13 +82,7 @@ export function resolveSurfaceConfig(surface: AISurface): ResolvedSurfaceConfig 
     }
     return { surface, provider, model: process.env.AUTH_AI_MODEL }
   }
-  const raw = (process.env.QUICK_REVIEW_AI_PROVIDER ?? "").trim().toLowerCase()
-  if (raw === "gemini" || raw === "anthropic" || raw === "openai_compatible" || raw === "openai-compatible" || raw === "openai") {
-    const provider: AIProviderName =
-      raw === "gemini" ? "gemini" : raw === "anthropic" ? "anthropic" : "openai_compatible"
-    return { surface, provider, model: process.env.QUICK_REVIEW_AI_MODEL }
-  }
-  // Unset: preserve the exact legacy behavior (shared AI_PROVIDER/AI_MODEL env).
+  // No other surface exists. Callers must use "authenticated".
   return { surface, provider: getActiveProviderName() }
 }
 
@@ -186,8 +179,7 @@ async function callAuthenticatedWithFallback(
   }
 }
 
-// Surface-aware entry point. The legacy callAI() below is preserved unchanged
-// for the Quick Review default path; authenticated domain code must use this.
+// Surface-aware entry point. Authenticated domain code must use this.
 export async function callAIForSurface(
   surface: AISurface,
   params: CallAIParams

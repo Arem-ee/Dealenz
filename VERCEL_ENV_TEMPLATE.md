@@ -19,11 +19,11 @@ Do not commit real values. All values below are names only.
 |---|---|---|
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Dashboard → Settings → API → service_role key | Server-only. Required for increment_usage, credit_ledger RPCs, storage RLS bypass where needed. |
 
-### AI — general / quick review
+### AI — general
 
 | Variable | Where to obtain | Notes |
 |---|---|---|
-| `AI_PROVIDER` | Literal: `openai_compatible`, `gemini`, or `anthropic` | Controls `src/lib/ai/providers.ts` routing |
+| `AI_PROVIDER` | Literal: `openai_compatible`, `gemini`, or `anthropic` | Controls `src/lib/ai/providers.ts` routing for legacy/shared paths; authenticated intelligence uses `AUTH_AI_*` |
 | `AI_API_KEY` | Provider dashboard (OpenAI-compatible / NVIDIA `nvapi-` / Gemini) | Server-only. Falls back to `GEMINI_API_KEY` if not set, but set the canonical name. |
 | `AI_BASE_URL` | Provider docs (e.g. `https://integrate.api.nvidia.com/v1` or `https://generativelanguage.googleapis.com/v1beta`) | Server-only |
 | `AI_MODEL` | Provider model catalog | Server-only |
@@ -44,7 +44,7 @@ Do not commit real values. All values below are names only.
 | `PADDLE_PRICE_STANDARD` | Paddle Dashboard → Catalog → Product → Price ID | Server-only. Price for 150-credit Standard. |
 | `PADDLE_PRICE_PRO` | Paddle Dashboard → Catalog → Product → Price ID | Server-only. Price for 400-credit Pro. |
 
-All other variables (`AUTH_AI_PROVIDER`, `AUTH_AI_MODEL`, `PADDLE_ENVIRONMENT`, `LEGAL_RESEARCH_LIVE`, `LEGAL_SEARCH_API_KEY`, `OPS_ALERT_WEBHOOK`, `GEMINI_*`, `QUICK_REVIEW_*`) are optional and not required for baseline production. Set them only if you intend to override defaults.
+All other variables (`AUTH_AI_PROVIDER`, `AUTH_AI_MODEL`, `PADDLE_ENVIRONMENT`, `LEGAL_RESEARCH_LIVE`, `LEGAL_SEARCH_API_KEY`, `OPS_ALERT_WEBHOOK`, `GEMINI_*`) are optional and not required for baseline production. Set them only if you intend to override defaults.
 
 ## Checklist
 

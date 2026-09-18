@@ -56,25 +56,4 @@ describe("auth error visibility", () => {  for (const file of ["src/app/login/pa
   })
 })
 
-describe("anonymous widget honesty", () => {
-  const file = "src/components/landing/landing-mini-dashboard.tsx"
-  const source = readFileSync(join(process.cwd(), file), "utf8")
 
-  it("renders its error state instead of swallowing failures", () => {
-    expect(source).toMatch(/\{error &&/)
-    expect(source).toContain('role="alert"')
-  })
-
-  it("sanitizes failures through the shared boundary, never raw text", () => {
-    expect(source).toContain("publicErrorMessage(err,")
-    expect(source).not.toMatch(/setError\(err instanceof Error \? err\.message/)
-  })
-
-  it("rejects non-JSON responses before parsing", () => {
-    expect(source).toContain("application/json")
-  })
-
-  it("names its icon-only submit for assistive tech", () => {
-    expect(source).toContain('aria-label={loading ? "Analyzing your deal" : "Analyze deal"}')
-  })
-})

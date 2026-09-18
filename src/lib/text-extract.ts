@@ -1,6 +1,11 @@
-import { PDFParse } from "pdf-parse"
 import mammoth from "mammoth"
 import { sniffUploadMime } from "@/lib/validation/files"
+
+// NOTE: pdf-parse (pdfjs-dist) must never be imported at module top level:
+// it evaluates DOM-dependent code on import, which crashes server runtimes
+// without a DOM (Vercel serverless: ReferenceError: DOMMatrix is not
+// defined) and takes down every module that transitively imports this file.
+// It is loaded lazily inside the PDF branch only.
 
 const SUPPORTED_TYPES = [
   "application/pdf",
@@ -53,6 +58,7 @@ export async function extractTextFromBuffer(
   let text: string
   switch (mimeType) {
     case "application/pdf": {
+      const { PDFParse } = await import("pdf-parse")
       const parser = new PDFParse({ data: buffer, verbosity: 0 })
       const result = await parser.getText()
       text = result.text || ""

@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from "vitest"
-import { readFileSync } from "node:fs"
 import { parseContextEnvelope } from "@/lib/context/schema"
 import { fetchPublishedKnowledge } from "./store"
 import { resolveKnowledge } from "./resolver"
@@ -79,8 +78,8 @@ describe("context to knowledge integration", () => {
     expect(resolveKnowledge(envelope, [])).toEqual([])
   })
 
-  it("leaves Quick Review unaffected (no knowledge dependency on the anonymous path)", () => {
-    const route = readFileSync("src/app/api/analyze-anonymous/route.ts", "utf8")
-    expect(route).not.toMatch(/knowledge/)
+  it("has no anonymous analysis path (Dealenz is authenticated-only)", async () => {
+    const { existsSync } = await import("node:fs")
+    expect(existsSync("src/app/api/analyze-anonymous/route.ts")).toBe(false)
   })
 })

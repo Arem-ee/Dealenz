@@ -98,6 +98,8 @@ export function testEnvelope(overrides: Record<string, unknown> = {}) {
     version: 1,
     fields: {
       dealType: { value: "freelance", source: "user_confirmed", confidence: 1 },
+      intent: { value: "evaluate", source: "user_confirmed", confidence: 1 },
+      priorities: { value: ["scope"], source: "user_confirmed", confidence: 1 },
       jurisdiction: { value: "Testlandia", source: "user_confirmed", confidence: 1 },
       governingLaw: { value: null, source: "unknown", confidence: 0 },
       userRole: { value: "freelancer", source: "user_confirmed", confidence: 1 },

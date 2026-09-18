@@ -6,6 +6,11 @@ import { isGreeting } from "@/lib/conversation/classify"
 import { toActionFailure } from "@/lib/action-result"
 import { toThreadMessage, type ThreadMessage } from "./types"
 import { createHomeDeal } from "@/app/dashboard/home-actions"
+import { autoFillDocumentVariables, getRequiredVariablesForFamily } from "@/lib/documents/variable-autofill"
+import { familyById } from "@/lib/documents/families"
+import { parseContextEnvelope } from "@/lib/context/schema"
+import type { ExtractedData } from "@/lib/ai/extract"
+import type { ContextEnvelope } from "@/lib/context/schema"
 
 export type ThreadMessagesResult = { ok: true; messages: ThreadMessage[] } | { ok: false; error: string }
 export type PostMessageResult = { ok: true; message: ThreadMessage } | { ok: false; error: string }
@@ -161,9 +166,20 @@ async function generateDocumentAndPostInner(threadId: string, auditId: string, v
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("You must be signed in.")
-  const { data: audit } = await supabase.from("audits").select("deal_type, context_envelope").eq("id", auditId).eq("user_id", user.id).maybeSingle()
+  const { data: audit } = await supabase.from("audits").select("deal_type, context_envelope, structured_data").eq("id", auditId).eq("user_id", user.id).maybeSingle()
   if (!audit) throw new Error("Deal not found.")
   const dealType = (audit as { deal_type?: string })?.deal_type ?? "generic"
+  
+  // Parse context envelope
+  let envelope: ContextEnvelope | null = null
+  try {
+    envelope = audit.context_envelope ? parseContextEnvelope(audit.context_envelope) : null
+  } catch {}
+
+  // Load extracted data from structured_data
+  const structured = audit.structured_data as Record<string, unknown> | null
+  const extractedData = structured?.extractedData as ExtractedData | undefined
+
   let payload: Record<string, unknown> = {}
   let content = "Document draft ready."
   try {
@@ -185,24 +201,60 @@ async function generateDocumentAndPostInner(threadId: string, auditId: string, v
         payload = { title: "Document", preview: "No draft families for this deal type.", auditId, threadId, status: "needs_input", missingVars: ["jurisdiction"] }
         content = "Tell me the jurisdiction to generate the draft."
       } else {
+        const family = familyById(familyId)
+        
+        // Also get clause-level variables from the clause library
+        const { clausesForDealType } = await import("@/lib/protection/clauses")
+        const clauses = clausesForDealType(dealType)
+        const familyClauses = family?.clauseIds.map(id => clauses.find(c => c.id === id)).filter(Boolean) ?? []
+        const clauseVars = new Set<string>()
+        for (const clause of familyClauses) {
+          if (!clause) continue
+          for (const v of clause.variables) {
+            if (v.required) clauseVars.add(v.key)
+          }
+        }
+        
+        // Auto-fill variables from extracted data and context
+        const { variables: autoFilledVars, provenance, missing: autoMissing } = autoFillDocumentVariables(
+          extractedData ?? { goals: [], deliverables: [], timeline: null, budget: null, projectType: null, clientSignals: [], missingInformation: [], confidence: 0 },
+          envelope ? parseContextEnvelope(JSON.parse(JSON.stringify(audit.context_envelope))) : null,
+          dealType,
+          familyId!,
+          [...clauseVars, ...getRequiredVariablesForFamily(familyId!, dealType)]
+        )
+        
+        // Merge user-provided vars with auto-filled (user vars take precedence)
+        const mergedVars = { ...autoFilledVars, ...vars }
+        const missingVars = autoMissing.filter(k => !vars[k])
+        
         let jurisdiction: string | null = null
         try {
-          const { parseContextEnvelope } = await import("@/lib/context/schema")
-          const env = audit.context_envelope ? parseContextEnvelope(audit.context_envelope) : null
+          const env = envelope ? envelope : (audit.context_envelope ? parseContextEnvelope(audit.context_envelope) : null)
           jurisdiction = (env?.fields.jurisdiction.value as string | null) ?? null
         } catch {}
-        const effectiveJurisdiction = vars.jurisdiction || jurisdiction
+        const effectiveJurisdiction = mergedVars.jurisdiction || jurisdiction
         if (!effectiveJurisdiction) {
-          payload = { title: families[0].title, preview: "", auditId, threadId, status: "needs_input", missingVars: ["jurisdiction"], vars }
+          payload = { title: families[0].title, preview: "", auditId, threadId, status: "needs_input", missingVars: ["jurisdiction"], vars: mergedVars, autoFilled: Object.keys(autoFilledVars), provenance }
           content = "Need jurisdiction to generate."
           const posted = await postRichMessage(threadId, { type: "document_draft", payload, content })
           if (!posted.ok) throw new Error(posted.error)
           return { ok: true }
         }
         const { generateBusinessOwnerDraft } = await import("@/app/audit/[id]/actions")
-        const res = await generateBusinessOwnerDraft(auditId, familyId, effectiveJurisdiction, vars)
+        const res = await generateBusinessOwnerDraft(auditId, familyId!, effectiveJurisdiction, mergedVars)
         if (res.success && res.draft) {
-          payload = { title: res.draft.title, preview: res.draft.markdown.slice(0, 600), auditId, threadId, status: "ready", vars }
+          payload = { 
+            title: res.draft.title, 
+            preview: res.draft.markdown.slice(0, 600), 
+            auditId, 
+            threadId, 
+            status: missingVars.length > 0 ? "needs_input" : "ready", 
+            vars: mergedVars, 
+            autoFilled: Object.keys(autoFilledVars), 
+            provenance,
+            missingVars 
+          }
           content = `Draft ready: ${res.draft.title}`
         } else {
           payload = { title: families[0].title, preview: res.error ?? "Generation failed", auditId, threadId, status: "error" }

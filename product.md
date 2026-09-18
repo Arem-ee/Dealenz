@@ -8,7 +8,19 @@ Anyone entering an agreement — freelance work, a lease, a partnership, a servi
 
 A document is one input, not the whole product. Users can also ask Dealenz questions directly, with no document attached: what to think about, what to negotiate, what to ask before agreeing, how two offers compare, or whether to walk away.
 
+Dealenz is a **trust-first deal intelligence and protection product for founders and small business owners, including people who cannot afford a lawyer**. It checks contracts and deals for risk, explains why something is risky, grounds findings in evidence, helps users understand what matters, helps users protect themselves, can generate useful deal documents and work products, can help prepare and execute bounded deal work, can involve a lawyer when appropriate, and eventually monitors completed/signed deals for important events.
+
 Dealenz is an AI deal intelligence platform that helps users understand, evaluate, negotiate, and make decisions about deals. Dealenz works for the user, not for the deal: it optimizes for useful intelligence, not maximum token consumption, and credits pay for computation without buying favorable answers.
+
+Dealenz is NOT:
+- merely an AI contract summarizer
+- a generic AI chatbot
+- a generic autonomous agent
+- a CRM
+- a lawyer marketplace by default
+- a generic sales automation platform
+
+**Trust principle: AI proposes. It never decides.** Dealenz never invents legal certainty, never collapses `UNKNOWN` into `PASS` or `FAIL`, never treats `APPROXIMATE` as `EXACT`, always grounds findings in the source, and leaves consequential actions under explicit user control.
 
 **Primary customer: founders and business owners.** Freelance is a supported vertical, not the product centre of gravity. Tier 1 is Founder + Partnership + company deals; Tier 2 is Purchase/Sale, Lease, Employment; Tier 3 is Freelance; Tier 4 is Generic fallback. The original freelancer-only framing ("audit your client before you write the proposal") described the initial vertical that established the architecture — it is now one supported vertical among several, not the canonical Dealenz experience. New product investment prioritises business-owner workflows and grounded legal intelligence (Nigeria/CAMA first, jurisdiction-extensible).
 
@@ -38,38 +50,28 @@ Monitoring / Changes / Renewal / Disputes
 
 The lawyer stage is **NOT mandatory**. Professional legal review is an optional human layer that can enter at appropriate points.
 
-## Two Distinct Product Surfaces
+## Product Surface
 
-### A. Public Quick Review (Anonymous)
+Dealenz is an **authenticated, chat-first, but work-first** deal intelligence and protection workspace.
 
-The public landing page provides a limited, anonymous **Quick Review**.
+Chat is the control and conversation layer. The actual work product is the dominant thing — risk reports, findings, proposals, contracts and documents, case files, negotiation material, protection output, and other bounded deal work products. The architecture relationship is:
 
-Purpose:
-- Acquisition
-- Demonstration of value
-- Trust building
-- Conversion into the full product
+**Conversation → Work → Output**
 
-The public user can submit a deal and receive a deliberately limited review without creating an account. The anonymous Quick Review uses the NVIDIA free-model path for AI processing, subject to actual provider capabilities and constraints.
+rather than:
 
-The anonymous Quick Review is deliberately constrained relative to the authenticated product, potentially including restrictions around:
-- Analysis depth
-- Number of reviews
-- Document/input size
-- Persistence/history
-- Evidence depth
-- Protection features
-- Negotiation functionality
-- Execution features
-- Professional review
-- Other advanced capabilities
+**Conversation → chatbot response**
 
-### B. Authenticated Full Dealenz Workspace
+Each deal is its own persistent thread and work item. The user gives Dealenz an objective or request, and Dealenz increasingly determines the work required rather than requiring the user to manually sequence every step.
 
-The authenticated product is the **full Dealenz product**, not merely a larger Quick Review.
+The public landing page describes the product and directs visitors to create an account. There is no anonymous analysis mode. Dealenz is authenticated-only. There is no Anonymous Quick Review, no `/api/analyze-anonymous`, no hidden anonymous fallback, no anonymous AI surface, no anonymous demo pipeline, and no public low-cost analysis mode. The shared `anonymous_rate_limits` table (`00040`) remains as infrastructure for other unauthenticated paths (share-view, auth log, client-error intake) and must not be described as an anonymous analysis system.
+
+### Authenticated Dealenz Workspace
+
+The authenticated product is the **full Dealenz product**.
 
 It provides:
-- Persistent deals
+- Persistent deals and threads
 - Full intelligence
 - Context resolution
 - Evidence
@@ -79,9 +81,116 @@ It provides:
 - Drafting/generation where appropriate
 - Optional professional legal review
 - Execution capabilities
-- Monitoring
-- Deal history
-- Future relationship/deal intelligence
+- Monitoring — signed-deal and renewal/material-event monitoring with email alerts (part of complete product)
+- Deal history and work history
+- Relationship/deal intelligence
+
+## Frontend Structure
+
+### Desktop
+
+A resizable split-screen workspace:
+
+**Chat / control layer | Work / output surface**
+
+The work/output side is wider and visually dominant. It may contain findings, reports, documents, proposals, case files, execution progress, approvals, and other work products. The conversation does not visually overpower the actual work.
+
+Implemented as `SplitPane` (`src/components/split-pane`) with `ChatThread` adapted for desktop. The chat input (Composer) is the control layer; the work surface renders richer artifacts.
+
+### Mobile
+
+No desktop-style split pane. A single-column experience where structured work surfaces appear as cards and sections inside the conversation. `useIsDesktop()` selects the layout; mobile stacks work inline.
+
+### Sidebar
+
+Navigation is intentionally small:
+
+- **Home**
+- **Library**
+
+Account functionality is grouped in a lower account/settings menu:
+
+- Settings
+- Billing
+- Help
+- Log out
+
+Do not expand the primary navigation into a CRM-style dashboard.
+
+## Visual Language
+
+- One accent color used sparingly (burgundy/oxblood via OKLCH)
+- Plain sans-serif for UI controls, labels, and interface text (Mona Sans Variable)
+- Serif typography for actual document and work content (work should read like a professional artifact)
+- Clean, minimal, professional, document/work-oriented
+- No gradients
+- No chatbot sparkle or generic SaaS dashboard aesthetic
+- No unnecessary visual noise
+
+The goal is for generated work to feel like a real professional artifact, not a chatbot response.
+
+## Home / Library
+
+**Home** represents the user's threads and work — persistent deals, active work, recent activity, and open items. It is not a CRM pipeline.
+
+**Library** replaces the previous "Vault" terminology (`/library`; `/vault` redirects to `/library` for backwards compatibility). Library holds useful persistent work and resources such as:
+
+- Deals
+- Documents
+- Templates
+- Relevant knowledge and material
+- Work history and activity where appropriate
+
+Do not introduce:
+
+- Lead stages
+- Sales funnels
+- Lead scoring
+- Territory management
+- CRM pipelines or generic sales dashboards
+
+## Work Execution Model
+
+The intended product and workflow model is:
+
+**Objective → Plan + Cost → Human Approval → Execute → Observe → Adapt/Continue → Human Gate when needed → Work Product → Audit Trail**
+
+This is a **product/workflow model**, not permission to build a generic autonomous-agent framework. The architecture remains bounded around Dealenz's actual capabilities.
+
+Dealenz moves from:
+
+> "Tell me what this contract means."
+
+toward:
+
+> "Help me prepare this deal."
+
+where appropriate.
+
+Before large or expensive work:
+1. Dealenz determines the required steps.
+2. It presents the plan.
+3. It shows the expected credit cost.
+4. The user approves.
+5. Execution begins.
+6. Progress and results can be observed.
+7. Dealenz can determine whether another bounded step is needed.
+8. Consequential actions require explicit human approval.
+
+There is no unlimited autonomy. Execution is bounded, explainable, and always gated by the user for consequential actions.
+
+## Single Classifier / Brain
+
+A message is classified into the appropriate category, such as:
+
+- greeting
+- question
+- real deal content
+- command / action
+
+The classifier determines what treatment the message receives (fast-path greeting, routed Ask, deal creation, proposal preparation, etc.). Classification is centralized in `src/lib/conversation/classify.ts` (`isGreeting`, `classifyOperation`, `inferIntent`) and reused by `src/lib/conversation/request.ts` and the `Composer`.
+
+Do not create multiple competing message routers. Do not introduce a second conversational dispatch architecture. The existing canonical pipeline (conversation store → context → knowledge → rules → synthesis → credit boundary) remains the foundation.
 
 ## International-First
 
@@ -160,6 +269,12 @@ Credits consumed
 
 Because workload may not be knowable before intake, the product supports an **estimated workload/credit range** before final consumption.
 
+## Credit Approval
+
+Before Dealenz performs substantial or expensive multi-step work, it shows the user what it intends to do and the expected credit cost, then waits for approval.
+
+Credits remain tied to actual workload and output (risk analysis, drafting, research, protection generation) rather than exposing internal token or provider mechanics. The existing credit system (`src/lib/credits/policy.ts`, `src/lib/credits/ledger.ts`, `src/lib/billing/catalog.ts`) is not redesigned in this phase; the requirement is product-facing approval and transparent cost, not a new billing model.
+
 ## Credit Economics & Ledger
 
 Credits are an abstraction over the work Dealenz performs:
@@ -195,7 +310,7 @@ Balance          461
 
 Required capabilities: credit balances, immutable usage history, purchases, consumption, refunds/adjustments, entitlement/access checks, reconciliation, auditability.
 
-Minimal international purchase is implemented: provider-independent catalog (`src/lib/billing/catalog.ts`, starter/standard/pro in USD/GBP/EUR), Lemon Squeezy buy-link checkout + HMAC-verified webhook (`src/app/api/billing/*`), idempotent allocation through the existing ledger (`credit_purchases` `00037`, no second ledger). Lemon Squeezy is Merchant of Record, so no tax engine is implemented. Prices are provisional configuration, not approved commercial pricing; no subscriptions and no refunds automation yet. Live variant IDs and webhook secret are required production configuration (see `.env.example`).
+Minimal international purchase is implemented: provider-independent catalog (`src/lib/billing/catalog.ts`, starter/standard/pro in USD/GBP/EUR), Paddle Billing checkout + HMAC-verified webhook (`src/app/api/billing/*`), idempotent allocation through the existing ledger (`credit_purchases` `00037`, no second ledger). Paddle is the Merchant of Record and the sole software billing provider, so no tax engine is implemented. Lemon Squeezy rows (`00043`) are retained as historical data only — not the live provider. Prices are provisional configuration, not approved commercial pricing; no subscriptions and no refunds automation yet. Live Paddle price IDs and `PADDLE_WEBHOOK_SECRET` are required production configuration (see `.env.example` and `VERCEL_ENV_TEMPLATE.md`).
 
 ## Pricing/Tiers
 
@@ -211,6 +326,38 @@ Commercial packaging may include:
 - Other legitimate commercial benefits
 
 Exact prices, credit amounts, bundles, margins, rollover periods, discount percentages require a separate pricing/economics exercise.
+
+## Evidence / Clickable Findings
+
+Every meaningful risk finding must be traceable to its source.
+
+**Product requirement:** Click a finding → jump directly to the exact relevant text and location in the source document.
+
+The architecture connects this to the existing evidence model rather than inventing a parallel system:
+
+- `EXACT` — offset-proven, verified at display time against `raw_input` via `src/lib/verticals/observe.ts` and `src/lib/evidence/inspect.ts`
+- `APPROXIMATE` — source-identified but without proven offsets (non-inspectable sources, other sections)
+- `UNAVAILABLE` — no location claim
+
+Evidence is preserved as `Evidence` references (`src/lib/evidence/schema.ts`: source type, source id/version, location kind, quote, observation key, method, confidence, inspectable flag) embedded in `Finding.evidence` and collected via `attachEvidence` (`src/lib/evidence/collect.ts`). Findings remain the authority; evidence and interpretation are not conflated.
+
+**Status:** Architectural requirement and partial implementation. Deterministic evidence classification (`EXACT/APPROXIMATE/UNAVAILABLE`) and the inspection verifier are implemented (Phases 7-9); the workspace `FindingsPanel` exposes Inspect-source actions via `src/app/audit/[id]/evidence-actions.ts`. Full click-to-highlight UX that jumps to the exact source span is part of the complete product (to be built) — do not claim it is complete before it is.
+
+## Assumption / Inference Review Before Consequences
+
+Before Dealenz sends or commits something consequential — such as a proposal, external communication, or document shared with a counterparty — it must:
+
+1. Expose the assumptions and inferences it used.
+2. Let the user review them.
+3. Wait for approval before the consequential action occurs.
+
+This is a trust requirement. The architecture preserves provenance as:
+
+- **Known** — user-confirmed or directly observed
+- **Inferred** — derived by AI or context inference
+- **Missing** — explicitly unknown and surfaced as such
+
+Existing primitives already support this: `ContextEnvelope` field `source` (`unknown` / `inferred` / `user_confirmed`) and confidence (`src/lib/context/schema.ts`), `variables` with `UNKNOWN` preservation in `src/lib/protection/clauses.ts` (`renderClauseTemplate` keeps `{{var}}`), and `ProtectionIntent.status` / `missing` handling. No parallel provenance system is introduced.
 
 ## Lawyer / Human-in-the-Loop Model
 
@@ -240,32 +387,39 @@ The lawyer is a **human layer inside the Dealenz workflow**, not the product its
 
 ## Lawyer Involvement Is Conditional
 
-Not every deal requires a lawyer. Dealenz does NOT artificially escalate users to a lawyer merely to create revenue.
+Dealenz recommends lawyer review **only when BOTH are true**:
 
-Professional review may be appropriate when:
-- The user requests it
-- The deal is materially complex
-- Financial/legal exposure is significant
-- Important uncertainty remains
-- Applicable law/context cannot be confidently resolved
-- Unusual provisions require professional judgment
-- Consequences of an error are substantial
+1. The deal is genuinely high-value or high-consequence, **AND**
+2. There is a real risky pattern requiring professional attention.
 
-Conversely, Dealenz handles straightforward deals without forcing professional review.
+Examples of qualifying patterns:
+- Uncapped liability
+- Broad indemnity without cap
+- Material assignment or change-of-control consequences
+- Other materially consequential legal risk surfaced by deterministic findings
 
-The system does NOT make unqualified legal determinations such as "You don't need a lawyer." Prefer qualified language: "Based on the factors Dealenz can assess, professional review does not appear necessary."
+Dealenz does NOT recommend a lawyer merely because of the deal type (founder, lease, purchase, etc.). If neither condition holds, the recommendation is honestly absent. The decision is explainable and evidence-based, surfaced through `src/lib/lawyer/trigger.ts` (`shouldRecommendLawyerReview`).
+
+The user can request lawyer review at any time regardless of Dealenz's recommendation. The system never makes an unqualified legal determination such as "You don't need a lawyer." Prefer qualified language: "Based on the factors Dealenz can assess, professional review does not appear necessary."
+
+Conversely, Dealenz handles straightforward deals without forcing professional review. When material complexity, significant exposure, unresolved uncertainty, or unusual provisions exist, the option is offered — not imposed.
 
 ## Lawyer Revenue Model
 
-The architecture supports professional review as a monetizable Dealenz service. Possible models:
-- Additional credits
-- A defined credit-based professional-review service
-- Included review allowances in future packages
-- Other Dealenz-managed service models
-
 Dealenz receives revenue from professional-review services while maintaining ownership of the customer/deal experience. Do not design a lawyer marketplace.
 
-Money boundary (implemented): Dealenz software/credits run on Lemon Squeezy; lawyer professional services are recorded as service orders (`service_orders`, migration `00044`) and never touch the credit ledger. Credits cannot become money and money never becomes credits. Paystack is the planned rail for lawyer-service payments; no payout integration is implemented — quoted/paid/fulfilled order states and all payout/fee/tax/escrow rules are explicit future product decisions.
+Money boundary (implemented): Dealenz software/credits run on **Paddle**; lawyer professional services are recorded as service orders (`service_orders`, migration `00044`) and never touch the credit ledger. Credits cannot become money and money never becomes credits.
+
+## Lawyer Payment Boundary
+
+Dealenz does not hold lawyer professional-service payment money. The intended model (part of complete product) is:
+
+- Lawyer connects their own **Stripe** or **Paystack** account (jurisdiction-dependent)
+- Client pays through the lawyer's connected payment account
+- Lawyer receives the payment directly
+- Dealenz automatically takes its agreed platform cut
+
+This is the professional-service payment boundary for the complete product, separate from software billing. The software billing provider remains **Paddle** (`src/lib/billing/provider.ts`, `@paddle/paddle-node-sdk`, `PADDLE_API_KEY` / `PADDLE_WEBHOOK_SECRET`). Do not introduce dual software billing providers. Do not confuse software/credit billing with lawyer-service payments. `Paystack` was the earlier planned rail for lawyer-service payments; `Stripe` is now also supported — payout integration and quoted/paid/fulfilled order states and all payout/fee/tax/escrow rules are to be built as part of the complete product.
 
 ## Lawyer Workflow
 
@@ -306,6 +460,112 @@ Approved versioned framework
  ↓
 Future Dealenz use
 ```
+
+## Signatures
+
+The intended signing model is:
+
+1. Dealenz prepares the document.
+2. The owner/user signs first.
+3. It is sent to the counterparty.
+4. The counterparty signs.
+5. Once fully signed, the document is locked.
+6. It cannot simply be edited in place.
+7. Changes require a new version or redraft.
+
+This is a product and architecture requirement. The current implementation provides document versioning (`document_versions`, `00012`, `00048` execution-locked final pointer), share tokens (`share_tokens` + `document_signatures`, `00013`), and token-gated signing flows (`src/app/api/document/[auditId]/sign-owner`, `/invite`, `/send`, `src/lib/review/transitions.ts`), but the full owner-first → counterparty → locked → new-version lifecycle is not yet complete in UX — do not claim it is finished.
+
+## Signed-Deal Monitoring
+
+Once a deal is fully signed, Dealenz monitors for important events such as:
+
+- Renewal dates
+- Deadlines
+- Material contractual events
+- Other agreed monitoring conditions
+
+It should alert the user **before** those events matter. **Email is a required delivery mechanism** for this capability.
+
+Part of the complete product — monitoring for renewal/deadline/material events with email alerts, evidence and audit trail, and human gates for consequential actions. Builds on `system_logs`/`activity_events`/`document_versions` primitives.
+
+## Auditability
+
+The architecture must support auditable work. For substantial work, Dealenz should be able to preserve enough information to understand:
+
+- What objective was given
+- What plan was proposed
+- What the user approved
+- What operations were executed
+- What evidence was used
+- What assumptions and inferences were made
+- What outputs were generated
+- What consequential actions were approved
+- What happened afterward
+
+Use existing primitives where possible (`activity_events`, `system_logs`, `audits.structured_data` with `deterministicFindings` and `handoff_snapshot`, `conversation_messages`, `document_versions`, `credit_ledger`). Do not invent a generic agent trace system unless the repository proves one is required. The goal is **bounded, explainable, auditable deal work**.
+
+## Agentic Direction Without Overbuilding
+
+Dealenz is moving beyond single-turn prompt/response behavior. The intended model is:
+
+**User objective**
+→ **Dealenz plans**
+→ **user approves expensive work**
+→ **Dealenz executes bounded capabilities**
+→ **Dealenz observes results**
+→ **Dealenz continues/adapts where appropriate**
+→ **human approval for consequential actions**
+→ **real work product**
+→ **auditability**
+→ **monitoring**
+
+This does **NOT** mean:
+
+- Autonomous general-purpose agent
+- Unrestricted tool use
+- Self-directed business decisions
+- Hidden actions
+- Silent external communication
+- Generic agent marketplace
+- Generic workflow builder
+
+Dealenz remains a **deal intelligence and protection product** — not a generic agent platform. Execution is bounded around actual capabilities: intake, extraction, context resolution, knowledge resolution, deterministic rules, findings and evidence, negotiation synthesis, drafting and protection, lawyer handoff, signing, and monitoring.
+
+## Proposal / Outreach Workflow Without Turning Dealenz Into a CRM
+
+The following is an **example of bounded work execution** — not a directive to build a CRM.
+
+Example: user provides business/service context, a spreadsheet of prospective contacts, relevant supporting information, and optionally a connected Gmail account.
+
+Dealenz will (as part of complete product):
+
+1. Validate the supplied rows
+2. Determine which entries have sufficient information
+3. Understand the supplied business and context
+4. Personalize a proposal per viable entry
+5. Generate the proposal and outreach material
+6. Show assumptions and inferred information
+7. Allow batch approval
+8. Send through the user's connected Gmail **after approval**
+9. Report sent/failed results
+10. Bring relevant responses back into the appropriate work/deal context
+
+But:
+
+> **The spreadsheet is an input to a work request, not a permanent CRM database.**
+
+Dealenz must not become responsible for:
+
+- Lead management
+- Sales stages
+- Contact databases
+- Sales funnels
+- Lead scoring
+- Pipeline management
+- Territory management
+- CRM reporting
+
+The center of gravity remains the deal and work being performed, not a contact database.
 
 ## Core Deal Intelligence Model
 
@@ -447,9 +707,9 @@ The architecture makes protection a first-class product layer.
 
 ## Deal Execution
 
-The long-term product extends beyond signing.
+The product extends beyond signing as part of the complete product.
 
-The Execution layer should eventually support:
+The Execution layer supports (to be built):
 - Signed deal state
 - Obligations, deadlines, milestones, payments, deliverables
 - Changes/change orders, amendments
@@ -457,7 +717,7 @@ The Execution layer should eventually support:
 - Monitoring
 - Relationship/deal history
 
-Do not implement this now. Do not claim it exists unless verified.
+Part of complete product — not yet implemented in current repository, to be built across upcoming phases. Do not claim it exists before it does.
 
 ## Billing Architecture
 
@@ -479,7 +739,7 @@ Orders / Subscriptions / Transactions
 Payment Provider Adapter
 ```
 
-Implemented provider: Paddle Billing (transaction-driven checkout via `@paddle/paddle-node-sdk`, custom_data user binding, `Paddle-Signature` HMAC webhook for `transaction.completed`/`transaction.paid`; `credit_purchases` accepts `stripe` (historical), `lemonsqueezy` (historical), and `paddle` (live production path). Stripe was an earlier incorrect implementation and is removed from the live path; Paystack and other providers are not implemented.
+Implemented provider: Paddle Billing (transaction-driven checkout via `@paddle/paddle-node-sdk`, custom_data user binding, `Paddle-Signature` HMAC webhook for `transaction.completed`/`transaction.paid`; `credit_purchases` accepts `stripe` (historical), `lemonsqueezy` (historical), and `paddle` (live production path). Stripe was an earlier incorrect implementation and is removed from the live path; Paystack and other providers are not implemented for software billing.)
 
 Evaluation criteria (international-first): international coverage, subscription support, credit purchases, one-time/recurring purchases, currencies, payout availability for a Nigeria-based company, Merchant of Record capabilities, tax/compliance burden, refunds, chargebacks, billing flexibility, professional-service compatibility, long-term scalability.
 
@@ -490,16 +750,16 @@ Dealenz Software
       ↓
 SaaS / Credit consumption
       ↓
-Payment provider
+Payment provider (Paddle)
 
 Professional Review
       ↓
 Managed professional service
       ↓
-Appropriate commercial/payment mechanism
+Lawyer-connected Stripe/Paystack (future) + platform cut
 ```
 
-Do not assume one payment provider handles every transaction. Payment-provider policies may treat software/SaaS differently from professional legal services. Record provider policy verification as a future business/compliance requirement.
+Do not assume one payment provider handles every transaction. Payment-provider policies may treat software/SaaS differently from professional legal services. Software uses Paddle. Lawyer-service payments use the lawyer's own connected account with an automatic platform cut — not a second software billing provider.
 
 ## Trust & Governance
 
@@ -515,7 +775,7 @@ Unresolved questions requiring future product, legal, security, or provider deci
 
 - Are uploaded documents stored? For how long?
 - Are extracted facts retained? Generated documents retained?
-- Are anonymous Quick Reviews retained?
+- Is unauthenticated product access offered? No. Dealenz is authenticated-only. No anonymous analysis, no public low-cost mode.
 - What data is sent to AI providers? What do providers retain?
 - Is data used for model training?
 - Can users delete all data? What happens after account deletion?
@@ -540,6 +800,10 @@ Preserve existing security philosophy:
 - No unnecessary retention
 
 Do not redesign security implementation in this phase.
+
+## Known Fidelity Gap
+
+Conflicting material terms can currently collapse into a single extracted string before the rules layer sees them. Example: "payment due 14 days after invoice" vs "30 days after receiving completed work" may be generalized away at extraction (`src/lib/ai/extract.ts` single-string `budget`/`timeline`), so deterministic rules never observe the conflict and payment risk can read low/clear over contradicted input. This is an unresolved authenticated extraction fidelity issue documented in Phase 22C. Do not let the new work-execution architecture obscure it. Fix belongs in a focused extraction-fidelity phase, not bundled with general agentic work.
 
 ## Current vs Target vs Staged vs Open/Unknown
 
@@ -613,16 +877,17 @@ Do not recommend throwing away working functionality without evidence.
 - **Founder/Partnership deal types (Tier 1)**: deterministic protection intelligence **plus** structured protection intents (`ProtectionIntent` per FAIL finding with priority, rationale, legal citation, variables→UNKNOWN) and curated clause suggestions (Founder 8, Partnership 8, structure-aware for LLP/LP/ordinary, drafting assistance labelled, `{{var}}` preserved) **plus** international document generation (`src/lib/documents` families `founder-agreement`/`llp-agreement` etc., `assembleDraft` jurisdiction-aware `Nigeria`/`Testland` neutral, `generateBusinessOwnerDraft` server action, `BusinessOwnerDocumentSection` UI: select family → confirm jurisdiction → resolve missing → review clauses → generate draft → provenance/legal citations → review/export/handoff)
 - **Document Generation boundary**: `canGenerateDocuments` — freelance → allowed via `src/lib/generate.ts`, founder/partnership → allowed via `src/lib/documents` business-owner pipeline (international, jurisdiction-explicit, `hasProtectionDraftSupport` true), other verticals → unavailable (tested per deal type; Founder/Partnership never route through Freelance)
 - **Referrals**: invite link + attribution on signup, reward on first completed analysis via credit ledger (reward amount provisional, pending sign-off)
-- **Landing page**: Anonymous Quick Review with mini-dashboard (paste/upload/describe → `/api/analyze-anonymous`)
+- **Landing page**: Marketing landing page directing visitors to the authenticated workspace (no anonymous analysis mode).
 - **Authentication**: Supabase Auth (email/password + Google OAuth with explicit account linking), email verification required
-- **Database**: Supabase/Postgres with RLS on all tables, 35 forward migrations (`00034` Partnership, `00035` Nigeria CAMA/CAC corpus)
-- **AI Provider Layer**: Provider-agnostic interface with Gemini, OpenAI-compatible, and Anthropic Claude adapters
+- **Database**: Supabase/Postgres with RLS on all tables, 56 forward migrations (`00056` work execution core: `work_plans`/`work_plan_steps`/`work_approvals`/`work_executions`/`work_products` with RLS, plus `00055` billing service-role grants) plus 3 remediation drafts
+- **AI Provider Layer**: Provider-agnostic interface with Gemini, OpenAI-compatible, and Anthropic Claude adapters; authenticated surface on Claude Sonnet 5 with Opus 5 fallback
 - **Risk Engine**: 8 freelance categories (scope, payment, timeline, communication, revision, legal, IP, client behavior) with deterministic rules + AI fallback
 - **Document Generation**: Proposal → SOW → Contract → Checklist (sequential AI calls with template fallback)
 - **Lawyer Handoff**: Contextual Founder/Partnership “Have a lawyer review this deal” CTA after protection/document, `LawyerHandoffReview` panel showing what will be shared (deal type/jurisdiction, critical findings, protection intents, evidence, legal citations/provenance, draft + missing `{{var}}`, honest limitations), submits via existing `consultation_requests` with `handoff_snapshot` `00036` (preserves evidence/VERIFIED…NOT_FOUND, jurisdiction explicit, no Nigeria leak, structure-aware), waitlist vs requested based on verified lawyers
-- **Anonymous Analyze API**: `/api/analyze-anonymous` with IP+fingerprint rate limiting (3/hr)
-- **Landing Mini-Dashboard**: Paste/upload/describe → inline risk report
-- **Design System**: Mona Sans Variable, light theme (`#F2F0ED`/`#FDFBF9`), extreme glassmorphism (`glass-extreme` 40% white/40px blur)
+- **Frontend**: Chat-first with work-first split-pane — `ChatThread` (`src/components/chat/ChatThread.tsx`) uses `SplitPane` (`src/components/split-pane`) to render chat/control and work/output side-by-side on desktop (work wider), single-column cards on mobile; sidebar is Home + Library (`/library`, Vault redirects), account menu holds Settings/Billing/Help/Log out
+- **Classifier**: Central `src/lib/conversation/classify.ts` (`isGreeting`, `classifyOperation` → `proposal/negotiation/drafting/comparison/decision_support/explanation/document_analysis/conversation`, `inferIntent`) drives Composer routing and cost estimation
+- **Evidence**: `EXACT/APPROXIMATE/UNAVAILABLE` via `src/lib/verticals/observe.ts` + `src/lib/evidence/inspect.ts`; `attachEvidence` on FAIL findings; `FindingsPanel` Inspect-source actions (implemented) — full click-to-highlight is a future UX, not yet implemented
+- **Work Execution Core**: `work_plans` + `work_plan_steps` (ordered, bounded, `dependsOn` DAG), `work_approvals` (immutable `payload_hash` + `idempotency_key` + `plan_version` binding), `work_executions` (plan-level `reservation_id` → `credit_ledger`), `work_products` (`artifact_refs` + `snapshot`) — migrations `00056`, sequential executor (`src/lib/work/executor.ts`), `PlanPreview`/`ExecutionProgress` surfaces (`src/components/work/*`), `hash.ts` payload binding, `transitions.ts` state machines, plan-level `estimatedCredits` → single reservation only after approval → finalize `consumed` (implemented, 37 tests)
 - **Auth Flow**: Supabase Auth + `src/proxy.ts` as middleware (detected by Next.js 16 by filename convention)
 
 ---
@@ -631,17 +896,18 @@ Do not recommend throwing away working functionality without evidence.
 
 Dealenz becomes a **deal intelligence, protection, professional-review, and execution platform** with:
 
-1. **Acquisition** — Landing page, Quick Review, conversion
+1. **Acquisition** — Landing page directing to authenticated workspace
 2. **Identity & Account** — Supabase Auth, email verification, team accounts. One human maps to one canonical account with email/password and Google as identities — Google is linked explicitly, never merged by email comparison.
 3. **Deal Intelligence** — Context resolution, extraction, evidence mapping, deterministic risk analysis, AI synthesis
 4. **Knowledge** — Structured legal rules, industry practices, deal-type schemas, versioned with provenance
 5. **Deal Protection** — Negotiation intelligence, clause library, document generation, lawyer handoff
-5. **Human Legal Review** — Structured handoff, lawyer workflow, feedback loop
+5. **Human Legal Review** — Structured handoff, lawyer workflow, feedback loop (recommended only when high-value/high-consequence + real risky pattern; user-can-always-request)
 6. **Deal Execution** — Obligations, change orders, monitoring, relationship intelligence
-7. **Commerce** — Credit-based, provider-agnostic, software vs professional services separation
+7. **Commerce** — Credit-based, provider-agnostic, Paddle for software vs lawyer-connected Stripe/Paystack for services with platform cut
 8. **Trust & Governance** — Policies as architecture, data governance, security principles
+9. **Work Execution & Agentic Direction** — Bounded **Objective → Plan + Cost → Approval → Execute → Observe → Adapt → Human Gate → Work Product → Audit Trail** with chat as control layer and work as dominant output; not a generic agent.
 
-**AI** is a cross-cutting capability (extraction, classification, context, explanation, drafting, synthesis) — subordinate to the system's authority/evidence/governance model.
+**AI** is a cross-cutting capability (extraction, classification, context, explanation, drafting, synthesis) — subordinate to the system's authority/evidence/governance model. **AI proposes. It never decides.**
 
 ---
 
@@ -649,11 +915,9 @@ Dealenz becomes a **deal intelligence, protection, professional-review, and exec
 
 | Phase | Focus |
 |-------|-------|
-| **Current** | **Business-owner first + International docs + Lawyer handoff:** Founder + Partnership are Tier 1 first-class verticals (8 rules each, Nigeria CAMA/CAC legal corpus via `src/lib/legal-research` + `00035`, grounded Ask with citations, `src/lib/verticals/tier.ts` DealTypeSelector founder-first, `src/lib/protection` intents+8+8 clause library with `{{var}}` UNKNOWN, `src/lib/documents` international families `founder-agreement`/`llp-agreement` etc. jurisdiction-aware `Nigeria`/`Testland` neutral via `assembleDraft` + `generateBusinessOwnerDraft` server action + `BusinessOwnerDocumentSection` UI, `src/lib/consultation/handoff.ts` `HandoffPackage` + `00036` `handoff_snapshot` + `LawyerHandoffReview` CTA/review for Founder/Partnership); Lease/Purchase/Employment Tier 2 (8-9 rules); Freelance Tier 3 preserved (9 rules + 8-category engine, `src/lib/generate.ts` isolated, `canGenerateDocuments` freelance-only, `hasProtectionDraftSupport` for founder/partnership draft); Generic Tier 4 fallback (7 rules) + Google linking + Referral MVP + Anonymous Quick Review + Context/Knowledge/Evidence/Conversation/Credits + Protection intelligence/Documents split |
-| **Next** | Nigeria legal corpus expansion (contract, employment, property, IP, NDPA/NDPC, tax) + partnership LLP/LP/ordinary clause variants + execution-aware templates |
-| **Future** | Full lawyer marketplace + execution/monitoring + background jobs |
-| **Future** | Deal Execution (obligations, change orders, monitoring) |
-| **Future** | Client intelligence (repeat counterparties) + Relationship history |
+| **Current (Phase 2 complete)** | **Business-owner first + International docs + Lawyer handoff + Work-first shell + Execution Core + Protection & Batch Outreach:** Founder + Partnership Tier 1 (8 rules each, Nigeria CAMA/CAC + tier2 US/UK/EU); Protection `Finding → ProtectionIntent → Plan → Cost → Approval → Execution → Document → WorkProduct` via `work_plans` (`protection` objectiveKind, `generate_draft` + provenance, `document_versions` immutable `content_hash` + `work_product` link, `draft→ready_to_send`); Spreadsheet batch `upload→parse→validate→preview→plan→cost→approval→execute` (`parseSpreadsheetCSV`/`validateRows` transient, `validate_rows`/`generate_draft`/`send_email` bounded steps, concurrency 5, stable `rowId` = `planId:vVer:rIdx:hash`); Batch `cost` (valid×1) + `assumptions` + `batch approval` (server `findActivePlanForConversation` deduplication); Gmail OAuth (`gmail_tokens` RLS, server-side `upsertGmailTokens`/`refreshAccessToken`, `sendGmailForRow` idempotent `planId:ver:rowId:send` + `work_plan_steps.result_ref.providerMessageId` reuse + DB unique `work_products(plan_id,execution_id)` + `conversation_messages(executionId)`); Reply observation (`observeReplies` per `threadId`, `reply_detected`/`observation_failed`); `Library`/`Home` grouped by `work_products`; `PlanPreview`/`ExecutionProgress`/`AssumptionReview` in `SplitPane` work surface (desktop `Chat|Work`, mobile inline); Credit `reserve/finalize/void` centralized, `0-credit` for `document_analysis` + `5/day` usage limit, `Ask` 1/3/8, `Paddle` only; Evidence `EXACT` verified offsets via `inspectEvidence` (no fake), `UNKNOWN`≠`PASS/FAIL`; `needs_input`/`rate_limited` resumable via `resumePlan` (same `plan.id`/`version`/`payload_hash`/`executionId`); `Home`/`Library` work-first |
+| **Next (Phase 3)** | Full signing lifecycle (`Draft → Owner Review → Owner Signs → Counterparty Signs → Fully Signed/Locked → New Version/Redraft`), signed-version locking (`document_versions` `locked` + `superseded`), new-version behavior, signed-deal monitoring (renewal/deadline/material events + email alerts), lawyer connected payments with platform cut, background execution where required, parallel execution where workflow requires it, international-first knowledge coverage expansion, Proprietary Data Flywheel instrumentation, production security/observability/recovery hardening |
+| **Deferred: none** | All intended Dealenz capabilities are now assigned to Current (Phase 1-2 complete) or Next (Phase 3); no `Future` deferred product — only genuine boundaries remain: CRM, generic agent framework, duplicate systems, anonymous analysis, Lemon Squeezy |
 
 ---
 
@@ -664,11 +928,11 @@ Dealenz becomes a **deal intelligence, protection, professional-review, and exec
 3. **Jurisdiction coverage v1** — Explicit supported jurisdictions list needed
 4. **Rule representation** — TypeScript functions + Zod schemas vs JSON AST vs custom DSL?
 5. **Dependency vulnerabilities** — High-severity issues across Next.js, PostCSS, sharp, transitive packages
-6. **CI/CD pipeline** — No pipeline exists; need `npm test` wired first
+6. **CI/CD pipeline** — `.github/workflows/ci.yml` runs typecheck/lint/test/build; no deployment job yet
 7. **Backup & recovery** — No stated RPO/RTO; relying on Supabase automated daily backups
 8. **Data retention policy** — No stated policy; need decision before real user data
-9. **Payment provider economics** — Lemon Squeezy is implemented (Merchant of Record); remaining questions are payout availability and whether professional services need a separate mechanism — not provider selection
-10. **Professional services payment** — Separate mechanism from software credits?
+9. **Payment provider economics** — Paddle is the live software provider (Lemon Squeezy historical only); remaining question is payout availability, not provider selection
+10. **Professional services payment** — Lawyer-connected Stripe/Paystack + platform cut (future); no integration yet
 
 ---
 

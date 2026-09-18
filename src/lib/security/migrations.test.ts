@@ -345,3 +345,38 @@ describe("00048 execution-locked final pointer (static)", () => {
     expect(lock).toMatch(/SET search_path = public/)
   })
 })
+
+describe("00055 billing service-role grants (static)", () => {
+  const grants = code(sql("00055_billing_service_role_grants.sql"))
+
+  it("grants exactly the webhook's read/write set on billing tables", () => {
+    expect(grants).toMatch(/GRANT SELECT, INSERT, UPDATE ON public\.credit_purchases TO service_role/)
+    expect(grants).toMatch(/GRANT SELECT, INSERT ON public\.credit_ledger TO service_role/)
+  })
+
+  it("grants failure-reporting inserts on system_logs only", () => {
+    expect(grants).toMatch(/GRANT INSERT ON public\.system_logs TO service_role/)
+  })
+
+  it("grants nothing broad, destructive, or future-facing", () => {
+    expect(grants).not.toMatch(/GRANT ALL/i)
+    expect(grants).not.toMatch(/DELETE/i)
+    expect(grants).not.toMatch(/TRUNCATE/i)
+    expect(grants).not.toMatch(/REFERENCES/i)
+    expect(grants).not.toMatch(/TRIGGER/i)
+    expect(grants).not.toMatch(/ON ALL TABLES/i)
+    expect(grants).not.toMatch(/DEFAULT PRIVILEGES/i)
+    expect(grants).not.toMatch(/UPDATE ON public\.credit_ledger/i)
+    expect(grants).not.toMatch(/SELECT ON public\.system_logs/i)
+  })
+
+  it("changes no schema, RLS, ownership, or RPC surface", () => {
+    expect(grants).not.toMatch(/CREATE TABLE/i)
+    expect(grants).not.toMatch(/ALTER TABLE/i)
+    expect(grants).not.toMatch(/CREATE POLICY/i)
+    expect(grants).not.toMatch(/ALTER .* OWNER/i)
+    expect(grants).not.toMatch(/CREATE (OR REPLACE )?FUNCTION/i)
+    expect(grants).not.toMatch(/CREATE INDEX/i)
+    expect(grants).not.toMatch(/DROP /i)
+  })
+})

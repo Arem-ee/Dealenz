@@ -10,8 +10,8 @@ export interface CallAIOptions {
   maxTokens?: number
 }
 
-// Legacy shared path. Preserved unchanged for the Quick Review default route.
-// Authenticated domain code must use callAIForSurface with an explicit surface.
+// Legacy shared path (retained for internal fallback; authenticated domain code
+// must use callAIForSurface with an explicit surface).
 export async function callAI(params: CallAIOptions): Promise<string> {
   return callAIImpl({
     systemPrompt: params.systemPrompt,
