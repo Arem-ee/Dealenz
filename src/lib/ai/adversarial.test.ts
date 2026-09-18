@@ -392,7 +392,7 @@ describe("adversarial: poisoned model output cannot crash or forge extraction", 
     }))
     const result = await extractAndValidate("ignored input", "freelance", "authenticated")
     const keys = Object.keys(result.extractedData ?? {}).sort()
-    expect(keys).toEqual(["budget", "clientSignals", "confidence", "deliverables", "goals", "missingInformation", "projectType", "timeline"])
+    expect(keys).toEqual(["budget", "budgetTerms", "clientSignals", "confidence", "deliverables", "goals", "missingInformation", "projectType", "timeline", "timelineTerms"])
   })
 })
 

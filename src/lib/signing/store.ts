@@ -53,7 +53,8 @@ export async function createSigningReadyVersion(
   input: { auditId: string; documentType: string; content: string; generationMethod?: string; parentVersionId?: string | null; provenance?: Record<string, unknown> }
 ): Promise<DocumentVersionRow> {
   if (!isUUID(input.auditId)) throw new Error("Invalid auditId")
-  const hash = `hash_${input.content.length}_${Date.now().toString(36)}`
+  const { createHash } = await import("node:crypto")
+  const hash = createHash("sha256").update(input.content, "utf8").digest("hex")
   const { data, error } = await client
     .from("document_versions")
     .insert({
@@ -106,6 +107,13 @@ export async function redraftFromLocked(
   if (!source) throw new Error("Source not found")
   if (!["locked", "fully_signed", "superseded"].includes(source.status)) throw new Error(`Cannot redraft from status ${source.status}`)
   const key = idempotencyKey ?? `redraft:${sourceVersionId}:${Date.now()}`
+  // Same advisory lock semantics as RPC create_redraft_version (00068/00069):
+  // serialize concurrent redrafts for same source+key within the transaction.
+  try {
+    await (client as unknown as { rpc: (fn: string, args: unknown) => Promise<{ error: unknown }> }).rpc("acquire_redraft_lock", { p_source_version_id: sourceVersionId, p_key: key })
+  } catch {
+    // If RPC missing (older DB), fall through to idempotency checks below.
+  }
   // Idempotency: if a child already exists with same key in provenance, return it
   const { data: existing } = await client
     .from("document_versions")

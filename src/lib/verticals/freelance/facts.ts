@@ -38,6 +38,9 @@ export interface FreelanceFacts {
   indemnity: ObservedText
   disputeResolution: ObservedText
   deliverablesCount: number
+  // Structural preservation of conflicting observations (Finding #16)
+  conflictingPaymentTerms: ObservedFlag
+  conflictingTimelineTerms: ObservedFlag
 }
 
 // Deterministic freelance fact projection. Pure: same extraction plus same
@@ -73,6 +76,36 @@ export function deriveFreelanceFacts(
     source: src,
   })
 
+  // Structural conflicting-terms detection (Finding #16) — preserve separate observations
+  // Defensive: legacy audits/test fixtures may lack the new arrays.
+  const budgetTerms = extracted.budgetTerms ?? []
+  const timelineTerms = extracted.timelineTerms ?? []
+  const hasConflictingBudget = budgetTerms.length > 1
+  const hasConflictingTimeline = timelineTerms.length > 1
+  // Fallback: detect multiple distinct payment/timeline patterns even if model didn't use ";"
+  const rawBudget = extracted.budget ?? ""
+  const rawTimeline = extracted.timeline ?? ""
+  const paymentTermCount = (rawBudget.match(/net\s*\d+/gi) ?? []).length + (rawBudget.match(/\$\s*[\d,]+/g) ?? []).length
+  const hasConflictingPaymentByPattern = paymentTermCount >= 2 || / and | or |,.*changed to|later changed/gi.test(rawBudget) && paymentTermCount >= 1 && hasConflictingBudget
+  const timelineTermCount = (rawTimeline.match(/\d{4}-\d{2}-\d{2}|\d+\s*days?/gi) ?? []).length
+  const hasConflictingTimelineByPattern = timelineTermCount >= 2 || / and | or |,.*changed to|later changed/gi.test(rawTimeline) && timelineTermCount >= 1 && hasConflictingTimeline
+
+  const conflictingPaymentTerms: ObservedFlag = hasConflictingBudget || hasConflictingPaymentByPattern
+    ? {
+        value: true,
+        evidence: `Conflicting payment terms: ${budgetTerms.join(" | ") || rawBudget.slice(0, 120)}`,
+        evidenceRefs: extractionEvidence(key("conflictingPaymentTerms"), budgetTerms.join(" | ") || rawBudget),
+      }
+    : { value: null, evidence: null, evidenceRefs: [] }
+
+  const conflictingTimelineTerms: ObservedFlag = hasConflictingTimeline || hasConflictingTimelineByPattern
+    ? {
+        value: true,
+        evidence: `Conflicting timeline terms: ${timelineTerms.join(" | ") || rawTimeline.slice(0, 120)}`,
+        evidenceRefs: extractionEvidence(key("conflictingTimelineTerms"), timelineTerms.join(" | ") || rawTimeline),
+      }
+    : { value: null, evidence: null, evidenceRefs: [] }
+
   return {
     fee: extracted.budget
       ? {
@@ -107,5 +140,7 @@ export function deriveFreelanceFacts(
     indemnity: observePattern(parts, /indemnif|hold harmless/i, { key: key("indemnity"), source: src }),
     disputeResolution: observePattern(parts, /arbitrat|mediation|dispute resolution|governing law|jurisdiction|small claims|court of [^\n]{1,40}/i, { key: key("disputeResolution"), source: src }),
     deliverablesCount: extracted.deliverables.length,
+    conflictingPaymentTerms,
+    conflictingTimelineTerms,
   }
 }

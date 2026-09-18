@@ -198,9 +198,15 @@ registerStepHandler("lock_document", async (step) => {
 registerStepHandler("create_redraft", async (step, ctx) => {
   const input = step.input_ref as { sourceVersionId?: string; content?: string; changeSummary?: string; idempotencyKey?: string }
   if (!input.sourceVersionId) return { error: "create_redraft requires sourceVersionId", creditsConsumed: 0, needsInput: true }
+  if (!input.content) return { error: "create_redraft requires content", creditsConsumed: 0, needsInput: true }
   const key = input.idempotencyKey ?? `plan:${ctx.plan.id}:v${ctx.plan.version}:redraft:${input.sourceVersionId}`
-  const hash = `hash_${(input.content ?? "").length}_${Date.now().toString(36)}`
-  return { resultRef: { sourceVersionId: input.sourceVersionId, newVersionId: `new_${input.sourceVersionId}_${hash.slice(0,8)}`, contentHash: hash, changeSummary: input.changeSummary ?? "", idempotencyKey: key }, creditsConsumed: 1 }
+  try {
+    const { redraftFromLocked } = await import("@/lib/signing/store")
+    const row = await redraftFromLocked(ctx.client, ctx.plan.user_id, input.sourceVersionId, input.content, input.changeSummary ?? "", key)
+    return { resultRef: { sourceVersionId: input.sourceVersionId, newVersionId: row.id, contentHash: row.content_hash, changeSummary: input.changeSummary ?? "", idempotencyKey: key }, creditsConsumed: 1 }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Redraft failed", creditsConsumed: 0 }
+  }
 })
 registerStepHandler("setup_monitoring", async (step) => {
   const input = step.input_ref as { auditId?: string; events?: Array<{ event_type: string; title: string; due_date?: string; provenance?: string }> }

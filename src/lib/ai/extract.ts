@@ -6,6 +6,14 @@ export interface ExtractedData {
   deliverables: string[]
   timeline: string | null
   budget: string | null
+  // Structured preservation of materially conflicting observations.
+  // When multiple distinct values are observed (e.g. "net 15; net 30"), the
+  // raw string is kept in budget/timeline for backward compat, and the split
+  // terms are in budgetTerms/timelineTerms with per-term evidence.
+  // Optional for backward compat: legacy audits/fixtures may lack them;
+  // consumers must use (extracted.budgetTerms ?? []) and never assume presence.
+  budgetTerms?: string[]
+  timelineTerms?: string[]
   projectType: string | null
   clientSignals: string[]
   missingInformation: string[]
@@ -40,15 +48,54 @@ function stringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string")
 }
 
+function splitTerms(value: string | null): string[] {
+  if (!value) return []
+  if (value.includes(";")) {
+    return value.split(";").map((s) => s.trim()).filter((s) => s.length > 0)
+  }
+  // Fallback for " and "/" or " and ", later changed to" when no ";" but two distinct terms exist
+  const hasTwoPayments = (value.match(/net\s*\d+/gi) ?? []).length >= 2 || (value.match(/\$\s*[\d,]+/g) ?? []).length >= 2
+  const hasTwoDates = (value.match(/\d{4}-\d{2}-\d{2}/g) ?? []).length >= 2 || (value.match(/\d+\s*days?/gi) ?? []).length >= 2
+  const hasTwoTerms = hasTwoPayments || hasTwoDates
+  if (hasTwoTerms) {
+    // Split on " and " / " or " first
+    if (/\s+and\s+|\s+or\s+/i.test(value)) {
+      const parts = value.split(/\s+(?:and|or)\s+/i).map((s) => s.trim()).filter((s) => s.length > 0)
+      if (parts.length >= 2) return parts
+    }
+    // Handle "30 days, later changed to 45 days" and similar comma cases
+    if (value.includes(",")) {
+      let parts = value.split(/\s*,\s*/).map((s) => s.trim()).filter((s) => s.length > 0)
+      parts = parts.map((p) => p.replace(/^(later changed to\s*)/i, "").trim()).filter((s) => s.length > 0)
+      // Further split any part that still contains " and " / " or "
+      const expanded: string[] = []
+      for (const p of parts) {
+        if (/\s+and\s+|\s+or\s+/i.test(p)) {
+          expanded.push(...p.split(/\s+(?:and|or)\s+/i).map((s) => s.trim()).filter((s) => s.length > 0))
+        } else {
+          expanded.push(p)
+        }
+      }
+      if (expanded.length >= 2) return expanded
+    }
+  }
+  return [value.trim()]
+}
+
 function parseExtractedResponse(text: string): ExtractedData {
   const cleaned = extractJson(text)
   const parsed = JSON.parse(cleaned)
 
+  const budget = typeof parsed.budget === "string" ? parsed.budget : null
+  const timeline = typeof parsed.timeline === "string" ? parsed.timeline : null
+
   return {
     goals: stringArray(parsed.goals),
     deliverables: stringArray(parsed.deliverables),
-    timeline: typeof parsed.timeline === "string" ? parsed.timeline : null,
-    budget: typeof parsed.budget === "string" ? parsed.budget : null,
+    timeline,
+    budget,
+    budgetTerms: splitTerms(budget),
+    timelineTerms: splitTerms(timeline),
     projectType: typeof parsed.projectType === "string" ? parsed.projectType : null,
     clientSignals: stringArray(parsed.clientSignals),
     missingInformation: stringArray(parsed.missingInformation),
