@@ -19,10 +19,23 @@ export const BOUNDED_OPERATIONS = [
   "negotiation",
   "drafting",
   "proposal",
-  // Bounded deal-work extensions
+  // Bounded deal-work extensions (Phase 2)
   "validate_rows",
   "generate_draft",
   "send_email",
+  // Signing lifecycle (Phase 3)
+  "prepare_signing",
+  "owner_sign",
+  "invite_counterparty",
+  "counterparty_sign",
+  "lock_document",
+  "create_redraft",
+  // Monitoring (Phase 3)
+  "setup_monitoring",
+  "create_alert",
+  // Lawyer + payment (Phase 3)
+  "request_lawyer_review",
+  "record_service_payment",
 ] as const
 
 export type BoundedOperation = (typeof BOUNDED_OPERATIONS)[number] | AIOperation

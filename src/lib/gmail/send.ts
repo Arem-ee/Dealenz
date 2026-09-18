@@ -27,7 +27,7 @@ export interface SendResult {
 // In-memory provider mock for tests; in production this would call https://gmail.googleapis.com/gmail/v1/users/me/messages/send
 // For verification without live Gmail, we keep a test double via globalThis.__gmailSendMock
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __gmailSendMock: ((input: SendRowInput, accessToken: string) => Promise<{ id: string; threadId: string | null }>) | undefined
 }
 
