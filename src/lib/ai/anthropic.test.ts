@@ -71,7 +71,8 @@ describe("callAnthropicProvider", () => {
     expect((init.headers as Record<string, string>)["anthropic-version"]).toBe("2023-06-01")
     const body = JSON.parse(init.body as string) as Record<string, unknown>
     expect(body.model).toBe("claude-sonnet-5")
-    expect(body.system).toBe("sys")
+    expect(body.system).toEqual([{ type: "text", text: "sys", cache_control: { type: "ephemeral" } }])
+    expect((init.headers as Record<string, string>)["anthropic-beta"]).toBe("prompt-caching-2024-07-31")
     expect(body.messages).toEqual([{ role: "user", content: "user" }])
     expect(typeof body.max_tokens).toBe("number")
   })

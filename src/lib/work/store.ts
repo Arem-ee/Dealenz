@@ -111,6 +111,10 @@ export async function approvePlan(
   input: { idempotencyKey: string; scope?: Record<string, unknown>; expiresAt?: string | null }
 ): Promise<{ plan: PlanRow; approval: WorkApprovalRow }> {
   if (!input.idempotencyKey || input.idempotencyKey.length > 120) throw new Error("Approval needs idempotency key")
+  // Advisory lock to prevent duplicate approvals for same plan_version
+  try {
+    await (client as unknown as { rpc: (n: string, p: unknown) => Promise<unknown> }).rpc("acquire_plan_lock", { p_plan_id: planId } as never)
+  } catch {}
   const plan = await getPlan(client, userId, planId)
   if (!plan) throw new Error("Plan not found")
   if (plan.status !== "awaiting_approval") throw new Error(`Cannot approve from ${plan.status}`)

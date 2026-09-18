@@ -296,9 +296,10 @@ describe("surface routing regression", () => {
     await extractProjectData("Shop lease, 12 month term.", "lease")
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    const body = JSON.parse(init.body as string) as { system: string }
-    expect(body.system).toContain("agreement analyst")
-    expect(body.system).not.toContain("project analyst")
+    const body = JSON.parse(init.body as string) as { system: unknown }
+    const systemText = typeof body.system === "string" ? body.system : Array.isArray(body.system) ? (body.system as Array<{ text?: string }>).map((b) => b.text ?? "").join(" ") : ""
+    expect(systemText).toContain("agreement analyst")
+    expect(systemText).not.toContain("project analyst")
   })
 
   it("routes lease risk analysis through the adaptive generic path, not the freelance engine", async () => {

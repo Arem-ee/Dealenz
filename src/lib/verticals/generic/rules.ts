@@ -135,6 +135,38 @@ export const GENERIC_RULES: Rule[] = [
     },
     authority: { kind: "product_policy", note: POLICY },
   }),
+  rule({
+    ruleKey: "generic-conflicting-payment-terms",
+    title: "Generic conflicting payment terms",
+    description: "Fires when payment terms contain conflicting values separated by '; '.",
+    priority: 98,
+    category: "consistency",
+    scope: { dealTypes: ["generic"] },
+    condition: { field: "facts.generic.paymentTerms.text", op: "contains", value: ";" },
+    fireOn: true,
+    finding: {
+      summary: "Conflicting payment terms were found in the provided deal input.",
+      severity: "material",
+      guidance: "Clarify which payment terms apply — the input lists multiple conflicting values separated by '; '. Confirm the correct terms in writing.",
+    },
+    authority: { kind: "product_policy", note: POLICY },
+  }),
+  rule({
+    ruleKey: "generic-conflicting-scope",
+    title: "Generic conflicting scope",
+    description: "Fires when scope contains conflicting deliverables separated by '; '.",
+    priority: 97,
+    category: "consistency",
+    scope: { dealTypes: ["generic"] },
+    condition: { field: "facts.generic.scope.text", op: "contains", value: ";" },
+    fireOn: true,
+    finding: {
+      summary: "Conflicting scope terms were found in the provided deal input.",
+      severity: "material",
+      guidance: "Clarify which scope applies — multiple conflicting deliverables are listed separated by '; '. Confirm the correct scope in writing.",
+    },
+    authority: { kind: "product_policy", note: POLICY },
+  }),
 ]
 
 // Bucket mapping for deterministic generic scoring (AI-authority fix).

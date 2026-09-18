@@ -13,7 +13,7 @@ import { getCreditBalance } from "@/lib/credits/ledger"
 
 type Client = SupabaseClient
 
-export type StepHandler = (step: PlanStepRow, ctx: { plan: PlanRow; executionId: string }) => Promise<{ resultRef?: Record<string, unknown>; creditsConsumed?: number; needsInput?: boolean; rateLimited?: boolean; error?: string }>
+export type StepHandler = (step: PlanStepRow, ctx: { plan: PlanRow; executionId: string; client: Client }) => Promise<{ resultRef?: Record<string, unknown>; creditsConsumed?: number; needsInput?: boolean; rateLimited?: boolean; error?: string }>
 
 // Registry of bounded operations — explicit allowlist, no LLM-invented ops.
 const handlers = new Map<string, StepHandler>()
@@ -101,18 +101,55 @@ registerStepHandler("generate_draft", async (step, ctx) => {
   const row = input.row as Record<string, string> | undefined
   if (!auditId) return { error: "Missing auditId for draft generation", creditsConsumed: 0, needsInput: true }
   try {
-    // Use existing document assembly where possible; for tests, deterministic content
     const content = `Draft for ${auditId}${rowId ? ` row ${rowId}` : ""}${row ? ` — ${JSON.stringify(row).slice(0, 80)}` : ""}`.trim()
-    const contentHash = `hash_${content.length}_${Date.now().toString(36)}`
-    // For idempotency, draftId is stable per rowId + planVersion (server-derived, not random)
-    const draftId = rowId ? `draft_${rowId}` : `draft_${ctx.plan.id}_${step.id}`
-    // In production, this would also insert into document_versions with provenance:
-    // deal, findingIds, evidenceIds, planId, executionId, payloadHash, generation surface, timestamp, assumptions
-    // For Phase 2, we return the draft identity and let the executor's work_product creation handle document_versions
-    // The actual document_versions insert is done by the batch executor's per-row step or by this handler's caller
-    // To keep RLS and audit trail, we insert a minimal document_versions row here for verification (server-side, RLS)
-    // Note: contentHash is stored, not the full content duplicated unnecessarily in WorkProduct snapshot
-    return { resultRef: { draftId, auditId, rowId: rowId ?? null, contentHash, contentPreview: content.slice(0, 120), findingIds: input.findingIds ?? [], requestedDocumentType: input.requestedDocumentType ?? "protection_clause" }, creditsConsumed: 1 }
+    const { createHash } = await import("node:crypto")
+    const contentHash = createHash("sha256").update(content, "utf8").digest("hex")
+    const requestedType = (input.requestedDocumentType ?? "protection_clause") as string
+    // Idempotent per plan+step+row: check existing version for this plan's execution
+    // Use contentHash and provenance to deduplicate
+    const client = ctx.client as Client
+    // Determine audit ownership and next version_number
+    const { data: audit } = await client.from("audits").select("id, user_id").eq("id", auditId).maybeSingle()
+    if (!audit) return { error: "Audit not found", creditsConsumed: 0, needsInput: true }
+    // Fetch next version_number for this audit+type
+    const { data: maxRow } = await client.from("document_versions").select("version_number").eq("audit_id", auditId).eq("document_type", requestedType).order("version_number", { ascending: false }).limit(1).maybeSingle()
+    const nextVersion = ((maxRow as { version_number?: number } | null)?.version_number ?? 0) + 1
+    // Idempotency: if a version with same contentHash and same plan context already exists, reuse it
+    const { data: existing } = await client
+      .from("document_versions")
+      .select("id, content_hash")
+      .eq("audit_id", auditId)
+      .eq("document_type", requestedType)
+      .eq("content_hash", contentHash)
+      .maybeSingle()
+    if (existing) {
+      return { resultRef: { draftId: (existing as { id: string }).id, auditId, rowId: rowId ?? null, contentHash, contentPreview: content.slice(0, 120), findingIds: input.findingIds ?? [], requestedDocumentType: requestedType, reused: true }, creditsConsumed: 0 }
+    }
+    const { data: inserted, error } = await client
+      .from("document_versions")
+      .insert({
+        audit_id: auditId,
+        user_id: ctx.plan.user_id,
+        document_type: requestedType,
+        version_number: nextVersion,
+        content,
+        generation_method: "ai",
+        content_hash: contentHash,
+        provenance: {
+          plan_id: ctx.plan.id,
+          plan_version: ctx.plan.version,
+          execution_id: ctx.executionId,
+          step_id: step.id,
+          findingIds: input.findingIds ?? [],
+          rowId: rowId ?? null,
+          payload_hash: ctx.plan.payload_hash,
+        },
+        status: "draft",
+      } as never)
+      .select("id")
+      .single()
+    if (error || !inserted) return { error: error?.message ?? "Failed to persist document version", creditsConsumed: 0 }
+    return { resultRef: { draftId: (inserted as { id: string }).id, auditId, rowId: rowId ?? null, contentHash, contentPreview: content.slice(0, 120), findingIds: input.findingIds ?? [], requestedDocumentType: requestedType }, creditsConsumed: 1 }
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Draft generation failed", creditsConsumed: 0 }
   }
@@ -202,6 +239,10 @@ export interface ExecutePlanInput {
 
 export async function executePlan(input: ExecutePlanInput): Promise<{ executionId: string; status: string }> {
   const { client, userId, planId, approval, policy } = input
+  // Advisory lock per plan to serialize concurrent executions (prevents duplicate active)
+  try {
+    await (client as unknown as { rpc: (n: string, p: unknown) => Promise<{ error: unknown }> }).rpc("acquire_plan_lock", { p_plan_id: planId } as never)
+  } catch {}
   // Load plan + steps
   const { data: planRaw, error: planErr } = await client.from("work_plans").select("*").eq("id", planId).eq("user_id", userId).maybeSingle()
   if (planErr || !planRaw) throw new Error("Plan not found")
@@ -290,7 +331,7 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
       return { failed: true, consumed: 0 }
     }
     try {
-      const out = await handler(step, { plan, executionId })
+      const out = await handler(step, { plan, executionId, client })
       if (out.rateLimited) {
         await client.from("work_plan_steps").update({ status: "rate_limited", result_ref: out.resultRef ?? null, credits_consumed: out.creditsConsumed ?? 0, error: out.error ?? null, updated_at: new Date().toISOString() }).eq("id", step.id)
         statusMap.set(stepId, "rate_limited")
@@ -409,7 +450,29 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
   const finalPlanStatus: import("./schema").PlanStatus = failed ? "failed" : rateLimited ? "rate_limited" : needsInput ? "needs_input" : "done"
   const finalExecStatus: import("./schema").ExecutionStatus = failed ? "failed" : rateLimited ? "rate_limited" : needsInput ? "needs_input" : "succeeded"
 
-  await client.from("work_executions").update({ status: finalExecStatus, completed_at: needsInput ? null : new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", executionId)
+  // Honest retry contract: on failure/rate_limited set next_retry_at with exponential backoff, increment attempt
+  let nextRetryAt: string | null = null
+  let nextAttempt: number | null = null
+  if (failed || rateLimited) {
+    try {
+      const { data: execRow } = await client.from("work_executions").select("attempt, max_attempts").eq("id", executionId).maybeSingle()
+      const attempt = (execRow as { attempt?: number } | null)?.attempt ?? 0
+      const maxAttempts = (execRow as { max_attempts?: number } | null)?.max_attempts ?? 3
+      nextAttempt = attempt + 1
+      if (nextAttempt < maxAttempts) {
+        const backoffMinutes = Math.pow(2, nextAttempt)
+        nextRetryAt = new Date(Date.now() + backoffMinutes * 60 * 1000).toISOString()
+      } else {
+        nextRetryAt = null // permanent failure, no further retry
+      }
+    } catch {}
+  }
+
+  const execUpdate: Record<string, unknown> = { status: finalExecStatus, completed_at: needsInput ? null : new Date().toISOString(), updated_at: new Date().toISOString() }
+  if (nextAttempt !== null) (execUpdate as Record<string, unknown>).attempt = nextAttempt
+  if (nextRetryAt !== null) (execUpdate as Record<string, unknown>).next_retry_at = nextRetryAt
+  else if (failed || rateLimited) (execUpdate as Record<string, unknown>).next_retry_at = null
+  await client.from("work_executions").update(execUpdate).eq("id", executionId)
   await client.from("work_plans").update({ status: finalPlanStatus, completed_at: needsInput ? null : new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", planId).eq("user_id", userId)
 
   // Minimal audit linkage: one activity_event + one system_log per execution

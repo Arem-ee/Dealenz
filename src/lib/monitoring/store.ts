@@ -104,8 +104,26 @@ export async function sendMonitoringAlert(client: Client, userId: string, alertI
     const tokens = await getGmailTokens(client as never, userId)
     if (tokens) {
       const { sendGmailForRow } = await import("@/lib/gmail/send")
+      const refreshFn = async (refreshToken: string) => {
+        const clientId = process.env.GOOGLE_CLIENT_ID
+        const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+        if (!clientId || !clientSecret) throw new Error("Gmail not configured for refresh")
+        const res = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            refresh_token: refreshToken,
+            grant_type: "refresh_token",
+          }),
+        })
+        const data = (await res.json()) as { access_token?: string; expires_in?: number }
+        if (!data.access_token) throw new Error("Failed to refresh Gmail token")
+        return { access_token: data.access_token, expiry_date: new Date(Date.now() + (data.expires_in ?? 3600) * 1000).toISOString() }
+      }
       // Reuse Gmail send for alert: treat as one-off send with alertId as rowId (idempotency derived from planId+rowId)
-      const res = await sendGmailForRow(client as never, userId, { to: a.destination, subject: `[Dealenz] ${e.title}`, body: `Deal alert: ${e.title}\n${e.description ?? ""}\nDue: ${e.due_date ?? "unknown"} (provenance: ${e.provenance})\nAudit: ${a.audit_id}`, planId: a.audit_id, planVersion: 1, rowId: `alert:${alertId}` })
+      const res = await sendGmailForRow(client as never, userId, { to: a.destination, subject: `[Dealenz] ${e.title}`, body: `Deal alert: ${e.title}\n${e.description ?? ""}\nDue: ${e.due_date ?? "unknown"} (provenance: ${e.provenance})\nAudit: ${a.audit_id}`, planId: a.audit_id, planVersion: 1, rowId: `alert:${alertId}` }, refreshFn)
       providerMessageId = (res as { providerMessageId?: string }).providerMessageId
       providerResponse = { provider: "gmail", ...res }
     } else {

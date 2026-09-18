@@ -116,7 +116,8 @@ export async function redraftFromLocked(
     .maybeSingle()
   if (existing) return existing as DocumentVersionRow
 
-  const hash = `hash_${newContent.length}_${Date.now().toString(36)}`
+  const { createHash } = await import("node:crypto")
+  const hash = createHash("sha256").update(newContent, "utf8").digest("hex")
   const { data, error } = await client
     .from("document_versions")
     .insert({

@@ -28,11 +28,15 @@ Do not commit real values. All values below are names only.
 | `AI_BASE_URL` | Provider docs (e.g. `https://integrate.api.nvidia.com/v1` or `https://generativelanguage.googleapis.com/v1beta`) | Server-only |
 | `AI_MODEL` | Provider model catalog | Server-only |
 
-### AI — authenticated Deal Intelligence
+### AI — authenticated Deal Intelligence (Sonnet live, 2026-09-18)
 
 | Variable | Where to obtain | Notes |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Anthropic Console → API Keys | Server-only. Required when `AUTH_AI_PROVIDER` is `anthropic` (default). |
+| `AUTH_AI_PROVIDER` | Literal: `anthropic` | Default `anthropic`. Controls `src/lib/ai/providers.ts:54` `resolveAuthProvider()` |
+| `AUTH_AI_MODEL` | Anthropic model ID | Default `claude-sonnet-5` (`src/lib/ai/providers.ts:62`, `src/lib/ai/providers/anthropic.ts:40`). Live for extraction/risk/generation. Previous `claude-opus-5` retired from primary. |
+| `AUTH_AI_FALLBACK_MODEL` | Anthropic model ID | Default `claude-opus-5` (`src/lib/ai/providers.ts:66`) — only on retryable provider failures (timeout/network/rate_limit/provider/malformed). Rarely hit. |
+| `LIGHTWEIGHT_AI_MODEL` | Anthropic model ID | Default `claude-haiku-4-5` (`src/lib/ai/providers.ts:70`) — reserved for trivial LLM tasks only; current greeting/classification is deterministic (`src/lib/conversation/classify.ts:15` `isGreeting`, `src/lib/ai/operations.ts` fast-path) so Haiku is not invoked for substantive work. |
 
 ### Paddle (software commerce — Merchant of Record)
 
@@ -44,7 +48,7 @@ Do not commit real values. All values below are names only.
 | `PADDLE_PRICE_STANDARD` | Paddle Dashboard → Catalog → Product → Price ID | Server-only. Price for 150-credit Standard. |
 | `PADDLE_PRICE_PRO` | Paddle Dashboard → Catalog → Product → Price ID | Server-only. Price for 400-credit Pro. |
 
-All other variables (`AUTH_AI_PROVIDER`, `AUTH_AI_MODEL`, `PADDLE_ENVIRONMENT`, `LEGAL_RESEARCH_LIVE`, `LEGAL_SEARCH_API_KEY`, `OPS_ALERT_WEBHOOK`, `GEMINI_*`) are optional and not required for baseline production. Set them only if you intend to override defaults.
+All other variables (`PADDLE_ENVIRONMENT`, `LEGAL_RESEARCH_LIVE`, `LEGAL_SEARCH_API_KEY`, `OPS_ALERT_WEBHOOK`, `GEMINI_*`) are optional. Prompt caching is always on for `claude-sonnet-5` via `src/lib/ai/providers/anthropic.ts:123` (`anthropic-beta: prompt-caching-2024-07-31` + cached `system` block `cache_control: ephemeral`); no env flag needed. System prompts per vertical (`src/lib/ai/prompts.ts:18` `EXTRACTION_SYSTEM_PROMPT`, `src/lib/ai/prompts.ts:44` `RISK_ANALYSIS_SYSTEM_PROMPT`, etc.) are ~300-520 tokens each and benefit after first call per vertical (cached input 90% off: $0.30 vs $3.00 per 1M).
 
 ## Checklist
 

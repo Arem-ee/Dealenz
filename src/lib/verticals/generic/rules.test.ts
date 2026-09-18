@@ -54,7 +54,7 @@ describe("generic rule pack", () => {
   it("discovers scoped generic rules with honest authority", () => {
     registerGenericPack()
     registerGenericPack()
-    expect(GENERIC_RULES.length).toBe(7)
+    expect(GENERIC_RULES.length).toBe(9)
     for (const rule of GENERIC_RULES) {
       expect(rule.scope.dealTypes).toEqual(["generic"])
       expect(rule.status).toBe("active")

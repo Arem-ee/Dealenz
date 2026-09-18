@@ -46,7 +46,7 @@ describe("freelance rule pack", () => {
     registerFreelancePack()
     registerFreelancePack()
     expect(FREELANCE_RULES.length).toBeGreaterThanOrEqual(5)
-    expect(FREELANCE_RULES.length).toBeLessThanOrEqual(10)
+    expect(FREELANCE_RULES.length).toBeLessThanOrEqual(12)
     for (const rule of FREELANCE_RULES) {
       expect(rule.scope.dealTypes).toEqual(["freelance"])
       expect(rule.status).toBe("active")

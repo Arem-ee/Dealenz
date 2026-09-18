@@ -9,6 +9,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
   const body = await req.json().catch(() => ({})) as { signerId?: string }
   const signerId = typeof body.signerId === "string" ? body.signerId : ""
   if (!signerId) return NextResponse.json({ success: false, error: "Missing signer" }, { status: 400 })
+  // Enforce that the signer belongs to the route's auditId — prevents auditId param confusion and audit trail mismatch
+  const { data: signerRow } = await supabase.from("document_signers").select("audit_id").eq("id", signerId).maybeSingle()
+  if (!signerRow || (signerRow as { audit_id?: string }).audit_id !== auditId) {
+    return NextResponse.json({ success: false, error: "Signer does not belong to this audit" }, { status: 400 })
+  }
 
   const { data, error } = await supabase.rpc("sign_as_owner", { p_signer_id: signerId })
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 })

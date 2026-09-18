@@ -59,11 +59,18 @@ function resolveAuthProvider(): AIProviderName {
 }
 
 function resolveAuthModel(): string {
+  // Live: Sonnet for all substantive analysis (extraction, risk, generation). See 2026-09-18 switch from Opus.
   return process.env.AUTH_AI_MODEL ?? "claude-sonnet-5"
 }
 
 function resolveAuthFallbackModel(): string {
+  // Fallback only on retryable provider failures (timeout/network/rate_limit/provider) — rarely hit, keep Opus for resilience.
   return process.env.AUTH_AI_FALLBACK_MODEL ?? "claude-opus-5"
+}
+
+function resolveLightweightModel(): string {
+  // Trivial tasks only — greeting/input classification/routing (deterministic today, Haiku if ever needed for LLM lightweight)
+  return process.env.LIGHTWEIGHT_AI_MODEL ?? "claude-haiku-4-5"
 }
 
 export interface ResolvedSurfaceConfig {

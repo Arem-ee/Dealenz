@@ -77,7 +77,11 @@ export async function executeApprovedPlan(planId: string, approvalId: string): P
     // Load approval to validate hash/version
     const { data: approval } = await supabase.from("work_approvals").select("*").eq("id", approvalId).eq("plan_id", planId).eq("user_id", user.id).maybeSingle()
     if (!approval) return { ok: false, error: "Approval not found." }
-    const res = await executePlan({ client: supabase as never, userId: user.id, planId, approval: approval as never, policy: null })
+    const { data: planCheck } = await supabase.from("work_plans").select("estimated_credits").eq("id", planId).eq("user_id", user.id).maybeSingle()
+    const estimated = (planCheck as { estimated_credits?: number } | null)?.estimated_credits ?? 0
+    const { STANDARD_CREDIT_POLICY } = await import("@/lib/credits/pricing")
+    const policy = estimated > 0 ? STANDARD_CREDIT_POLICY : null
+    const res = await executePlan({ client: supabase as never, userId: user.id, planId, approval: approval as never, policy })
     return { ok: true, executionId: res.executionId, status: res.status }
   } catch (e) {
     return toActionFailure(e, "Execution failed.") as never

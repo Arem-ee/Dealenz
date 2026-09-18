@@ -166,6 +166,38 @@ export const FREELANCE_RULES: Rule[] = [
     },
     authority: { kind: "product_policy", note: POLICY },
   }),
+  rule({
+    ruleKey: "freelance-conflicting-payment-terms",
+    title: "Freelance conflicting payment terms",
+    description: "Fires when payment terms contain conflicting values separated by '; ' — preserved from extraction verbatim.",
+    priority: 98,
+    category: "consistency",
+    scope: { dealTypes: ["freelance"] },
+    condition: { field: "facts.freelance.fee.text", op: "contains", value: ";" },
+    fireOn: true,
+    finding: {
+      summary: "Conflicting payment terms were found in the provided deal input.",
+      severity: "material",
+      guidance: "Clarify which payment terms apply — the input lists multiple conflicting values separated by '; '. Confirm the correct schedule in writing before proceeding.",
+    },
+    authority: { kind: "product_policy", note: POLICY },
+  }),
+  rule({
+    ruleKey: "freelance-conflicting-timeline",
+    title: "Freelance conflicting timeline",
+    description: "Fires when timeline contains conflicting values separated by '; '.",
+    priority: 97,
+    category: "consistency",
+    scope: { dealTypes: ["freelance"] },
+    condition: { field: "facts.freelance.delivery.text", op: "contains", value: ";" },
+    fireOn: true,
+    finding: {
+      summary: "Conflicting timeline terms were found in the provided deal input.",
+      severity: "material",
+      guidance: "Clarify which timeline applies — the input lists multiple conflicting dates separated by '; '. Confirm the correct deadline in writing.",
+    },
+    authority: { kind: "product_policy", note: POLICY },
+  }),
 ]
 
 const registered = new Set<string>()
