@@ -88,6 +88,30 @@ export async function executeApprovedPlan(planId: string, approvalId: string): P
   }
 }
 
+export async function createBatchWorkPlan(input: { conversationId: string; dealId: string; csvText: string; protectionObjective?: string }): Promise<CreatePlanResult & { estimatedCredits?: number }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, error: "You must be signed in." }
+    if (!input.conversationId || !input.dealId) return { ok: false, error: "Conversation and deal are required." }
+    if (!input.csvText || input.csvText.trim().length === 0) return { ok: false, error: "Spreadsheet is empty." }
+    // Deal must belong to the caller; row parsing stays client-side, plan
+    // creation (credits, identity) stays server-side.
+    const { data: audit } = await supabase.from("audits").select("id").eq("id", input.dealId).eq("user_id", user.id).maybeSingle()
+    if (!audit) return { ok: false, error: "Deal not found." }
+    const { createBatchPlan } = await import("./batch")
+    const created = await createBatchPlan(supabase as never, user.id, {
+      conversationId: input.conversationId,
+      dealId: input.dealId,
+      csvText: input.csvText,
+      protectionObjective: input.protectionObjective,
+    })
+    return { ok: true, planId: created.planId, estimatedCredits: created.estimatedCredits }
+  } catch (e) {
+    return toActionFailure(e, "Could not create batch plan.") as never
+  }
+}
+
 export async function createDealAnalysisPlan(input: { conversationId: string; dealId: string }): Promise<CreatePlanResult> {
   try {
     const supabase = await createClient()

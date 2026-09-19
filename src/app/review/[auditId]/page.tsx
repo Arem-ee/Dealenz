@@ -63,9 +63,8 @@ export default async function LawyerReviewPage({ params, searchParams }: { param
               </div>
 
               <div className="rounded-xl border bg-card p-4">
-                <h3 className="text-sm font-semibold">Communication</h3>
-                <p className="mt-1 text-xs text-muted-foreground">Notes tied to this review will appear here. Use the thread to continue discussion; this case file is the async record.</p>
-                <div className="mt-3 rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">No messages yet — review hasn&apos;t started.</div>
+                <h3 className="text-sm font-semibold">Review status</h3>
+                <p className="mt-1 text-xs text-muted-foreground">This case file tracks the lawyer review for this deal. Continue the discussion in your deal thread; status changes are recorded here.</p>
               </div>
             </div>
           }

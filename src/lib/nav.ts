@@ -40,12 +40,13 @@ export function titleFor(pathname: string): string {
   if (pathname.startsWith("/document")) return "Document"
   if (pathname.startsWith("/review")) return "Review"
   if (pathname.startsWith("/audit")) return "Deal"
-  if (pathname.startsWith("/deals")) return "Deals"
+  // /deals redirects to /dashboard, so it titles as Home rather than a
+  // separate destination. No /clients surface exists (the product has no CRM).
+  if (pathname.startsWith("/deals")) return "Home"
   if (pathname.startsWith("/library") || pathname.startsWith("/vault")) return "Library"
   if (pathname.startsWith("/settings")) return "Settings"
   if (pathname.startsWith("/billing")) return "Billing"
   if (pathname === "/help") return "Get help"
-  if (pathname.startsWith("/clients")) return "Clients"
   if (pathname.startsWith("/templates")) return "Templates"
   if (pathname.startsWith("/risk-intelligence")) return "Risk Intelligence"
   if (pathname.startsWith("/lawyer")) return "Lawyer workspace"

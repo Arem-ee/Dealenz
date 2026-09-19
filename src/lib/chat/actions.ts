@@ -95,13 +95,15 @@ async function analyzeAndPostRiskInner(threadId: string, auditId: string): Promi
     if (!posted.ok) throw new Error(posted.error)
     return { status: "failed" as const }
   }
-  const findings = (result.deterministicFindings ?? []) as Array<{ finding?: { severity: string; summary: string; guidance?: string }; severity?: string; summary?: string; guidance?: string }>
+  const findings = (result.deterministicFindings ?? []) as Array<{ ruleKey?: string; finding?: { severity: string; summary: string; guidance?: string; evidence?: unknown }; severity?: string; summary?: string; guidance?: string; evidence?: unknown }>
   const payload = {
     riskLevel: (result.riskReport as { riskLevel?: string })?.riskLevel ?? "Unknown",
     overallScore: (result.riskReport as { overallScore?: number })?.overallScore,
     findings: findings.map((f) => {
-      const src = (f.finding ?? f) as { severity: string; summary: string; guidance?: string }
-      return { severity: src.severity, summary: src.summary, whyItMatters: src.guidance }
+      const src = (f.finding ?? f) as { severity: string; summary: string; guidance?: string; evidence?: unknown }
+      // Evidence travels from the deterministic findings (attached by
+      // attachEvidence at analysis time). Absent stays absent, never faked.
+      return { ruleKey: f.ruleKey ?? null, severity: src.severity, summary: src.summary, whyItMatters: src.guidance, evidence: Array.isArray(src.evidence) ? src.evidence : [] }
     }),
   }
   const riskPosted = await postRichMessage(threadId, { type: "risk_report", payload, content: `Risk analysis complete: ${payload.riskLevel}` })

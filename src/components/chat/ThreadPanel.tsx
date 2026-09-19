@@ -17,15 +17,16 @@ export function latestRichMessage(messages: ThreadMessage[]): ThreadMessage | nu
   return null
 }
 
-function PanelCard({ message, onContextConfirm, onDocumentGenerate }: {
+function PanelCard({ message, onContextConfirm, onDocumentGenerate, onAskFinding }: {
   message: ThreadMessage
   onContextConfirm?: (messageId: string, corrections: Record<string, string>) => void
   onDocumentGenerate?: (messageId: string, vars: Record<string, string>) => void
+  onAskFinding?: (question: string) => void
 }) {
   const payload = (message.payload as Record<string, unknown>) ?? {}
   switch (message.type) {
     case "risk_report":
-      return <RiskReportCard payload={payload} />
+      return <RiskReportCard payload={payload} onAskFinding={onAskFinding} />
     case "document_draft":
     case "document_draft_turn":
       return <DocumentDraftCard payload={payload} onGenerate={onDocumentGenerate ? async (vars) => onDocumentGenerate(message.id, vars) : undefined} />
@@ -44,11 +45,12 @@ function PanelCard({ message, onContextConfirm, onDocumentGenerate }: {
  * card components as the mobile inline rendering — one implementation, two
  * placements.
  */
-export function ThreadPanel({ messages, auditId, onContextConfirm, onDocumentGenerate }: {
+export function ThreadPanel({ messages, auditId, onContextConfirm, onDocumentGenerate, onAskFinding }: {
   messages: ThreadMessage[]
   auditId?: string | null
   onContextConfirm?: (messageId: string, corrections: Record<string, string>) => void
   onDocumentGenerate?: (messageId: string, vars: Record<string, string>) => void
+  onAskFinding?: (question: string) => void
 }) {
   const latest = latestRichMessage(messages)
   void auditId
@@ -67,7 +69,7 @@ export function ThreadPanel({ messages, auditId, onContextConfirm, onDocumentGen
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
         <div className="mx-auto w-full max-w-2xl font-serif">
           {latest ? (
-            <PanelCard message={latest} onContextConfirm={onContextConfirm} onDocumentGenerate={onDocumentGenerate} />
+            <PanelCard message={latest} onContextConfirm={onContextConfirm} onDocumentGenerate={onDocumentGenerate} onAskFinding={onAskFinding} />
           ) : (
             <p className="rounded-xl border border-dashed px-4 py-8 text-center text-xs text-muted-foreground">
               Nothing structured yet. Paste a deal or ask a question and the risk report or draft lands here.

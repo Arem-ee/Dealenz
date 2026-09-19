@@ -15,9 +15,12 @@ interface ComposerProps {
   threadId?: string | null
   auditId?: string | null
   onMessageSent?: () => void
+  // Prefilled text from the work surface (e.g. "Ask about this finding").
+  // Applied when the key changes so repeated asks with new text re-apply.
+  prefill?: { text: string; key: number } | null
 }
 
-export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
+export function Composer({ threadId, auditId, onMessageSent, prefill }: ComposerProps) {
   const router = useRouter()
   const [value, setValue] = useState("")
   const [sending, setSending] = useState(false)
@@ -31,6 +34,14 @@ export function Composer({ threadId, auditId, onMessageSent }: ComposerProps) {
   const hasContent = value.trim().length > 0 || !!pendingFile
 
   const [ephemeral, setEphemeral] = useState<Array<{ role: "user" | "assistant"; content: string }>>([])
+  // Work-surface asks (e.g. "Ask about this finding") land in the box.
+  // Applied during render by comparing keys, the React-endorsed pattern for
+  // syncing state from props, so no effect and no cascading renders.
+  const [appliedPrefillKey, setAppliedPrefillKey] = useState<number | null>(null)
+  if (prefill && prefill.text && prefill.key !== appliedPrefillKey) {
+    setAppliedPrefillKey(prefill.key)
+    setValue(prefill.text)
+  }
 
   async function doSend(text: string, hasDocument: boolean): Promise<boolean> {
     const { outcome } = classifyInput(text, hasDocument)

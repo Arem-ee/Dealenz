@@ -13,12 +13,14 @@ export function MessageList({
   isLoading,
   onContextConfirm,
   onDocumentGenerate,
+  onAskFinding,
   richMode = "inline",
 }: {
   messages: ThreadMessage[]
   isLoading?: boolean
   onContextConfirm?: (messageId: string, corrections: Record<string, string>) => void
   onDocumentGenerate?: (messageId: string, vars: Record<string, string>) => void
+  onAskFinding?: (question: string) => void
   // "inline" renders rich cards in the scroll (mobile base). "hidden" skips
   // them because the desktop split-pane panel shows the same payload.
   richMode?: "inline" | "hidden"
@@ -49,7 +51,7 @@ export function MessageList({
           return (
             <div key={m.id} className="flex justify-start">
               <div className="w-full max-w-[95%]">
-                <RiskReportCard payload={(m.payload as Record<string, unknown>) ?? {}} />
+                <RiskReportCard payload={(m.payload as Record<string, unknown>) ?? {}} onAskFinding={onAskFinding} />
                 <p className="mt-1 text-[10px] text-muted-foreground">{new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
               </div>
             </div>

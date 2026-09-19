@@ -124,7 +124,13 @@ No CRM-style dashboard. Navigation is Home + Library (`src/app/library/page.tsx`
 
 ### Mobile — Single Column
 
-`useIsDesktop()` selects layout. On narrow viewports there is no split pane. Structured work surfaces appear as cards and sections inside the conversation stream, stacked in reading order. The same work components render — only the layout changes.
+`useIsDesktop()` selects layout. On narrow viewports there is no split pane. Structured work surfaces appear as cards and sections inside the conversation stream, stacked in reading order. The same work components render — only the layout changes. A compact `WorkspaceHeader` keeps deal context visible above the conversation.
+
+### Workspace Header and Objective Workspaces
+
+The work surface leads with a `WorkspaceHeader` (`src/components/chat/WorkspaceHeader.tsx`): deal title, objective-derived workspace mode, deal-type/jurisdiction chips, and state-aware links that render only when backing state exists (document versions, monitoring events). The mode comes from the pure `describeWorkspace` (`src/lib/work/workspace.ts`) over plan kind/status, execution status, the classified user objective (`classifyOperation`, client-safe), the latest structured message, signing participation, and verified counts — approval and running execution dominate, then batch/protection plan kinds, then the objective (proposal/negotiation/drafting), then signing engagement, then the latest card (confirm/review/draft/lawyer), with monitoring/documents/idle as fallbacks.
+
+Modes with a dedicated surface render through `WorkspaceView` (`src/components/work/workspaces/`), composed of shared primitives over one verified bundle (findings with evidence, open items, versions, signers, signing events, checklist, monitoring events/alerts, negotiation points, deliverables, missing inputs): review (findings + open items + Ask/protect), proposal/SOW (version history + scope + missing inputs + freelance-gated generation), negotiation (key issues + persisted negotiation points + evidence), protection (interactive checklist + generated output), signing (versions, signer states, immutable event trail, state-machine-derived next action; acting stays on the document page), monitoring (event/alert CRUD through `src/lib/monitoring/actions.ts` with truthful Gmail state), batch (CSV preview + `createBatchWorkPlan` + per-row send via `/api/gmail/send`). Approval/execution keep the plan block; confirm/lawyer/idle keep the latest-card panel. Risk findings render attached evidence via `EvidenceLine` with per-finding Ask actions that prefill the `Composer`, keeping the loop Current work → Conversation → Updated work.
 
 ### Sidebar
 
