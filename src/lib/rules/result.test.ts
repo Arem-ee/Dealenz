@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import {
+  analysisThreadMessage,
   describeFindingDelta,
   detectFindingConflicts,
   deterministicRiskFloor,
@@ -279,5 +280,20 @@ describe("diffFindingSets (redline re-check)", () => {
     expect(describeFindingDelta({ resolved: [], stillOpen: [], newIssues: [] })).toBe(
       "Re-check complete: 0 resolved, 0 still open, 0 new."
     )
+  })
+
+  it("shares one thread message across posting paths with safe fallback", () => {
+    expect(analysisThreadMessage({})).toBe("Risk analysis complete: Unknown")
+    expect(analysisThreadMessage({ riskLevel: "Medium", findingsCount: 4 })).toBe(
+      "Risk analysis complete: Medium (4 findings)"
+    )
+    expect(
+      analysisThreadMessage({
+        findingDelta: { resolved: [], stillOpen: [], newIssues: [{ ruleKey: "x", summary: "s", severity: "attention" as const }] },
+      })
+    ).toBe("Re-check complete: 0 resolved, 0 still open, 1 new.")
+    // Malformed deltas never break posting.
+    expect(analysisThreadMessage({ findingDelta: { resolved: 1 } as never })).toBe("Risk analysis complete: Unknown")
+    expect(analysisThreadMessage({ findingDelta: null })).toBe("Risk analysis complete: Unknown")
   })
 })

@@ -122,10 +122,8 @@ async function analyzeAndPostRiskInner(threadId: string, auditId: string): Promi
   // Re-checks announce their verdict (resolved / still open / new) instead of
   // the first-analysis message. findingDelta is server-computed and typed;
   // absent on first analysis.
-  const { describeFindingDelta } = await import("@/lib/rules/result")
-  const content = result.findingDelta
-    ? describeFindingDelta(result.findingDelta)
-    : `Risk analysis complete: ${payload.riskLevel}`
+  const { analysisThreadMessage } = await import("@/lib/rules/result")
+  const content = analysisThreadMessage({ findingDelta: result.findingDelta ?? null })
   const riskPosted = await postRichMessage(threadId, { type: "risk_report", payload, content })
   if (!riskPosted.ok) throw new Error(riskPosted.error)
 

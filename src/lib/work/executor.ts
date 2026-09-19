@@ -67,6 +67,9 @@ registerStepHandler("document_analysis", async (step) => {
         auditId,
         riskReport: riskReport ? { overallScore: riskReport.overallScore, riskLevel: riskReport.riskLevel } : null,
         findingsCount: findings.length,
+        // Redline re-check verdict travels here so the thread message below
+        // can announce it. Null on first analysis (no baseline).
+        findingDelta: result.findingDelta ?? null,
         // Snapshot of existing evidence/provenance is already persisted on audits.structured_data
         // Work product will link by auditId rather than duplicating the full report.
       },
@@ -381,11 +384,19 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
         if (tid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tid)) {
           try {
             const findingsCount = (out.resultRef as Record<string, unknown>).findingsCount
+            const { analysisThreadMessage } = await import("@/lib/rules/result")
+            const content = analysisThreadMessage({
+              riskLevel: riskReport?.riskLevel ?? null,
+              findingsCount: typeof findingsCount === "number" ? findingsCount : null,
+              findingDelta: (out.resultRef as Record<string, unknown>).findingDelta as Parameters<
+                typeof analysisThreadMessage
+              >[0]["findingDelta"],
+            })
             await client.from("conversation_messages").insert({
               conversation_id: tid,
               user_id: userId,
               role: "assistant",
-              content: `Risk analysis complete: ${riskReport?.riskLevel ?? "Unknown"}${typeof findingsCount === "number" ? ` (${findingsCount} findings)` : ""}`,
+              content,
               operation: "document_analysis",
               intent: "review",
               objective: plan.objective_kind,

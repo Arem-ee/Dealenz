@@ -283,3 +283,27 @@ export function describeFindingDelta(delta: FindingDelta): string {
   ]
   return `Re-check complete: ${parts.join(", ")}.`
 }
+
+// Thread message for a completed analysis. Re-checks announce their verdict;
+// first analyses keep the established message. Pure: both posting paths
+// (executor insert, analyzeAndPostRisk) share it so the wording cannot drift.
+// A malformed delta falls back to the first-analysis message — posting must
+// never break on data shape.
+export function analysisThreadMessage(input: {
+  riskLevel?: string | null
+  findingsCount?: number | null
+  findingDelta?: FindingDelta | null
+}): string {
+  const d = input.findingDelta as unknown
+  if (
+    d &&
+    typeof d === "object" &&
+    Array.isArray((d as FindingDelta).resolved) &&
+    Array.isArray((d as FindingDelta).stillOpen) &&
+    Array.isArray((d as FindingDelta).newIssues)
+  ) {
+    return describeFindingDelta(d as FindingDelta)
+  }
+  const count = typeof input.findingsCount === "number" ? ` (${input.findingsCount} findings)` : ""
+  return `Risk analysis complete: ${input.riskLevel ?? "Unknown"}${count}`
+}
