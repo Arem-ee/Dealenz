@@ -53,18 +53,20 @@ ALTER TABLE work_plan_steps
 CREATE UNIQUE INDEX IF NOT EXISTS uq_work_plan_steps_idempotency ON work_plan_steps(plan_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_work_plan_steps_next_retry ON work_plan_steps(last_attempt_at);
 
--- 3. Observability: ensure system_logs covers new phases (signing, monitoring, lawyer, payments, background)
--- system_logs already has phase/status/duration but extend check to include Phase 3 phases
+-- 3. Observability: system_logs.phase stays an open vocabulary. A closed CHECK
+-- list was attempted here and removed: the application writes 30+ distinct
+-- operational phases (auth_session_refresh, extraction, risk, rules,
+-- file_metadata_*, share_token_*, ai_fallback/ai_failure, billing_webhook,
+-- consultation_*, protection_package*, ...), so any closed list both rejects
+-- real production rows on ADD CONSTRAINT and would start failing live
+-- logging writes afterwards. No phase CHECK is created, and any legacy one
+-- is dropped defensively.
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'system_logs_phase_check' AND conrelid = 'public.system_logs'::regclass) THEN
     ALTER TABLE public.system_logs DROP CONSTRAINT system_logs_phase_check;
   END IF;
 END $$;
-
-ALTER TABLE public.system_logs
-  ADD CONSTRAINT system_logs_phase_check
-  CHECK (phase IN ('analysis','protection','generation','signing','monitoring','lawyer','payment','gmail','work_execution','background','conversation','billing','auth'));
 
 -- 4. Home/Library attention items view helper (materialized via index, not new table)
 -- Ensure work_plans and monitoring_events are indexed for Home queries

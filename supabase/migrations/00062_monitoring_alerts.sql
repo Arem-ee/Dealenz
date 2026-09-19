@@ -19,9 +19,14 @@ CREATE TABLE IF NOT EXISTS monitoring_events (
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','dismissed','completed')),
   source TEXT NOT NULL DEFAULT 'extracted' CHECK (source IN ('extracted','user','lawyer','system')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT monitoring_events_idempotency UNIQUE (audit_id, event_type, COALESCE(due_date, '1970-01-01'::date), title)
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Idempotency: one event per deal + type + due-date + title. Implemented as
+-- a UNIQUE INDEX because table UNIQUE constraints accept plain columns only
+-- (an expression such as COALESCE is rejected at CREATE TABLE time).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_monitoring_events_idempotency
+  ON monitoring_events (audit_id, event_type, (COALESCE(due_date, '1970-01-01'::date)), title);
 
 CREATE INDEX IF NOT EXISTS idx_monitoring_events_audit ON monitoring_events(audit_id);
 CREATE INDEX IF NOT EXISTS idx_monitoring_events_user_due ON monitoring_events(user_id, due_date);
