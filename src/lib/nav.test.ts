@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { PRIMARY_NAV, SECONDARY_NAV, ACCOUNT_NAV, isActiveEntry, titleFor } from "./nav"
+import { PRIMARY_NAV, SECONDARY_NAV, ACCOUNT_NAV, isActiveEntry, titleFor, backTargetFor } from "./nav"
 
 describe("customer navigation IA (single source)", () => {
   it("keeps exactly two primary destinations: Home and Library", () => {
@@ -39,5 +39,16 @@ describe("customer navigation IA (single source)", () => {
     expect(titleFor("/sign/token")).toBe("Signing")
     expect(titleFor("/admin/lawyers")).toBe("Control")
     expect(titleFor("/lawyer/reviews")).toBe("Lawyer workspace")
+  })
+
+  it("shows the shell back control only on thread views", () => {
+    expect(backTargetFor("/chat/abc-123")).toBe("/dashboard")
+    expect(backTargetFor("/dashboard")).toBeNull()
+    expect(backTargetFor("/library")).toBeNull()
+    expect(backTargetFor("/settings")).toBeNull()
+    expect(backTargetFor("/chat")).toBeNull()
+    // Document Reader and Review carry their own thread-aware back links.
+    expect(backTargetFor("/document/abc")).toBeNull()
+    expect(backTargetFor("/review/abc")).toBeNull()
   })
 })

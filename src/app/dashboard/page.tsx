@@ -20,7 +20,7 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-3rem)] flex-col bg-background">
+    <div className="flex h-[calc(100dvh-4rem)] flex-col bg-background md:h-dvh">
       <ChatLanding threads={threads} loadError={loadError} />
     </div>
   )

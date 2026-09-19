@@ -36,7 +36,9 @@ export function ChatLanding({ threads, loadError }: { threads: ThreadItem[]; loa
         )}
       </div>
 
-      <section aria-label="Recent threads" className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-border/60 bg-card/50 p-2 sm:p-3">
+      {/* Recent threads live in the sidebar on desktop; this list is the
+          mobile equivalent (no sidebar below md). */}
+      <section aria-label="Recent threads" className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-border/60 bg-card/50 p-2 sm:p-3 md:hidden">
         <h2 className="px-2 pb-2 pt-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Recent threads</h2>
         {hasThreads ? (
           <div className="space-y-2">
@@ -70,6 +72,15 @@ export function ChatLanding({ threads, loadError }: { threads: ThreadItem[]; loa
           )
         )}
       </section>
+      {/* Desktop spacer: the thread list lives in the sidebar at md+, so this
+          keeps the composer pinned to the bottom with room to spare. */}
+      <div className="hidden min-h-0 flex-1 flex-col items-center justify-center text-center md:flex">
+        {!hasThreads && !loadError && (
+          <p className="text-sm text-muted-foreground">
+            Start a conversation below — your threads will appear in the sidebar.
+          </p>
+        )}
+      </div>
 
       <div className="shrink-0 py-3 sm:py-4">
         <Composer />

@@ -9,11 +9,13 @@ export interface NavEntry {
 
 /**
  * Single customer information architecture — chat-first.
- * Home is the chat landing (composer + recent threads). Library is
- * natural-language search over the user's deals with structured results.
- * Ask is just the composer (classifier), not a destination.
- * The sidebar holds only these two primary items; everything account-level
- * lives in the account dropdown at the bottom.
+ * Home is the chat landing (composer + desktop sidebar thread list; the
+ * recent-threads box survives only on mobile where there is no sidebar).
+ * Library is natural-language search over the user's deals with structured
+ * results. Ask is just the composer (classifier), not a destination.
+ * The sidebar holds the two primary items, the scrollable thread list, and
+ * the account dropdown at the bottom; everything account-level lives in
+ * that dropdown.
  */
 export const PRIMARY_NAV: NavEntry[] = [
   { label: "Home", href: "/dashboard", icon: LayoutDashboard },
@@ -31,6 +33,17 @@ export const ACCOUNT_NAV: NavEntry[] = [
 /** True when the pathname belongs to the entry (covers nested routes). */
 export function isActiveEntry(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/")
+}
+
+/**
+ * Shell back-button target for one-level-deep routes. Returns the fallback
+ * href when the route warrants a shell-level back control, null for section
+ * roots (covered by the sidebar) and for deep routes that already carry
+ * their own in-component back links (Document Reader, Review).
+ */
+export function backTargetFor(pathname: string): string | null {
+  if (/^\/chat\/[^/]+$/.test(pathname)) return "/dashboard"
+  return null
 }
 
 /** Human title for any customer route, used by the top bar. */

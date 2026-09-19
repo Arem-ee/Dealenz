@@ -141,6 +141,14 @@ Account: Settings · Billing · Help · Log out (grouped lower).
 
 Do not expand primary nav into a CRM (no lead stages, funnels, scoring, pipelines, dashboards).
 
+### Layout Decisions (Explicit)
+
+- **One shell everywhere:** `src/components/app-shell.tsx` (sidebar + account menu on desktop, bottom tabs on mobile, verification wall, back bar) wraps `/dashboard`, `/library`, `/chat`, `/settings`, `/document`, `/review` via per-area layouts. Previously only `/dashboard/*` had chrome; sibling screens rendered chromeless with no way back.
+- **Home is intentionally single-column:** `ChatLanding` is composer-first with no second-pane content until a thread exists, so it stays single-column while thread, library, and review views use the resizable `SplitPane`. This divergence is deliberate, not a gap.
+- **Threads live in the sidebar** (`SidebarNav` scrollable section, active-state per `/chat/[id]`); the "Recent threads" box survives in `ChatLanding` only below `md`, where there is no sidebar.
+- **Composer is viewport-pinned by exact heights, not position:fixed:** chat containers fill precisely to the viewport bottom (`ChatThread` desktop `h-[calc(100dvh-3rem)]` for the shell back bar, mobile `h-[calc(100dvh-7rem)]` for tabs + back bar; dashboard `h-[calc(100dvh-4rem)] md:h-dvh`), the message list scrolls independently, and the composer sits shrink-0 at the column end. `position:fixed` is avoided so the composer never underlaps the sidebar or the mobile tab bar.
+- **Back rule:** shell `BackBar` (`src/components/back-bar.tsx`, rule in `backTargetFor`) renders only on `/chat/[id]` (fallback `/dashboard`). Document Reader and Review keep their own thread-aware back links; section roots rely on the sidebar.
+
 ---
 
 ## Visual Language

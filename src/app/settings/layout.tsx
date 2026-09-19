@@ -2,7 +2,8 @@ import { AppShell } from "@/components/app-shell"
 
 export const dynamic = "force-dynamic"
 
-export default async function DashboardLayout({
+// Settings shares the authenticated shell instead of rendering chromeless.
+export default async function SettingsLayout({
   children,
 }: {
   children: React.ReactNode

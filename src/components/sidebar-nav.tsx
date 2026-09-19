@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, usePathname } from "next/navigation"
-import { LogOut, Scale } from "lucide-react"
+import { LogOut, Scale, MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -21,9 +21,26 @@ interface SidebarNavProps {
   businessName?: string | null
   isLawyer?: boolean
   creditBalance?: number | null
+  threads?: SidebarThread[]
 }
 
-export function SidebarNav({ email, businessName, isLawyer = false, creditBalance = null }: SidebarNavProps) {
+export interface SidebarThread {
+  id: string
+  title: string
+  updatedAt: string
+}
+
+function threadDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  const diff = Math.floor((Date.now() - d.getTime()) / 86400000)
+  if (diff <= 0) return "Today"
+  if (diff === 1) return "Yesterday"
+  if (diff < 7) return `${diff}d ago`
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+export function SidebarNav({ email, businessName, isLawyer = false, creditBalance = null, threads = [] }: SidebarNavProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -44,7 +61,8 @@ export function SidebarNav({ email, businessName, isLawyer = false, creditBalanc
         </Link>
       </div>
 
-      <nav className="flex-1 flex flex-col gap-0.5 p-3 mt-1" aria-label="Primary">
+      <nav className="flex-1 flex flex-col gap-0.5 p-3 mt-1 min-h-0" aria-label="Primary">
+        <div className="shrink-0 space-y-0.5">
         {PRIMARY_NAV.map((item) => {
           const Icon = item.icon
           const isActive = isActiveEntry(pathname, item.href)
@@ -92,6 +110,42 @@ export function SidebarNav({ email, businessName, isLawyer = false, creditBalanc
             })}
           </>
         )}
+        </div>
+        <div className="mt-2 flex min-h-0 flex-1 flex-col">
+          <p className="shrink-0 px-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+            Threads
+          </p>
+          {threads.length > 0 ? (
+            <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-0.5" aria-label="Threads">
+              {threads.map((t) => {
+                const href = `/chat/${t.id}`
+                const isActive = pathname === href
+                return (
+                  <Link
+                    key={t.id}
+                    href={href}
+                    aria-current={isActive ? "page" : undefined}
+                    title={t.title}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm transition-colors",
+                      isActive
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                    )}
+                  >
+                    <MessageCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">{t.title || "Untitled"}</span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground/60">{threadDate(t.updatedAt)}</span>
+                  </Link>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="px-3 py-1 text-xs text-muted-foreground/60">
+              No threads yet — start from Home.
+            </p>
+          )}
+        </div>
       </nav>
 
       <div className="p-3 border-t border-border/60">

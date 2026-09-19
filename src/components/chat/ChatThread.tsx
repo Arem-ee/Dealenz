@@ -631,12 +631,16 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   // Mobile base: single scrolling column with inline cards. Desktop layer:
   // resizable split with the conversation driving and the structured
   // document in the panel.
+  // Heights fill exactly to the viewport bottom: mobile loses 4rem to the
+  // tab bar (via the shell's main padding) plus 3rem to the shell back bar;
+  // desktop loses only the 3rem back bar. The message list scrolls
+  // independently, so the composer stays pinned at the true bottom.
   if (!isDesktop) {
-    return <div className="flex h-[calc(100vh-3.5rem)] flex-col">{conversation}</div>
+    return <div className="flex h-[calc(100dvh-7rem)] flex-col">{conversation}</div>
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+    <div className="flex h-[calc(100dvh-3rem)] flex-col">
       <SplitPane
         userId={userId}
         paneKey={`thread-${threadId}`}
