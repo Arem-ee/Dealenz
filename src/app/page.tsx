@@ -13,7 +13,7 @@ import {
 export const metadata = {
   title: "Dealenz: Know what you are signing before you sign it",
   description:
-    "Dealenz reads what you are being asked to sign, tells you plainly where the risk actually is, and helps you decide what to do about it.",
+    "They sent the contract. Dealenz shows what to push back on and in what words, then lets both sides sign here — and guards what was agreed afterwards.",
 }
 
 function LogoMark({ dark = false }: { dark?: boolean }) {
@@ -270,44 +270,44 @@ const featureCards = [
     n: "1/",
     icon: MessageCircleQuestion,
     tint: "bg-[var(--burgundy)]",
-    caption: "Say what is happening, in your own words",
+    caption: "Drop in their contract, or say what is happening",
   },
   {
     n: "2/",
     icon: FileSearch,
     tint: "bg-[#1C1917]",
-    caption: "See where the risk actually sits",
+    caption: "See where the risk actually sits, with evidence",
   },
   {
     n: "3/",
     icon: ShieldCheck,
     tint: "bg-[#3D5A45]",
-    caption: "Know what to push back on",
+    caption: "Get the exact words to push back with",
   },
   {
     n: "4/",
     icon: FileText,
     tint: "bg-[#5A4A3A]",
-    caption: "Leave with documents you can send",
+    caption: "Sign here, and stay guarded afterwards",
   },
 ]
 
 const processSteps = [
   {
     title: "Describe",
-    body: "Explain the situation in your own words. No questionnaire, no legal form. Dealenz asks one focused question at a time, and only when the answer changes what to check.",
+    body: "Drop in their contract or explain the situation in your own words. No questionnaire, no legal form. Dealenz asks one focused question at a time, and only when the answer changes what to check.",
   },
   {
     title: "Understand",
     body: "Dealenz reads the document in the context of your situation and shows what each finding means for you, with the clause it came from and why it matters.",
   },
   {
-    title: "Protect",
-    body: "For each real risk, Dealenz proposes what could change: staged payments, clearer scope, a revised clause. You get protective language, not just warnings.",
+    title: "Push back",
+    body: "For each real risk, Dealenz proposes the actual words to push back with: staged payments, clearer scope, a revised clause. You decide what to send — then re-check the redline before you sign.",
   },
   {
-    title: "Complete",
-    body: "Generate the documents the situation calls for, bring in a verified lawyer when the stakes warrant it, then sign and keep a record in one workspace.",
+    title: "Sign and stay guarded",
+    body: "Both sides sign in the same workspace, and what was agreed — renewals, deadlines, obligations — stays guarded afterwards with email alerts before it matters.",
   },
 ]
 
@@ -327,6 +327,7 @@ const documentCards = [
 
 const pricingFree = [
   "Five analyses per day.",
+  "10 free credits on signup.",
   "All four document types.",
   "Client portal and signing.",
   "Activity timeline.",
@@ -353,7 +354,15 @@ const faqs = [
   },
   {
     q: "What do I leave with?",
-    a: "More than a report. Every analysis can produce the documents you need: a proposal, a scope of work, a contract, or a deliverables checklist. Something to send, not just something to worry about.",
+    a: "More than a report. Every analysis can produce the documents you need: a proposal, a scope of work, a contract, or a deliverables checklist — plus the exact words to push back on unfair terms. Something to send, not just something to worry about.",
+  },
+  {
+    q: "Can the other side sign here too?",
+    a: "Yes. You sign first, then the counterparty signs through a secure link — no account needed on their side. Once everyone has signed, the document locks and any later change becomes a new version, not a silent edit.",
+  },
+  {
+    q: "What happens after I sign?",
+    a: "Dealenz keeps watching what was agreed: renewal dates, notice windows, payment obligations, and material deadlines — and emails you before they matter, so nothing auto-renews or lapses unnoticed.",
   },
   {
     q: "Who can see my deals?",
@@ -400,8 +409,9 @@ export default function Home() {
               <span className="text-[var(--burgundy)]">Make sure the paperwork does too.</span>
             </h1>
             <p className="mx-auto mt-6 max-w-[52ch] text-[16px] leading-relaxed text-[#1C1917]/60">
-              Dealenz reads what you are being asked to sign, tells you plainly where the risk
-              actually is, and helps you decide what to do about it.
+              They sent the contract. Dealenz reads it, tells you plainly where the risk
+              actually is, gives you the words to push back, and lets both sides sign
+              here — then guards what was agreed.
             </p>
             <div className="mt-8 flex flex-col items-center">
               <Link
@@ -586,6 +596,65 @@ export default function Home() {
                     payments tied to milestones.
                   </p>
                 </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-black/[0.06] bg-white">
+          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-20">
+            <div className="max-w-2xl">
+              <Eyebrow>Negotiation</Eyebrow>
+              <h2 className="mt-4 text-[30px] font-semibold tracking-[-0.03em] sm:text-[36px]">
+                Know the words, not just the worry
+              </h2>
+              <p className="mt-3 text-[15px] leading-relaxed text-black/60">
+                A flagged risk you cannot articulate is a concession waiting to happen. For
+                each real finding, Dealenz drafts the counter-language — staged payments,
+                a capped liability, a narrower IP grant — tied to the clause it answers.
+              </p>
+            </div>
+            <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              <div className="rounded-[20px] border border-black/[0.07] bg-[#FAFAF8] p-6 shadow-surface">
+                <h3 className="text-[15px] font-semibold">Counter-words per finding</h3>
+                <p className="mt-1 text-[13px] leading-relaxed text-black/55">
+                  Each risk arrives with something you can actually reply with, not just a warning.
+                </p>
+              </div>
+              <div className="rounded-[20px] border border-black/[0.07] bg-[#FAFAF8] p-6 shadow-surface">
+                <h3 className="text-[15px] font-semibold">You decide what to send</h3>
+                <p className="mt-1 text-[13px] leading-relaxed text-black/55">
+                  AI proposes, you dispose. Nothing goes to the other side without your explicit approval.
+                </p>
+              </div>
+              <div className="rounded-[20px] border border-black/[0.07] bg-[#FAFAF8] p-6 shadow-surface">
+                <h3 className="text-[15px] font-semibold">Re-check before signing</h3>
+                <p className="mt-1 text-[13px] leading-relaxed text-black/55">
+                  Pushed back? Run the redline through again and confirm nothing new crept in.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-black/[0.06] bg-[#FAFAF8]">
+          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-20">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-[20px] border border-black/[0.07] bg-white p-6 sm:p-7 shadow-surface">
+                <Eyebrow>Signing</Eyebrow>
+                <h3 className="mt-3 text-[20px] font-semibold tracking-[-0.02em]">Sign here</h3>
+                <p className="mt-2 text-[14px] leading-relaxed text-black/60">
+                  You sign first, the counterparty signs through a secure link, and the
+                  document locks. Later changes become new versions — never silent edits.
+                </p>
+              </div>
+              <div className="rounded-[20px] border border-black/[0.07] bg-white p-6 sm:p-7 shadow-surface">
+                <Eyebrow>Ongoing</Eyebrow>
+                <h3 className="mt-3 text-[20px] font-semibold tracking-[-0.02em]">Stay guarded</h3>
+                <p className="mt-2 text-[14px] leading-relaxed text-black/60">
+                  Renewals, notice windows, and payment obligations are watched after
+                  signing, with an email before anything auto-renews or lapses.
+                </p>
               </div>
             </div>
           </div>
