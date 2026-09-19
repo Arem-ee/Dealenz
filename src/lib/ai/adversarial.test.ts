@@ -404,7 +404,8 @@ describe("adversarial: cost manipulation is bounded server-side", () => {
       priceForOperation(classifyOperation("Hello", false)),
     ])
     for (const price of prices) {
-      expect([1, 3, 8]).toContain(price)
+      // Rescaled tiers: brief 10 / standard 30 / extended 100.
+      expect([10, 30, 100]).toContain(price)
     }
   })
 })

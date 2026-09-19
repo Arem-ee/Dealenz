@@ -411,3 +411,54 @@ describe("00065 storage audit-files ownership (static, P0-1)", () => {
     expect(sql("20260903000001_storage_rls_remediation.sql")).toMatch(/DRAFT, NOT EXECUTED/)
   })
 })
+
+describe("00070 owner-signs-first enforcement (static)", () => {
+  const enforcement = code(sql("00070_owner_signs_first.sql"))
+
+  it("gates every signer-status write with a trigger", () => {
+    expect(enforcement).toMatch(/CREATE OR REPLACE FUNCTION enforce_owner_signs_first/)
+    expect(enforcement).toMatch(/DROP TRIGGER IF EXISTS trg_owner_signs_first ON document_signers/)
+    expect(enforcement).toMatch(/CREATE TRIGGER trg_owner_signs_first/)
+    expect(enforcement).toMatch(/BEFORE UPDATE ON document_signers/)
+    expect(enforcement).toMatch(/Owner must sign before counterparties/)
+  })
+
+  it("requires a post-owner version status on all gated paths", () => {
+    const gates = enforcement.match(/'owner_signed', 'counterparty_pending', 'sent', 'fully_signed', 'locked'/g) ?? []
+    // Trigger + sign_as_invitee + sign_shared_document = 3 gates.
+    expect(gates.length).toBe(3)
+  })
+
+  it("keeps the invitee and legacy share flows otherwise identical", () => {
+    expect(enforcement).toMatch(/Email does not match this invitation/)
+    expect(enforcement).toMatch(/A newer document version exists/)
+    expect(enforcement).toMatch(/Invalid or expired share link/)
+    expect(enforcement).toMatch(/Document has already been signed/)
+    expect(enforcement).toMatch(/GRANT EXECUTE ON FUNCTION sign_as_invitee\(TEXT, TEXT, TEXT\) TO anon, authenticated/)
+  })
+
+  it("is forward-only and safely re-runnable", () => {
+    expect(enforcement).not.toMatch(/DROP TABLE/)
+    expect(enforcement).not.toMatch(/ALTER TABLE storage\.objects/)
+  })
+})
+
+describe("00071 step consumption RPC (static)", () => {
+  const step = code(sql("00071_step_consumption.sql"))
+
+  it("settles steps incrementally without voiding the reservation", () => {
+    expect(step).toMatch(/CREATE OR REPLACE FUNCTION consume_reservation_step/)
+    expect(step).toMatch(/RETURNS TABLE\(consumed_total INTEGER, remaining INTEGER\)/)
+    expect(step).toMatch(/SECURITY DEFINER/)
+    expect(step).toMatch(/SET search_path = public/)
+    // Incremental rows link to the reservation; only finalize/void close it.
+    expect(step).toMatch(/related_entry_id/)
+    expect(step).not.toMatch(/status = 'voided'/)
+  })
+
+  it("is idempotent per step and capped at the reserved amount", () => {
+    expect(step).toMatch(/idempotency_key/)
+    expect(step).toMatch(/Step consumption exceeds reservation/)
+    expect(step).toMatch(/GRANT EXECUTE ON FUNCTION consume_reservation_step\(UUID, TEXT, INTEGER\) TO authenticated/)
+  })
+})

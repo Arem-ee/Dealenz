@@ -42,7 +42,8 @@ describe("protection → WorkPlan", () => {
 
     const res = await createProtectionPlan(client as never, "user-1", { conversationId: "conv-1", dealId: "audit-1", findingIds: ["finding-1"], requestedDocumentType: "protection_clause" })
     expect(res.planId).toBe("plan-1")
-    expect(res.estimatedCredits).toBe(2)
+    // protection_clause is a micro-draft type: 1 credit (per-family pricing).
+    expect(res.estimatedCredits).toBe(1)
   })
 })
 

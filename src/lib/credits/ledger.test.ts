@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest"
 import {
+  consumeReservationStep,
   finalizeReservation,
   getCreditBalance,
   reserveCredits,
@@ -50,5 +51,20 @@ describe("credit ledger client", () => {
   it("propagates void failures instead of hiding them", async () => {
     const failing = { rpc: vi.fn(async () => ({ data: null, error: { message: "db down" } })) } as LedgerClient
     await expect(voidReservation(failing, "res-1")).rejects.toThrow()
+  })
+
+  it("validates step consumption before any RPC and parses totals", async () => {
+    const seen: unknown[] = []
+    const client = rpcClient((fn, args) => { seen.push({ fn, args }); return [{ consumed_total: 25, remaining: 75 }] })
+    await expect(
+      consumeReservationStep(client, { reservationId: "res-1", stepKey: "plan:s1", amount: 25 })
+    ).resolves.toEqual({ consumedTotal: 25, remaining: 75 })
+    await expect(
+      consumeReservationStep(client, { reservationId: "res-1", stepKey: "plan:s1", amount: -1 })
+    ).rejects.toThrow(/non-negative/)
+    await expect(
+      consumeReservationStep(client, { reservationId: "res-1", stepKey: "", amount: 1 })
+    ).rejects.toThrow(/Step key/)
+    expect(seen).toHaveLength(1)
   })
 })

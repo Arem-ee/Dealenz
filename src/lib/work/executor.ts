@@ -149,7 +149,8 @@ registerStepHandler("generate_draft", async (step, ctx) => {
       .select("id")
       .single()
     if (error || !inserted) return { error: error?.message ?? "Failed to persist document version", creditsConsumed: 0 }
-    return { resultRef: { draftId: (inserted as { id: string }).id, auditId, rowId: rowId ?? null, contentHash, contentPreview: content.slice(0, 120), findingIds: input.findingIds ?? [], requestedDocumentType: requestedType }, creditsConsumed: 1 }
+    const { creditsForDocumentType } = await import("@/lib/credits/pricing")
+    return { resultRef: { draftId: (inserted as { id: string }).id, auditId, rowId: rowId ?? null, contentHash, contentPreview: content.slice(0, 120), findingIds: input.findingIds ?? [], requestedDocumentType: requestedType }, creditsConsumed: creditsForDocumentType(requestedType) }
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Draft generation failed", creditsConsumed: 0 }
   }
@@ -316,6 +317,7 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
   }
 
   let totalConsumed = 0
+  let stepConsumedTotal = 0
   let needsInput = false
   let rateLimited = false
   let failed = false
@@ -355,6 +357,23 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
       }
       await client.from("work_plan_steps").update({ status: "succeeded", result_ref: out.resultRef ?? {}, credits_consumed: out.creditsConsumed ?? 0, updated_at: new Date().toISOString() }).eq("id", step.id)
       statusMap.set(stepId, "succeeded")
+      // Incremental per-step deduction: settle this step's measured cost
+      // against the plan reservation immediately, so a later crash or abort
+      // cannot lose consumed credits. Best-effort: the final settlement below
+      // covers any amount this call misses.
+      if (reservationId && (out.creditsConsumed ?? 0) > 0) {
+        try {
+          const { consumeReservationStep } = await import("@/lib/credits/ledger")
+          await consumeReservationStep(client as unknown as import("@/lib/credits/ledger").LedgerClient, {
+            reservationId,
+            stepKey: `${planId}:${step.id}`,
+            amount: out.creditsConsumed ?? 0,
+          })
+          stepConsumedTotal += out.creditsConsumed ?? 0
+        } catch {
+          // Covered by final settlement
+        }
+      }
       if (step.operation === "document_analysis" && out.resultRef && typeof (out.resultRef as Record<string, unknown>).auditId === "string") {
         const tid = (step.input_ref as Record<string, unknown>)?.threadId as string | undefined
         const auditIdForMsg = (out.resultRef as Record<string, unknown>).auditId as string
@@ -433,20 +452,23 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
     if (rateLimited || needsInput || failed) break
   }
 
-  // Finalize credits: consumed vs reserved
+  // Finalize credits: consumed vs reserved. Steps already settled their
+  // measured cost incrementally above; the remainder settles here so the
+  // total charged always equals the measured total, never more.
+  const remainder = Math.max(0, totalConsumed - stepConsumedTotal)
   if (reservationId && policy) {
     const ledger = client as unknown as import("@/lib/credits/ledger").LedgerClient
     try {
       if (failed || needsInput || rateLimited) {
         const { finalizeReservation, voidReservation } = await import("@/lib/credits/ledger")
         if (totalConsumed > 0) {
-          await finalizeReservation(ledger, { reservationId, consumptionAmount: totalConsumed, operation: "document_analysis" as never })
+          await finalizeReservation(ledger, { reservationId, consumptionAmount: remainder, operation: "document_analysis" as never })
         } else {
           await voidReservation(ledger, reservationId)
         }
       } else {
         const { finalizeReservation } = await import("@/lib/credits/ledger")
-        await finalizeReservation(ledger, { reservationId, consumptionAmount: totalConsumed, operation: "document_analysis" as never })
+        await finalizeReservation(ledger, { reservationId, consumptionAmount: remainder, operation: "document_analysis" as never })
       }
     } catch {
       // Audit only; execution status still reflects step outcomes

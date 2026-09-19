@@ -3,7 +3,9 @@ import {
   CREDIT_PRICE_BRIEF,
   CREDIT_PRICE_STANDARD,
   CREDIT_PRICE_EXTENDED,
+  DOCUMENT_CREDIT_COSTS,
   STANDARD_CREDIT_POLICY,
+  creditsForDocumentType,
   priceForOperation,
 } from "./pricing"
 
@@ -18,7 +20,7 @@ describe("standard credit policy", () => {
   })
 
   it("estimates and charges the same tier price regardless of measured tokens", () => {
-    expect(STANDARD_CREDIT_POLICY.estimateMaxCredits("conversation")).toBe(1)
+    expect(STANDARD_CREDIT_POLICY.estimateMaxCredits("conversation")).toBe(CREDIT_PRICE_BRIEF)
     const small = STANDARD_CREDIT_POLICY.creditsForUsage({
       operation: "conversation", provider: "anthropic", model: "m",
       inputTokens: 50, outputTokens: 10, totalTokens: 60,
@@ -33,5 +35,27 @@ describe("standard credit policy", () => {
     // never converted at a token rate.
     expect(small).toBe(large)
     expect(small).toBe(CREDIT_PRICE_BRIEF)
+  })
+
+  it("rescales tiers above any single document cost", () => {
+    expect(CREDIT_PRICE_BRIEF).toBe(10)
+    expect(CREDIT_PRICE_STANDARD).toBe(30)
+    expect(CREDIT_PRICE_EXTENDED).toBe(100)
+    const maxDoc = Math.max(...Object.values(DOCUMENT_CREDIT_COSTS))
+    expect(CREDIT_PRICE_EXTENDED).toBeGreaterThan(maxDoc)
+  })
+
+  it("prices documents per family with a micro default", () => {
+    expect(creditsForDocumentType("proposal")).toBe(25)
+    expect(creditsForDocumentType("Proposal")).toBe(25)
+    expect(creditsForDocumentType("sow")).toBe(35)
+    expect(creditsForDocumentType("statement_of_work")).toBe(35)
+    expect(creditsForDocumentType("contract")).toBe(45)
+    expect(creditsForDocumentType("checklist")).toBe(20)
+    expect(DOCUMENT_CREDIT_COSTS).toEqual({ proposal: 25, sow: 35, contract: 45, checklist: 20 })
+    // Unknown families (protection_clause, outreach micro-drafts) stay micro.
+    expect(creditsForDocumentType("protection_clause")).toBe(1)
+    expect(creditsForDocumentType(undefined)).toBe(1)
+    expect(creditsForDocumentType("")).toBe(1)
   })
 })

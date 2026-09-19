@@ -42,9 +42,11 @@ export async function createProtectionPlan(client: Client, userId: string, input
 
   const objective = input.protectionObjective || `Protect deal: ${(audit as { title?: string }).title?.slice(0, 80) ?? "this deal"} — ${input.findingIds.length} finding(s)`
 
-  // Estimate: protection intent is 0 (deterministic), document generation is 1-3 credits depending on type
-  // For Phase 2, we use 2 credits for protection document (standard), 0 for intent
-  const docCredits = input.requestedDocumentType ? 2 : 0
+  // Estimate: protection intent is 0 (deterministic); document generation is
+  // priced per family (proposal 25 / sow 35 / contract 45 / checklist 20,
+  // 1 credit for any other micro-draft type).
+  const { creditsForDocumentType } = await import("@/lib/credits/pricing")
+  const docCredits = input.requestedDocumentType ? creditsForDocumentType(input.requestedDocumentType) : 0
   const steps: Array<{ operation: string; inputRef: Record<string, unknown>; estimatedCredits: number }> = [
     { operation: "generate_draft", inputRef: { auditId: input.dealId, findingIds: input.findingIds, protectionObjective: objective, requestedDocumentType: input.requestedDocumentType ?? "protection_clause" }, estimatedCredits: docCredits },
   ]

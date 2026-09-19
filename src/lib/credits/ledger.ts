@@ -117,3 +117,36 @@ export async function voidReservation(client: LedgerClient, reservationId: strin
   const { error } = await client.rpc("void_reservation", { p_reservation_id: reservationId })
   if (error) throw new Error("Failed to release credit reservation")
 }
+
+export interface StepConsumptionResult {
+  consumedTotal: number
+  remaining: number
+}
+
+// Settles one succeeded step's measured cost against a pending plan
+// reservation immediately (incremental deduction). Idempotent per stepKey:
+// replays return current totals without a second charge, and the running
+// total can never exceed the reserved amount. The reservation stays pending;
+// final settlement still goes through finalizeReservation for the remainder.
+export async function consumeReservationStep(
+  client: LedgerClient,
+  input: { reservationId: string; stepKey: string; amount: number }
+): Promise<StepConsumptionResult> {
+  if (!Number.isInteger(input.amount) || input.amount < 0) {
+    throw new Error("Step consumption amount must be a non-negative integer")
+  }
+  if (!input.stepKey || input.stepKey.length > 78) {
+    throw new Error("Step key is required (max 78 chars)")
+  }
+  const { data, error } = await client.rpc("consume_reservation_step", {
+    p_reservation_id: input.reservationId,
+    p_step_key: input.stepKey,
+    p_amount: input.amount,
+  })
+  if (error) throw new Error("Failed to record step consumption")
+  const row = asRecord(Array.isArray(data) ? data[0] : data)
+  if (!row || typeof row.consumed_total !== "number" || typeof row.remaining !== "number") {
+    throw new Error("Failed to record step consumption")
+  }
+  return { consumedTotal: row.consumed_total, remaining: row.remaining }
+}
