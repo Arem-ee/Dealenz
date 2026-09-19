@@ -4,7 +4,11 @@ import {
   CREDIT_PRICE_STANDARD,
   CREDIT_PRICE_EXTENDED,
   DOCUMENT_CREDIT_COSTS,
+  LAWYER_REQUEST_CREDITS,
+  SIGNATURE_SEND_CREDITS,
+  SIGNUP_GRANT_CREDITS,
   STANDARD_CREDIT_POLICY,
+  UPLOAD_CREDITS,
   creditsForDocumentType,
   priceForOperation,
 } from "./pricing"
@@ -57,5 +61,16 @@ describe("standard credit policy", () => {
     expect(creditsForDocumentType("protection_clause")).toBe(1)
     expect(creditsForDocumentType(undefined)).toBe(1)
     expect(creditsForDocumentType("")).toBe(1)
+  })
+
+  it("prices gated actions above the free-signup grant", () => {
+    expect(SIGNUP_GRANT_CREDITS).toBe(10)
+    expect(UPLOAD_CREDITS).toBe(15)
+    expect(SIGNATURE_SEND_CREDITS).toBe(25)
+    expect(LAWYER_REQUEST_CREDITS).toBe(15)
+    // A never-purchased account (grant only) cannot afford any gated action.
+    for (const cost of [UPLOAD_CREDITS, SIGNATURE_SEND_CREDITS, LAWYER_REQUEST_CREDITS]) {
+      expect(cost).toBeGreaterThan(SIGNUP_GRANT_CREDITS)
+    }
   })
 })

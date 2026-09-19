@@ -22,6 +22,13 @@ import { assembleDraft } from "@/lib/documents/assembly"
 import { familyById } from "@/lib/documents/families"
 import type { DraftDocument } from "@/lib/documents/types"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { UPLOAD_CREDITS } from "@/lib/credits/pricing"
+import {
+  finalizeReservation,
+  reserveCredits,
+  voidReservation,
+  type LedgerClient,
+} from "@/lib/credits/ledger"
 import { bucketForGenericFindings } from "@/lib/verticals/generic/rules"
 import { deterministicRiskFloor, floorExceedsDisplay } from "@/lib/rules/result"
 import { canGenerateDocuments } from "@/lib/protection"
@@ -214,48 +221,97 @@ export async function attachFileMetadata(
     throw new Error("Invalid file path")
   }
 
-  const { data: audit } = await supabase
-    .from("audits")
-    .select("structured_data")
-    .eq("id", auditId)
-    .eq("user_id", user.id)
-    .single()
-
-  if (!audit) throw new Error("Audit not found")
-
-  const existing = (audit.structured_data as Record<string, unknown>) ?? {}
-  const files = (existing.files as Array<Record<string, unknown>>) ?? []
-
-  if (files.length >= MAX_FILES_PER_AUDIT) {
-    throw new Error(`Maximum of ${MAX_FILES_PER_AUDIT} files allowed per audit`)
+  // Credit gate at the point of use: file upload/parsing costs UPLOAD_CREDITS.
+  // Same balance check as every other billable operation — never-purchased
+  // accounts (free-signup grant only) cannot afford it. Deducted only when
+  // the attach succeeds; failures release the hold.
+  const ledger: LedgerClient = {
+    rpc: async (functionName: string, args: Record<string, unknown> = {}) => {
+      const result = await (supabase.rpc as unknown as (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        functionName,
+        args
+      )
+      return { data: result.data, error: result.error }
+    },
+  }
+  let uploadReservation: { allowed: boolean; reservationId: string | null }
+  try {
+    uploadReservation = await reserveCredits(ledger, {
+      operation: "document_analysis",
+      amount: UPLOAD_CREDITS,
+      idempotencyKey: `upload:${auditId}:${safeName}:${fileData.size}:${crypto.randomUUID()}`,
+    })
+  } catch {
+    throw new Error("Could not verify credit balance. Please try again.")
+  }
+  if (!uploadReservation.allowed || !uploadReservation.reservationId) {
+    throw new Error(`Insufficient credits for this operation. File upload costs ${UPLOAD_CREDITS} credits.`)
   }
 
-  files.push({
-    ...fileData,
-    uploaded_at: new Date().toISOString(),
-  })
+  try {
+    const { data: audit } = await supabase
+      .from("audits")
+      .select("structured_data")
+      .eq("id", auditId)
+      .eq("user_id", user.id)
+      .single()
 
-  const { error } = await supabase
-    .from("audits")
-    .update({
-      structured_data: { ...existing, files },
-      updated_at: new Date().toISOString(),
+    if (!audit) throw new Error("Audit not found")
+
+    const existing = (audit.structured_data as Record<string, unknown>) ?? {}
+    const files = (existing.files as Array<Record<string, unknown>>) ?? []
+
+    if (files.length >= MAX_FILES_PER_AUDIT) {
+      throw new Error(`Maximum of ${MAX_FILES_PER_AUDIT} files allowed per audit`)
+    }
+
+    files.push({
+      ...fileData,
+      uploaded_at: new Date().toISOString(),
     })
-    .eq("id", auditId)
-    .eq("user_id", user.id)
 
-  if (error) throw new Error(error.message)
+    const { error } = await supabase
+      .from("audits")
+      .update({
+        structured_data: { ...existing, files },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", auditId)
+      .eq("user_id", user.id)
 
-  await logEvent({
-    audit_id: auditId,
-    user_id: user.id,
-    phase: "file_metadata_attach",
-    status: "success",
-  })
+    if (error) throw new Error(error.message)
 
-  await logActivity(user.id, "file_attached", { fileName: fileData.name }, auditId)
+    try {
+      await finalizeReservation(ledger, {
+        reservationId: uploadReservation.reservationId,
+        consumptionAmount: UPLOAD_CREDITS,
+        operation: "document_analysis",
+      })
+    } catch {
+      // The attach itself succeeded; a settlement-only failure is logged for
+      // ops rather than rewriting success into failure.
+      await logEvent({
+        audit_id: auditId,
+        user_id: user.id,
+        phase: "file_metadata_settle",
+        status: "failure",
+      })
+    }
 
-  return files
+    await logEvent({
+      audit_id: auditId,
+      user_id: user.id,
+      phase: "file_metadata_attach",
+      status: "success",
+    })
+
+    await logActivity(user.id, "file_attached", { fileName: fileData.name }, auditId)
+
+    return files
+  } catch (e) {
+    await voidReservation(ledger, uploadReservation.reservationId).catch(() => null)
+    throw e
+  }
 }
 
 export async function removeFileMetadata(

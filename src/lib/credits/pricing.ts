@@ -60,3 +60,12 @@ export function creditsForDocumentType(documentType: string | null | undefined):
   if (key === "checklist") return DOCUMENT_CREDIT_COSTS.checklist
   return 1
 }
+
+// Gated product actions (credit-only access control — no plans, no flags).
+// Each deliberately exceeds the free-signup grant, so never-purchased
+// accounts cannot afford them while funded accounts pass the same balance
+// check used by every other billable operation.
+export const SIGNUP_GRANT_CREDITS = 10
+export const UPLOAD_CREDITS = 15
+export const SIGNATURE_SEND_CREDITS = 25
+export const LAWYER_REQUEST_CREDITS = 15

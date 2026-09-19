@@ -462,3 +462,22 @@ describe("00071 step consumption RPC (static)", () => {
     expect(step).toMatch(/GRANT EXECUTE ON FUNCTION consume_reservation_step\(UUID, TEXT, INTEGER\) TO authenticated/)
   })
 })
+
+describe("00072 signup grant (static)", () => {
+  const grant = code(sql("00072_signup_grant.sql"))
+
+  it("grants the free-signup balance exactly once per new user", () => {
+    expect(grant).toMatch(/CREATE OR REPLACE FUNCTION grant_signup_credits/)
+    expect(grant).toMatch(/AFTER INSERT ON auth\.users/)
+    expect(grant).toMatch(/FOR EACH ROW EXECUTE FUNCTION grant_signup_credits/)
+    expect(grant).toMatch(/'grant',\s+10/)
+    expect(grant).toMatch(/'signup:' \|\| NEW\.id::text/)
+    expect(grant).toMatch(/ON CONFLICT \(user_id, idempotency_key\) DO NOTHING/)
+  })
+
+  it("writes through the same append-only ledger with no public surface", () => {
+    expect(grant).toMatch(/SECURITY DEFINER/)
+    expect(grant).toMatch(/SET search_path = public/)
+    expect(grant).toMatch(/DROP TRIGGER IF EXISTS trg_grant_signup_credits ON auth\.users/)
+  })
+})

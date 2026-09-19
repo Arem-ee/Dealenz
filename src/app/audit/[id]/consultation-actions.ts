@@ -3,6 +3,13 @@
 import { createClient } from "@/lib/supabase/server"
 import { reportError } from "@/lib/logger"
 import { transitionTarget } from "@/lib/review/transitions"
+import { LAWYER_REQUEST_CREDITS } from "@/lib/credits/pricing"
+import {
+  finalizeReservation,
+  reserveCredits,
+  voidReservation,
+  type LedgerClient,
+} from "@/lib/credits/ledger"
 
 type AutoAssignRow = { assigned: boolean; lawyer_id: string | null; message: string }
 
@@ -102,6 +109,34 @@ export async function createConsultationRequest(auditId: string, note: string, h
 
   const status = (verifiedLawyersCount ?? 0) > 0 ? "requested" : "waitlist"
 
+  // Credit gate at the point of use: a lawyer request costs
+  // LAWYER_REQUEST_CREDITS. Same balance check as every other billable
+  // operation — never-purchased accounts cannot afford it. Deducted only
+  // when the request is actually created.
+  const ledger: LedgerClient = {
+    rpc: async (functionName: string, args: Record<string, unknown> = {}) => {
+      const result = await (supabase.rpc as unknown as (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        functionName,
+        args
+      )
+      return { data: result.data, error: result.error }
+    },
+  }
+  let reservation: { allowed: boolean; reservationId: string | null }
+  try {
+    reservation = await reserveCredits(ledger, {
+      operation: "document_analysis",
+      amount: LAWYER_REQUEST_CREDITS,
+      idempotencyKey: `consult:${auditId}:${crypto.randomUUID()}`,
+    })
+  } catch {
+    return { success: false, error: "Could not verify credit balance. Please try again." }
+  }
+  if (!reservation.allowed || !reservation.reservationId) {
+    return { success: false, error: `Insufficient credits for this operation. Lawyer requests cost ${LAWYER_REQUEST_CREDITS} credits.` }
+  }
+  const reservationId = reservation.reservationId
+
   const insertPayload: Record<string, unknown> = {
     audit_id: auditId,
     user_id: user.id,
@@ -117,6 +152,27 @@ export async function createConsultationRequest(auditId: string, note: string, h
       }
     } catch {
       // Invalid snapshot — proceed without it rather than failing the request
+    }
+  }
+
+  const settleSuccess = async () => {
+    try {
+      await finalizeReservation(ledger, {
+        reservationId,
+        consumptionAmount: LAWYER_REQUEST_CREDITS,
+        operation: "document_analysis",
+      })
+    } catch (e) {
+      // The request itself succeeded; a settlement failure must not rewrite
+      // that outcome — it leaves a pending hold for ops to reconcile.
+      await reportError(supabase, {
+        phase: "consultation_settle",
+        error: e,
+        details: { step: "finalize", reservationId },
+        severity: "error",
+        userId: user.id,
+        auditId,
+      })
     }
   }
 
@@ -148,9 +204,11 @@ export async function createConsultationRequest(auditId: string, note: string, h
           userId: user.id,
           auditId,
         })
+        await voidReservation(ledger, reservationId).catch(() => null)
         return { success: false, error: "We couldn't submit your review request. Please try again." }
       }
       const matched = await tryAutoAssign(supabase, retried.id, status, user.id, auditId)
+      await settleSuccess()
       return { success: true, ...matched }
     }
     await reportError(supabase, {
@@ -161,10 +219,12 @@ export async function createConsultationRequest(auditId: string, note: string, h
       userId: user.id,
       auditId,
     })
+    await voidReservation(ledger, reservationId).catch(() => null)
     return { success: false, error: "We couldn't submit your review request. Please try again." }
   }
 
   const matched = await tryAutoAssign(supabase, created.id, status, user.id, auditId)
+  await settleSuccess()
   return { success: true, ...matched }
 }
 
