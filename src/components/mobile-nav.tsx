@@ -2,33 +2,25 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { Plus, MoreHorizontal, LogOut, Scale } from "lucide-react"
+import { usePathname } from "next/navigation"
+import { Plus, MoreHorizontal, Scale } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { createClient } from "@/lib/supabase/client"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { PRIMARY_NAV, SECONDARY_NAV, ACCOUNT_NAV, isActiveEntry } from "@/lib/nav"
+import { PRIMARY_NAV, SECONDARY_NAV, isActiveEntry } from "@/lib/nav"
 
 /** Bottom bar renders the chat-first IA: Home, Vault, create (new chat), More. */
 const BAR_TABS = [PRIMARY_NAV[0], PRIMARY_NAV[1]]
 
-/** Overflow sheet: everything else, deduplicated by destination. */
-const MORE_ITEMS = [...PRIMARY_NAV.slice(2), ...SECONDARY_NAV, ...ACCOUNT_NAV].filter(
+/** Overflow sheet: everything else, deduplicated by destination. Account
+ *  items live solely in the top navbar's account menu — never here. */
+const MORE_ITEMS = [...PRIMARY_NAV.slice(2), ...SECONDARY_NAV].filter(
   (item, index, arr) => arr.findIndex((other) => other.href === item.href) === index
 )
 
 export function MobileNav({ isLawyer = false }: { isLawyer?: boolean }) {
   const pathname = usePathname()
-  const router = useRouter()
   const [moreOpen, setMoreOpen] = useState(false)
-
-  const handleSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    setMoreOpen(false)
-    router.push("/login")
-    router.refresh()
-  }
+  const showMore = isLawyer || MORE_ITEMS.length > 0
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/60 bg-background md:hidden" aria-label="Primary">
@@ -58,6 +50,7 @@ export function MobileNav({ isLawyer = false }: { isLawyer?: boolean }) {
         >
           <Plus className="h-5 w-5" />
         </Link>
+        {showMore && (
         <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
           <SheetTrigger asChild>
             <button
@@ -108,17 +101,10 @@ export function MobileNav({ isLawyer = false }: { isLawyer?: boolean }) {
                   </Link>
                 )
               })}
-              <div className="border-t border-border/60 my-1" />
-              <button
-                onClick={handleSignOut}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors w-full text-left"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Sign out</span>
-              </button>
             </div>
           </SheetContent>
         </Sheet>
+        )}
       </div>
     </nav>
   )

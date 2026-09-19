@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { PRIMARY_NAV, SECONDARY_NAV, ACCOUNT_NAV, isActiveEntry, titleFor, backTargetFor } from "./nav"
+import { PRIMARY_NAV, SECONDARY_NAV, ACCOUNT_NAV, isActiveEntry, titleFor, backTargetFor, filterThreads } from "./nav"
 
 describe("customer navigation IA (single source)", () => {
   it("keeps exactly two primary destinations: Home and Library", () => {
@@ -50,5 +50,18 @@ describe("customer navigation IA (single source)", () => {
     // Document Reader and Review carry their own thread-aware back links.
     expect(backTargetFor("/document/abc")).toBeNull()
     expect(backTargetFor("/review/abc")).toBeNull()
+  })
+
+  it("filters navbar thread search case-insensitively and bounded", () => {
+    const threads = [
+      { id: "1", title: "Lagos freelance contract", updatedAt: "2026-09-19" },
+      { id: "2", title: "Shop lease review", updatedAt: "2026-09-18" },
+      { id: "3", title: "", updatedAt: "2026-09-17" },
+    ]
+    expect(filterThreads(threads, "")).toHaveLength(3)
+    expect(filterThreads(threads, "lagos")).toEqual([threads[0]])
+    expect(filterThreads(threads, "LEASE")).toEqual([threads[1]])
+    expect(filterThreads(threads, "zzz")).toEqual([])
+    expect(filterThreads(threads, "", 2)).toHaveLength(2)
   })
 })

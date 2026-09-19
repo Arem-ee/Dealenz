@@ -9,13 +9,10 @@ export interface NavEntry {
 
 /**
  * Single customer information architecture — chat-first.
- * Home is the chat landing (composer + desktop sidebar thread list; the
- * recent-threads box survives only on mobile where there is no sidebar).
- * Library is natural-language search over the user's deals with structured
- * results. Ask is just the composer (classifier), not a destination.
- * The sidebar holds the two primary items, the scrollable thread list, and
- * the account dropdown at the bottom; everything account-level lives in
- * that dropdown.
+ * Home is composer-first (composer, Library link, recent activity). The
+ * sidebar holds only the two primary destinations; the account menu lives
+ * solely in the top navbar. Ask is just the composer (classifier), not a
+ * destination.
  */
 export const PRIMARY_NAV: NavEntry[] = [
   { label: "Home", href: "/dashboard", icon: LayoutDashboard },
@@ -33,6 +30,29 @@ export const ACCOUNT_NAV: NavEntry[] = [
 /** True when the pathname belongs to the entry (covers nested routes). */
 export function isActiveEntry(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/")
+}
+
+export interface SidebarThread {
+  id: string
+  title: string
+  updatedAt: string
+}
+
+export function threadDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  const diff = Math.floor((Date.now() - d.getTime()) / 86400000)
+  if (diff <= 0) return "Today"
+  if (diff === 1) return "Yesterday"
+  if (diff < 7) return `${diff}d ago`
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+/** Client-side filter for the navbar thread search (bounded server list). */
+export function filterThreads(threads: SidebarThread[], query: string, limit = 8): SidebarThread[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return threads.slice(0, limit)
+  return threads.filter((t) => (t.title || "").toLowerCase().includes(q)).slice(0, limit)
 }
 
 /**

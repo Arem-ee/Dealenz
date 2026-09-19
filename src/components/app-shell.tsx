@@ -3,17 +3,20 @@ import { MailQuestion, LogOut } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { SidebarNav, type SidebarThread } from "@/components/sidebar-nav"
+import { SidebarNav } from "@/components/sidebar-nav"
+import { TopNavbar } from "@/components/top-navbar"
 import { MobileNav } from "@/components/mobile-nav"
 import { BackBar } from "@/components/back-bar"
 import { getCreditBalanceForHome } from "@/app/dashboard/actions"
 import { resendVerification } from "@/app/login/actions"
 import { VerificationBanner } from "@/components/verification-banner"
 import { listThreads } from "@/lib/chat/actions"
+import type { SidebarThread } from "@/lib/nav"
 
 /**
- * Shared authenticated shell: sidebar + account menu (desktop), bottom tabs
- * (mobile), verification wall, and a back bar on one-level-deep routes.
+ * Shared authenticated shell: top navbar (logo, search, credits,
+ * notifications, account) plus sidebar on desktop and bottom tabs on mobile,
+ * with the verification wall and a back bar on one-level-deep routes.
  * Used by the dashboard layout and every sibling authenticated area
  * (library, chat, settings, document, review) so navigation is consistent
  * everywhere instead of only under /dashboard/*.
@@ -95,8 +98,8 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
   const creditBalance = await getCreditBalanceForHome()
 
-  // Sidebar thread list. Load failures degrade to no list (the pages surface
-  // their own load states) rather than breaking the whole shell.
+  // Navbar thread search. Load failures degrade to no results (the pages
+  // surface their own load states) rather than breaking the whole shell.
   let threads: SidebarThread[] = []
   try {
     const rows = await listThreads()
@@ -106,16 +109,19 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <SidebarNav email={email} businessName={businessName} isLawyer={isLawyer} creditBalance={creditBalance} threads={threads} />
-      <div className="flex flex-1 flex-col min-w-0 bg-background">
-        <main className="flex flex-1 flex-col min-h-0 pb-16 md:pb-0 bg-background">
-          <VerificationBanner />
-          <BackBar />
-          <div className="flex flex-1 flex-col min-h-0">{children}</div>
-        </main>
+    <div className="flex min-h-screen flex-col bg-background">
+      <TopNavbar email={email} businessName={businessName} isLawyer={isLawyer} creditBalance={creditBalance} threads={threads} />
+      <div className="flex flex-1 min-h-0">
+        <SidebarNav />
+        <div className="flex flex-1 flex-col min-w-0 bg-background">
+          <main className="flex flex-1 flex-col min-h-0 pb-16 md:pb-0 bg-background">
+            <VerificationBanner />
+            <BackBar />
+            <div className="flex flex-1 flex-col min-h-0">{children}</div>
+          </main>
+        </div>
+        <MobileNav isLawyer={isLawyer} />
       </div>
-      <MobileNav isLawyer={isLawyer} />
     </div>
   )
 }
