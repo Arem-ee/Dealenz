@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import {
+  describeFindingDelta,
   detectFindingConflicts,
   deterministicRiskFloor,
+  diffFindingSets,
   evaluateRule,
   floorExceedsDisplay,
   ruleApplies,
@@ -217,5 +219,65 @@ describe("AI synthesis boundary", () => {
     expect(
       detectFindingConflicts(results, [{ ruleKey: "ghost-rule", assertedStatus: "PASS" }])[0]
     ).toMatch(/unknown rule/)
+  })
+})
+
+describe("diffFindingSets (redline re-check)", () => {
+  const fail = (ruleKey: string, summary = `${ruleKey} summary`) => ({
+    ruleKey,
+    status: "FAIL" as const,
+    finding: { summary, severity: "material" as const },
+  })
+
+  it("returns null with no previous FAIL baseline", () => {
+    expect(diffFindingSets([], [fail("a")] as never)).toBeNull()
+    expect(diffFindingSets(null, [])).toBeNull()
+    expect(diffFindingSets(undefined, [])).toBeNull()
+  })
+
+  it("splits resolved, still-open, and new issues by ruleKey", () => {
+    const delta = diffFindingSets(
+      [fail("rent-missing"), fail("termination-missing")],
+      [
+        { ...fail("termination-missing"), finding: { summary: "still bad", severity: "material" as const } },
+        fail("deposit-missing"),
+      ] as never
+    )
+    expect(delta).not.toBeNull()
+    expect(delta?.resolved.map((f) => f.ruleKey)).toEqual(["rent-missing"])
+    // Still-open carries the current summary, resolved keeps the old one.
+    expect(delta?.stillOpen).toEqual([
+      expect.objectContaining({ ruleKey: "termination-missing", summary: "still bad" }),
+    ])
+    expect(delta?.newIssues.map((f) => f.ruleKey)).toEqual(["deposit-missing"])
+  })
+
+  it("ignores non-FAIL rows and malformed persisted rows", () => {
+    const delta = diffFindingSets(
+      [
+        fail("a"),
+        { ruleKey: "b", status: "PASS" },
+        { ruleKey: "c", status: "UNKNOWN" },
+        null,
+        "nope",
+        { status: "FAIL" },
+        { ruleKey: "", status: "FAIL", finding: { summary: "x", severity: "material" } },
+        { ruleKey: "d", status: "FAIL", finding: { summary: "x", severity: "bogus" } },
+      ],
+      [fail("a")] as never
+    )
+    expect(delta?.stillOpen.map((f) => f.ruleKey)).toEqual(["a"])
+    expect(delta?.resolved).toEqual([])
+    expect(delta?.newIssues).toEqual([])
+  })
+
+  it("describes the delta in one honest line", () => {
+    const entry = (ruleKey: string) => ({ ruleKey, summary: `${ruleKey} summary`, severity: "material" as const })
+    expect(
+      describeFindingDelta({ resolved: [entry("a")], stillOpen: [entry("b"), entry("c")], newIssues: [] })
+    ).toBe("Re-check complete: 1 resolved, 2 still open, 0 new.")
+    expect(describeFindingDelta({ resolved: [], stillOpen: [], newIssues: [] })).toBe(
+      "Re-check complete: 0 resolved, 0 still open, 0 new."
+    )
   })
 })

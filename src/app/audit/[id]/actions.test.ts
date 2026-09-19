@@ -293,6 +293,76 @@ describe("analyzeDeal", () => {
     expect(flagged?.finding?.evidence?.[0].sourceId).toBe("audit-lease-1")
     expect(flagged?.finding?.evidence?.[0].quote).toMatch(/sublet/i)
   })
+
+  it("diffs re-analysis against previous findings for redline re-checks", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+
+    const previous = [
+      {
+        ruleKey: "lease-rent-terms-missing",
+        status: "FAIL",
+        finding: { summary: "No rent found before.", severity: "attention" },
+      },
+      {
+        ruleKey: "lease-termination-notice-missing",
+        status: "FAIL",
+        finding: { summary: "No termination found before.", severity: "attention" },
+      },
+    ]
+    const audits = auditsQuery(
+      {
+        id: "audit-lease-2",
+        ai_consent: true,
+        // Rent is now stated; termination still absent: one resolves, one stays.
+        raw_input: "Shop lease, $2,400 monthly rent, 12 month term.",
+        structured_data: { files: [], deterministicFindings: previous },
+        deal_type: "lease",
+        context_envelope: null,
+      },
+      [{ id: "audit-lease-2" }]
+    )
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_ai_consents") return consentedMock() as never
+      return (table === "audits" ? audits : qb()) as never
+    })
+    mockStorageFrom.mockReturnValue({ download: vi.fn() })
+    mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
+    mockAnalyzeGenericRiskFn.mockResolvedValue({
+      report: {
+        overallScore: 65,
+        riskLevel: "Medium",
+        categories: {},
+        summary: "Generic lease review",
+        recommendations: [],
+      },
+      usedFallback: false,
+    })
+    mockNegotiationPointsFn.mockResolvedValue(["Ask about renewal terms"])
+
+    const result = await analyzeDeal("audit-lease-2")
+
+    expect(result.success).toBe(true)
+    expect(result.findingDelta).toBeDefined()
+    expect(result.findingDelta?.resolved.map((f) => f.ruleKey)).toContain("lease-rent-terms-missing")
+    expect(result.findingDelta?.stillOpen.map((f) => f.ruleKey)).toContain("lease-termination-notice-missing")
+    // The persisted delta travels with the new findings for later renders.
+    const updates = (audits.update as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0])
+    const persisted = updates.find(
+      (update): update is { structured_data: { findingDelta: { resolved: Array<{ ruleKey: string }> } } } => {
+        if (typeof update !== "object" || update === null) return false
+        const structured = (update as Record<string, unknown>).structured_data
+        return (
+          typeof structured === "object" &&
+          structured !== null &&
+          typeof (structured as Record<string, unknown>).findingDelta === "object"
+        )
+      }
+    )
+    expect(persisted).toBeDefined()
+    expect(persisted?.structured_data.findingDelta.resolved.map((f) => f.ruleKey)).toContain(
+      "lease-rent-terms-missing"
+    )
+  })
 })
 
 describe("generateProtectionPackage", () => {

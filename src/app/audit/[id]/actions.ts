@@ -30,7 +30,7 @@ import {
   type LedgerClient,
 } from "@/lib/credits/ledger"
 import { bucketForGenericFindings } from "@/lib/verticals/generic/rules"
-import { deterministicRiskFloor, floorExceedsDisplay } from "@/lib/rules/result"
+import { deterministicRiskFloor, floorExceedsDisplay, diffFindingSets, type FindingDelta } from "@/lib/rules/result"
 import { canGenerateDocuments } from "@/lib/protection"
 import { logEvent, logDuration, reportAIFallback, reportError } from "@/lib/logger"
 import { publicErrorMessage } from "@/lib/safe-error"
@@ -151,6 +151,7 @@ export async function updateAudit(
       const sanitized: Record<string, unknown> = { ...sd }
       delete sanitized.extractedData
       delete sanitized.deterministicFindings
+      delete sanitized.findingDelta
       delete sanitized.negotiationPoints
       delete sanitized.genericRiskDegraded
       delete sanitized.generatedDocuments
@@ -364,7 +365,7 @@ export async function removeFileMetadata(
 
 export async function analyzeDeal(
   auditId: string
-): Promise<{ success: boolean; data?: ExtractedData; riskReport?: RiskReport | GenericRiskReport; error?: string; contextGate?: string; missingRequiredContext?: string[]; knowledgeCandidates?: KnowledgeCandidate[]; deterministicFindings?: RuleResult[] }> {
+): Promise<{ success: boolean; data?: ExtractedData; riskReport?: RiskReport | GenericRiskReport; error?: string; contextGate?: string; missingRequiredContext?: string[]; knowledgeCandidates?: KnowledgeCandidate[]; deterministicFindings?: RuleResult[]; findingDelta?: FindingDelta | null }> {
   const startMs = Date.now()
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -775,6 +776,14 @@ export async function analyzeDeal(
       // Persisted so the workspace can show why each finding fired (with its
       // evidence) without re-running evaluation. Recomputed on every analysis.
       deterministicFindings: ruleResults,
+      // Redline re-check: diff against the previous run's persisted FAIL set.
+      // Null on first analysis (no baseline). Previous rows are server-written
+      // only (client writes are sanitized in updateAudit), but diffed
+      // defensively anyway — malformed rows are ignored, never trusted.
+      findingDelta: diffFindingSets(
+        (structured as Record<string, unknown> | null)?.deterministicFindings,
+        ruleResults
+      ),
     }
     if (dealType !== "freelance") {
       structuredUpdate.negotiationPoints = negotiationPoints ?? []
@@ -843,7 +852,7 @@ export async function analyzeDeal(
       // Referral bookkeeping must never fail an analysis.
     }
 
-    return { success: true, data: extracted, riskReport, knowledgeCandidates, deterministicFindings: ruleResults }
+    return { success: true, data: extracted, riskReport, knowledgeCandidates, deterministicFindings: ruleResults, findingDelta: (structuredUpdate.findingDelta as FindingDelta | null) ?? null }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error"
     const errorType = err instanceof Error ? err.constructor.name : "UnknownError"

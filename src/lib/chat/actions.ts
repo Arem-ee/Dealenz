@@ -119,7 +119,14 @@ async function analyzeAndPostRiskInner(threadId: string, auditId: string): Promi
       return { ruleKey: f.ruleKey ?? null, severity: src.severity, summary: src.summary, whyItMatters: src.guidance, evidence: Array.isArray(src.evidence) ? src.evidence : [] }
     }),
   }
-  const riskPosted = await postRichMessage(threadId, { type: "risk_report", payload, content: `Risk analysis complete: ${payload.riskLevel}` })
+  // Re-checks announce their verdict (resolved / still open / new) instead of
+  // the first-analysis message. findingDelta is server-computed and typed;
+  // absent on first analysis.
+  const { describeFindingDelta } = await import("@/lib/rules/result")
+  const content = result.findingDelta
+    ? describeFindingDelta(result.findingDelta)
+    : `Risk analysis complete: ${payload.riskLevel}`
+  const riskPosted = await postRichMessage(threadId, { type: "risk_report", payload, content })
   if (!riskPosted.ok) throw new Error(riskPosted.error)
 
   // Lawyer-review trigger — dual condition, once per deal

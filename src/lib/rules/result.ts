@@ -213,3 +213,73 @@ export function detectFindingConflicts(results: RuleResult[], claims: ClaimedSta
   }
   return conflicts
 }
+
+export interface FindingDeltaEntry {
+  ruleKey: string
+  summary: string
+  severity: FindingSeverity
+}
+
+export interface FindingDelta {
+  // Was FAIL, now PASS/absent: the redline plausibly addressed it. Deterministic
+  // comparison only — it cannot prove the new language is safe, only that the
+  // flagged condition no longer fires.
+  resolved: FindingDeltaEntry[]
+  // FAIL in both runs: still open.
+  stillOpen: FindingDeltaEntry[]
+  // FAIL now, not FAIL before: newly surfaced by the revised input.
+  newIssues: FindingDeltaEntry[]
+}
+
+// Diffs two FAIL sets by ruleKey for redline re-checks: run N+1 against the
+// persisted findings of run N. Pure and defensive: persisted rows predate any
+// schema, so anything without a string ruleKey is ignored, and non-FAIL rows
+// never enter the comparison. Returns null when there is no previous FAIL
+// baseline (first analysis) — no baseline, no delta.
+export function diffFindingSets(previous: unknown, current: RuleResult[]): FindingDelta | null {
+  const prevFails = new Map<string, FindingDeltaEntry>()
+  if (Array.isArray(previous)) {
+    for (const row of previous) {
+      if (typeof row !== "object" || row === null) continue
+      const r = row as { ruleKey?: unknown; status?: unknown; finding?: { summary?: unknown; severity?: unknown } }
+      if (typeof r.ruleKey !== "string" || r.ruleKey.length === 0) continue
+      if (r.status !== "FAIL" || typeof r.finding !== "object" || r.finding === null) continue
+      const severity = r.finding.severity
+      if (severity !== "informational" && severity !== "attention" && severity !== "material" && severity !== "critical") continue
+      prevFails.set(r.ruleKey, {
+        ruleKey: r.ruleKey,
+        summary: typeof r.finding.summary === "string" ? r.finding.summary : r.ruleKey,
+        severity,
+      })
+    }
+  }
+  if (prevFails.size === 0) return null
+  const curFails = new Map<string, FindingDeltaEntry>()
+  for (const r of current) {
+    if (r.status !== "FAIL" || !r.finding) continue
+    curFails.set(r.ruleKey, { ruleKey: r.ruleKey, summary: r.finding.summary, severity: r.finding.severity })
+  }
+  const resolved: FindingDeltaEntry[] = []
+  const stillOpen: FindingDeltaEntry[] = []
+  for (const [key, entry] of prevFails) {
+    const now = curFails.get(key)
+    if (now) stillOpen.push(now)
+    else resolved.push(entry)
+  }
+  const newIssues: FindingDeltaEntry[] = []
+  for (const [key, entry] of curFails) {
+    if (!prevFails.has(key)) newIssues.push(entry)
+  }
+  return { resolved, stillOpen, newIssues }
+}
+
+// One-line human account of a re-check. Counts only — the workspace renders
+// the itemized lists from the persisted delta.
+export function describeFindingDelta(delta: FindingDelta): string {
+  const parts = [
+    `${delta.resolved.length} resolved`,
+    `${delta.stillOpen.length} still open`,
+    `${delta.newIssues.length} new`,
+  ]
+  return `Re-check complete: ${parts.join(", ")}.`
+}
