@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client"
 import { renderMarkdown } from "@/lib/markdown"
 import { FileText, Check, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ClientTime } from "@/components/datetime"
 
 interface SharedDocument {
   content: string
@@ -123,7 +124,7 @@ export function PortalView({ document: doc, token }: PortalViewProps) {
               <div>
                 <p className="font-medium">Signed by {signatureInfo.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {signatureInfo.email} &mdash; {new Date(signatureInfo.at!).toLocaleDateString()}
+                  {signatureInfo.email} &mdash; <ClientTime iso={signatureInfo.at} kind="day" />
                 </p>
               </div>
             </div>

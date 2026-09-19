@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { ClientTime } from "@/components/datetime"
 import { canTransitionSigning, type SigningStatus } from "@/lib/signing/transitions"
 import { Section } from "./Section"
 import { DocVersionList } from "./DocVersionList"
@@ -68,7 +69,14 @@ export function SigningWorkspace({ data, auditId }: {
             {data.signingEvents.slice(-12).map((e) => (
               <p key={e.id} className="text-xs text-muted-foreground">
                 <span className="font-medium capitalize text-foreground">{(e.event_type ?? "event").replaceAll("_", " ")}</span>
-                {e.created_at ? ` · ${new Date(e.created_at).toLocaleString()}` : ""}
+                {e.created_at ? (
+                  <>
+                    {" · "}
+                    <ClientTime iso={e.created_at} kind="datetime" />
+                  </>
+                ) : (
+                  ""
+                )}
               </p>
             ))}
           </div>

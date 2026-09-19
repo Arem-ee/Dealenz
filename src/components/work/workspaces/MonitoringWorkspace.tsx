@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
+import { ClientTime } from "@/components/datetime"
 import { Section } from "./Section"
 import type { MonitoringAlert, MonitoringEvent } from "./types"
 import {
@@ -90,8 +91,22 @@ export function MonitoringWorkspace({ auditId, events, alerts, gmailConnected, o
     }
   }
 
-  const alertStatusLabel = (a: MonitoringAlert): string => {
-    if (a.status === "sent") return a.provider === "gmail" ? `Sent${a.sent_at ? ` · ${new Date(a.sent_at).toLocaleDateString()}` : ""}` : "Recorded (no email sent)"
+  const alertStatusLabel = (a: MonitoringAlert): ReactNode => {
+    if (a.status === "sent")
+      return a.provider === "gmail" ? (
+        <>
+          Sent{a.sent_at ? (
+            <>
+              {" · "}
+              <ClientTime iso={a.sent_at} kind="day" />
+            </>
+          ) : (
+            ""
+          )}
+        </>
+      ) : (
+        "Recorded (no email sent)"
+      )
     return (a.status ?? "pending").replaceAll("_", " ")
   }
 

@@ -1,6 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
+import { ClientTime } from "@/components/datetime"
 
 export interface TimelineEvent {
   id: string
@@ -73,9 +74,7 @@ export function Timeline({ events, className }: TimelineProps) {
               <p className="text-xs text-muted-foreground mt-0.5">{event.description}</p>
             )}
             <p className="text-[10px] text-muted-foreground/50 mt-0.5">
-              {new Date(event.timestamp).toLocaleString(undefined, {
-                month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
-              })}
+              <ClientTime iso={event.timestamp} kind="datetime" />
             </p>
           </div>
         </div>

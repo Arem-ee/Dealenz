@@ -5,6 +5,7 @@ import { Gift, Copy, Check, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getMyReferralCode, getMyReferrals, type ReferralAttributionView } from "@/app/billing/actions"
 import { REFERRAL_REWARD_CREDITS } from "@/lib/referrals/policy"
+import { ClientTime } from "@/components/datetime"
 
 function statusLabel(status: ReferralAttributionView["status"]): string {
   if (status === "rewarded") return "Rewarded"
@@ -92,7 +93,7 @@ export function ReferralSection() {
               {referrals.slice(0, 10).map((r) => (
                 <li key={r.id} className="flex items-center justify-between rounded-md border border-border/60 px-2.5 py-1.5 text-xs">
                   <span className="text-muted-foreground">
-                    {new Date(r.created_at).toLocaleDateString()}
+                    <ClientTime iso={r.created_at} kind="day" />
                   </span>
                   <span className="font-medium">{statusLabel(r.status)}</span>
                 </li>

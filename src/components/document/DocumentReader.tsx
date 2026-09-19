@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/toast"
 import { renderMarkdown } from "@/lib/markdown"
+import { ClientTime } from "@/components/datetime"
 
 interface VersionItem {
   id: string
@@ -177,7 +178,7 @@ export function DocumentReader({
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{v.documentType} v{v.versionNumber}</span>
-                    <span className="text-[10px] text-muted-foreground">{new Date(v.createdAt).toLocaleDateString()}</span>
+                    <span className="text-[10px] text-muted-foreground"><ClientTime iso={v.createdAt} kind="day" /></span>
                   </div>
                   <span className="text-[10px] text-muted-foreground capitalize">{v.generationMethod ?? "draft"}</span>
                 </button>

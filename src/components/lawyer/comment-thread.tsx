@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { addLawyerComment } from "@/app/lawyer/actions"
+import { ClientTime } from "@/components/datetime"
 
 export interface ThreadComment {
   id: string
@@ -57,7 +58,7 @@ export function CommentThread({ requestId, comments }: { requestId: string; comm
                 {c.provenance === "lawyer" ? "Lawyer review" : "Client"}
               </span>
               <span className="text-[11px] text-muted-foreground">
-                {c.target_type}{c.target_key ? ` · ${c.target_key}` : ""} · {new Date(c.created_at).toLocaleString()} · {c.status}
+                {c.target_type}{c.target_key ? ` · ${c.target_key}` : ""} · <ClientTime iso={c.created_at} kind="datetime" /> · {c.status}
               </span>
             </div>
             <p className="mt-2 text-sm whitespace-pre-wrap">{c.body}</p>

@@ -1,6 +1,7 @@
 "use client"
 
 import type { DocVersion } from "./types"
+import { ClientTime } from "@/components/datetime"
 
 const METHOD_LABEL: Record<string, string> = {
   ai: "AI draft",
@@ -31,7 +32,11 @@ export function DocVersionList({ versions, previewChars = 280 }: {
           {current.status && current.status !== "draft" && (
             <span className="rounded-full border px-2 py-0.5 capitalize">{current.status.replaceAll("_", " ")}</span>
           )}
-          {current.created_at && <span>{new Date(current.created_at).toLocaleDateString()}</span>}
+          {current.created_at && (
+            <span>
+              <ClientTime iso={current.created_at} kind="day" />
+            </span>
+          )}
         </div>
         {current.content && (
           <p className="mt-2 font-serif text-sm leading-relaxed whitespace-pre-wrap">
@@ -50,7 +55,11 @@ export function DocVersionList({ versions, previewChars = 280 }: {
                 <span className="font-medium text-foreground">v{v.version_number}</span>
                 <span className="rounded-full border px-2 py-0.5">{methodLabel(v.generation_method)}</span>
                 {v.status && v.status !== "draft" && <span className="capitalize">{v.status.replaceAll("_", " ")}</span>}
-                {v.created_at && <span>{new Date(v.created_at).toLocaleDateString()}</span>}
+                {v.created_at && (
+                  <span>
+                    <ClientTime iso={v.created_at} kind="day" />
+                  </span>
+                )}
               </div>
             ))}
           </div>
