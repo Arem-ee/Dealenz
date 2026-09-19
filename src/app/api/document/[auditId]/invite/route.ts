@@ -21,24 +21,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
   const documentVersionId = typeof body.documentVersionId === "string" ? body.documentVersionId : null
   if (!name || name.length > 120) return NextResponse.json({ success: false, error: "Enter name" }, { status: 400 })
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ success: false, error: "Enter valid email" }, { status: 400 })
-  const { data: audit } = await supabase.from("audits").select("id").eq("id", auditId).eq("user_id", user.id).maybeSingle()
-  if (!audit) return NextResponse.json({ success: false, error: "Audit not found" }, { status: 404 })
 
-  let versionId = documentVersionId
-  if (!versionId) {
-    const { data: latest } = await supabase.from("document_versions").select("id").eq("audit_id", auditId).order("version_number", { ascending: false }).limit(1).maybeSingle<{ id: string }>()
-    if (!latest) return NextResponse.json({ success: false, error: "No document version to invite for" }, { status: 400 })
-    versionId = latest.id
-  }
-
-  // Ensure version belongs to audit
-  const { data: version } = await supabase.from("document_versions").select("id, document_type").eq("id", versionId).eq("audit_id", auditId).maybeSingle()
-  if (!version) return NextResponse.json({ success: false, error: "Version not found" }, { status: 404 })
-
-  // Credit gate at the point of use: sending a signature request costs
-  // SIGNATURE_SEND_CREDITS. Same balance check as every other billable
-  // operation — never-purchased accounts cannot afford it. Deducted only
-  // when the invite is created; 402 (not a generic upsell) on denial.
+  // Credit gate at the point of use (fail fast, before any reads/writes):
+  // sending a signature request costs SIGNATURE_SEND_CREDITS. Same balance
+  // check as every other billable operation — never-purchased accounts
+  // cannot afford it. Deducted only when the invite is created; 402 (not a
+  // generic upsell) on denial.
   const ledger: LedgerClient = {
     rpc: async (functionName: string, args: Record<string, unknown> = {}) => {
       const result = await (supabase.rpc as unknown as (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>)(
@@ -53,13 +41,36 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
     reservation = await reserveCredits(ledger, {
       operation: "document_analysis",
       amount: SIGNATURE_SEND_CREDITS,
-      idempotencyKey: `invite:${auditId}:${versionId}:${crypto.randomUUID()}`,
+      idempotencyKey: `invite:${auditId}:${crypto.randomUUID()}`,
     })
   } catch {
     return NextResponse.json({ success: false, error: "Could not verify credit balance. Please try again." }, { status: 500 })
   }
   if (!reservation.allowed || !reservation.reservationId) {
     return NextResponse.json({ success: false, error: `Insufficient credits for this operation. Sending a signature request costs ${SIGNATURE_SEND_CREDITS} credits.` }, { status: 402 })
+  }
+
+  const { data: audit } = await supabase.from("audits").select("id").eq("id", auditId).eq("user_id", user.id).maybeSingle()
+  if (!audit) {
+    await voidReservation(ledger, reservation.reservationId).catch(() => null)
+    return NextResponse.json({ success: false, error: "Audit not found" }, { status: 404 })
+  }
+
+  let versionId = documentVersionId
+  if (!versionId) {
+    const { data: latest } = await supabase.from("document_versions").select("id").eq("audit_id", auditId).order("version_number", { ascending: false }).limit(1).maybeSingle<{ id: string }>()
+    if (!latest) {
+      await voidReservation(ledger, reservation.reservationId).catch(() => null)
+      return NextResponse.json({ success: false, error: "No document version to invite for" }, { status: 400 })
+    }
+    versionId = latest.id
+  }
+
+  // Ensure version belongs to audit
+  const { data: version } = await supabase.from("document_versions").select("id, document_type").eq("id", versionId).eq("audit_id", auditId).maybeSingle()
+  if (!version) {
+    await voidReservation(ledger, reservation.reservationId).catch(() => null)
+    return NextResponse.json({ success: false, error: "Version not found" }, { status: 404 })
   }
 
   try {
@@ -76,7 +87,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
       token,
       status: "pending",
     })
-    if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 })
+    if (error) {
+      await voidReservation(ledger, reservation.reservationId).catch(() => null)
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 })
+    }
 
     // Ensure owner signer exists for owner-first order
     const { data: ownerSigner } = await supabase.from("document_signers").select("id").eq("audit_id", auditId).eq("document_version_id", versionId).eq("party_label", "owner").maybeSingle()
