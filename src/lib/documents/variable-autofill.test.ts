@@ -42,7 +42,7 @@ describe("autoFillDocumentVariables", () => {
   it("auto-fills budget from extracted data", () => {
     const result = autoFillDocumentVariables(
       mockExtractedData,
-      mockContextEnvelope as any,
+      mockContextEnvelope as unknown as ContextEnvelope,
       "freelance",
       "founder-agreement",
       ["budget", "currency", "jurisdiction", "company_name"]
@@ -56,7 +56,7 @@ describe("autoFillDocumentVariables", () => {
   it("auto-fills currency from extracted data", () => {
     const result = autoFillDocumentVariables(
       mockExtractedData,
-      mockContextEnvelope as any,
+      mockContextEnvelope as unknown as ContextEnvelope,
       "freelance",
       "founder-agreement",
       ["currency"]
@@ -69,7 +69,7 @@ describe("autoFillDocumentVariables", () => {
   it("auto-fills jurisdiction from context envelope", () => {
     const result = autoFillDocumentVariables(
       mockExtractedData,
-      mockContextEnvelope as any,
+      mockContextEnvelope as unknown as ContextEnvelope,
       "freelance",
       "founder-agreement",
       ["jurisdiction"]
@@ -82,7 +82,7 @@ describe("autoFillDocumentVariables", () => {
   it("marks missing variables when no source available", () => {
     const result = autoFillDocumentVariables(
       { ...mockExtractedData, budget: null },
-      mockContextEnvelope as any,
+      mockContextEnvelope as unknown as ContextEnvelope,
       "freelance",
       "founder-agreement",
       ["missing_field"]
@@ -108,7 +108,7 @@ describe("autoFillDocumentVariables", () => {
   it("preserves user-provided vars over auto-filled", () => {
     const result = autoFillDocumentVariables(
       mockExtractedData,
-      mockContextEnvelope as any,
+      mockContextEnvelope as unknown as ContextEnvelope,
       "freelance",
       "founder-agreement",
       ["budget", "currency"]
@@ -123,7 +123,7 @@ describe("autoFillDocumentVariables", () => {
     const extractedWithEUR = { ...mockExtractedData, budget: "€3,000 EUR" }
     const result = autoFillDocumentVariables(
       extractedWithEUR,
-      mockContextEnvelope as any,
+      mockContextEnvelope as unknown as ContextEnvelope,
       "freelance",
       "founder-agreement",
       ["currency"]
@@ -135,7 +135,7 @@ describe("autoFillDocumentVariables", () => {
   it("returns correct missing variables", () => {
     const result = autoFillDocumentVariables(
       mockExtractedData,
-      mockContextEnvelope as any,
+      mockContextEnvelope as unknown as ContextEnvelope,
       "freelance",
       "founder-agreement",
       ["budget", "jurisdiction", "unknown_field"]

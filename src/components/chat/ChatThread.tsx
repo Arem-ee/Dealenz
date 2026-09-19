@@ -275,7 +275,12 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   }
 
   useEffect(() => {
-    void refreshWorkPlan()
+    // The effect body only initiates the refresh; refreshWorkPlan owns all
+    // state updates after its awaits resolve.
+    const run = async () => {
+      await refreshWorkPlan()
+    }
+    void run()
   }, [threadId, messages.length])
 
   const handlePlanApprove = async (planId: string) => {

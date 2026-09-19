@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { isRedirectError } from "next/dist/client/components/redirect-error"
@@ -19,12 +19,12 @@ function NewAuditContent() {
   const [dealType, setDealType] = useState<DealType | null>(initialType ?? null)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [pendingFileName, setPendingFileName] = useState<string | null>(null)
-
-  useEffect(() => {
-    const f = getPendingFile()
-    if (f && hasFileParam) setPendingFileName(`${f.name} — ${(f.size / 1024).toFixed(0)} KB`)
-  }, [hasFileParam])
+  // Module-variable read (no DOM/storage), safe as a lazy initializer, so no
+  // effect is needed to pick up the staged file.
+  const [pendingFileName, setPendingFileName] = useState<string | null>(() => {
+    const f = hasFileParam ? getPendingFile() : null
+    return f ? `${f.name} — ${(f.size / 1024).toFixed(0)} KB` : null
+  })
 
   async function handleContinue() {
     if (!dealType) return

@@ -42,7 +42,7 @@ export default async function LawyerReviewPage({ params, searchParams }: { param
       <main className="mx-auto max-w-5xl px-4 py-6 space-y-6">
         <div>
           <h1 className="text-xl font-semibold flex items-center gap-2"><Scale className="h-5 w-5 text-primary" /> Lawyer Review</h1>
-          <p className="text-sm text-muted-foreground mt-1">Deal: {String((audit as { title?: unknown }).title ?? "")} · {String((audit as { deal_type?: unknown }).deal_type ?? "")} · {new Date(String((audit as { created_at?: unknown }).created_at ?? Date.now())).toLocaleDateString()}</p>
+          <p className="text-sm text-muted-foreground mt-1">Deal: {String((audit as { title?: unknown }).title ?? "")} · {String((audit as { deal_type?: unknown }).deal_type ?? "")}{(audit as { created_at?: unknown }).created_at ? ` · ${new Date(String((audit as { created_at?: unknown }).created_at)).toLocaleDateString()}` : ""}</p>
         </div>
 
         <SplitPane
