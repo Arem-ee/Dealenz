@@ -148,6 +148,38 @@ export const PURCHASE_SALE_RULES: Rule[] = [
     },
     authority: { kind: "product_policy", note: POLICY },
   }),
+  rule({
+    ruleKey: "purchase-sale-conflicting-payment-terms",
+    title: "Purchase/sale conflicting payment terms",
+    description: "Fires when structurally conflicting payment terms are preserved as separate observations.",
+    priority: 98,
+    category: "consistency",
+    scope: { dealTypes: ["purchase_sale"] },
+    condition: { field: "facts.purchase_sale.conflictingPaymentTerms.value", op: "eq", value: true },
+    fireOn: true,
+    finding: {
+      summary: "Conflicting payment terms were found in the provided deal input.",
+      severity: "material",
+      guidance: "Clarify which payment terms apply: the input lists multiple conflicting values as separate observations. Confirm the correct schedule in writing before proceeding.",
+    },
+    authority: { kind: "product_policy", note: POLICY },
+  }),
+  rule({
+    ruleKey: "purchase-sale-conflicting-timeline",
+    title: "Purchase/sale conflicting timeline",
+    description: "Fires when structurally conflicting timeline terms are preserved.",
+    priority: 97,
+    category: "consistency",
+    scope: { dealTypes: ["purchase_sale"] },
+    condition: { field: "facts.purchase_sale.conflictingTimelineTerms.value", op: "eq", value: true },
+    fireOn: true,
+    finding: {
+      summary: "Conflicting timeline terms were found in the provided deal input.",
+      severity: "material",
+      guidance: "Clarify which timeline applies: multiple conflicting dates were observed as separate observations. Confirm the correct dates in writing.",
+    },
+    authority: { kind: "product_policy", note: POLICY },
+  }),
 ]
 
 const registered = new Set<string>()

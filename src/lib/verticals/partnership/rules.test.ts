@@ -57,7 +57,7 @@ describe("partnership rule pack", () => {
   it("discovers scoped partnership rules with honest authority", () => {
     registerPartnershipPack()
     registerPartnershipPack()
-    expect(PARTNERSHIP_RULES.length).toBe(8)
+    expect(PARTNERSHIP_RULES.length).toBe(10)
     for (const rule of PARTNERSHIP_RULES) {
       expect(rule.scope.dealTypes).toEqual(["partnership"])
       expect(rule.status).toBe("active")

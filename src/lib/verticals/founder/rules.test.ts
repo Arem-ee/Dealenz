@@ -56,7 +56,7 @@ describe("founder rule pack", () => {
   it("discovers scoped founder rules with honest authority", () => {
     registerFounderPack()
     registerFounderPack()
-    expect(FOUNDER_RULES.length).toBe(8)
+    expect(FOUNDER_RULES.length).toBe(10)
     for (const rule of FOUNDER_RULES) {
       expect(rule.scope.dealTypes).toEqual(["founder"])
       expect(rule.status).toBe("active")

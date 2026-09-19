@@ -1,6 +1,6 @@
 // Lease vertical rule pack (Phase 6).
 //
-// Nine deterministic rules over the lease fact projection, all scoped to
+// Eleven deterministic rules over the lease fact projection, all scoped to
 // lease deals and all declared as product policy: Dealenz product judgments
 // about commercially meaningful omissions or unusual terms, never legal
 // authority and never legal certainty. Summaries state what was (not) found
@@ -172,6 +172,38 @@ export const LEASE_RULES: Rule[] = [
       summary: "No permitted-use terms were found in the provided deal input.",
       severity: "informational",
       guidance: "Confirm what the property may be used for before signing.",
+    },
+    authority: { kind: "product_policy", note: POLICY },
+  }),
+  rule({
+    ruleKey: "lease-conflicting-payment-terms",
+    title: "Lease conflicting payment terms",
+    description: "Fires when structurally conflicting payment terms are preserved as separate observations.",
+    priority: 98,
+    category: "consistency",
+    scope: { dealTypes: ["lease"] },
+    condition: { field: "facts.lease.conflictingPaymentTerms.value", op: "eq", value: true },
+    fireOn: true,
+    finding: {
+      summary: "Conflicting payment terms were found in the provided deal input.",
+      severity: "material",
+      guidance: "Clarify which payment terms apply: the input lists multiple conflicting values as separate observations. Confirm the correct schedule in writing before proceeding.",
+    },
+    authority: { kind: "product_policy", note: POLICY },
+  }),
+  rule({
+    ruleKey: "lease-conflicting-timeline",
+    title: "Lease conflicting timeline",
+    description: "Fires when structurally conflicting timeline terms are preserved.",
+    priority: 97,
+    category: "consistency",
+    scope: { dealTypes: ["lease"] },
+    condition: { field: "facts.lease.conflictingTimelineTerms.value", op: "eq", value: true },
+    fireOn: true,
+    finding: {
+      summary: "Conflicting timeline terms were found in the provided deal input.",
+      severity: "material",
+      guidance: "Clarify which timeline applies: multiple conflicting dates were observed as separate observations. Confirm the correct term in writing.",
     },
     authority: { kind: "product_policy", note: POLICY },
   }),

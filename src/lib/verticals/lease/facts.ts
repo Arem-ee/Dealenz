@@ -11,6 +11,7 @@ import { makeEvidence } from "@/lib/evidence/schema"
 import {
   observePattern,
   sectionedParts,
+  type ObservedFlag,
   type ObservedText,
   type ObservationSource,
 } from "@/lib/verticals/observe"
@@ -38,6 +39,10 @@ export interface LeaseFacts {
   defaultTerms: ObservedText
   possession: ObservedText
   fixtures: ObservedText
+  // Structural preservation of conflicting observations (same pattern as
+  // freelance/generic): separate budget/timeline terms stay separate.
+  conflictingPaymentTerms: ObservedFlag
+  conflictingTimelineTerms: ObservedFlag
 }
 
 // Deterministic lease fact projection. Pure: same extraction plus same raw
@@ -54,6 +59,49 @@ export function deriveLeaseFacts(
   const key = (field: string) => `facts.lease.${field}`
   const obs = (field: string, pattern: RegExp) => observePattern(parts, pattern, { key: key(field), source: src })
   const inspectable = src.type === "audit_input" && src.id !== null
+
+  // Structural conflicting-terms detection — preserve separate observations.
+  // Defensive: legacy audits/test fixtures may lack the new arrays.
+  const budgetTerms = extracted.budgetTerms ?? []
+  const timelineTerms = extracted.timelineTerms ?? []
+  const conflictingPaymentTerms: ObservedFlag =
+    budgetTerms.length > 1
+      ? {
+          value: true,
+          evidence: `Conflicting payment terms: ${budgetTerms.join(" | ").slice(0, 120)}`,
+          evidenceRefs: [
+            makeEvidence({
+              sourceType: "extraction",
+              sourceId: src.id,
+              quote: budgetTerms.join(" | ").slice(0, 200),
+              observationKey: key("conflictingPaymentTerms"),
+              method: "ai_extraction",
+              confidence: extracted.confidence,
+              inspectable,
+              location: { kind: "unavailable" },
+            }),
+          ],
+        }
+      : { value: null, evidence: null, evidenceRefs: [] }
+  const conflictingTimelineTerms: ObservedFlag =
+    timelineTerms.length > 1
+      ? {
+          value: true,
+          evidence: `Conflicting timeline terms: ${timelineTerms.join(" | ").slice(0, 120)}`,
+          evidenceRefs: [
+            makeEvidence({
+              sourceType: "extraction",
+              sourceId: src.id,
+              quote: timelineTerms.join(" | ").slice(0, 200),
+              observationKey: key("conflictingTimelineTerms"),
+              method: "ai_extraction",
+              confidence: extracted.confidence,
+              inspectable,
+              location: { kind: "unavailable" },
+            }),
+          ],
+        }
+      : { value: null, evidence: null, evidenceRefs: [] }
   return {
     rent: extracted.budget
       ? {
@@ -96,5 +144,7 @@ export function deriveLeaseFacts(
     defaultTerms: obs("defaultTerms", /default|breach|forfeit|re-?enter|reentry|arrears|non-payment/i),
     possession: obs("possession", /possession|vacant possession|hand back|yield up|deliver up/i),
     fixtures: obs("fixtures", /fixture|fitting/i),
+    conflictingPaymentTerms,
+    conflictingTimelineTerms,
   }
 }

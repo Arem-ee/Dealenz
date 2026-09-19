@@ -51,7 +51,7 @@ describe("lease rule pack", () => {
     registerLeasePack()
     registerLeasePack()
     expect(LEASE_RULES.length).toBeGreaterThanOrEqual(5)
-    expect(LEASE_RULES.length).toBeLessThanOrEqual(10)
+    expect(LEASE_RULES.length).toBeLessThanOrEqual(12)
     for (const rule of LEASE_RULES) {
       expect(rule.scope.dealTypes).toEqual(["lease"])
       expect(rule.status).toBe("active")
