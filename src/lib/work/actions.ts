@@ -9,6 +9,13 @@ export type CreatePlanResult = { ok: true; planId: string } | { ok: false; error
 export type ApprovalResult = { ok: true; planId: string } | { ok: false; error: string }
 export type ExecuteResult = { ok: true; executionId: string; status: string } | { ok: false; error: string }
 
+// Email-verification policy (P0-3): work-plan mutations and execution are
+// AI/cost-bearing (credits reserved, AI calls, possible external sends), so
+// they require a verified email like analyzeDeal/generate/Ask. Pure reads
+// below (getLatestPlanForThread, getWorkProductForPlan, getAnalysisUsage)
+// stay available pre-verification: they touch only the caller's own rows.
+const VERIFY_REQUIRED_ERROR = "Please verify your email address before using this feature."
+
 export async function createWorkPlan(input: {
   conversationId?: string | null
   dealId?: string | null
@@ -20,6 +27,7 @@ export async function createWorkPlan(input: {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false, error: VERIFY_REQUIRED_ERROR }
     const { plan } = await createPlan(supabase as never, user.id, {
       conversationId: input.conversationId ?? null,
       dealId: input.dealId ?? null,
@@ -38,6 +46,7 @@ export async function requestApproval(planId: string): Promise<ApprovalResult> {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false, error: VERIFY_REQUIRED_ERROR }
     await requestPlanApproval(supabase as never, user.id, planId)
     return { ok: true, planId }
   } catch (e) {
@@ -50,6 +59,7 @@ export async function approveWorkPlan(planId: string, idempotencyKey: string): P
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false, error: VERIFY_REQUIRED_ERROR }
     await approvePlan(supabase as never, user.id, planId, { idempotencyKey })
     return { ok: true, planId }
   } catch (e) {
@@ -62,6 +72,7 @@ export async function rejectWorkPlan(planId: string): Promise<ApprovalResult> {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false, error: VERIFY_REQUIRED_ERROR }
     await rejectPlan(supabase as never, user.id, planId)
     return { ok: true, planId }
   } catch (e) {
@@ -74,6 +85,7 @@ export async function executeApprovedPlan(planId: string, approvalId: string): P
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false, error: VERIFY_REQUIRED_ERROR }
     // Load approval to validate hash/version
     const { data: approval } = await supabase.from("work_approvals").select("*").eq("id", approvalId).eq("plan_id", planId).eq("user_id", user.id).maybeSingle()
     if (!approval) return { ok: false, error: "Approval not found." }
@@ -93,6 +105,7 @@ export async function createBatchWorkPlan(input: { conversationId: string; dealI
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false, error: VERIFY_REQUIRED_ERROR }
     if (!input.conversationId || !input.dealId) return { ok: false, error: "Conversation and deal are required." }
     if (!input.csvText || input.csvText.trim().length === 0) return { ok: false, error: "Spreadsheet is empty." }
     // Deal must belong to the caller; row parsing stays client-side, plan
@@ -117,6 +130,7 @@ export async function createDealAnalysisPlan(input: { conversationId: string; de
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false, error: VERIFY_REQUIRED_ERROR }
     if (!input.conversationId || !input.dealId) return { ok: false, error: "Conversation and deal are required." }
     // Server-side deduplication: if an active plan already exists for this conversation, reuse it
     const { findActivePlanForConversation } = await import("./store")
@@ -194,6 +208,7 @@ export async function resumeWorkPlan(planId: string): Promise<{ ok: true; planId
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false, error: VERIFY_REQUIRED_ERROR }
     const { resumePlan } = await import("./store")
     await resumePlan(supabase as never, user.id, planId)
     return { ok: true, planId }

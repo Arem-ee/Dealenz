@@ -380,3 +380,34 @@ describe("00055 billing service-role grants (static)", () => {
     expect(grants).not.toMatch(/DROP /i)
   })
 })
+
+describe("00065 storage audit-files ownership (static, P0-1)", () => {
+  const storage = code(sql("00065_fix_child_rls_and_storage.sql"))
+
+  it("keeps all four audit-files policies bucket- and owner-scoped", () => {
+    const scoped = storage.match(/bucket_id = 'audit-files'/g) ?? []
+    expect(scoped.length).toBe(4)
+    const ownerChecks = storage.match(/auth\.uid\(\)::text = \(storage\.foldername\(name\)\)\[1\]/g) ?? []
+    expect(ownerChecks.length).toBe(4)
+  })
+
+  it("binds the second path segment to caller-owned audits", () => {
+    const auditChecks = storage.match(/\(storage\.foldername\(name\)\)\[2\] AND a\.user_id = auth\.uid\(\)/g) ?? []
+    expect(auditChecks.length).toBe(4)
+  })
+
+  it("is hosted-safe: no ALTER TABLE on the platform-owned storage.objects", () => {
+    expect(storage).not.toMatch(/ALTER TABLE storage\.objects/)
+  })
+
+  it("supersedes the 20260903 storage draft (which must stay unapplied)", () => {
+    // The draft carries only first-segment ownership; 00065 adds the audit
+    // ownership check on top. Applying the draft now would be a no-op at
+    // best (duplicate_object guard) — the effective enforcement lives here.
+    const draft = code(sql("20260903000001_storage_rls_remediation.sql"))
+    expect(draft).not.toMatch(/foldername\(name\)\)\[2\]/)
+    // Header marker is a comment, so assert on the raw file, not the
+    // comment-stripped code.
+    expect(sql("20260903000001_storage_rls_remediation.sql")).toMatch(/DRAFT, NOT EXECUTED/)
+  })
+})

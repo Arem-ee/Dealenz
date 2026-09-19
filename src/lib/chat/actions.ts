@@ -18,6 +18,15 @@ export type DealThreadResult = { ok: true; threadId: string; auditId: string } |
 export type RiskAnalysisResult = { ok: true; status: "done" | "failed" | "needs_confirm" } | { ok: false; error: string }
 export type DocumentDraftResult = { ok: true } | { ok: false; error: string }
 
+// Email-verification policy (P0-3): analyzeAndPostRisk and
+// generateDocumentAndPost trigger AI calls and credit consumption (via
+// analyzeDeal / generateProtectionPackage / generateBusinessOwnerDraft), so
+// they require a verified email like those downstream actions. Thread
+// creation, message reads/writes, and thread listing stay available
+// pre-verification: they create drafts and read the caller's own rows, and
+// the AI gates still fail closed downstream.
+const VERIFY_REQUIRED_ERROR = "Please verify your email address before using this feature."
+
 export async function getThreadMessages(threadId: string): Promise<ThreadMessagesResult> {
   try {
     const supabase = await createClient()
@@ -64,6 +73,10 @@ export async function createDealThread(text: string): Promise<DealThreadResult> 
 
 export async function analyzeAndPostRisk(threadId: string, auditId: string): Promise<RiskAnalysisResult> {
   try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false, error: VERIFY_REQUIRED_ERROR }
     const inner = await analyzeAndPostRiskInner(threadId, auditId)
     return { ok: true, status: inner.status }
   } catch (err) {
@@ -158,6 +171,10 @@ async function analyzeAndPostRiskInner(threadId: string, auditId: string): Promi
 
 export async function generateDocumentAndPost(threadId: string, auditId: string, vars: Record<string, string> = {}): Promise<DocumentDraftResult> {
   try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false, error: VERIFY_REQUIRED_ERROR }
     return await generateDocumentAndPostInner(threadId, auditId, vars)
   } catch (err) {
     return toActionFailure(err, "We couldn't generate that document. Please try again — nothing was charged for this attempt.")

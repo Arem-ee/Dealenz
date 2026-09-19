@@ -12,6 +12,13 @@ import type { MonitoringAlertInput, MonitoringEventInput } from "./schema"
 
 // Server boundary for the monitoring workspace. Auth + ownership enforced
 // here and in RLS; the client never touches tokens or other users' rows.
+//
+// Email-verification policy (P0-3): creating events/alerts and sending alerts
+// are consequential (monitoring state for signed deals + external email), so
+// they require a verified email like analyzeDeal/generate/Ask. The read-only
+// getMonitoringState stays available pre-verification: own rows only.
+
+const VERIFY_REQUIRED_ERROR = "Please verify your email address before using this feature."
 
 export async function getMonitoringState(auditId: string) {
   try {
@@ -44,6 +51,7 @@ export async function createMonitoringEventAction(auditId: string, input: Omit<M
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false as const, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false as const, error: VERIFY_REQUIRED_ERROR }
     const created = await createMonitoringEvent(supabase as never, user.id, { ...input, auditId })
     return { ok: true as const, id: created.id }
   } catch (e) {
@@ -56,6 +64,7 @@ export async function createMonitoringAlertAction(input: MonitoringAlertInput) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false as const, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false as const, error: VERIFY_REQUIRED_ERROR }
     const created = await createMonitoringAlert(supabase as never, user.id, input)
     return { ok: true as const, id: created.id }
   } catch (e) {
@@ -68,6 +77,7 @@ export async function sendMonitoringAlertAction(alertId: string) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false as const, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false as const, error: VERIFY_REQUIRED_ERROR }
     const sent = await sendMonitoringAlert(supabase as never, user.id, alertId)
     return { ok: true as const, sent: sent.sent }
   } catch (e) {

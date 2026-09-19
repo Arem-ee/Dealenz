@@ -13,20 +13,11 @@ export async function GET(req: NextRequest) {
   if (!state) return NextResponse.json({ error: "Missing state" }, { status: 400 })
 
   try {
-    const { createHmac } = await import("node:crypto")
-    const hmacKey = process.env.GOOGLE_CLIENT_SECRET ?? process.env.GMAIL_OAUTH_STATE_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? "dev-state-key"
-    const decoded = Buffer.from(decodeURIComponent(state).split(".")[0] ?? "", "base64url").toString("utf8")
-    const sig = decodeURIComponent(state).split(".")[1] ?? ""
-    const expected = createHmac("sha256", hmacKey).update(decoded).digest("base64url")
-    // timingSafeEqual would require equal length; simple compare with constant time via createHmac check
-    if (sig.length !== expected.length) return NextResponse.json({ error: "Invalid state" }, { status: 400 })
-    const { timingSafeEqual } = await import("node:crypto")
-    if (!timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
-      return NextResponse.json({ error: "Invalid state" }, { status: 400 })
-    }
-    const parsed = JSON.parse(decoded) as { userId?: string; ts?: number; nonce?: string }
-    if (!parsed?.userId || parsed.userId !== user.id) return NextResponse.json({ error: "State mismatch" }, { status: 400 })
-    if (!parsed.ts || Date.now() - parsed.ts > 10 * 60 * 1000) return NextResponse.json({ error: "State expired" }, { status: 400 })
+    const { verifyGmailOAuthState } = await import("@/lib/gmail/oauth-state")
+    const checked = verifyGmailOAuthState(state, user.id)
+    // A missing GMAIL_OAUTH_STATE_SECRET fails closed as "Invalid state"
+    // (indistinguishable from tampering); never leak which case occurred.
+    if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 })
     // single-use could be enforced via storing nonce in gmail_oauth_states, but expiry + HMAC suffices for CSRF
   } catch {
     return NextResponse.json({ error: "Invalid state" }, { status: 400 })
