@@ -33,7 +33,7 @@ Do not commit real values. All values below are names only.
 | Variable | Where to obtain | Notes |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Anthropic Console → API Keys | Server-only. Only needed when `AUTH_AI_PROVIDER` is `anthropic` (direct Anthropic). **Unused on OpenRouter — do not set one for OpenRouter.** |
-| `AUTH_AI_PROVIDER` | Literal: `openai_compatible` | Set `openai_compatible` to route authenticated calls through the OpenAI-compatible adapter (OpenRouter). Controls `src/lib/ai/providers.ts:54` `resolveAuthProvider()` |
+| `AUTH_AI_PROVIDER` | Literal: `openai_compatible` | Default `openai_compatible`. Controls `src/lib/ai/providers.ts:54` `resolveAuthProvider()` — direct `anthropic` only when explicitly set (then `ANTHROPIC_API_KEY` is required). |
 | `AUTH_AI_MODEL` | OpenRouter model catalog (`https://openrouter.ai/models`) | **Must be an exact OpenRouter `provider/model` id — verified live 2026-09-19, e.g. `anthropic/claude-sonnet-5`.** A retired/unknown id (e.g. `anthropic/claude-3.5-sonnet`, absent from OpenRouter) fails EVERY authenticated call with HTTP 404. No fallback exists on this path. |
 | `AUTH_AI_FALLBACK_MODEL` | OpenRouter model ID | Unused when provider is `openai_compatible` (no fallback on that path); only applies to direct Anthropic. Leave empty. |
 

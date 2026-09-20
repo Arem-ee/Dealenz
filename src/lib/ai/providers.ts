@@ -54,10 +54,14 @@ export function getActiveProviderName(): AIProviderName {
 }
 
 function resolveAuthProvider(): AIProviderName {
-  const raw = (process.env.AUTH_AI_PROVIDER ?? "anthropic").trim().toLowerCase()
+  // OpenRouter-first: the default serves the declared production provider so
+  // a missing AUTH_AI_PROVIDER can never silently route to direct Anthropic
+  // (which then fails closed on a key nobody intends to create). Direct
+  // Anthropic remains available only via explicit AUTH_AI_PROVIDER=anthropic.
+  const raw = (process.env.AUTH_AI_PROVIDER ?? "openai_compatible").trim().toLowerCase()
   if (raw === "gemini") return "gemini"
-  if (raw === "openai_compatible" || raw === "openai-compatible" || raw === "openai") return "openai_compatible"
-  return "anthropic"
+  if (raw === "anthropic") return "anthropic"
+  return "openai_compatible"
 }
 
 function resolveAuthModel(): string {

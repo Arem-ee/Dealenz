@@ -66,6 +66,7 @@ function clearAIEnv() {
 }
 
 function stubAuthenticated() {
+  vi.stubEnv("AUTH_AI_PROVIDER", "anthropic")
   vi.stubEnv("ANTHROPIC_API_KEY", SENTINEL_KEY)
   vi.stubEnv("AUTH_AI_MODEL", PRIMARY_MODEL)
   vi.stubEnv("AUTH_AI_FALLBACK_MODEL", FALLBACK_MODEL)
@@ -161,7 +162,14 @@ describe("authenticated fallback policy", () => {
 })
 
 describe("provider selection", () => {
-  it("defaults authenticated to Sonnet primary plus Opus fallback", () => {
+  it("defaults authenticated to the OpenRouter-compatible path with no fallback", () => {
+    const config = resolveSurfaceConfig("authenticated")
+    expect(config.provider).toBe("openai_compatible")
+    expect(config.fallbackModel).toBeUndefined()
+  })
+
+  it("routes explicit Anthropic to Sonnet primary plus Opus fallback", () => {
+    vi.stubEnv("AUTH_AI_PROVIDER", "anthropic")
     const config = resolveSurfaceConfig("authenticated")
     expect(config.provider).toBe("anthropic")
     expect(config.model).toBe(PRIMARY_MODEL)
@@ -169,6 +177,7 @@ describe("provider selection", () => {
   })
 
   it("honors explicit authenticated model configuration", () => {
+    vi.stubEnv("AUTH_AI_PROVIDER", "anthropic")
     vi.stubEnv("AUTH_AI_MODEL", "claude-sonnet-5-pinned")
     vi.stubEnv("AUTH_AI_FALLBACK_MODEL", "claude-opus-5-pinned")
 

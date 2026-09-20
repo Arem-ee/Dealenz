@@ -11,7 +11,12 @@ export interface OpenAICompatibleCallParams {
 
 function resolveKey(): string {
   const key = process.env.AI_API_KEY ?? process.env.GEMINI_API_KEY
-  if (!key) throw new Error("AI_API_KEY (or legacy GEMINI_API_KEY) environment variable is not set")
+  if (!key)
+    throw new AIProviderError({
+      provider: "openai_compatible",
+      category: "config",
+      message: "AI_API_KEY (or legacy GEMINI_API_KEY) environment variable is not set",
+    })
   return key
 }
 

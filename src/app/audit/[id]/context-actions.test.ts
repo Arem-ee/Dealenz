@@ -61,6 +61,7 @@ beforeEach(() => {
   fetchMock.mockReset()
   vi.stubGlobal("fetch", fetchMock)
   vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test-sentinel")
+  vi.stubEnv("AUTH_AI_PROVIDER", "anthropic")
   vi.stubEnv("AUTH_AI_MODEL", "claude-sonnet-5")
   vi.stubEnv("AUTH_AI_FALLBACK_MODEL", "claude-opus-5")
 })
