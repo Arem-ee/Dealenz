@@ -80,7 +80,6 @@ export function titleFor(pathname: string): string {
   if (pathname.startsWith("/settings")) return "Settings"
   if (pathname.startsWith("/billing")) return "Billing"
   if (pathname === "/help") return "Get help"
-  if (pathname.startsWith("/templates")) return "Templates"
   if (pathname.startsWith("/risk-intelligence")) return "Risk Intelligence"
   if (pathname.startsWith("/lawyer")) return "Lawyer workspace"
   if (pathname.startsWith("/admin")) return "Control"

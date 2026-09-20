@@ -2,7 +2,6 @@
 
 import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import Link from "next/link"
 import { isRedirectError } from "next/dist/client/components/redirect-error"
 import { createAudit } from "./actions"
 import { DealTypeSelector, type DealType } from "@/components/audit/deal-type-selector"
@@ -13,7 +12,6 @@ import { clearPendingFile, getPendingFile } from "@/lib/pending-file"
 function NewAuditContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const template = searchParams.get("template") || undefined
   const initialType = searchParams.get("deal_type") as DealType | null
   const hasFileParam = searchParams.get("hasFile") === "1"
   const [dealType, setDealType] = useState<DealType | null>(initialType ?? null)
@@ -31,7 +29,7 @@ function NewAuditContent() {
     setCreating(true)
     setError(null)
     try {
-      await createAudit(template, dealType)
+      await createAudit(dealType)
     } catch (err) {
       if (isRedirectError(err)) return
       setError(err instanceof Error ? err.message : "Failed to create audit")
@@ -65,9 +63,6 @@ function NewAuditContent() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" onClick={() => router.push("/dashboard")}>Cancel</Button>
-            <Link href="/templates" className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline">
-              New from template
-            </Link>
           </div>
           <Button onClick={handleContinue} disabled={!dealType || creating}>
             {creating && <Loader2 className="h-4 w-4 animate-spin" />}
