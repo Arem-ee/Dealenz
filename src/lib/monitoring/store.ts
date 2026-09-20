@@ -96,21 +96,24 @@ export async function sendMonitoringAlert(client: Client, userId: string, alertI
   const { data: event } = await client.from("monitoring_events").select("title, description, due_date, provenance").eq("id", a.monitoring_event_id).maybeSingle()
   if (!event) throw new Error("Event not found")
   const e = event as { title: string; description: string | null; due_date: string | null; provenance: string }
-  // Use Gmail if connected, otherwise system log only (for tests we simulate)
+  // Use Gmail if connected. Without connected Gmail there is no delivery
+  // path: fail closed instead of recording a simulated success. The alert
+  // row stays pending and visible in monitoring; nothing claims "sent".
   let providerMessageId: string | undefined
   let providerResponse: Record<string, unknown> = {}
   try {
     const { getGmailTokens } = await import("@/lib/gmail/tokens")
     const tokens = await getGmailTokens(client as never, userId)
-    if (tokens) {
+    if (!tokens) {
+      throw new Error("Gmail not connected — connect Gmail to email alerts")
+    }
+    {
       const { sendGmailForRow } = await import("@/lib/gmail/send")
       const { refreshGmailAccessToken } = await import("@/lib/gmail/tokens")
       // Reuse Gmail send for alert: treat as one-off send with alertId as rowId (idempotency derived from planId+rowId)
       const res = await sendGmailForRow(client as never, userId, { to: a.destination, subject: `[Dealenz] ${e.title}`, body: `Deal alert: ${e.title}\n${e.description ?? ""}\nDue: ${e.due_date ?? "unknown"} (provenance: ${e.provenance})\nAudit: ${a.audit_id}`, planId: a.audit_id, planVersion: 1, rowId: `alert:${alertId}` }, refreshGmailAccessToken)
       providerMessageId = (res as { providerMessageId?: string }).providerMessageId
       providerResponse = { provider: "gmail", ...res }
-    } else {
-      providerResponse = { provider: "system", simulated: true }
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Send failed"

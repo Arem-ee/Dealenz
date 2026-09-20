@@ -1,5 +1,26 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 import { extractMonitoringEvents } from "./extract"
+import { sendMonitoringAlert } from "./store"
+
+function chain(data: unknown, onUpdate?: (arg: unknown) => void, onInsert?: (arg: unknown) => void) {
+  const b: Record<string, (...args: unknown[]) => unknown> = {}
+  b.select = vi.fn(() => b)
+  b.eq = vi.fn(() => b)
+  b.order = vi.fn(() => b)
+  b.limit = vi.fn(() => b)
+  b.maybeSingle = vi.fn(() => Promise.resolve({ data, error: null }))
+  b.single = vi.fn(() => Promise.resolve({ data, error: null }))
+  b.insert = vi.fn((arg: unknown) => {
+    onInsert?.(arg)
+    return b
+  })
+  b.update = vi.fn((arg: unknown) => {
+    onUpdate?.(arg)
+    return b
+  })
+  b.then = ((resolve: (v: unknown) => unknown) => resolve({ data, error: null })) as unknown as (...args: unknown[]) => unknown
+  return b
+}
 
 describe("monitoring", () => {
   const auditId = "123e4567-e89b-12d3-a456-426614174000"
@@ -38,5 +59,26 @@ describe("monitoring", () => {
     expect(k1).toBe(k2)
     const k3 = `alert:${eventId}:${dest}:2028-01-01`
     expect(k1).not.toBe(k3)
+  })
+
+  it("fails closed without Gmail instead of recording a simulated send", async () => {
+    const updates: unknown[] = []
+    const client = {
+      from: vi.fn((table: string) => {
+        if (table === "monitoring_alerts") {
+          return chain({ id: "alert-1", monitoring_event_id: "evt-1", destination: "a@b.co", audit_id: "audit-1", status: "pending", provider: "gmail" }, (arg) => updates.push(arg))
+        }
+        if (table === "monitoring_events") {
+          return chain({ title: "Renewal", description: null, due_date: "2027-03-01", provenance: "exact" })
+        }
+        if (table === "gmail_tokens") return chain(null)
+        return chain(null)
+      }),
+    }
+    await expect(sendMonitoringAlert(client as never, "user-1", "alert-1")).rejects.toThrow(/Gmail not connected/)
+    // The failure is recorded as failed, never as sent.
+    const failed = updates.find((u) => (u as { status?: string }).status === "failed")
+    expect(failed).toBeDefined()
+    expect(updates.some((u) => (u as { status?: string }).status === "sent")).toBe(false)
   })
 })
