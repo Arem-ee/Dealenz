@@ -23,9 +23,10 @@ interface SettingsClientProps {
   initialProfile: Record<string, unknown> | null
   email: string
   googleConnected: boolean
+  gmailConnected: boolean
 }
 
-export default function SettingsClient({ initialProfile, email, googleConnected }: SettingsClientProps) {
+export default function SettingsClient({ initialProfile, email, googleConnected, gmailConnected }: SettingsClientProps) {
   const [activeSection, setActiveSection] = useState<Section>("account")
   const [saving, setSaving] = useState(false)
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
@@ -119,7 +120,7 @@ export default function SettingsClient({ initialProfile, email, googleConnected 
           )}
           {activeSection === "account" && <DeleteAccountSection />}
           {activeSection === "billing" && <BillingSection />}
-          {activeSection === "security" && <SecuritySection email={email} googleConnected={googleConnected} />}
+          {activeSection === "security" && <SecuritySection email={email} googleConnected={googleConnected} gmailConnected={gmailConnected} />}
         </div>
       </div>
     </div>
@@ -319,7 +320,7 @@ function GoogleConnectButton({ connected }: { connected: boolean }) {
   )
 }
 
-function SecuritySection({ email, googleConnected }: { email: string; googleConnected: boolean }) {
+function SecuritySection({ email, googleConnected, gmailConnected }: { email: string; googleConnected: boolean; gmailConnected: boolean }) {
   const [newPassword, setNewPassword] = useState("")
   const [pwBusy, setPwBusy] = useState(false)
   const [pwState, setPwState] = useState<"idle" | "saved" | "error">("idle")
@@ -391,6 +392,22 @@ function SecuritySection({ email, googleConnected }: { email: string; googleConn
               </p>
             </div>
             <GoogleConnectButton connected={googleConnected} />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">Gmail</p>
+              <p className="text-xs text-muted-foreground">
+                {gmailConnected
+                  ? "Connected — Dealenz can email monitoring alerts and import deal threads"
+                  : "Connect once to email monitoring alerts and import deal threads from your inbox"}
+              </p>
+            </div>
+            <a
+              href="/api/gmail/auth"
+              className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-xs font-medium hover:bg-muted"
+            >
+              {gmailConnected ? "Reconnect" : "Connect Gmail"}
+            </a>
           </div>
         </div>
       </SectionCard>

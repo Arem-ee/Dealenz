@@ -57,3 +57,35 @@ export function isTokenValid(tokens: GmailTokens | null): boolean {
   if (!tokens) return false
   return new Date(tokens.expiry_date).getTime() > Date.now() + 60_000
 }
+
+// Server-side refresh against Google's token endpoint using the
+// configured OAuth client. Throws a plain actionable message when the
+// OAuth app is not configured or the refresh fails — callers surface it
+// instead of fabricating delivery.
+export async function refreshGmailAccessToken(refreshToken: string): Promise<{ access_token: string; expiry_date: string }> {
+  const clientId = process.env.GOOGLE_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+  if (!clientId || !clientSecret) throw new Error("Gmail is not configured — connect Gmail again once setup is complete")
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }),
+  })
+  const data = (await res.json().catch(() => null)) as { access_token?: string; expires_in?: number } | null
+  if (!res.ok || !data?.access_token) throw new Error("Gmail token refresh failed — re-authorize Gmail")
+  return { access_token: data.access_token, expiry_date: new Date(Date.now() + (data.expires_in ?? 3600) * 1000).toISOString() }
+}
+
+// Valid tokens, refreshing once when expiring. Returns null when Gmail
+// was never connected; throws only on refresh failure.
+export async function getValidGmailTokens(client: Client, userId: string): Promise<GmailTokens | null> {
+  const tokens = await getGmailTokens(client, userId)
+  if (!tokens) return null
+  if (isTokenValid(tokens)) return tokens
+  return refreshAccessToken(client, userId, refreshGmailAccessToken)
+}

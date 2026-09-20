@@ -12,5 +12,12 @@ export default async function SettingsPage() {
   const initialProfile = profile as Record<string, unknown> | null
   const email = user.email ?? ""
   const googleConnected = Array.isArray(user.identities) && user.identities.some((i) => i.provider === "google")
-  return <SettingsClient initialProfile={initialProfile} email={email} googleConnected={googleConnected} />
+  let gmailConnected = false
+  try {
+    const { getGmailTokens } = await import("@/lib/gmail/tokens")
+    gmailConnected = (await getGmailTokens(supabase as never, user.id).catch(() => null)) !== null
+  } catch {
+    gmailConnected = false
+  }
+  return <SettingsClient initialProfile={initialProfile} email={email} googleConnected={googleConnected} gmailConnected={gmailConnected} />
 }

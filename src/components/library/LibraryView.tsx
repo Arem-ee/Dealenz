@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { SplitPane, useIsDesktop } from "@/components/split-pane"
 import { useToast } from "@/components/ui/toast"
 import { vaultChatAction, type VaultMatch } from "@/app/vault/actions"
+import { InboxPanel } from "./inbox-panel"
 import { cn } from "@/lib/utils"
 
 interface LibraryTurn {
@@ -100,6 +101,7 @@ export function LibraryView({ userId }: { userId: string }) {
   const [turns, setTurns] = useState<LibraryTurn[]>([])
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
+  const [mode, setMode] = useState<"search" | "inbox">("search")
 
   const latestMatches = turns.length > 0 ? turns[turns.length - 1].matches : []
 
@@ -124,6 +126,31 @@ export function LibraryView({ userId }: { userId: string }) {
 
   const conversation = (
     <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b border-border/60 px-4 py-2">
+        <div className="mx-auto flex w-full max-w-2xl gap-1" role="tablist" aria-label="Library mode">
+          {(["search", "inbox"] as const).map((m) => (
+            <button
+              key={m}
+              role="tab"
+              aria-selected={mode === m}
+              onClick={() => setMode(m)}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                mode === m ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {m === "search" ? "Search deals" : "From inbox"}
+            </button>
+          ))}
+        </div>
+      </div>
+      {mode === "inbox" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
+          <div className="mx-auto w-full max-w-2xl">
+            <InboxPanel />
+          </div>
+        </div>
+      ) : (
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
         <div className="mx-auto w-full max-w-2xl space-y-4">
           {turns.length === 0 && (
@@ -173,6 +200,8 @@ export function LibraryView({ userId }: { userId: string }) {
           )}
         </div>
       </div>
+      )}
+      {mode === "search" && (
       <div className="shrink-0 border-t border-border/60 bg-background p-4">
         <div className="mx-auto flex w-full max-w-2xl items-end gap-2">
           <label htmlFor="library-input" className="sr-only">Search your deals</label>
@@ -195,6 +224,7 @@ export function LibraryView({ userId }: { userId: string }) {
           </Button>
         </div>
       </div>
+      )}
     </div>
   )
 
