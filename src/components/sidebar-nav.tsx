@@ -16,10 +16,8 @@ export function SidebarNav() {
 
   return (
     <aside className="hidden md:flex md:flex-col w-56 border-r border-border/60 bg-background shrink-0 md:sticky md:top-14 md:h-[calc(100dvh-3.5rem)]">
-      <div className="flex h-14 items-center px-5 border-b border-border/60">
-        <Link href="/dashboard">
-          <Logo />
-        </Link>
+      <div className="flex h-14 items-center px-5 border-b border-border/60" aria-hidden="true">
+        <Logo />
       </div>
 
       <nav className="flex-1 flex flex-col gap-0.5 p-3 mt-1 min-h-0" aria-label="Primary">

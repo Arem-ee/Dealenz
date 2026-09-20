@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { logAuthFailure } from "@/app/login/actions"
+import { getPendingDeal } from "@/lib/pending-deal"
 import Link from "next/link"
 
 function ComicBlobs() {
@@ -50,6 +51,8 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  // Landing input waits here: tell the user their words survive signup.
+  const [hasPendingDeal] = useState(() => getPendingDeal() !== null)
 
   useEffect(() => {
     try {
@@ -124,6 +127,11 @@ export default function RegisterPage() {
 
           <h1 className="mt-8 text-[22px] font-semibold tracking-[-0.02em]">Create an account</h1>
           <p className="mt-1.5 text-[13px] leading-relaxed text-black/55">Get started in minutes. No credit card required.</p>
+          {hasPendingDeal && (
+            <p role="status" className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-[13px] leading-relaxed text-emerald-800">
+              Your deal text is saved — it will be waiting in the composer after you sign in.
+            </p>
+          )}
 
           <form onSubmit={handleSubmit} className="mt-7 space-y-4" noValidate>
             <div>

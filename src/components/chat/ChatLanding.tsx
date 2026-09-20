@@ -1,8 +1,10 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { AlertTriangle } from "lucide-react"
 import { Composer } from "./Composer"
+import { clearPendingDeal, getPendingDeal } from "@/lib/pending-deal"
 
 interface ThreadItem {
   id: string
@@ -27,6 +29,15 @@ function formatDate(date: string): string {
  * typed, and the UI stays out of its way.
  */
 export function ChatLanding({ threads, loadError }: { threads: ThreadItem[]; loadError?: string | null }) {
+  // Anonymous landing input waits here after signup/signin: prefill on every
+  // fresh mount (the composer applies it once per key) and clear on the
+  // first successful send, so intent survives navigation but never
+  // resurrects after it is used.
+  const [pendingPrefill] = useState<{ text: string; key: number } | null>(() => {
+    const pending = getPendingDeal()
+    if (!pending) return null
+    return { text: pending, key: Date.now() }
+  })
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-4">
       <div className="shrink-0 pb-3 pt-4 sm:pt-5">
@@ -41,7 +52,12 @@ export function ChatLanding({ threads, loadError }: { threads: ThreadItem[]; loa
       </div>
 
       <div className="shrink-0">
-        <Composer />
+        <Composer
+          prefill={pendingPrefill}
+          onMessageSent={() => {
+            if (pendingPrefill) clearPendingDeal()
+          }}
+        />
       </div>
 
       <div className="shrink-0 py-2">

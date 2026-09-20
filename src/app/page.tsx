@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { LandingHeroComposer } from "@/components/landing-hero-composer"
 import {
   FileSearch,
   MessageCircleQuestion,
@@ -427,6 +428,7 @@ export default function Home() {
                 Free to start. No credit card required.
               </p>
             </div>
+            <LandingHeroComposer />
             <div className="mt-12 text-left">
               <HeroMockup />
             </div>
