@@ -51,5 +51,21 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const isFinal = versions.length > 0 && finalIds.has(versions[0].id)
   const executed = signers.length > 0 && signers.every((s) => s.status === "signed")
 
-  return <DocumentReader auditId={auditId} threadId={threadId ?? null} versions={versions} signers={signers} executed={executed} isFinal={isFinal} />
+  // Notice-deadline extraction at signing: once executed, pull dated
+  // obligations out of the signed text into monitoring (once per version).
+  // Best-effort: extraction must never break the document view.
+  let guarded: { created: number; total: number } | null = null
+  if (executed && versions.length > 0) {
+    try {
+      const { ensureSigningMonitoring } = await import("@/lib/monitoring/actions")
+      const res = await ensureSigningMonitoring(auditId)
+      if (res.ok && !("skipped" in res)) {
+        guarded = { created: res.created, total: res.total }
+      }
+    } catch {
+      guarded = null
+    }
+  }
+
+  return <DocumentReader auditId={auditId} threadId={threadId ?? null} versions={versions} signers={signers} executed={executed} isFinal={isFinal} guarded={guarded} />
 }

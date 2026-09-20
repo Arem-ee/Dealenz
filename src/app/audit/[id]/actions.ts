@@ -157,6 +157,7 @@ export async function updateAudit(
       delete sanitized.genericRiskDegraded
       delete sanitized.riskDegraded
       delete sanitized.rulesDegraded
+      delete sanitized.monitoringExtracted
       delete sanitized.generatedDocuments
       updates[key] = sanitized
       continue

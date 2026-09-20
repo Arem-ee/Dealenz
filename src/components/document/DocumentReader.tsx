@@ -37,6 +37,7 @@ export function DocumentReader({
   signers,
   executed,
   isFinal,
+  guarded,
 }: {
   auditId: string
   threadId?: string | null
@@ -44,6 +45,7 @@ export function DocumentReader({
   signers: Signer[]
   executed: boolean
   isFinal: boolean
+  guarded?: { created: number; total: number } | null
 }) {
   const router = useRouter()
   const [selectedId, setSelectedId] = useState<string>(versions[0]?.id ?? "")
@@ -149,6 +151,40 @@ export function DocumentReader({
           {executed && (
             <div className="rounded-lg border border-success/20 bg-success/5 p-3 text-xs text-success flex items-center gap-2">
               <Check className="h-4 w-4" /> This document is fully executed and immutable. Any further changes require a new draft/version.
+            </div>
+          )}
+          {executed && guarded && guarded.created > 0 && (
+            <div className="rounded-lg border border-primary/20 bg-primary/[0.04] p-3 text-xs leading-relaxed">
+              <p className="font-medium">Now guarded: {guarded.created} deadline{guarded.created === 1 ? "" : "s"} from the signed text {guarded.created === 1 ? "is" : "are"} tracked in monitoring.</p>
+              <p className="mt-1 text-muted-foreground">
+                Add email alerts before they matter in{" "}
+                {threadId ? (
+                  <Link href={`/chat/${threadId}`} className="font-medium text-primary hover:underline">
+                    the deal thread
+                  </Link>
+                ) : (
+                  <Link href="/dashboard" className="font-medium text-primary hover:underline">
+                    your dashboard
+                  </Link>
+                )}
+                .
+              </p>
+            </div>
+          )}
+          {executed && guarded && guarded.created === 0 && guarded.total === 0 && (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
+              <p>No dated obligations were found in the signed text. Track renewals and deadlines yourself in{" "}
+                {threadId ? (
+                  <Link href={`/chat/${threadId}`} className="font-medium text-primary hover:underline">
+                    monitoring in the deal thread
+                  </Link>
+                ) : (
+                  <Link href="/dashboard" className="font-medium text-primary hover:underline">
+                    monitoring on your dashboard
+                  </Link>
+                )}
+                .
+              </p>
             </div>
           )}
         </div>
