@@ -490,37 +490,44 @@ export async function analyzeDeal(
     const structured = audit.structured_data as Record<string, unknown> | null
     const files = (structured?.files as Array<Record<string, string>>) ?? []
 
-    const fileTexts: string[] = []
-    for (const file of files) {
-      const storagePath = (file.path as string).replace("audit-files/", "")
-      const { data: fileData, error: dlError } = await supabase.storage
-        .from("audit-files")
-        .download(storagePath)
+    // File downloads and text extraction run concurrently: files are
+    // independent of each other, and sequential awaits here used to add one
+    // full download+parse round trip per file to every analysis. Order is
+    // preserved by index; a single bad file can never break the others
+    // (each failure is logged and skipped, as before).
+    const processed = await Promise.all(
+      files.map(async (file): Promise<{ text: string | null; error: string | null }> => {
+        try {
+          const storagePath = (file.path as string).replace("audit-files/", "")
+          const { data: fileData, error: dlError } = await supabase.storage
+            .from("audit-files")
+            .download(storagePath)
 
-      if (dlError || !fileData) {
+          if (dlError || !fileData) {
+            return { text: null, error: `Failed to download file: ${file.name}` }
+          }
+          const buffer = Buffer.from(await fileData.arrayBuffer())
+          const text = await extractTextFromBuffer(buffer, file.type as string)
+          if (!text.trim()) return { text: null, error: null }
+          return { text, error: null }
+        } catch {
+          return { text: null, error: `Failed to extract text from file: ${file.name}` }
+        }
+      })
+    )
+    const fileTexts: string[] = []
+    for (const item of processed) {
+      if (item.error) {
         await logEvent({
           audit_id: auditId,
           user_id: user.id,
           phase: "file_processing",
           status: "failure",
-          error_message: `Failed to download file: ${file.name}`,
+          error_message: item.error,
         })
         continue
       }
-
-      try {
-        const buffer = Buffer.from(await fileData.arrayBuffer())
-        const text = await extractTextFromBuffer(buffer, file.type as string)
-        if (text.trim()) fileTexts.push(text)
-      } catch {
-        await logEvent({
-          audit_id: auditId,
-          user_id: user.id,
-          phase: "file_processing",
-          status: "failure",
-          error_message: `Failed to extract text from file: ${file.name}`,
-        })
-      }
+      if (item.text) fileTexts.push(item.text)
     }
 
     const inputParts = [

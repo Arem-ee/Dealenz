@@ -179,8 +179,83 @@ describe("analyzeDeal", () => {
     expect(result.riskReport).toEqual(mockRiskReport)
   })
 
-  it("returns error when audit has no input content", async () => {
+  it("downloads multiple files concurrently and combines them in file order", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+
+    const audits = auditsQuery(
+      {
+        id: "audit-files-1",
+        ai_consent: true,
+        raw_input: "",
+        structured_data: {
+          files: [
+            { name: "a.txt", path: "audit-files/uid/a.txt", type: "text/plain" },
+            { name: "b.txt", path: "audit-files/uid/b.txt", type: "text/plain" },
+          ],
+        },
+      },
+      [{ id: "audit-files-1" }]
+    )
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_ai_consents") return consentedMock() as never
+      return (table === "audits" ? audits : qb()) as never
+    })
+    const download = vi.fn(async (path: string) => {
+      const text = path.endsWith("a.txt") ? "First file content here" : "Second file content here"
+      return { data: { arrayBuffer: async () => Buffer.from(text) }, error: null }
+    })
+    mockStorageFrom.mockReturnValue({ download })
+    mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
+    mockAnalyzeRiskFn.mockResolvedValue({ report: mockRiskReport, usedFallback: false })
+
+    const result = await analyzeDeal("audit-files-1")
+
+    expect(result.success).toBe(true)
+    expect(download).toHaveBeenCalledTimes(2)
+    expect(download).toHaveBeenCalledWith("uid/a.txt")
+    expect(download).toHaveBeenCalledWith("uid/b.txt")
+    const combined = mockExtractAndValidate.mock.calls[0][0] as string
+    expect(combined.indexOf("First file content here")).toBeGreaterThanOrEqual(0)
+    expect(combined.indexOf("Second file content here")).toBeGreaterThan(combined.indexOf("First file content here"))
+  })
+
+  it("contains a single bad file without losing the good ones", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+
+    const audits = auditsQuery(
+      {
+        id: "audit-files-2",
+        ai_consent: true,
+        raw_input: "",
+        structured_data: {
+          files: [
+            { name: "bad.txt", path: "audit-files/uid/bad.txt", type: "text/plain" },
+            { name: "good.txt", path: "audit-files/uid/good.txt", type: "text/plain" },
+          ],
+        },
+      },
+      [{ id: "audit-files-2" }]
+    )
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_ai_consents") return consentedMock() as never
+      return (table === "audits" ? audits : qb()) as never
+    })
+    const download = vi.fn(async (path: string) => {
+      if (path.endsWith("bad.txt")) return { data: null, error: { message: "gone" } }
+      return { data: { arrayBuffer: async () => Buffer.from("Good file content here") }, error: null }
+    })
+    mockStorageFrom.mockReturnValue({ download })
+    mockExtractAndValidate.mockResolvedValue({ valid: true, extractedData: mockExtractedData })
+    mockAnalyzeRiskFn.mockResolvedValue({ report: mockRiskReport, usedFallback: false })
+
+    const result = await analyzeDeal("audit-files-2")
+
+    expect(result.success).toBe(true)
+    const combined = mockExtractAndValidate.mock.calls[0][0] as string
+    expect(combined).toContain("Good file content here")
+  })
+
+  it("returns error when audit has no input content", async () => {    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
 
     const audits = auditsQuery(
       { id: "audit-1", ai_consent: true, raw_input: "", structured_data: { files: [] } },
