@@ -26,6 +26,8 @@ export function RiskReportCard({ payload, onAskFinding }: { payload: Record<stri
   const findings = (payload.findings as Array<{ ruleKey?: string | null; severity: string; summary: string; whyItMatters?: string; guidance?: string; pushback?: string; evidence?: Evidence[] }> ) ?? []
   const riskLevel = (payload.riskLevel as string) ?? "Unknown"
   const overallScore = payload.overallScore as number | undefined
+  const riskDegraded = payload.riskDegraded === true
+  const rulesDegraded = payload.rulesDegraded === true
 
   const grouped = findings.reduce<Record<string, typeof findings>>((acc, f) => {
     const label = SEVERITY_LABEL[f.severity] ?? f.severity
@@ -39,9 +41,18 @@ export function RiskReportCard({ payload, onAskFinding }: { payload: Record<stri
       <div className="rounded-xl border bg-card p-4">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-emerald-600" />
-          <p className="text-sm font-medium">No major risks found</p>
+          <p className="text-sm font-medium">{rulesDegraded ? "Safety checks could not complete" : "No major risks found"}</p>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">We checked what you shared and nothing stands out as needing a fix before signing.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {rulesDegraded
+            ? "The deterministic checks failed to run, so an empty report means unknown, not safe. Please try the analysis again."
+            : "We checked what you shared and nothing stands out as needing a fix before signing."}
+        </p>
+        {riskDegraded && (
+          <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs leading-relaxed text-amber-700">
+            Heuristic assessment only: AI analysis was unavailable, so even this clean result comes from deterministic checks. Re-run when service recovers for a full review.
+          </p>
+        )}
       </div>
     )
   }
@@ -55,6 +66,20 @@ export function RiskReportCard({ payload, onAskFinding }: { payload: Record<stri
         </div>
         <span className={cn("rounded-full border px-2 py-1 text-xs font-medium", SEVERITY_STYLE[findings[0]?.severity ?? "informational"])}>{SEVERITY_LABEL[findings[0]?.severity ?? "informational"]}</span>
       </div>
+      {(riskDegraded || rulesDegraded) && (
+        <div className="px-4 pt-3 space-y-2">
+          {riskDegraded && (
+            <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs leading-relaxed text-amber-700">
+              Heuristic assessment: AI analysis was unavailable when this ran, so the rating above comes from deterministic checks only. The findings below still stand.
+            </p>
+          )}
+          {rulesDegraded && (
+            <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs leading-relaxed text-destructive">
+              Safety checks could not complete for this analysis. Treat this report as incomplete and re-run before signing.
+            </p>
+          )}
+        </div>
+      )}
       <div className="divide-y">
         {Object.entries(grouped).map(([label, items]) => {
           const isOpen = expanded[label] ?? true

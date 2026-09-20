@@ -155,6 +155,8 @@ export async function updateAudit(
       delete sanitized.findingDelta
       delete sanitized.negotiationPoints
       delete sanitized.genericRiskDegraded
+      delete sanitized.riskDegraded
+      delete sanitized.rulesDegraded
       delete sanitized.generatedDocuments
       updates[key] = sanitized
       continue
@@ -366,7 +368,7 @@ export async function removeFileMetadata(
 
 export async function analyzeDeal(
   auditId: string
-): Promise<{ success: boolean; data?: ExtractedData; riskReport?: RiskReport | GenericRiskReport; error?: string; contextGate?: string; missingRequiredContext?: string[]; knowledgeCandidates?: KnowledgeCandidate[]; deterministicFindings?: RuleResult[]; findingDelta?: FindingDelta | null }> {
+): Promise<{ success: boolean; data?: ExtractedData; riskReport?: RiskReport | GenericRiskReport; error?: string; contextGate?: string; missingRequiredContext?: string[]; knowledgeCandidates?: KnowledgeCandidate[]; deterministicFindings?: RuleResult[]; findingDelta?: FindingDelta | null; riskDegraded?: boolean; rulesDegraded?: boolean }> {
   const startMs = Date.now()
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -596,6 +598,11 @@ export async function analyzeDeal(
 
     let riskReport: RiskReport | GenericRiskReport
     let usedFallback = false
+    // riskDegraded is the user-visible half of usedFallback: the operator
+    // already gets reportAIFallback, but the user must also see that this
+    // rating is heuristic, not AI. Persisted server-side only (sanitized
+    // from client writes in updateAudit).
+    let riskDegraded = false
     // Lease analyses take the adaptive generic path, never the freelance
     // 8-category engine (mirrors analyzeRiskForDealType routing).
     if (dealType !== "freelance") {
@@ -618,6 +625,7 @@ export async function analyzeDeal(
         const result = await analyzeRisk(extracted)
         riskReport = result.report
         usedFallback = result.usedFallback
+        riskDegraded = result.usedFallback
       } catch (riskErr) {
         await logEvent({
           audit_id: auditId,
@@ -652,8 +660,11 @@ export async function analyzeDeal(
     // Phase 5D: evaluate deterministic rules over context, extracted facts,
     // and knowledge candidates. Pure and side-effect free; a failure here
     // degrades to no findings rather than breaking analysis (reversible).
+    // rulesDegraded marks that silent emptying so the UI can say "checks
+    // could not complete" instead of "no risks found".
     let ruleResults: RuleResult[] = []
     let relevantFindings: Finding[] = []
+    let rulesDegraded = false
     try {
       registerBuiltinRules()
       const vertical = verticalForDealType(dealType)
@@ -739,6 +750,7 @@ export async function analyzeDeal(
     } catch (rulesErr) {
       ruleResults = []
       relevantFindings = []
+      rulesDegraded = true
       await logEvent({
         audit_id: auditId,
         user_id: user.id,
@@ -774,6 +786,10 @@ export async function analyzeDeal(
     const structuredUpdate: Record<string, unknown> = {
       ...(structured ?? {}),
       extractedData: extracted,
+      // Degradation flags: server-written only, user-visible honesty about
+      // what this analysis is (heuristic rating, incomplete checks).
+      riskDegraded,
+      rulesDegraded,
       // Persisted so the workspace can show why each finding fired (with its
       // evidence) without re-running evaluation. Recomputed on every analysis.
       deterministicFindings: ruleResults,
@@ -853,7 +869,7 @@ export async function analyzeDeal(
       // Referral bookkeeping must never fail an analysis.
     }
 
-    return { success: true, data: extracted, riskReport, knowledgeCandidates, deterministicFindings: ruleResults, findingDelta: (structuredUpdate.findingDelta as FindingDelta | null) ?? null }
+    return { success: true, data: extracted, riskReport, knowledgeCandidates, deterministicFindings: ruleResults, findingDelta: (structuredUpdate.findingDelta as FindingDelta | null) ?? null, riskDegraded, rulesDegraded }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error"
     const errorType = err instanceof Error ? err.constructor.name : "UnknownError"

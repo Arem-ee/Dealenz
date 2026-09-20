@@ -112,6 +112,8 @@ async function analyzeAndPostRiskInner(threadId: string, auditId: string): Promi
   const payload = {
     riskLevel: (result.riskReport as { riskLevel?: string })?.riskLevel ?? "Unknown",
     overallScore: (result.riskReport as { overallScore?: number })?.overallScore,
+    riskDegraded: result.riskDegraded ?? false,
+    rulesDegraded: result.rulesDegraded ?? false,
     findings: findings.map((f) => {
       const src = (f.finding ?? f) as { severity: string; summary: string; guidance?: string; pushback?: string; evidence?: unknown }
       // Evidence travels from the deterministic findings (attached by

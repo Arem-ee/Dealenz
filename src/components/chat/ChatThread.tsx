@@ -63,6 +63,8 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   const [gmailConnected, setGmailConnected] = useState<boolean>(false)
   const [negotiationPoints, setNegotiationPoints] = useState<string[]>([])
   const [negotiationDegraded, setNegotiationDegraded] = useState<boolean>(false)
+  const [riskDegraded, setRiskDegraded] = useState<boolean>(false)
+  const [rulesDegraded, setRulesDegraded] = useState<boolean>(false)
   const [deliverables, setDeliverables] = useState<string[]>([])
   const [missingInputs, setMissingInputs] = useState<string[]>([])
   const [workspaceTick, setWorkspaceTick] = useState<number>(0)
@@ -109,6 +111,8 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
           const points = Array.isArray(structured.negotiationPoints) ? (structured.negotiationPoints as unknown[]).filter((p): p is string => typeof p === "string") : []
           setNegotiationPoints(points)
           setNegotiationDegraded(structured.genericRiskDegraded === true)
+          setRiskDegraded(structured.riskDegraded === true)
+          setRulesDegraded(structured.rulesDegraded === true)
           const extracted = structured.extractedData as { deliverables?: unknown } | undefined
           setDeliverables(Array.isArray(extracted?.deliverables) ? (extracted.deliverables as unknown[]).filter((d): d is string => typeof d === "string") : [])
         }
@@ -507,6 +511,8 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
     gmailConnected,
     negotiationPoints,
     negotiationDegraded,
+    riskDegraded,
+    rulesDegraded,
     deliverables,
     missingInputs,
   }

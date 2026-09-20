@@ -18,6 +18,8 @@ export function ReviewWorkspace({ data, dealType, riskLevel, overallScore, onAsk
   const payload = {
     riskLevel: riskLevel ?? "Unknown",
     overallScore,
+    riskDegraded: data.riskDegraded === true,
+    rulesDegraded: data.rulesDegraded === true,
     findings: data.findings.map((f) => ({
       ruleKey: f.ruleKey,
       severity: f.severity,

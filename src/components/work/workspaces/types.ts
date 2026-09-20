@@ -89,6 +89,8 @@ export interface WorkspaceData {
   gmailConnected: boolean
   negotiationPoints: string[]
   negotiationDegraded: boolean
+  riskDegraded: boolean
+  rulesDegraded: boolean
   deliverables: string[]
   missingInputs: string[]
 }
