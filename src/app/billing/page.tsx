@@ -175,6 +175,10 @@ export default async function BillingPage({
             <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Signature send</dt><dd className="font-medium tabular-nums" data-numeric>{SIGNATURE_SEND_CREDITS}</dd></div>
             <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Lawyer request</dt><dd className="font-medium tabular-nums" data-numeric>{LAWYER_REQUEST_CREDITS}</dd></div>
           </dl>
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            A typical freelance loop — analysis on the free daily allowance, proposal ({DOCUMENT_CREDIT_COSTS.proposal}), signature send ({SIGNATURE_SEND_CREDITS}) — runs about {DOCUMENT_CREDIT_COSTS.proposal + SIGNATURE_SEND_CREDITS} credits
+            when the analysis itself is free.
+          </p>
         </div>
 
         <ReferralSection />

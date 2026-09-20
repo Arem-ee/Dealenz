@@ -8,7 +8,9 @@ import { Check, Copy } from "lucide-react"
 // AI-generated), rendered only when the finding carries it — absent stays
 // absent. Copy-first: the job is "what to push back on, in what words",
 // and the words need to leave this screen into an email or redline.
-export function PushbackWords({ words, compact }: { words: string; compact?: boolean }) {
+// Successful copies are logged (rule + deal linkage, never content) as
+// outcome-data flywheel input when identity is available.
+export function PushbackWords({ words, compact, auditId, ruleKey }: { words: string; compact?: boolean; auditId?: string | null; ruleKey?: string | null }) {
   const [copied, setCopied] = useState(false)
 
   async function handleCopy() {
@@ -16,6 +18,10 @@ export function PushbackWords({ words, compact }: { words: string; compact?: boo
       await navigator.clipboard.writeText(words)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+      if (auditId && ruleKey) {
+        const { logPushbackCopy } = await import("@/lib/findings/actions")
+        await logPushbackCopy({ auditId, ruleKey }).catch(() => null)
+      }
     } catch {
       // Clipboard unavailable (permissions, insecure context): the text
       // stays visible and selectable, so nothing is lost.

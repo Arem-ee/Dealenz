@@ -339,7 +339,7 @@ export function AskClient({
                       <div key={f.ruleKey} className="text-[13px]">
                         <p className="font-medium capitalize">{f.severity}: {f.summary}</p>
                         {f.guidance && <p className="text-muted-foreground">{f.guidance}</p>}
-                        {f.pushback && <PushbackWords words={f.pushback} compact />}
+                        {f.pushback && <PushbackWords words={f.pushback} compact auditId={m.auditId} ruleKey={f.ruleKey} />}
                         {f.evidence?.slice(0, 2).map((evidence) => (
                           <div key={evidence.id} className="mt-1 space-y-0.5">
                             <EvidenceLine evidence={evidence} />

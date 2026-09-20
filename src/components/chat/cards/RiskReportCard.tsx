@@ -96,7 +96,7 @@ export function RiskReportCard({ payload, onAskFinding, auditId }: { payload: Re
                     <div key={i} className="rounded-lg border p-3 bg-card">
                       <p className="font-serif text-sm font-medium leading-relaxed">{f.summary}</p>
                       {f.whyItMatters && <p className="mt-1 font-serif text-xs leading-relaxed text-muted-foreground">Why it matters: {f.whyItMatters}</p>}
-                      {f.pushback && <PushbackWords words={f.pushback} />}
+                      {f.pushback && <PushbackWords words={f.pushback} auditId={auditId} ruleKey={f.ruleKey ?? null} />}
                       {Array.isArray(f.evidence) && f.evidence.length > 0 && (
                         <div className="mt-2 space-y-1 border-t border-border/40 pt-2">
                           {f.evidence.slice(0, 3).map((ev, j) => (

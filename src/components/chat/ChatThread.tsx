@@ -608,7 +608,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{item.summary}</p>
                   {item.guidance && <p className="mt-1 text-xs text-blue-600">{item.guidance}</p>}
-                  {item.pushback && <PushbackWords words={item.pushback} compact />}
+                  {item.pushback && <PushbackWords words={item.pushback} compact auditId={auditId} ruleKey={item.id} />}
                 </div>
               </div>
             ))}
