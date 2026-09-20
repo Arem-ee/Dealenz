@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { extractAndValidate } from "./extract"
+import { AIProviderError } from "./errors"
 import { deriveFreelanceFacts } from "@/lib/verticals/freelance/facts"
 import { deriveGenericFacts } from "@/lib/verticals/generic/facts"
 import { FREELANCE_RULES, registerFreelancePack, resetFreelanceRegistration } from "@/lib/verticals/freelance/rules"
@@ -132,5 +133,41 @@ describe("structural extraction — conflicting observations preserved", () => {
     const facts = deriveFreelanceFacts(result.extractedData!, "raw", { type: "audit_input", id: "audit-1" })
     expect(facts.conflictingPaymentTerms.value).toBeNull()
     expect(facts.conflictingTimelineTerms.value).toBeNull()
+  })
+})
+
+describe("extraction error transparency", () => {
+  it("propagates provider errors with category instead of wrapping as parse failures", async () => {
+    vi.stubEnv("AUTH_AI_PROVIDER", "openai_compatible")
+    vi.stubEnv("AI_API_KEY", "test-key")
+    vi.stubEnv("AI_BASE_URL", "https://openrouter.ai/api/v1")
+    vi.stubEnv("AUTH_AI_MODEL", "anthropic/claude-sonnet-5")
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { message: "No endpoints found for model" } }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      })
+    )
+    const err = await extractAndValidate("Some deal text with enough content here", "freelance").catch((e) => e)
+    expect(err).toBeInstanceOf(AIProviderError)
+    expect((err as AIProviderError).category).toBe("invalid_request")
+    expect((err as AIProviderError).status).toBe(404)
+    expect(String((err as Error).message)).not.toMatch(/parse/i)
+  })
+
+  it("still wraps malformed model output as parse failures", async () => {
+    vi.stubEnv("AUTH_AI_PROVIDER", "openai_compatible")
+    vi.stubEnv("AI_API_KEY", "test-key")
+    vi.stubEnv("AI_BASE_URL", "https://openrouter.ai/api/v1")
+    vi.stubEnv("AUTH_AI_MODEL", "anthropic/claude-sonnet-5")
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ choices: [{ message: { content: "not json at all" } }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    )
+    await expect(extractAndValidate("Some deal text with enough content here", "freelance")).rejects.toThrow(
+      /Failed to parse AI extraction result/
+    )
   })
 })

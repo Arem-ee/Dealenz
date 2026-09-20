@@ -34,6 +34,7 @@ import { deterministicRiskFloor, floorExceedsDisplay, diffFindingSets, type Find
 import { canGenerateDocuments } from "@/lib/protection"
 import { logEvent, logDuration, reportAIFallback, reportError } from "@/lib/logger"
 import { publicErrorMessage } from "@/lib/safe-error"
+import { AIProviderError } from "@/lib/ai/errors"
 import type { ExtractedData } from "@/lib/ai/extract"
 import type { RiskReport } from "@/lib/risk/engine"
 import type { GeneratedDocument } from "@/lib/generate"
@@ -856,6 +857,16 @@ export async function analyzeDeal(
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error"
     const errorType = err instanceof Error ? err.constructor.name : "UnknownError"
+    // Provider cause chain (category/status only — AIProviderError messages
+    // are constructed from fixed strings plus status codes, never keys,
+    // prompts, or response bodies). Without this, a provider outage and a
+    // malformed model response log identically.
+    const cause = err instanceof Error ? (err as { cause?: unknown }).cause : undefined
+    const causeInfo =
+      cause instanceof AIProviderError
+        ? ` [cause: ${cause.provider}/${cause.category}${cause.status ? ` HTTP ${cause.status}` : ""}]`
+        : ""
+    const loggedMessage = `${errorType}: ${errorMessage}${causeInfo}`.slice(0, 1000)
 
     await supabase
       .from("audits")
@@ -867,7 +878,7 @@ export async function analyzeDeal(
       user_id: user.id,
       phase: "extraction",
       status: "failure",
-      error_message: `${errorType}: ${errorMessage}`,
+      error_message: loggedMessage,
       duration_ms: logDuration(startMs),
     })
 

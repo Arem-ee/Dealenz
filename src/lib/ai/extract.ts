@@ -158,8 +158,12 @@ export async function extractProjectData(
   // lease-specific extraction schema exists (future vertical work).
   const prompt = dealType === "freelance" ? EXTRACTION_SYSTEM_PROMPT : GENERIC_EXTRACTION_SYSTEM_PROMPT
 
+  // Provider errors (AIProviderError with category/status) propagate untouched
+  // so logs and callers can distinguish an outage or bad model id from a
+  // malformed model response. Previously everything collapsed into one
+  // message, which hid a full provider outage behind "parse" wording.
+  const { text } = await callAISurface(surface, { systemPrompt: prompt, userContent: input, temperature: 0.2 })
   try {
-    const { text } = await callAISurface(surface, { systemPrompt: prompt, userContent: input, temperature: 0.2 })
     return parseExtractedResponse(text)
   } catch {
     throw new Error("Failed to parse AI extraction result")
