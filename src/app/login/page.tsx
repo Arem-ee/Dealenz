@@ -252,7 +252,7 @@ export default function LoginPage() {
                   disabled={resetCooldown}
                   className="text-[12px] font-medium text-[var(--burgundy)] hover:underline disabled:opacity-50 disabled:no-underline"
                 >
-                  {resetCooldown ? "Reset email sent. Check your inbox" : "Forgot password?"}
+                  {resetCooldown ? "Check your inbox for the reset link" : "Forgot password?"}
                 </button>
               </div>
             </div>

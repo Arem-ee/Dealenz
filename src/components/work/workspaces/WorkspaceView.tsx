@@ -32,6 +32,7 @@ export function WorkspaceView({ mode, data, auditId, dealType, riskLevel, overal
           dealType={dealType}
           riskLevel={riskLevel}
           overallScore={overallScore}
+          auditId={auditId}
           onAskFinding={onAsk}
           onGenerateProtection={dealType === "freelance" ? onGeneratePackage : undefined}
         />
@@ -54,7 +55,7 @@ export function WorkspaceView({ mode, data, auditId, dealType, riskLevel, overal
       )
     }
     case "negotiation":
-      return <NegotiationWorkspace data={data} onAskFinding={onAsk} />
+      return <NegotiationWorkspace data={data} auditId={auditId} onAskFinding={onAsk} />
     case "protection":
       return (
         <ProtectionWorkspace

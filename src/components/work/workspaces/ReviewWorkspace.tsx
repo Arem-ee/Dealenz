@@ -7,11 +7,12 @@ import type { WorkspaceData } from "./types"
 
 // Review is about understanding: severity-ordered findings with evidence,
 // unresolved items, and the two honest next steps (ask, protect).
-export function ReviewWorkspace({ data, dealType, riskLevel, overallScore, onAskFinding, onGenerateProtection }: {
+export function ReviewWorkspace({ data, dealType, riskLevel, overallScore, auditId, onAskFinding, onGenerateProtection }: {
   data: WorkspaceData
   dealType?: string | null
   riskLevel?: string
   overallScore?: number
+  auditId?: string | null
   onAskFinding: (question: string) => void
   onGenerateProtection?: () => void
 }) {
@@ -36,7 +37,7 @@ export function ReviewWorkspace({ data, dealType, riskLevel, overallScore, onAsk
         title={`Issues found${data.findings.length > 0 ? ` (${data.findings.length})` : ""}`}
         hint="Deterministic findings from your deal input. AI explains them, never re-decides them."
       >
-        <RiskReportCard payload={payload} onAskFinding={onAskFinding} />
+        <RiskReportCard payload={payload} onAskFinding={onAskFinding} auditId={auditId} />
       </Section>
       <Section title="Open items" hint="What still needs attention before you commit.">
         <OpenItemsList items={data.openItems} counts={data.openCounts} />

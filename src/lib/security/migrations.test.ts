@@ -550,3 +550,17 @@ describe("00077 token cost summary RPC (static)", () => {
     expect(rpc).not.toMatch(/CREATE TABLE/)
   })
 })
+
+describe("00078 shared finding reports (static)", () => {
+  const mig = code(sql("00078_shared_finding_reports.sql"))
+
+  it("adds a report share kind with a read-only anon RPC", () => {
+    expect(mig).toMatch(/'report'/)
+    expect(mig).toMatch(/CREATE OR REPLACE FUNCTION get_shared_report\(/)
+    expect(mig).toMatch(/revoked_at IS NULL/)
+    expect(mig).toMatch(/expires_at > now\(\)/)
+    expect(mig).toMatch(/GRANT EXECUTE ON FUNCTION get_shared_report TO anon/)
+    expect(mig).not.toMatch(/document_signatures/)
+    expect(mig).not.toMatch(/sign_shared_document/)
+  })
+})

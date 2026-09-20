@@ -1451,7 +1451,7 @@ export async function createShareToken(
     return { success: false, error: "Unauthorized" }
   }
 
-  const docTypes = ["proposal", "sow", "contract", "checklist"] as const
+  const docTypes = ["proposal", "sow", "contract", "checklist", "report"] as const
   if (!docTypes.includes(documentType as typeof docTypes[number])) {
     return { success: false, error: "Invalid document type" }
   }

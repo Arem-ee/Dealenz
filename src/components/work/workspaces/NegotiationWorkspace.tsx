@@ -2,14 +2,16 @@
 
 import { EvidenceLine } from "@/components/evidence/evidence-line"
 import { Section } from "./Section"
+import { CounterpartyMemorySection } from "./counterparty-memory"
 import { OpenItemsList } from "./OpenItemsList"
 import type { WorkspaceData } from "./types"
 
 // Negotiation preparation: only what needs pushing back on, the prepared
 // points from analysis, and the evidence behind them. No fabricated
 // positions; unresolved items are the agenda.
-export function NegotiationWorkspace({ data, onAskFinding }: {
+export function NegotiationWorkspace({ data, auditId, onAskFinding }: {
   data: WorkspaceData
+  auditId?: string | null
   onAskFinding: (question: string) => void
 }) {
   const keyIssues = data.findings.filter((f) => f.severity === "critical" || f.severity === "material")
@@ -67,6 +69,7 @@ export function NegotiationWorkspace({ data, onAskFinding }: {
       <Section title="Unresolved points" hint="The other side still owes answers on these.">
         <OpenItemsList items={data.openItems} counts={data.openCounts} />
       </Section>
+      <CounterpartyMemorySection auditId={auditId} />
     </div>
   )
 }

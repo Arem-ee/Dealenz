@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, ShieldCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { EvidenceLine } from "@/components/evidence/evidence-line"
 import { PushbackWords } from "@/components/findings/pushback-words"
+import { ShareReportButton } from "@/components/findings/share-report-button"
 import type { Evidence } from "@/lib/evidence/schema"
 
 const SEVERITY_LABEL: Record<string, string> = {
@@ -21,7 +22,7 @@ const SEVERITY_STYLE: Record<string, string> = {
   informational: "border-border bg-muted/30 text-muted-foreground",
 }
 
-export function RiskReportCard({ payload, onAskFinding }: { payload: Record<string, unknown>; onAskFinding?: (question: string) => void }) {
+export function RiskReportCard({ payload, onAskFinding, auditId }: { payload: Record<string, unknown>; onAskFinding?: (question: string) => void; auditId?: string | null }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const findings = (payload.findings as Array<{ ruleKey?: string | null; severity: string; summary: string; whyItMatters?: string; guidance?: string; pushback?: string; evidence?: Evidence[] }> ) ?? []
   const riskLevel = (payload.riskLevel as string) ?? "Unknown"
@@ -120,6 +121,11 @@ export function RiskReportCard({ payload, onAskFinding }: { payload: Record<stri
           )
         })}
       </div>
+      {auditId && findings.length > 0 && (
+        <div className="border-t border-border/40 px-4 py-3">
+          <ShareReportButton auditId={auditId} />
+        </div>
+      )}
     </div>
   )
 }

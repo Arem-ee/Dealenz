@@ -24,18 +24,12 @@ export interface SendResult {
   rowId: string
 }
 
-// In-memory provider mock for tests; in production this would call https://gmail.googleapis.com/gmail/v1/users/me/messages/send
-// For verification without live Gmail, we keep a test double via globalThis.__gmailSendMock
+// In-memory provider mock for tests; the live path below calls the real
+// Gmail API. Absent a mock, delivery is attempted for real and failures
+// throw — there is no simulated success.
 declare global {
    
   var __gmailSendMock: ((input: SendRowInput, accessToken: string) => Promise<{ id: string; threadId: string | null }>) | undefined
-}
-
-function deterministicId(input: SendRowInput): string {
-  let h = 5381
-  const s = `${input.planId}:${input.planVersion}:${input.rowId}:send`
-  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0
-  return `gmail_${h.toString(16).padStart(8, "0")}`
 }
 
 export async function sendGmailForRow(
@@ -80,7 +74,8 @@ export async function sendGmailForRow(
     }
   }
 
-  // Actual send (or mock)
+  // Actual send (or test mock). No mock means a real Gmail API call;
+  // its failure propagates so callers mark failed, never fake-sent.
   let providerId: string
   let providerThreadId: string | null = null
   if (globalThis.__gmailSendMock) {
@@ -88,10 +83,15 @@ export async function sendGmailForRow(
     providerId = mockRes.id
     providerThreadId = mockRes.threadId
   } else {
-    // In production, this would be: POST https://gmail.googleapis.com/gmail/v1/users/me/messages/send with accessToken
-    // For Phase 2 without live Gmail in tests, we use deterministic id
-    providerId = deterministicId(input)
-    providerThreadId = input.threadId ?? `thread_${providerId}`
+    const { sendGmailMessage } = await import("./api")
+    const sent = await sendGmailMessage(accessToken, {
+      to: input.to,
+      subject: input.subject,
+      body: input.body,
+      threadId: input.threadId,
+    })
+    providerId = sent.id
+    providerThreadId = sent.threadId
   }
 
   return {
@@ -107,15 +107,29 @@ export async function observeReplies(
   userId: string,
   input: { planId: string; threadIds: string[] }
 ): Promise<Array<{ threadId: string; status: "reply_detected" | "observation_failed"; providerMessageId?: string }>> {
-  // Minimal reply observation: query Gmail for threads, associate by provider threadId
-  // For Phase 2, without live Gmail, we return observation_failed for missing provider identifiers
-  void client
-  void userId
+  // Reply observation against the live Gmail API: a thread counts as
+  // replied when it holds more than our sent message. Any fetch problem
+  // (no tokens, expired, API error) degrades per-thread to
+  // observation_failed — never a fabricated reply, never an exception.
+  void input.planId
   if (input.threadIds.length === 0) return []
-  // In production, this would call Gmail API: GET /gmail/v1/users/me/threads/{id}
-  // For now, return observation_failed to represent truthfully when provider identifier is missing
-  return input.threadIds.map((tid) => ({
-    threadId: tid,
-    status: tid ? "reply_detected" as const : "observation_failed" as const,
-  }))
+  const tokens = await getGmailTokens(client, userId).catch(() => null)
+  if (!tokens) {
+    return input.threadIds.map((tid) => ({ threadId: tid, status: "observation_failed" as const }))
+  }
+  const { getGmailThread } = await import("./api")
+  const out: Array<{ threadId: string; status: "reply_detected" | "observation_failed"; providerMessageId?: string }> = []
+  for (const tid of input.threadIds) {
+    try {
+      const thread = await getGmailThread(tokens.access_token, tid)
+      if (thread.messageIds.length > 1) {
+        out.push({ threadId: tid, status: "reply_detected", providerMessageId: thread.messageIds[thread.messageIds.length - 1] })
+      } else {
+        out.push({ threadId: tid, status: "observation_failed" })
+      }
+    } catch {
+      out.push({ threadId: tid, status: "observation_failed" })
+    }
+  }
+  return out
 }

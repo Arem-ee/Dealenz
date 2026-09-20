@@ -364,7 +364,7 @@ const faqs = [
   },
   {
     q: "What happens after I sign?",
-    a: "Dealenz can track what was agreed in monitoring: renewal dates, notice windows, payment obligations, and material deadlines — with email alerts before they matter, so nothing auto-renews or lapses unnoticed.",
+    a: "Dealenz can track what was agreed in monitoring: renewal dates, notice windows, payment obligations, and material deadlines — connect Gmail once and it emails you before they matter, so nothing auto-renews or lapses unnoticed.",
   },
   {
     q: "Who can see my deals?",
@@ -655,7 +655,7 @@ export default function Home() {
                 <h3 className="mt-3 text-[20px] font-semibold tracking-[-0.02em]">Stay guarded</h3>
                 <p className="mt-2 text-[14px] leading-relaxed text-black/60">
                   Track renewals, notice windows, and payment obligations in monitoring after
-                  signing, with an email before anything auto-renews or lapses.
+                  signing — connect Gmail once for an email before anything auto-renews or lapses.
                 </p>
               </div>
             </div>
