@@ -535,3 +535,18 @@ describe("00076 delete own account without storage SQL (static)", () => {
     expect(rpc).not.toMatch(/CREATE POLICY/)
   })
 })
+
+describe("00077 token cost summary RPC (static)", () => {
+  const rpc = code(sql("00077_token_cost_summary.sql"))
+
+  it("aggregates measured tokens per deal type behind the admin gate", () => {
+    expect(rpc).toMatch(/CREATE OR REPLACE FUNCTION token_cost_summary\(/)
+    expect(rpc).toMatch(/app_metadata.*is_admin/)
+    expect(rpc).toMatch(/phase = 'ai_usage'/)
+    expect(rpc).toMatch(/GRANT EXECUTE ON FUNCTION token_cost_summary\(INTEGER\) TO authenticated/)
+    expect(rpc).not.toMatch(/TO anon/)
+    expect(rpc).not.toMatch(/TO service_role/)
+    expect(rpc).not.toMatch(/CREATE POLICY/)
+    expect(rpc).not.toMatch(/CREATE TABLE/)
+  })
+})

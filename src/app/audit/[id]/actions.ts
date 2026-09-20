@@ -30,6 +30,8 @@ import {
   type LedgerClient,
 } from "@/lib/credits/ledger"
 import { bucketForGenericFindings } from "@/lib/verticals/generic/rules"
+import { logAIUsage, toUsageRecord, type UsageReporter } from "@/lib/ai/usage"
+import type { AIOperation } from "@/lib/ai/operations"
 import { deterministicRiskFloor, floorExceedsDisplay, diffFindingSets, type FindingDelta } from "@/lib/rules/result"
 import { canGenerateDocuments } from "@/lib/protection"
 import { logEvent, logDuration, reportAIFallback, reportError } from "@/lib/logger"
@@ -568,7 +570,24 @@ export async function analyzeDeal(
       dealTypeRaw === "partnership"
         ? dealTypeRaw
         : "freelance"
-    const validation = await extractAndValidate(combinedInput, dealType)
+    // Token-cost measurement (bundle pricing input): every AI step reports
+    // measured usage with its product context into system_logs. Best-effort
+    // and non-blocking; a logging failure never fails the analysis.
+    const reportUsage = (operation: AIOperation, step: string): UsageReporter => (info) => {
+      void logAIUsage(
+        toUsageRecord({
+          operation,
+          provider: info.provider,
+          model: info.model,
+          usage: info.usage,
+          status: info.status,
+          dealType,
+          step,
+        }),
+        { auditId, userId: user.id }
+      ).catch(() => null)
+    }
+    const validation = await extractAndValidate(combinedInput, dealType, "authenticated", reportUsage("document_analysis", "extract"))
 
     if (!validation.valid) {
       await supabase
@@ -615,7 +634,7 @@ export async function analyzeDeal(
     // 8-category engine (mirrors analyzeRiskForDealType routing).
     if (dealType !== "freelance") {
       try {
-        const result = await analyzeGenericRiskWithVisibleFailure(extracted)
+        const result = await analyzeGenericRiskWithVisibleFailure(extracted, "authenticated", reportUsage("document_analysis", "risk"))
         riskReport = result.report
       } catch (riskErr) {
         await logEvent({
@@ -630,7 +649,7 @@ export async function analyzeDeal(
       }
     } else {
       try {
-        const result = await analyzeRisk(extracted)
+        const result = await analyzeRisk(extracted, "authenticated", reportUsage("document_analysis", "risk"))
         riskReport = result.report
         usedFallback = result.usedFallback
         riskDegraded = result.usedFallback
@@ -774,7 +793,7 @@ export async function analyzeDeal(
       try {
         // Deterministic findings feed synthesis as context to reason over;
         // the model explains them but never re-decides their status.
-        negotiationPoints = await generateNegotiationPoints(extracted, riskReport as GenericRiskReport, "authenticated", relevantFindings)
+        negotiationPoints = await generateNegotiationPoints(extracted, riskReport as GenericRiskReport, "authenticated", relevantFindings, reportUsage("negotiation", "points"))
       } catch (negErr) {
         genericRiskDegraded = true
         negotiationPoints = []

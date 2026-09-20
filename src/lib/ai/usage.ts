@@ -34,8 +34,25 @@ export interface AIUsageRecord {
   // "not charged under any policy", never "free" and never zero by default.
   creditsConsumed: number | null
   status: AIOperationStatus
+  // Deal type for per-type cost measurement (bundle pricing input).
+  // Absent on non-deal operations; never inferred.
+  dealType?: string
+  // Step within the operation (extract, risk, points). Lets one operation's
+  // sequential calls be costed separately; absent means undivided.
+  step?: string
   createdAt: string
 }
+
+// Reporter threaded through domain AI functions (extract, risk,
+// negotiation) so measured usage reaches durable logging with its product
+// context. Optional at every boundary: existing callers keep working, and
+// a missing reporter means "not measured", never a failure.
+export type UsageReporter = (info: {
+  provider: string
+  model: string
+  usage?: TokenUsage
+  status: AIOperationStatus
+}) => void
 
 export function toUsageRecord(input: {
   operation: AIOperation
@@ -43,6 +60,8 @@ export function toUsageRecord(input: {
   model: string
   usage?: TokenUsage
   status: AIOperationStatus
+  dealType?: string
+  step?: string
 }): AIUsageRecord {
   const record: AIUsageRecord = {
     operation: input.operation,
@@ -50,6 +69,8 @@ export function toUsageRecord(input: {
     model: input.model,
     creditsConsumed: null,
     status: input.status,
+    dealType: input.dealType,
+    step: input.step,
     createdAt: new Date().toISOString(),
   }
   if (input.usage) {
@@ -78,12 +99,29 @@ function summarizeUsage(record: AIUsageRecord): string {
 }
 
 // Records a measurement row (metadata only: never prompts, documents, or
-// keys). Best-effort like other logEvent callers; logging failures never fail
-// the product operation.
-export async function logAIUsage(record: AIUsageRecord): Promise<void> {
+// keys). Linked to the audit and user so per-deal-type cost can be
+// aggregated later; token counts ride in structured metadata, never in
+// prose. Best-effort like other logEvent callers; logging failures never
+// fail the product operation.
+export async function logAIUsage(
+  record: AIUsageRecord,
+  linkage?: { auditId?: string | null; userId?: string | null }
+): Promise<void> {
   await logEvent({
+    audit_id: linkage?.auditId ?? null,
+    user_id: linkage?.userId ?? null,
     phase: "ai_usage",
     status: record.status === "success" ? "success" : "failure",
     error_message: summarizeUsage(record),
+    metadata: {
+      operation: record.operation,
+      provider: record.provider,
+      model: record.model,
+      dealType: record.dealType ?? null,
+      step: record.step ?? null,
+      inputTokens: record.inputTokens ?? null,
+      outputTokens: record.outputTokens ?? null,
+      totalTokens: record.totalTokens ?? null,
+    },
   })
 }

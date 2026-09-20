@@ -1,4 +1,5 @@
 import { callAISurface, type AISurface } from "./client"
+import type { UsageReporter } from "./usage"
 import { EXTRACTION_SYSTEM_PROMPT, GENERIC_EXTRACTION_SYSTEM_PROMPT } from "./prompts"
 
 export interface ExtractedData {
@@ -148,7 +149,8 @@ function validateExtraction(data: ExtractedData): ExtractionValidationResult {
 export async function extractProjectData(
   input: string,
   dealType: DealType = "freelance",
-  surface: AISurface = "authenticated"
+  surface: AISurface = "authenticated",
+  onUsage?: UsageReporter
 ): Promise<ExtractedData> {
   if (!input.trim()) {
     throw new Error("No input provided for extraction")
@@ -162,19 +164,37 @@ export async function extractProjectData(
   // so logs and callers can distinguish an outage or bad model id from a
   // malformed model response. Previously everything collapsed into one
   // message, which hid a full provider outage behind "parse" wording.
-  const { text } = await callAISurface(surface, { systemPrompt: prompt, userContent: input, temperature: 0.2 })
   try {
-    return parseExtractedResponse(text)
-  } catch {
-    throw new Error("Failed to parse AI extraction result")
+    const { text, meta } = await callAISurface(surface, { systemPrompt: prompt, userContent: input, temperature: 0.2 })
+    onUsage?.({
+      provider: meta.primary.provider,
+      model: meta.primary.model,
+      usage: meta.usage,
+      status: "success",
+    })
+    try {
+      return parseExtractedResponse(text)
+    } catch {
+      onUsage?.({
+        provider: meta.primary.provider,
+        model: meta.primary.model,
+        status: "malformed_response",
+      })
+      throw new Error("Failed to parse AI extraction result")
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message === "Failed to parse AI extraction result") throw err
+    onUsage?.({ provider: "unattributed", model: "unattributed", status: "provider_failure" })
+    throw err
   }
 }
 
 export async function extractAndValidate(
   input: string,
   dealType: DealType = "freelance",
-  surface: AISurface = "authenticated"
+  surface: AISurface = "authenticated",
+  onUsage?: UsageReporter
 ): Promise<ExtractionValidationResult> {
-  const extracted = await extractProjectData(input, dealType, surface)
+  const extracted = await extractProjectData(input, dealType, surface, onUsage)
   return validateExtraction(extracted)
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import type { RiskReport } from "@/lib/risk/engine"
 import type { ExtractedData } from "@/lib/ai/extract"
+import type { UsageReporter } from "@/lib/ai/usage"
 
 // ── Hoisted shared mocks ──
 
@@ -177,6 +178,46 @@ describe("analyzeDeal", () => {
     expect(result.success).toBe(true)
     expect(result.data).toEqual(mockExtractedData)
     expect(result.riskReport).toEqual(mockRiskReport)
+  })
+
+  it("logs measured token usage with deal-type linkage for bundle pricing input", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+
+    const audits = auditsQuery(
+      { id: "audit-1", ai_consent: true, raw_input: "Build a website", structured_data: { files: [] }, deal_type: "freelance" },
+      [{ id: "audit-1" }]
+    )
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "user_ai_consents") return consentedMock() as never
+      return (table === "audits" ? audits : qb()) as never
+    })
+    mockStorageFrom.mockReturnValue({ download: vi.fn() })
+    mockExtractAndValidate.mockImplementation(async (_input: string, _deal: string, _surface: string, onUsage?: UsageReporter) => {
+      onUsage?.({ provider: "openai_compatible", model: "m", usage: { inputTokens: 100, outputTokens: 20 }, status: "success" })
+      return { valid: true, extractedData: mockExtractedData }
+    })
+    mockAnalyzeRiskFn.mockImplementation(async (_data: unknown, _surface: string, onUsage?: UsageReporter) => {
+      onUsage?.({ provider: "openai_compatible", model: "m", usage: { inputTokens: 200, outputTokens: 40 }, status: "success" })
+      return { report: mockRiskReport, usedFallback: false }
+    })
+
+    const result = await analyzeDeal("audit-1")
+
+    expect(result.success).toBe(true)
+    const usageCalls = mockLogEvent.mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .filter((e) => e.phase === "ai_usage")
+    expect(usageCalls.length).toBeGreaterThanOrEqual(2)
+    for (const entry of usageCalls) {
+      expect(entry.audit_id).toBe("audit-1")
+      expect(entry.user_id).toBe(mockUser.id)
+      const meta = entry.metadata as Record<string, unknown>
+      expect(meta.dealType).toBe("freelance")
+      expect(meta.operation).toBe("document_analysis")
+    }
+    const steps = usageCalls.map((e) => (e.metadata as Record<string, unknown>).step)
+    expect(steps).toContain("extract")
+    expect(steps).toContain("risk")
   })
 
   it("downloads multiple files concurrently and combines them in file order", async () => {

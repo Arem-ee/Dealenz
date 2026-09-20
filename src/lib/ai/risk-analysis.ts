@@ -1,4 +1,5 @@
 import { callAISurface, type AISurface } from "./client"
+import type { UsageReporter } from "./usage"
 import type { ExtractedData } from "./extract"
 import type { RiskReport, RiskCategory, RiskFinding } from "@/lib/risk/engine"
 import { generateRiskReport } from "@/lib/risk/engine"
@@ -123,15 +124,23 @@ function parseRiskResponse(text: string): GeminiRiskOutput {
 
 export async function analyzeRisk(
   data: ExtractedData,
-  surface: AISurface = "authenticated"
+  surface: AISurface = "authenticated",
+  onUsage?: UsageReporter
 ): Promise<{ report: RiskReport; usedFallback: boolean }> {
   try {
     const input = JSON.stringify(data, null, 2)
     const { text: raw, meta } = await callAISurface(surface, { systemPrompt: RISK_ANALYSIS_SYSTEM_PROMPT, userContent: input })
     const parsed = parseRiskResponse(raw)
+    onUsage?.({
+      provider: meta.primary.provider,
+      model: meta.primary.model,
+      usage: meta.usage,
+      status: "success",
+    })
     return { report: transformGeminiOutput(parsed), usedFallback: meta.servedByFallback ?? false }
   } catch (err) {
     console.error("Gemini risk analysis failed, falling back to rule engine:", err instanceof Error ? err.message : err)
+    onUsage?.({ provider: "unattributed", model: "unattributed", status: "provider_failure" })
     return { report: generateRiskReport(data), usedFallback: true }
   }
 }
@@ -192,11 +201,18 @@ function parseGenericResponse(text: string): GeminiRiskOutput {
 
 export async function analyzeGenericRiskWithVisibleFailure(
   data: ExtractedData,
-  surface: AISurface = "authenticated"
+  surface: AISurface = "authenticated",
+  onUsage?: UsageReporter
 ): Promise<{ report: GenericRiskReport; usedFallback: false }> {
   const input = JSON.stringify(data, null, 2)
-  const { text: raw } = await callAISurface(surface, { systemPrompt: GENERIC_RISK_ANALYSIS_SYSTEM_PROMPT, userContent: input })
+  const { text: raw, meta } = await callAISurface(surface, { systemPrompt: GENERIC_RISK_ANALYSIS_SYSTEM_PROMPT, userContent: input })
   const parsed = parseGenericResponse(raw)
+  onUsage?.({
+    provider: meta.primary.provider,
+    model: meta.primary.model,
+    usage: meta.usage,
+    status: "success",
+  })
   return { report: transformGenericOutput(parsed), usedFallback: false }
 }
 

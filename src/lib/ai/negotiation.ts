@@ -1,6 +1,7 @@
 import { callAISurface, type AISurface } from "./client"
 import { applyConstitution } from "./constitution"
 import { maxTokensForOperation } from "./operations"
+import type { UsageReporter } from "./usage"
 import { GENERIC_NEGOTIATION_POINTS_SYSTEM_PROMPT } from "./prompts"
 import type { ExtractedData } from "./extract"
 import type { GenericRiskReport } from "./risk-analysis"
@@ -13,12 +14,19 @@ export async function generateNegotiationPoints(
   // Deterministic findings for the model to reason over. Additive context:
   // the model explains and prioritizes them but never re-decides their
   // status (see detectFindingConflicts in src/lib/rules/result.ts).
-  findings: Finding[] = []
+  findings: Finding[] = [],
+  onUsage?: UsageReporter
 ): Promise<string[]> {
   const input = JSON.stringify({ extractedData: data, riskFindings: report.categories, summary: report.summary, recommendations: report.recommendations, deterministicFindings: findings.map((f) => ({ ruleKey: f.ruleKey, status: "FAIL", summary: f.summary, severity: f.severity })) }, null, 2)
   // Talking points are user-facing prose, so the response contract applies.
   const systemPrompt = applyConstitution(GENERIC_NEGOTIATION_POINTS_SYSTEM_PROMPT, "negotiation")
-  const { text: raw } = await callAISurface(surface, { systemPrompt, userContent: input, temperature: 0.4, maxTokens: maxTokensForOperation("negotiation") })
+  const { text: raw, meta } = await callAISurface(surface, { systemPrompt, userContent: input, temperature: 0.4, maxTokens: maxTokensForOperation("negotiation") })
+  onUsage?.({
+    provider: meta.primary.provider,
+    model: meta.primary.model,
+    usage: meta.usage,
+    status: "success",
+  })
   let cleaned = raw.trim()
   const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
   if (fenceMatch) cleaned = fenceMatch[1].trim()

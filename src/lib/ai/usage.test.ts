@@ -109,6 +109,29 @@ describe("AI usage records", () => {
     expect(failed.status).toBe("provider_failure")
     expect(failed.creditsConsumed).toBeNull()
   })
+
+  it("links measurements to audit, user, and deal type in structured metadata", async () => {
+    mockInsert.mockClear()
+    mockInsert.mockResolvedValue({ error: null })
+    const record = toUsageRecord({
+      operation: "document_analysis",
+      provider: "openai_compatible",
+      model: "anthropic/claude-sonnet-5",
+      usage: { inputTokens: 3000, outputTokens: 800 },
+      status: "success",
+      dealType: "freelance",
+    })
+    await logAIUsage(record, { auditId: "audit-1", userId: "user-1" })
+    expect(mockInsert).toHaveBeenCalledTimes(1)
+    const row = mockInsert.mock.calls[0][0] as Record<string, unknown>
+    expect(row.audit_id).toBe("audit-1")
+    expect(row.user_id).toBe("user-1")
+    const meta = row.metadata as Record<string, unknown>
+    expect(meta.operation).toBe("document_analysis")
+    expect(meta.dealType).toBe("freelance")
+    expect(meta.inputTokens).toBe(3000)
+    expect(meta.outputTokens).toBe(800)
+  })
 })
 
 describe("provider token reporting", () => {
