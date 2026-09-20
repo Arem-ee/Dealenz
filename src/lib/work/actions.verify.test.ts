@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import {
   approveWorkPlan,
-  createBatchWorkPlan,
   createDealAnalysisPlan,
   createWorkPlan,
   executeApprovedPlan,
@@ -41,7 +40,6 @@ async function denyCases(): Promise<Array<{ name: string; result: { ok: boolean;
     { name: "approveWorkPlan", result: await approveWorkPlan("plan-1", "key-1") },
     { name: "rejectWorkPlan", result: await rejectWorkPlan("plan-1") },
     { name: "executeApprovedPlan", result: await executeApprovedPlan("plan-1", "approval-1") },
-    { name: "createBatchWorkPlan", result: await createBatchWorkPlan({ conversationId: "c", dealId: "d", csvText: "a,b" }) },
     { name: "createDealAnalysisPlan", result: await createDealAnalysisPlan({ conversationId: "c", dealId: "d" }) },
     { name: "resumeWorkPlan", result: await resumeWorkPlan("plan-1") },
   ]

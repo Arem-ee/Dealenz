@@ -519,7 +519,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
 
   // Modes with a dedicated surface carry the structured output; the generic
   // latest-card panel stays for approval, execution, confirm, lawyer, idle.
-  const coveredMode = ["review", "proposal", "negotiation", "draft", "protection", "signing", "monitoring", "batch"].includes(workspace.mode)
+  const coveredMode = ["review", "proposal", "negotiation", "draft", "protection", "signing", "monitoring"].includes(workspace.mode)
 
   const handleAskFinding = (question: string) => {
     setPrefill({ text: question, key: Date.now() })
@@ -694,12 +694,9 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
             mode={workspace.mode}
             data={workspaceData}
             auditId={auditId}
-            threadId={threadId}
             dealType={dealMeta?.dealType ?? null}
             riskLevel={latestRiskPayload?.riskLevel}
             overallScore={latestRiskPayload?.overallScore}
-            plan={workPlan}
-            steps={workSteps}
             onAsk={handleAskFinding}
             onGeneratePackage={() => void handleDocumentGenerate("", {})}
             onChanged={handleWorkspaceChanged}
@@ -770,14 +767,12 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
                   mode={workspace.mode}
                   data={workspaceData}
                   auditId={auditId}
-                  threadId={threadId}
                   dealType={dealMeta?.dealType ?? null}
                   riskLevel={latestRiskPayload?.riskLevel}
                   overallScore={latestRiskPayload?.overallScore}
-                  plan={workPlan}
-                  steps={workSteps}
                   onAsk={handleAskFinding}
-                  onGeneratePackage={() => void handleDocumentGenerate("", {})}
+                  onGeneratePackage={() => void handleDocumentGenerate("",
+{})}
                   onChanged={handleWorkspaceChanged}
                 />
               ) : (

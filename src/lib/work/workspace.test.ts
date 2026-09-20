@@ -20,9 +20,11 @@ describe("describeWorkspace", () => {
     ).toBe("executing")
   })
 
-  it("names batch and protection plans from their objective kind", () => {
-    expect(describeWorkspace({ planObjectiveKind: "proposal_batch" }).mode).toBe("batch")
+  it("names protection plans from their objective kind; retired batch plans fall through", () => {
     expect(describeWorkspace({ planObjectiveKind: "protection" }).mode).toBe("protection")
+    // proposal_batch no longer captures the workspace (bulk outreach
+    // removed): grandfathered plans fall back to card/operation modes.
+    expect(describeWorkspace({ planObjectiveKind: "proposal_batch" }).mode).toBe("idle")
   })
 
   it("derives proposal, negotiation, and draft from the classified objective", () => {

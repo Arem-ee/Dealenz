@@ -12,7 +12,6 @@
 export type WorkspaceMode =
   | "approval"
   | "executing"
-  | "batch"
   | "protection"
   | "proposal"
   | "negotiation"
@@ -86,15 +85,11 @@ export function describeWorkspace(input: WorkspaceInput): WorkspaceDescription {
     }
   }
 
-  // An active batch or protection plan names the workspace even when the
-  // latest card is older analysis output.
-  if (input.planObjectiveKind === "proposal_batch") {
-    return {
-      mode: "batch",
-      title: "Batch outreach",
-      description: "Contacts, drafts, review, and results for this batch.",
-    }
-  }
+  // An active protection plan names the workspace even when the latest
+  // card is older analysis output. (proposal_batch plans no longer capture
+  // the workspace: bulk outreach is off-thesis and its creation surface is
+  // removed; grandfathered plans fall through to card/operation modes and
+  // remain approvable and executable.)
   if (input.planObjectiveKind === "protection") {
     return {
       mode: "protection",
