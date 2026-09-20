@@ -492,3 +492,46 @@ describe("00073 system_logs service read (static)", () => {
     expect(read).not.toMatch(/FORCE/)
   })
 })
+
+describe("00074 audit user cascade (static)", () => {
+  const cascade = code(sql("00074_audit_user_cascade.sql"))
+
+  it("aligns audits with the cascade-everywhere rule and nothing else", () => {
+    expect(cascade).toMatch(/DROP CONSTRAINT IF EXISTS audits_user_id_fkey/)
+    expect(cascade).toMatch(/REFERENCES auth\.users\(id\) ON DELETE CASCADE/)
+    expect(cascade).not.toMatch(/CREATE POLICY/)
+    expect(cascade).not.toMatch(/CREATE TABLE/)
+    expect(cascade).not.toMatch(/DROP TABLE/)
+  })
+})
+
+describe("00075 delete own account RPC (static)", () => {
+  const rpc = code(sql("00075_delete_own_account.sql"))
+
+  it("erases only the caller, with no parameters and no privilege widening", () => {
+    expect(rpc).toMatch(/CREATE OR REPLACE FUNCTION delete_own_account\(\)/)
+    expect(rpc).toMatch(/SECURITY DEFINER/)
+    expect(rpc).toMatch(/v_user_id := auth\.uid\(\)/)
+    expect(rpc).toMatch(/DELETE FROM storage\.objects WHERE owner = v_user_id/)
+    expect(rpc).toMatch(/DELETE FROM auth\.users WHERE id = v_user_id/)
+    expect(rpc).toMatch(/GRANT EXECUTE ON FUNCTION delete_own_account\(\) TO authenticated/)
+    expect(rpc).not.toMatch(/TO anon/)
+    expect(rpc).not.toMatch(/TO service_role/)
+    expect(rpc).not.toMatch(/CREATE POLICY/)
+    expect(rpc).not.toMatch(/CREATE TABLE/)
+  })
+})
+
+describe("00076 delete own account without storage SQL (static)", () => {
+  const rpc = code(sql("00076_delete_own_account_no_storage.sql"))
+
+  it("keeps caller-only erasure and routes files through the Storage API", () => {
+    expect(rpc).toMatch(/CREATE OR REPLACE FUNCTION delete_own_account\(\)/)
+    expect(rpc).toMatch(/v_user_id := auth\.uid\(\)/)
+    expect(rpc).toMatch(/DELETE FROM auth\.users WHERE id = v_user_id/)
+    expect(rpc).toMatch(/GRANT EXECUTE ON FUNCTION delete_own_account\(\) TO authenticated/)
+    expect(rpc).not.toMatch(/DELETE FROM storage\.objects/)
+    expect(rpc).not.toMatch(/TO anon/)
+    expect(rpc).not.toMatch(/CREATE POLICY/)
+  })
+})

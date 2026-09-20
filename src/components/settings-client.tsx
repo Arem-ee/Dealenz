@@ -118,6 +118,7 @@ export default function SettingsClient({ initialProfile, email, googleConnected 
               saveState={saveState}
             />
           )}
+          {activeSection === "account" && <DeleteAccountSection />}
           {activeSection === "billing" && <BillingSection />}
           {activeSection === "security" && <SecuritySection email={email} googleConnected={googleConnected} />}
           {activeSection === "team" && <TeamSection />}
@@ -395,5 +396,94 @@ function TeamSection() {
         </p>
       </div>
     </SectionCard>
+  )
+}
+
+function DeleteAccountSection() {
+  const [confirming, setConfirming] = useState(false)
+  const [typed, setTyped] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleDelete() {
+    if (typed.trim() !== "DELETE" || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("You are no longer signed in. Please reload and sign in again.")
+      // Files live outside the SQL cascade graph and cannot be removed in SQL
+      // (the platform rejects direct storage deletes), so remove them through
+      // the Storage API first, recursively under the caller's own prefix.
+      async function removePrefix(prefix: string): Promise<void> {
+        const { data: entries, error: listError } = await supabase.storage.from("audit-files").list(prefix)
+        if (listError) throw new Error(listError.message)
+        for (const entry of entries ?? []) {
+          const path = prefix ? `${prefix}/${entry.name}` : entry.name
+          if (entry.metadata == null) {
+            await removePrefix(path)
+          } else {
+            const { error: removeError } = await supabase.storage.from("audit-files").remove([path])
+            if (removeError) throw new Error(removeError.message)
+          }
+        }
+      }
+      await removePrefix(user.id)
+      const { error: rpcError } = await supabase.rpc("delete_own_account")
+      if (rpcError) throw new Error(rpcError.message)
+      await supabase.auth.signOut()
+      window.location.href = "/"
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "We couldn't delete your account. Please try again.")
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-8 rounded-xl border border-destructive/30 p-5">
+      <p className="text-sm font-semibold text-destructive">Delete account</p>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+        Permanently deletes your account and everything in it — deals, documents,
+        threads, monitoring, credits, and files. This cannot be undone.
+      </p>
+      {!confirming ? (
+        <Button variant="outline" size="sm" className="mt-3 text-destructive" onClick={() => setConfirming(true)}>
+          Delete my account…
+        </Button>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <Label htmlFor="delete-confirm">
+            Type <span className="font-mono font-semibold">DELETE</span> to confirm
+          </Label>
+          <Input
+            id="delete-confirm"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder="DELETE"
+            disabled={busy}
+            autoComplete="off"
+          />
+          {error && (
+            <p role="alert" className="text-xs text-destructive">
+              {error}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={busy || typed.trim() !== "DELETE"}
+              onClick={() => void handleDelete()}
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Permanently delete everything"}
+            </Button>
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => { setConfirming(false); setTyped(""); setError(null) }}>
+              Keep my account
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
