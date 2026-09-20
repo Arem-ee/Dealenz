@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/toast"
 import { useAiConsent } from "@/hooks/use-ai-consent"
 import { classifyInput } from "@/lib/chat/classifier"
+import { UPLOAD_CREDITS } from "@/lib/credits/pricing"
 import { setPendingFile } from "@/lib/pending-file"
 import { askQuestionAction } from "@/app/ask/actions"
 import { AiConsentModal } from "@/components/ai-consent-modal"
@@ -43,7 +44,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
     setValue(prefill.text)
   }
 
-  async function doSend(text: string, hasDocument: boolean): Promise<boolean> {
+  async function doSend(text: string, hasDocument: boolean, file?: File | null): Promise<boolean> {
     const { outcome } = classifyInput(text, hasDocument)
     if (outcome === "greeting" || outcome === "question") {
       const res = await askQuestionAction({
@@ -67,6 +68,16 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
     }
     if (outcome === "deal") {
       if (threadId && auditId) {
+        // Paper-in first: the file's bytes must land before any plan runs,
+        // or analysis would read only the filename. Fail closed here.
+        if (file) {
+          const { uploadAndAttachFile } = await import("@/lib/files/attach")
+          const attached = await uploadAndAttachFile(auditId, file)
+          if (!attached.ok) {
+            handleActionError(attached.error, text, hasDocument)
+            return false
+          }
+        }
         const { postRichMessage } = await import("@/lib/chat/actions")
         const posted = await postRichMessage(threadId, { type: "text", payload: {}, content: text, role: "user" })
         if (!posted.ok) {
@@ -93,6 +104,17 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
       if (!created.ok) {
         handleActionError(created.error, text, hasDocument)
         return false
+      }
+      if (file) {
+        const { uploadAndAttachFile } = await import("@/lib/files/attach")
+        const attached = await uploadAndAttachFile(created.auditId, file)
+        if (!attached.ok) {
+          // Thread exists with the staged message, but no analysis runs on
+          // a bare filename: surface the reason and keep input staged so
+          // the user can paste the text instead.
+          handleActionError(attached.error, text, hasDocument)
+          return false
+        }
       }
       const { createDealAnalysisPlan, requestApproval } = await import("@/lib/work/actions")
       const planRes = await createDealAnalysisPlan({ conversationId: created.threadId, dealId: created.auditId })
@@ -221,7 +243,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
     }
     setSending(true)
     try {
-      const sent = await doSend(text, hasDocument)
+      const sent = await doSend(text, hasDocument, pendingFile)
       if (sent) {
         setValue("")
         setPendingFileLocal(null)
@@ -247,7 +269,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
     if (text) {
       setSending(true)
       try {
-        const sent = await doSend(text, hasDoc)
+        const sent = await doSend(text, hasDoc, pendingFile)
         if (sent) {
           setValue("")
           setPendingFileLocal(null)
@@ -341,6 +363,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             type="button"
             onClick={() => fileRef.current?.click()}
             aria-label="Add a document"
+            title={`PDF, DOCX, or TXT — uploading a document costs ${UPLOAD_CREDITS} credits`}
             className="inline-flex items-center gap-1.5 rounded-full border border-input bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           >
             <FileUp className="h-3.5 w-3.5" />

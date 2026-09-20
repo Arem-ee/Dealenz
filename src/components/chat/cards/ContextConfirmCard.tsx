@@ -7,7 +7,17 @@ export function ContextConfirmCard({ payload, onConfirm }: { payload: Record<str
   const fields = (payload.fields as Array<{ key: string; label: string; value: string; confidence: number }>) ?? []
   const [edits, setEdits] = useState<Record<string, string>>({})
 
-  if (fields.length === 0) return null
+  if (fields.length === 0) {
+    return (
+      <div className="rounded-xl border bg-card p-4">
+        <p className="text-sm font-medium">Context looks complete</p>
+        <p className="mt-1 text-xs text-muted-foreground">Nothing needs confirming before analysis runs.</p>
+        <div className="mt-3">
+          <Button size="sm" onClick={() => onConfirm({})}>Looks good</Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-xl border bg-card p-4">

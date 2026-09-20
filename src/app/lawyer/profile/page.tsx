@@ -16,11 +16,14 @@ export default async function LawyerProfilePage() {
     redirect("/dashboard")
   }
 
+  const barParts = [profile.bar_license_number, profile.bar_jurisdiction]
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .filter((v) => v.length > 0)
   const rows: Array<[string, string]> = [
     ["Name", String(profile.full_name ?? "—")],
     ["Account email", String(profile.email ?? "—")],
     ["Verification status", String(profile.verification_status ?? "—")],
-    ["Bar license", `${String(profile.bar_license_number ?? "—")} · ${String(profile.bar_jurisdiction ?? "")}`],
+    ["Bar license", barParts.length > 0 ? barParts.join(" · ") : "—"],
     ["Experience", typeof profile.years_experience === "number" ? `${profile.years_experience} years` : "—"],
     ["Specialties", Array.isArray(profile.specialties) ? (profile.specialties as string[]).join(", ") || "—" : "—"],
     ["Member since", profile.created_at ? new Date(String(profile.created_at)).toLocaleDateString() : "—"],

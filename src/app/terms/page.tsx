@@ -20,10 +20,16 @@ export default function TermsPage() {
             Dealenz does not provide legal advice, does not replace professional legal review, and does not guarantee client payment, signature, or project outcome.
           </p>
           <p>
+            Dealenz is free to start: new accounts receive 10 credits and a daily analysis allowance. Deeper work — analyses, answers, drafts, uploads, signature sends, lawyer requests — consumes credits, which can be topped up in credit packs inside the app. Failed operations do not consume credits. If a purchase does not land in your balance, write to support and it will be put right.
+          </p>
+          <p>
             You are responsible for reviewing all generated documents before sending them to clients and for confirming that your use of Dealenz complies with your client agreements and applicable obligations.
           </p>
           <p>
-            Do not use Dealenz to upload material you do not have permission to process or share.
+            Do not use Dealenz to upload material you do not have permission to process or share, to send bulk unsolicited messages, or for anything unlawful. Accounts used for abuse may be suspended.
+          </p>
+          <p>
+            To the extent permitted by law, Dealenz liability is limited to the fees you paid in the twelve months before the claim. These terms may change as the product evolves; continued use after a change means you accept the updated terms.
           </p>
         </div>
       </div>

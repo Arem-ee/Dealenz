@@ -68,7 +68,7 @@ export function ProtectionWorkspace({ data, dealType, onGenerate }: {
           <DocVersionList versions={protectionDocs} />
         ) : (
           <div className="rounded-xl border border-dashed p-4 text-xs text-muted-foreground">
-            {canGenerate ? "Nothing generated yet. Create the protection package to produce it." : "Nothing generated yet."}
+            {canGenerate ? "Nothing generated yet. Create the protection package to produce it." : "Nothing generated yet — document generation covers freelance deals today."}
           </div>
         )}
       </Section>

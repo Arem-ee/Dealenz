@@ -13,6 +13,11 @@ export default function ViewNotFound() {
           The document link you followed has expired, been revoked, or does not exist.
           Contact the person who sent it for a new link.
         </p>
+        <div className="mt-5 flex items-center justify-center gap-3">
+          <Link href="/" className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+            Go to Dealenz home
+          </Link>
+        </div>
       </div>
     </div>
   )

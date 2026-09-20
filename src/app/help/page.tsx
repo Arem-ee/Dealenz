@@ -8,7 +8,7 @@ export const metadata = {
 const FAQS = [
   {
     q: "What do I start with?",
-    a: "Describe what you are working on in the chat box on Home — paste a contract, ask a question, or drop a file. Dealenz routes it: greetings get a free hello, questions get answers, deal content starts a thread.",
+    a: "Describe what you are working on in the chat box on your Dashboard — paste a contract, ask a question, or drop a file. Dealenz routes it: greetings get a free hello, questions get answers, deal content starts a thread.",
   },
   {
     q: "What does a risk report mean?",
@@ -38,7 +38,9 @@ export default function HelpPage() {
       <h1 className="text-xl font-semibold tracking-tight">Get help</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Plain answers about using Dealenz. Anything else — write to{" "}
-        <span className="font-medium text-foreground">support@dealenz.com</span>.
+        <a href="mailto:support@dealenz.com" className="font-medium text-foreground hover:underline">
+          support@dealenz.com
+        </a>.
       </p>
       <div className="mt-6 space-y-3">
         {FAQS.map((f) => (
@@ -48,11 +50,17 @@ export default function HelpPage() {
           </div>
         ))}
       </div>
-      <p className="mt-6 text-sm">
+      <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
         <Link href="/dashboard" className="font-medium text-primary hover:underline">
-          Back to Home
+          Open the Dashboard
         </Link>
-      </p>
+        <Link href="/register" className="font-medium text-primary hover:underline">
+          Create an account
+        </Link>
+        <Link href="/#pricing" className="font-medium text-primary hover:underline">
+          See credit prices
+        </Link>
+      </div>
     </div>
   )
 }

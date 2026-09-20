@@ -12,7 +12,10 @@ const USER_FACING_FILES = [
   "src/app/billing/page.tsx",
   "src/app/dashboard/page.tsx",
   "src/app/deals/page.tsx",
-  "src/components/landing/landing-faq.tsx",
+  "src/app/page.tsx",
+  "src/components/settings-client.tsx",
+  "src/components/referral-section.tsx",
+  "src/components/top-navbar.tsx",
 ]
 
 const BANNED = [

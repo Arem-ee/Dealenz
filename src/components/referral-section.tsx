@@ -18,6 +18,7 @@ export function ReferralSection() {
   const [referrals, setReferrals] = useState<ReferralAttributionView[]>([])
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -26,10 +27,12 @@ export function ReferralSection() {
       if (cancelled) return
       if (!codeRes.success) {
         setError(codeRes.error ?? "Could not load referrals")
+        setLoading(false)
         return
       }
       setCode(codeRes.code ?? null)
       if (refsRes.success && refsRes.referrals) setReferrals(refsRes.referrals)
+      setLoading(false)
     }
     void load()
     return () => {
@@ -57,10 +60,18 @@ export function ReferralSection() {
         <div>
           <p className="text-sm font-medium">Refer friends</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Earn {REFERRAL_REWARD_CREDITS} Ask credits when someone you invite completes their first deal analysis.
+            Share your link: when someone you invite completes their first deal analysis, you receive{" "}
+            {REFERRAL_REWARD_CREDITS} credits. Early program — reward terms may change.
           </p>
         </div>
       </div>
+
+      {loading ? (
+        <div className="mt-4 space-y-2" aria-label="Loading referrals">
+          <div className="h-9 animate-pulse rounded-md bg-muted/60" />
+          <div className="h-4 w-2/3 animate-pulse rounded bg-muted/60" />
+        </div>
+      ) : null}
 
       {error ? (
         <p className="mt-3 text-xs text-destructive flex items-center gap-1">
@@ -84,9 +95,8 @@ export function ReferralSection() {
             </Button>
           </div>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span>Pending: {referrals.filter((r) => r.status === "pending").length}</span>
-            <span>Qualified: {referrals.filter((r) => r.status === "qualified").length}</span>
-            <span>Rewarded: {referrals.filter((r) => r.status === "rewarded").length}</span>
+            <span title="Joined with your link, analysis not finished yet">Pending: {referrals.filter((r) => r.status === "pending").length}</span>
+            <span title="Finished their first analysis — credits granted">Rewarded: {referrals.filter((r) => r.status === "rewarded").length}</span>
           </div>
           {referrals.length > 0 ? (
             <ul className="space-y-1.5">

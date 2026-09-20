@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { AssignReviewForm } from "@/components/admin/assign-review-form"
+import { LawyerVerifyActions } from "@/components/admin/verify-actions"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { isAdminSessionUser } from "@/lib/auth/admin"
 
@@ -151,75 +152,7 @@ export default async function AdminLawyersPage() {
                   {new Date(lawyer.created_at).toLocaleDateString()}
                 </td>
                 <td className="px-4 py-4 text-right">
-                  {lawyer.verification_status === "pending" && (
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={async () => {
-                          const res = await fetch("/api/admin/lawyers/verify", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ lawyer_id: lawyer.id, action: "verify" }),
-                          })
-                          if (res.ok) window.location.reload()
-                        }}
-                        className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-                      >
-                        Verify
-                      </button>
-                      <button
-                        onClick={async () => {
-                          const res = await fetch("/api/admin/lawyers/verify", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ lawyer_id: lawyer.id, action: "reject" }),
-                          })
-                          if (res.ok) window.location.reload()
-                        }}
-                        className="inline-flex items-center gap-1 rounded-lg bg-destructive px-3 py-1.5 text-xs font-medium text-white hover:bg-destructive/90 transition-colors"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  )}
-                  {lawyer.verification_status === "verified" && (
-                    <div className="flex items-center justify-end gap-2">
-                      <span className="text-xs text-success">Verified</span>
-                      <button
-                        onClick={async () => {
-                          if (!window.confirm(`Pause ${lawyer.full_name}'s verification? They immediately lose professional access until reinstated.`)) return
-                          const res = await fetch("/api/admin/lawyers/verify", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ lawyer_id: lawyer.id, action: "suspend" }),
-                          })
-                          if (res.ok) window.location.reload()
-                        }}
-                        className="inline-flex items-center gap-1 rounded-lg border border-warning/30 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning-foreground hover:bg-warning/20 transition-colors"
-                      >
-                        Suspend
-                      </button>
-                    </div>
-                  )}
-                  {lawyer.verification_status === "suspended" && (
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={async () => {
-                          const res = await fetch("/api/admin/lawyers/verify", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ lawyer_id: lawyer.id, action: "reinstate" }),
-                          })
-                          if (res.ok) window.location.reload()
-                        }}
-                        className="inline-flex items-center gap-1 rounded-lg border border-input bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-                      >
-                        Reinstate to review
-                      </button>
-                    </div>
-                  )}
-                  {lawyer.verification_status === "rejected" && (
-                    <span className="text-xs text-destructive">Rejected</span>
-                  )}
+                  <LawyerVerifyActions lawyerId={lawyer.id} lawyerName={lawyer.full_name} status={lawyer.verification_status} />
                 </td>
               </tr>
             ))}

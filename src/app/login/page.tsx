@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2 } from "lucide-react"
+import { Loader2, Eye, EyeOff } from "lucide-react"
 import { FcGoogle } from "react-icons/fc"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -69,6 +69,7 @@ function ComicBlobs() {
 
         <div
           className="space-y-5"
+          aria-live="polite"
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
@@ -119,6 +120,7 @@ export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -218,7 +220,7 @@ export default function LoginPage() {
                 className="mt-1.5 h-11 rounded-xl border-black/10 bg-white px-4 text-[14px]"
               />
             </div>
-            <div>
+            <div className="relative">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-[12px] font-medium">
                   Password
@@ -226,15 +228,23 @@ export default function LoginPage() {
               </div>
               <Input
                 id="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder=""
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
                 minLength={8}
-                className="mt-1.5 h-11 rounded-xl border-black/10 bg-white px-4 text-[14px]"
+                className="mt-1.5 h-11 rounded-xl border-black/10 bg-white px-4 pr-11 text-[14px]"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-3 top-[38px] text-black/40 hover:text-black"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
               <div className="mt-2 text-right">
                 <button
                   type="button"

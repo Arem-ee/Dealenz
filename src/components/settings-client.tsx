@@ -11,13 +11,12 @@ import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { Loader2, Check, AlertCircle } from "lucide-react"
 
-type Section = "account" | "billing" | "security" | "team"
+type Section = "account" | "billing" | "security"
 
 const sections: { key: Section; label: string }[] = [
   { key: "account", label: "Account" },
   { key: "billing", label: "Billing" },
   { key: "security", label: "Security" },
-  { key: "team", label: "Team" },
 ]
 
 interface SettingsClientProps {
@@ -121,7 +120,6 @@ export default function SettingsClient({ initialProfile, email, googleConnected 
           {activeSection === "account" && <DeleteAccountSection />}
           {activeSection === "billing" && <BillingSection />}
           {activeSection === "security" && <SecuritySection email={email} googleConnected={googleConnected} />}
-          {activeSection === "team" && <TeamSection />}
         </div>
       </div>
     </div>
@@ -209,7 +207,7 @@ function BusinessProfileSection({
             <Label htmlFor="settings-website">Website</Label>
             <Input id="settings-website" placeholder="https://example.com" className="bg-muted/50" value={website} onChange={(e) => onWebsiteChange(e.target.value)} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="settings-rate">Default Rate</Label>
               <Input id="settings-rate" placeholder="$150/hr" className="bg-muted/50" value={standardRate} onChange={(e) => onStandardRateChange(e.target.value)} />
@@ -228,7 +226,7 @@ function BusinessProfileSection({
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="settings-currency">Currency</Label>
               <Input id="settings-currency" value={currency} onChange={(e) => onCurrencyChange(e.target.value)} className="bg-muted/50" />
@@ -322,6 +320,31 @@ function GoogleConnectButton({ connected }: { connected: boolean }) {
 }
 
 function SecuritySection({ email, googleConnected }: { email: string; googleConnected: boolean }) {
+  const [newPassword, setNewPassword] = useState("")
+  const [pwBusy, setPwBusy] = useState(false)
+  const [pwState, setPwState] = useState<"idle" | "saved" | "error">("idle")
+  const [pwError, setPwError] = useState<string | null>(null)
+
+  async function handlePasswordChange() {
+    if (newPassword.length < 8 || pwBusy) return
+    setPwBusy(true)
+    setPwState("idle")
+    setPwError(null)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+      setNewPassword("")
+      setPwState("saved")
+      setTimeout(() => setPwState("idle"), 3000)
+    } catch (e) {
+      setPwState("error")
+      setPwError(e instanceof Error ? e.message : "We couldn't change your password. Please try again.")
+    } finally {
+      setPwBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <SectionCard title="Account Security" description="Password, sessions, and account recovery">
@@ -331,29 +354,32 @@ function SecuritySection({ email, googleConnected }: { email: string; googleConn
             <Input id="settings-email" value={email} readOnly className="bg-muted/50" />
             <p className="text-xs text-muted-foreground">Used for sign-in and notifications</p>
           </div>
-          <div className="flex items-center justify-between rounded-lg border p-3 opacity-60">
-            <div>
-              <p className="text-sm font-medium">Password</p>
-              <p className="text-xs text-muted-foreground">Last changed —</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-medium text-muted-foreground rounded-full border bg-muted px-1.5 py-0.5">Coming soon</span>
-              <Button variant="outline" size="sm" disabled title="Coming soon">
-                Change
+          <div className="rounded-lg border p-3">
+            <Label htmlFor="settings-password">Password</Label>
+            <div className="mt-1.5 flex gap-2">
+              <Input
+                id="settings-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="New password, at least 8 characters"
+                disabled={pwBusy}
+                autoComplete="new-password"
+              />
+              <Button variant="outline" size="sm" className="shrink-0" disabled={pwBusy || newPassword.length < 8} onClick={() => void handlePasswordChange()}>
+                {pwBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Change"}
               </Button>
             </div>
-          </div>
-          <div className="flex items-center justify-between rounded-lg border p-3 opacity-60">
-            <div>
-              <p className="text-sm font-medium">Two-factor authentication</p>
-              <p className="text-xs text-muted-foreground">Add an extra layer of security</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-medium text-muted-foreground rounded-full border bg-muted px-1.5 py-0.5">Coming soon</span>
-              <Button variant="outline" size="sm" disabled title="Coming soon">
-                Set Up
-              </Button>
-            </div>
+            {pwState === "saved" && (
+              <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-600">
+                <Check className="h-3 w-3" /> Password changed.
+              </p>
+            )}
+            {pwState === "error" && (
+              <p role="alert" className="mt-1.5 flex items-center gap-1 text-xs text-destructive">
+                <AlertCircle className="h-3 w-3" /> {pwError}
+              </p>
+            )}
           </div>
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
@@ -369,33 +395,6 @@ function SecuritySection({ email, googleConnected }: { email: string; googleConn
         </div>
       </SectionCard>
     </div>
-  )
-}
-
-function TeamSection() {
-  return (
-    <SectionCard title="Team" description="Invite collaborators and manage roles">
-      <div className="space-y-3">
-        <div className="flex items-center justify-between rounded-lg border border-dashed p-4 opacity-60">
-          <div>
-            <p className="text-sm font-medium">Invite team members</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Share access with collaborators, reviewers, or assistants
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-medium text-muted-foreground rounded-full border bg-muted px-1.5 py-0.5">Coming soon</span>
-            <Button variant="outline" size="sm" disabled title="Coming soon">
-              Invite
-            </Button>
-          </div>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Team management is coming soon. You&apos;ll be able to invite collaborators with
-          view-only, editor, and admin roles.
-        </p>
-      </div>
-    </SectionCard>
   )
 }
 

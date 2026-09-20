@@ -70,12 +70,13 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
           <kbd className="hidden shrink-0 rounded border border-border/60 bg-muted/60 px-1 text-[10px] font-medium sm:inline">⌘K</kbd>
         </button>
         <div className="min-w-0 flex-1" />
-        <span
-          title="Credit balance"
-          className="shrink-0 text-sm tabular-nums text-muted-foreground"
+        <Link
+          href="/billing"
+          title="Credit balance — see Billing for what credits pay for"
+          className="shrink-0 truncate text-sm tabular-nums text-muted-foreground transition-colors hover:text-foreground"
         >
-          {typeof creditBalance === "number" ? `${creditBalance} credits` : "—"}
-        </span>
+          {typeof creditBalance === "number" ? `${creditBalance} credits` : "credits unknown"}
+        </Link>
         <Link
           href="/dashboard/activity"
           aria-label="Notifications"
@@ -101,19 +102,19 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
               const Icon = item.icon
               return (
                 <DropdownMenuItem key={item.href} asChild>
-                  <button className="w-full" onClick={() => router.push(item.href)}>
+                  <Link href={item.href} className="w-full">
                     <Icon className="mr-2 h-4 w-4" />
                     {item.label}
-                  </button>
+                  </Link>
                 </DropdownMenuItem>
               )
             })}
             {isLawyer && (
               <DropdownMenuItem asChild>
-                <button className="w-full" onClick={() => router.push("/lawyer")}>
+                <Link href="/lawyer" className="w-full">
                   <Scale className="mr-2 h-4 w-4" />
                   Lawyer workspace
-                </button>
+                </Link>
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />

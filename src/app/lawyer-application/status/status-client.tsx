@@ -74,8 +74,9 @@ export default function LawyerApplicationStatus() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+        <div className="text-center" role="status">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" aria-hidden />
+          <p className="mt-3 text-sm text-muted-foreground">Loading application status…</p>
         </div>
       </div>
     )
@@ -87,9 +88,12 @@ export default function LawyerApplicationStatus() {
         <div className="mx-auto max-w-xl text-center">
           <h1 className="text-2xl font-semibold">Unable to Load Status</h1>
           <p className="mt-2 text-sm text-muted-foreground">{status?.error ?? "Unknown error"}</p>
-          <Link href="/dashboard" className="mt-4 inline-block">
-            <Button>Back to Dashboard</Button>
-          </Link>
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <Button onClick={() => { setLoading(true); void fetchStatus() }}>Retry</Button>
+            <Link href="/dashboard">
+              <Button variant="outline">Back to Dashboard</Button>
+            </Link>
+          </div>
         </div>
       </div>
     )
@@ -174,8 +178,8 @@ export default function LawyerApplicationStatus() {
 
           <div className="mt-8 space-y-3">
             {status.verification_status === "verified" || appStatus === "verified" ? (
-              <Link href="/dashboard">
-                <Button className="w-full">Go to Dashboard</Button>
+              <Link href="/lawyer">
+                <Button className="w-full">Go to Lawyer workspace</Button>
               </Link>
             ) : (
               <Link href="/dashboard">
@@ -208,12 +212,18 @@ export default function LawyerApplicationStatus() {
         {appStatus === "pending" && status.application && (
           <PendingEditForm initial={status.application} onSaved={() => void fetchStatus()} />
         )}
+        {appStatus === "rejected" && status.application && (
+          <PendingEditForm initial={status.application} onSaved={() => void fetchStatus()} rejected />
+        )}
       </div>
     </div>
   )
 }
 
-function PendingEditForm({ initial, onSaved }: { initial: PendingApplication; onSaved: () => void }) {
+function PendingEditForm({ initial, onSaved, rejected }: { initial: PendingApplication; onSaved: () => void; rejected?: boolean }) {
+  const [fullName, setFullName] = useState(initial.full_name)
+  const [barLicense, setBarLicense] = useState(initial.bar_license_number)
+  const [barJurisdiction, setBarJurisdiction] = useState(initial.bar_jurisdiction)
   const [bio, setBio] = useState(initial.bio)
   const [specialties, setSpecialties] = useState<string[]>(initial.specialties)
   const [yearsExperience, setYearsExperience] = useState(String(initial.years_experience))
@@ -240,6 +250,13 @@ function PendingEditForm({ initial, onSaved }: { initial: PendingApplication; on
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(rejected
+            ? {
+                full_name: fullName,
+                bar_license_number: barLicense,
+                bar_jurisdiction: barJurisdiction,
+              }
+            : {}),
           bio,
           specialties,
           years_experience: parseInt(yearsExperience, 10) || 0,
@@ -265,9 +282,27 @@ function PendingEditForm({ initial, onSaved }: { initial: PendingApplication; on
     <div className="mt-6 bg-white rounded-2xl border border-black/10 shadow-sm p-6 sm:p-8 text-left">
       <h2 className="text-lg font-semibold tracking-tight">Update your application</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Your application is still under review. You can update these details any time before a decision. Name, bar license number, and jurisdiction can only be changed by an administrator.
+        {rejected
+          ? "Correct your details below, then send the application back for review. Name, bar license number, and jurisdiction can be corrected on a resubmission."
+          : "Your application is still under review. You can update these details any time before a decision. Name, bar license number, and jurisdiction can only be changed by an administrator."}
       </p>
       <form onSubmit={handleSave} className="mt-6 space-y-5">
+        {rejected ? (
+          <>
+            <div>
+              <label htmlFor="edit-name" className="text-sm font-medium">Full name</label>
+              <Input id="edit-name" value={fullName} onChange={(e) => { setFullName(e.target.value); setSaved(false) }} required className="mt-1" />
+            </div>
+            <div>
+              <label htmlFor="edit-bar" className="text-sm font-medium">Bar license number</label>
+              <Input id="edit-bar" value={barLicense} onChange={(e) => { setBarLicense(e.target.value); setSaved(false) }} required className="mt-1" />
+            </div>
+            <div>
+              <label htmlFor="edit-jurisdiction" className="text-sm font-medium">Bar jurisdiction</label>
+              <Input id="edit-jurisdiction" value={barJurisdiction} onChange={(e) => { setBarJurisdiction(e.target.value); setSaved(false) }} required className="mt-1" />
+            </div>
+          </>
+        ) : null}
         <div>
           <label htmlFor="edit-bio" className="text-sm font-medium">Professional Bio</label>
           <Textarea id="edit-bio" value={bio} onChange={(e) => { setBio(e.target.value); setSaved(false) }} rows={4} required className="mt-1" />

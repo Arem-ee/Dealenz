@@ -208,7 +208,7 @@ export function LibraryView({ userId }: { userId: string }) {
       userId={userId}
       paneKey="library"
       primary={conversation}
-      panel={<ResultsPanel matches={latestMatches} emptyHint="Results from your latest search appear here as structured cards." />}
+      panel={<ResultsPanel matches={latestMatches} emptyHint="Search on the left — results from your latest search appear here as structured cards." />}
     />
   )
 }

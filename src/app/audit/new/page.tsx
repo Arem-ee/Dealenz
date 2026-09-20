@@ -2,7 +2,6 @@
 
 import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { isRedirectError } from "next/dist/client/components/redirect-error"
 import { createAudit } from "./actions"
 import { DealTypeSelector, type DealType } from "@/components/audit/deal-type-selector"
 import { Button } from "@/components/ui/button"
@@ -23,22 +22,42 @@ function NewAuditContent() {
     const f = hasFileParam ? getPendingFile() : null
     return f ? `${f.name} — ${(f.size / 1024).toFixed(0)} KB` : null
   })
+  const [attachError, setAttachError] = useState<string | null>(null)
+  const [createdThreadId, setCreatedThreadId] = useState<string | null>(null)
 
   async function handleContinue() {
     if (!dealType) return
     setCreating(true)
     setError(null)
+    setAttachError(null)
     try {
-      await createAudit(dealType)
+      const created = await createAudit(dealType)
+      const staged = hasFileParam ? getPendingFile() : null
+      if (staged) {
+        // The staged file's bytes finally land: upload + credit-gated
+        // attach against the new audit before entering the thread.
+        const { uploadAndAttachFile } = await import("@/lib/files/attach")
+        const attached = await uploadAndAttachFile(created.auditId, staged)
+        clearPendingFile()
+        setPendingFileName(null)
+        if (!attached.ok) {
+          // Deal and thread exist; hold navigation so the reason is seen.
+          // The user can buy credits or continue and paste the text instead.
+          setCreatedThreadId(created.threadId)
+          setAttachError(attached.error)
+          setCreating(false)
+          return
+        }
+      }
+      router.push(`/chat/${created.threadId}`)
     } catch (err) {
-      if (isRedirectError(err)) return
       setError(err instanceof Error ? err.message : "Failed to create audit")
       setCreating(false)
     }
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen px-4">
+    <div className="flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-xl space-y-6">
         {pendingFileName && (
           <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm">
@@ -60,6 +79,19 @@ function NewAuditContent() {
         )}
         <DealTypeSelector value={dealType} onChange={setDealType} />
         {error && <p className="text-sm text-destructive">{error}</p>}
+        {attachError && createdThreadId && (
+          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] leading-relaxed text-red-800">
+            <p>{attachError}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button size="sm" onClick={() => router.push("/billing")}>
+                Buy credits
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => router.push(`/chat/${createdThreadId}`)}>
+                Continue to thread and paste the text
+              </Button>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" onClick={() => router.push("/dashboard")}>Cancel</Button>
@@ -78,7 +110,7 @@ export default function NewAuditPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center justify-center px-4 py-10">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
           </div>

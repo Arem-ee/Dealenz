@@ -45,11 +45,10 @@ export function PurchaseSection() {
       <div className="grid gap-3 sm:grid-cols-3">
         {CREDIT_PACKAGES.filter((p) => p.active).map((pkg) => (
           <div key={pkg.id} className="rounded-xl border border-border/60 bg-card p-4 shadow-sm">
-            <p className="text-sm font-medium capitalize">{pkg.id}</p>
+            <p className="text-sm font-medium">{pkg.credits} credits</p>
             <p className="mt-1 text-2xl font-bold">
-              {pkg.credits} <span className="text-sm font-normal text-muted-foreground">credits</span>
+              {formatPrice(pkg.prices[currency], currency)}
             </p>
-            <p className="mt-1 text-sm font-medium">{formatPrice(pkg.prices[currency], currency)}</p>
             <p className="mt-1 text-xs text-muted-foreground">{pkg.description}</p>
             <Button onClick={() => handleBuy(pkg.id)} disabled={loading !== null} className="mt-4 w-full" size="sm">
               {loading === pkg.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}

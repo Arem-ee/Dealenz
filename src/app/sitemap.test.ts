@@ -16,6 +16,14 @@ describe("sitemap", () => {
     }
     expect(urls.some((u) => u.endsWith("/login"))).toBe(true)
     expect(urls.some((u) => u.endsWith("/lawyer-application"))).toBe(true)
-    expect(urls.some((u) => u.endsWith("/lawyer-application/status"))).toBe(true)
+    expect(urls.some((u) => u.endsWith("/help"))).toBe(true)
+    // Auth-gated status page must never be advertised to crawlers.
+    expect(urls.some((u) => u.includes("/lawyer-application/status"))).toBe(false)
+  })
+
+  it("uses one canonical base for every entry", () => {
+    const entries = sitemap()
+    const bases = new Set(entries.map((e) => new URL(e.url).origin))
+    expect(bases.size).toBe(1)
   })
 })

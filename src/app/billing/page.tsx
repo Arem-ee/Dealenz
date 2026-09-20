@@ -6,7 +6,15 @@ import { ReferralSection } from "@/components/referral-section"
 import { PurchaseSection } from "@/components/billing/purchase-section"
 import { formatPrice, type Currency } from "@/lib/billing/catalog"
 import { rateLimitFor } from "@/lib/rate-limit"
-import { CREDIT_PRICE_BRIEF, CREDIT_PRICE_STANDARD, CREDIT_PRICE_EXTENDED } from "@/lib/credits/pricing"
+import {
+  CREDIT_PRICE_BRIEF,
+  CREDIT_PRICE_STANDARD,
+  CREDIT_PRICE_EXTENDED,
+  DOCUMENT_CREDIT_COSTS,
+  UPLOAD_CREDITS,
+  SIGNATURE_SEND_CREDITS,
+  LAWYER_REQUEST_CREDITS,
+} from "@/lib/credits/pricing"
 
 interface PurchaseRow {
   id: string
@@ -130,7 +138,7 @@ export default async function BillingPage({
               </div>
             </div>
             <span className="rounded-md bg-primary/10 text-primary px-2.5 py-1 text-xs font-medium">
-              Active
+              Free
             </span>
           </div>
 
@@ -149,17 +157,29 @@ export default async function BillingPage({
           <div className="flex items-center gap-3">
             <CreditCard className="h-5 w-5 text-muted-foreground" />
             <div>
-              <p className="text-sm font-medium">Ask credits {creditBalance !== null ? `— ${creditBalance} available` : ""}</p>
+              <p className="text-sm font-medium">What credits pay for {creditBalance !== null ? `— ${creditBalance} available` : ""}</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Purchased credits for Ask conversations only — brief {CREDIT_PRICE_BRIEF}, standard {CREDIT_PRICE_STANDARD}, extended {CREDIT_PRICE_EXTENDED}. Greetings cost 0. Free daily analyses above never consume credits.
+                Credits pay for deal outcomes across all deal types — never for a favorable answer. Greetings cost 0, and the free daily analyses above never consume credits.
               </p>
             </div>
           </div>
+          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 border-t border-border/60 pt-4 text-xs sm:grid-cols-3">
+            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Ask, brief</dt><dd className="font-medium tabular-nums" data-numeric>{CREDIT_PRICE_BRIEF}</dd></div>
+            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Ask, standard</dt><dd className="font-medium tabular-nums" data-numeric>{CREDIT_PRICE_STANDARD}</dd></div>
+            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Ask, extended</dt><dd className="font-medium tabular-nums" data-numeric>{CREDIT_PRICE_EXTENDED}</dd></div>
+            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Proposal</dt><dd className="font-medium tabular-nums" data-numeric>{DOCUMENT_CREDIT_COSTS.proposal}</dd></div>
+            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Scope of work</dt><dd className="font-medium tabular-nums" data-numeric>{DOCUMENT_CREDIT_COSTS.sow}</dd></div>
+            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Contract</dt><dd className="font-medium tabular-nums" data-numeric>{DOCUMENT_CREDIT_COSTS.contract}</dd></div>
+            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Checklist</dt><dd className="font-medium tabular-nums" data-numeric>{DOCUMENT_CREDIT_COSTS.checklist}</dd></div>
+            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Document upload</dt><dd className="font-medium tabular-nums" data-numeric>{UPLOAD_CREDITS}</dd></div>
+            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Signature send</dt><dd className="font-medium tabular-nums" data-numeric>{SIGNATURE_SEND_CREDITS}</dd></div>
+            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Lawyer request</dt><dd className="font-medium tabular-nums" data-numeric>{LAWYER_REQUEST_CREDITS}</dd></div>
+          </dl>
         </div>
 
         <ReferralSection />
 
-        <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm">
+        <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm" id="buy-credits">
           <PurchaseSection />
         </div>
 
@@ -178,7 +198,12 @@ export default async function BillingPage({
         <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm">
           <p className="text-sm font-medium">Purchase history</p>
           {purchases.length === 0 ? (
-            <p className="mt-1 text-xs text-muted-foreground">No purchases yet. Completed purchases appear here once settlement is verified.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              No purchases yet. Completed purchases appear here once settlement is verified.{" "}
+              <a href="#buy-credits" className="font-medium text-primary hover:underline">
+                Buy credits above
+              </a>
+            </p>
           ) : (
             <ul className="mt-3 space-y-2">
               {purchases.map((p) => {

@@ -1,7 +1,6 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
 import { seedEnvelopeForDealType } from "@/lib/context"
 import { normalizeDealType } from "@/lib/deal-type"
 
@@ -55,6 +54,8 @@ export async function createAudit(dealTypeInput?: string) {
   }
 
   // Chat-first: a new deal opens as a thread, not the old workspace view.
+  // Returns ids instead of redirecting so the caller can attach a staged
+  // file to the new audit before navigating.
   const { createConversation } = await import("@/lib/conversation/store")
   const conv = await createConversation(supabase as never, user.id, {
     firstText: "New Deal",
@@ -63,5 +64,5 @@ export async function createAudit(dealTypeInput?: string) {
   if (!conv) {
     throw new Error("Deal created, but we couldn't open its chat. Please try again from Home.")
   }
-  redirect(`/chat/${conv.id}`)
+  return { auditId: data.id, threadId: conv.id }
 }

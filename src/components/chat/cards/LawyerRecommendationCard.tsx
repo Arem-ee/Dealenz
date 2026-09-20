@@ -20,9 +20,13 @@ export function LawyerRecommendationCard({ payload }: { payload: Record<string, 
           <p className="mt-1 text-xs text-muted-foreground">This is a recommendation, not a requirement. Many deals close without a lawyer, but this one has stakes that are hard to undo and an exposure that a review could clarify.</p>
         </div>
       </div>
-      {auditId && (
+      {auditId ? (
         <Button asChild size="sm" className="mt-3">
           <Link href={href}>Open case file</Link>
+        </Button>
+      ) : (
+        <Button asChild size="sm" variant="outline" className="mt-3">
+          <Link href="/dashboard">Continue in your dashboard</Link>
         </Button>
       )}
     </div>

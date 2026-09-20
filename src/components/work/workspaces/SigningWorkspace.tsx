@@ -60,7 +60,16 @@ export function SigningWorkspace({ data, auditId }: {
         {data.versions.length > 0 ? (
           <DocVersionList versions={data.versions} previewChars={160} />
         ) : (
-          <p className="text-xs text-muted-foreground">No document versions yet.</p>
+          <p className="text-xs text-muted-foreground">
+            No document versions yet.{" "}
+            {auditId ? (
+              <Link href={`/document/${auditId}`} className="font-medium text-primary hover:underline">
+                Open the document to generate one
+              </Link>
+            ) : (
+              "Generate a draft in chat first."
+            )}
+          </p>
         )}
       </Section>
       {data.signingEvents.length > 0 && (

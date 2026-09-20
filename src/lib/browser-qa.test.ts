@@ -20,7 +20,7 @@ describe("invalid-link surfaces", () => {
 
 describe("landing pricing honesty", () => {
   const source = readFileSync(
-    join(process.cwd(), "src/components/landing/landing-pricing.tsx"),
+    join(process.cwd(), "src/app/page.tsx"),
     "utf8"
   )
 
@@ -29,8 +29,10 @@ describe("landing pricing honesty", () => {
     expect(source).not.toContain("price]")
   })
 
-  it("links only to routes that exist", () => {
+  it("routes product CTAs through registration, never dead or gated routes", () => {
     expect(source).not.toContain('"/contact"')
+    expect(source).not.toContain('href="/audit/new"')
+    expect(source).not.toContain('href="/ask"')
     expect(source).toContain('"/register"')
   })
 
@@ -38,6 +40,12 @@ describe("landing pricing honesty", () => {
     expect(source).not.toMatch(/Higher daily analysis limit/)
     expect(source).not.toMatch(/Everything in Free, plus/)
     expect(source).not.toMatch(/For active professionals/)
+    expect(source).not.toMatch(/per month/)
+  })
+
+  it("scopes document generation to freelance and labels the mockup illustrative", () => {
+    expect(source).toContain("freelance analysis can produce")
+    expect(source).toContain("Illustrated example")
   })
 })
 

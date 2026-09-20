@@ -169,7 +169,7 @@ export function DocumentReader({
           <div className="rounded-xl border bg-card p-4">
             <h3 className="text-sm font-semibold flex items-center gap-2"><History className="h-4 w-4" /> Versions</h3>
             <div className="mt-3 space-y-1">
-              {versions.length === 0 && <p className="text-xs text-muted-foreground">No versions</p>}
+              {versions.length === 0 && <p className="text-xs text-muted-foreground">No versions — generate a draft in chat first.</p>}
               {versions.map((v) => (
                 <button
                   key={v.id}
@@ -225,6 +225,9 @@ export function DocumentReader({
                       <Send className="h-3.5 w-3.5 mr-1" /> Send to counterparty
                     </Button>
                   )}
+                  {ownerSigner?.status === "signed" && !counterpartySigner && (
+                    <p className="text-[11px] text-muted-foreground">You have signed. Add a counterparty above to send it for signature.</p>
+                  )}
                   {!ownerSigner && signers.length === 0 && (
                     <p className="text-[11px] text-muted-foreground">Add a counterparty, then sign as owner first — then it will be sent to the counterparty.</p>
                   )}
@@ -239,7 +242,7 @@ export function DocumentReader({
             <h4 className="text-xs font-semibold">Notifications</h4>
             <p className="mt-1 text-xs text-muted-foreground">Both parties are notified on send and on each signature. When fully executed, the final version is locked.</p>
             <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" /> {executed ? "Completed" : signers.some((s) => s.status === "pending") ? "Pending signatures" : "Not sent"}
+              <Clock className="h-3.5 w-3.5" /> {executed ? "Completed" : signers.length > 0 && signers.every((s) => s.status === "signed") ? "Signatures complete — locking" : signers.some((s) => s.status === "pending") ? "Pending signatures" : "Not sent"}
             </div>
           </div>
         </div>

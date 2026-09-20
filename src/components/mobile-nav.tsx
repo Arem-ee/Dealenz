@@ -44,7 +44,7 @@ export function MobileNav({ isLawyer = false }: { isLawyer?: boolean }) {
           )
         })}
         <Link
-          href="/dashboard"
+          href="/chat"
           aria-label="New chat"
           className="flex items-center justify-center h-10 w-10 rounded-full bg-primary text-primary-foreground shadow-raised -mt-5 hover:bg-primary/90 transition-colors"
         >

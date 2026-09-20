@@ -74,7 +74,9 @@ export function WorkspaceView({ mode, data, auditId, dealType, riskLevel, overal
           gmailConnected={data.gmailConnected}
           onChanged={onChanged}
         />
-      ) : null
+      ) : (
+        <p className="text-xs text-muted-foreground">Monitoring needs a deal attached. Analyze a deal first, then track its deadlines here.</p>
+      )
     default:
       return null
   }

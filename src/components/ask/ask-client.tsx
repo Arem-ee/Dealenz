@@ -17,7 +17,7 @@ import {
   type ConversationSummary,
 } from "@/app/ask/actions"
 import { classifyOperation, isGreeting } from "@/lib/conversation/classify"
-import { priceForOperation } from "@/lib/credits/pricing"
+import { CREDIT_PRICE_BRIEF, CREDIT_PRICE_EXTENDED, CREDIT_PRICE_STANDARD, priceForOperation } from "@/lib/credits/pricing"
 import type { ConversationResponse, HistoryTurn } from "@/lib/conversation/request"
 import type { Evidence } from "@/lib/evidence/schema"
 import { EvidenceLine } from "@/components/evidence/evidence-line"
@@ -272,7 +272,7 @@ export function AskClient({
           New conversation
         </Button>
         <div className="flex-1 space-y-1 overflow-y-auto">
-          {conversations.length === 0 && <p className="py-4 text-center text-xs text-muted-foreground">No conversations yet</p>}
+          {conversations.length === 0 && <p className="py-4 text-center text-xs text-muted-foreground">No conversations yet — type below to start</p>}
           {conversations.map((c) => (
             <button
               key={c.id}
@@ -370,7 +370,7 @@ export function AskClient({
                 )}
                 {m.legalCitations && m.legalCitations.length > 0 && (
                   <div className="mt-2 border-t border-border/60 pt-2 text-xs">
-                    <p className="font-medium text-foreground">Legal sources — {m.researchState ?? "VERIFIED"}</p>
+                    <p className="font-medium text-foreground">Legal sources — {m.researchState ?? "status unknown"}</p>
                     {m.legalCitations.slice(0, 3).map((c) => (
                       <div key={`${c.title}-${c.section}`} className="mt-1 text-xs">
                         <LegalCitationLine citation={c} />
@@ -439,7 +439,7 @@ export function AskClient({
               <>Estimated cost: {estimate} credit{estimate === 1 ? "" : "s"}. </>
             )
           ) : null}
-          Answers cost credits by operation size. <Link href="/billing" className="underline">Billing</Link>
+          Answers cost {CREDIT_PRICE_BRIEF}/{CREDIT_PRICE_STANDARD}/{CREDIT_PRICE_EXTENDED} credits by size (brief/standard/extended). <Link href="/billing" className="underline">Billing</Link>
         </p>
         {viewer ? (
           <DocumentViewerModal

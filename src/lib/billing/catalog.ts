@@ -25,21 +25,21 @@ export const CREDIT_PACKAGES: CreditPackage[] = [
     credits: 50,
     prices: { USD: 1900, GBP: 1500, EUR: 1800 },
     active: true,
-    description: "Starter — 50 credits",
+    description: "50 credits, one-time top-up",
   },
   {
     id: "standard",
     credits: 150,
     prices: { USD: 4900, GBP: 3900, EUR: 4900 },
     active: true,
-    description: "Standard — 150 credits",
+    description: "150 credits, one-time top-up",
   },
   {
     id: "pro",
     credits: 400,
     prices: { USD: 9900, GBP: 7900, EUR: 9900 },
     active: true,
-    description: "Pro — 400 credits",
+    description: "400 credits, one-time top-up",
   },
 ]
 

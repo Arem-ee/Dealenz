@@ -258,9 +258,10 @@ function HeroMockup() {
         </div>
         <div className="flex items-center gap-3 rounded-2xl border border-black/[0.06] bg-[#FAFAF8] px-4 py-3.5">
           <Scale className="h-4 w-4 text-[var(--burgundy)]" />
-          <p className="text-[12px] font-medium">Lawyer review available in the same workspace</p>
+          <p className="text-[12px] font-medium">Request lawyer review without leaving the workspace</p>
         </div>
       </div>
+      <p className="mt-3 text-center text-[11px] text-black/40">Illustrated example. Your report will reflect your deal.</p>
     </div>
   )
 }
@@ -307,7 +308,7 @@ const processSteps = [
   },
   {
     title: "Sign and stay guarded",
-    body: "Both sides sign in the same workspace, and what was agreed — renewals, deadlines, obligations — stays guarded afterwards with email alerts before it matters.",
+    body: "Both sides sign in the same workspace. Track what was agreed — renewals, deadlines, obligations — in monitoring, with email alerts before it matters.",
   },
 ]
 
@@ -328,7 +329,7 @@ const documentCards = [
 const pricingFree = [
   "Five analyses per day.",
   "10 free credits on signup.",
-  "All four document types.",
+  "All four document types on freelance deals.",
   "Client portal and signing.",
   "Activity timeline.",
 ]
@@ -336,7 +337,8 @@ const pricingFree = [
 const pricingCredits = [
   "Free daily analyses included.",
   "Ask credits for deeper conversations.",
-  "Buy packs inside the app when you need them.",
+  "Fixed prices per outcome — a proposal costs 25 credits, a contract 45.",
+  "Top-up packs from $19 for 50 credits, inside the app when you need them.",
 ]
 
 const faqs = [
@@ -346,7 +348,7 @@ const faqs = [
   },
   {
     q: "Is this a replacement for a lawyer?",
-    a: "No. Dealenz helps you catch problems before they become legal problems. For high value contracts or anything complex, have a lawyer review the final document. For deals where the stakes call for it, Dealenz can bring a real, verified lawyer into the same workspace.",
+    a: "No. Dealenz helps you catch problems before they become legal problems. For high value contracts or anything complex, have a lawyer review the final document. For deals where the stakes call for it, you can request a review from a verified lawyer without leaving the workspace.",
   },
   {
     q: "How does Dealenz check its own work?",
@@ -354,7 +356,7 @@ const faqs = [
   },
   {
     q: "What do I leave with?",
-    a: "More than a report. Every analysis can produce the documents you need: a proposal, a scope of work, a contract, or a deliverables checklist — plus the exact words to push back on unfair terms. Something to send, not just something to worry about.",
+    a: "More than a report. Every freelance analysis can produce the documents you need: a proposal, a scope of work, a contract, or a deliverables checklist — plus the exact words to push back on unfair terms. Something to send, not just something to worry about.",
   },
   {
     q: "Can the other side sign here too?",
@@ -362,7 +364,7 @@ const faqs = [
   },
   {
     q: "What happens after I sign?",
-    a: "Dealenz keeps watching what was agreed: renewal dates, notice windows, payment obligations, and material deadlines — and emails you before they matter, so nothing auto-renews or lapses unnoticed.",
+    a: "Dealenz can track what was agreed in monitoring: renewal dates, notice windows, payment obligations, and material deadlines — with email alerts before they matter, so nothing auto-renews or lapses unnoticed.",
   },
   {
     q: "Who can see my deals?",
@@ -381,11 +383,11 @@ const howItWorks = [
   },
   {
     title: "Dealenz is not a law firm.",
-    body: "Nothing Dealenz produces is legal advice, and we say that plainly instead of burying it in fine print. For deals where the stakes are high enough to need one, Dealenz can bring a real, verified lawyer into the conversation. AI gets you most of the way there. A person should make the final call when it matters.",
+    body: "Nothing Dealenz produces is legal advice, and we say that plainly instead of burying it in fine print. For deals where the stakes are high enough to need one, you can request a review from a verified lawyer without leaving the conversation. AI gets you most of the way there. A person should make the final call when it matters.",
   },
   {
     title: "You leave with something real, not just an opinion.",
-    body: "A risk report on its own doesn't protect you. Every Dealenz analysis can produce the actual documents you need. A proposal, a scope of work, a contract, a deliverables checklist, whatever the situation calls for, so you have something to actually send, not just something to worry about.",
+    body: "A risk report on its own doesn't protect you. Every freelance analysis can produce the actual documents you need. A proposal, a scope of work, a contract, a deliverables checklist, whatever the situation calls for, so you have something to actually send, not just something to worry about.",
   },
   {
     title: "Built for the deal in front of you, not a category of user.",
@@ -652,7 +654,7 @@ export default function Home() {
                 <Eyebrow>Ongoing</Eyebrow>
                 <h3 className="mt-3 text-[20px] font-semibold tracking-[-0.02em]">Stay guarded</h3>
                 <p className="mt-2 text-[14px] leading-relaxed text-black/60">
-                  Renewals, notice windows, and payment obligations are watched after
+                  Track renewals, notice windows, and payment obligations in monitoring after
                   signing, with an email before anything auto-renews or lapses.
                 </p>
               </div>
@@ -668,7 +670,7 @@ export default function Home() {
                 Leave with something to send
               </h2>
               <p className="mt-3 text-[15px] leading-relaxed text-black/60">
-                A risk report on its own does not protect you. Every analysis can produce the
+                A risk report on its own does not protect you. Every freelance analysis can produce the
                 actual documents the situation calls for.
               </p>
             </div>
@@ -764,7 +766,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="border-t border-black/[0.06] bg-white">
+        <section id="how-it-works" className="border-t border-black/[0.06] bg-white">
           <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
             <div className="max-w-2xl">
               <Eyebrow>How Dealenz actually works</Eyebrow>
@@ -825,27 +827,22 @@ export default function Home() {
               </p>
               <ul className="mt-4 space-y-2.5 text-[13px]">
                 <li>
-                  <a href="#how-it-works" className="text-white/70 transition-colors hover:text-white">
+                  <Link href="/#how-it-works" className="text-white/70 transition-colors hover:text-white">
                     How it works
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#pricing" className="text-white/70 transition-colors hover:text-white">
+                  <Link href="/#pricing" className="text-white/70 transition-colors hover:text-white">
                     Pricing
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <Link href="/audit/new" className="text-white/70 transition-colors hover:text-white">
+                  <Link href="/register" className="text-white/70 transition-colors hover:text-white">
                     Analyze your deal
                   </Link>
                 </li>
                 <li>
-                  <Link href="/ask" className="text-white/70 transition-colors hover:text-white">
-                    Ask
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/lawyer-application" className="text-white/70 transition-colors hover:text-white">
+                  <Link href="/register" className="text-white/70 transition-colors hover:text-white">
                     Lawyer review
                   </Link>
                 </li>

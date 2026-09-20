@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2 } from "lucide-react"
+import { Loader2, Eye, EyeOff } from "lucide-react"
 import { FcGoogle } from "react-icons/fc"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -47,6 +47,7 @@ export default function RegisterPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -75,8 +76,8 @@ export default function RegisterPage() {
     } catch (err) {
       const raw = err instanceof Error ? err.message : "unknown"
       if (raw.toLowerCase().includes("already registered") || raw.toLowerCase().includes("already exists") || raw.toLowerCase().includes("user already")) {
-        router.push("/dashboard?verify=true")
-        router.refresh()
+        setError("EXISTS:An account with this email already exists.")
+        logAuthFailure(raw, "register")
         return
       }
       setError("We couldn't create your account. Please try again.")
@@ -140,21 +141,29 @@ export default function RegisterPage() {
                 className="mt-1.5 h-11 rounded-xl border-black/10 bg-white px-4 text-[14px]"
               />
             </div>
-            <div>
+            <div className="relative">
               <Label htmlFor="password" className="text-[12px] font-medium">
                 Password
               </Label>
               <Input
                 id="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder=""
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="new-password"
                 minLength={8}
-                className="mt-1.5 h-11 rounded-xl border-black/10 bg-white px-4 text-[14px]"
+                className="mt-1.5 h-11 rounded-xl border-black/10 bg-white px-4 pr-11 text-[14px]"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-3 top-[38px] text-black/40 hover:text-black"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
               <p className="mt-1.5 text-[11px] text-black/40">At least 8 characters.</p>
             </div>
             <Button type="submit" disabled={loading} className="h-11 w-full rounded-full bg-[#1C1917] text-white text-[14px] font-medium hover:bg-black">
@@ -165,7 +174,16 @@ export default function RegisterPage() {
 
           {error && (
             <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-[13px] leading-relaxed text-red-800">
-              {error}
+              {error.startsWith("EXISTS:") ? (
+                <>
+                  {error.slice("EXISTS:".length)}{" "}
+                  <Link href="/login" className="font-medium underline decoration-red-800/30 underline-offset-4 hover:decoration-red-800/60">
+                    Sign in instead
+                  </Link>
+                </>
+              ) : (
+                error
+              )}
             </p>
           )}
 

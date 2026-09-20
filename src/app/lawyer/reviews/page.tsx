@@ -57,7 +57,7 @@ export default async function LawyerReviewsPage({ searchParams }: PageProps) {
       {reviews.length === 0 ? (
         <div className="mt-6 rounded-xl border border-border/60 bg-card p-8 text-center">
           <p className="text-sm font-medium">No assigned reviews</p>
-          <p className="mt-1 text-xs text-muted-foreground">New assignments from Dealenz clients will appear here.</p>
+          <p className="mt-1 text-xs text-muted-foreground">New assignments from Dealenz clients will appear here. There is nothing to apply for — assignment is automatic.</p>
         </div>
       ) : (
         <ul className="mt-6 space-y-3">

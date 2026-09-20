@@ -115,7 +115,7 @@ export default async function LawyerReviewDetailPage({ params }: PageProps) {
 
       <section className="rounded-xl border border-border/60 bg-card p-5 space-y-4">
         <h2 className="text-sm font-semibold">Document versions ({versions.length})</h2>
-        {versions.length === 0 && <p className="text-xs text-muted-foreground">No documents yet.</p>}
+        {versions.length === 0 && <p className="text-xs text-muted-foreground">No documents yet — the client adds them.</p>}
         {versions.slice(0, 5).map((v) => (
           <details key={String(v.id)}>
             <summary className="text-xs font-medium cursor-pointer">
@@ -152,7 +152,7 @@ export default async function LawyerReviewDetailPage({ params }: PageProps) {
       <section className="rounded-xl border border-border/60 bg-card p-5">
         <h2 className="text-sm font-semibold">Activity</h2>
         {activity.length === 0 ? (
-          <p className="mt-1 text-xs text-muted-foreground">No activity yet on this review.</p>
+          <p className="mt-1 text-xs text-muted-foreground">No activity yet — updates from the client and admin appear here.</p>
         ) : (
           <ul className="mt-2 space-y-1.5">
             {activity.map((e) => (

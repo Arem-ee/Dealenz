@@ -535,14 +535,14 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
 
   const conversation = (
     <>
-      {dealMeta && (dealMeta.dealType || dealMeta.jurisdiction) && (
+      {(dealMeta || (auditId && dealInput !== null)) && (
         <div className="mx-auto w-full max-w-3xl px-4 pt-3 flex flex-wrap items-center gap-2">
-          {dealMeta.dealType && (
+          {dealMeta?.dealType && (
             <span className="inline-flex items-center gap-1 rounded-full border bg-muted px-2.5 py-1 text-xs">
               Deal type: <span className="font-medium capitalize">{dealMeta.dealType.replace("_", " ")}</span>
             </span>
           )}
-          {dealMeta.jurisdiction && (
+          {dealMeta?.jurisdiction && (
             <span className="inline-flex items-center gap-1 rounded-full border bg-muted px-2.5 py-1 text-xs">
               Jurisdiction: <span className="font-medium">{dealMeta.jurisdiction}</span>
             </span>

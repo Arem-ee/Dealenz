@@ -182,7 +182,9 @@ export function DocumentDraftCard({ payload, onGenerate }: DocumentDraftCardProp
               <Link href={threadId ? `/document/${auditId}?threadId=${threadId}` : `/document/${auditId}`}>Open full draft</Link>
             </Button>
           ) : (
-            <span className="text-xs text-muted-foreground">Open in document view</span>
+            <Button asChild size="sm" variant="outline">
+              <Link href="/dashboard">Continue in your dashboard</Link>
+            </Button>
           )}
         </div>
       </div>
@@ -203,7 +205,9 @@ export function DocumentDraftCard({ payload, onGenerate }: DocumentDraftCardProp
             <Link href={threadId ? `/document/${auditId}?threadId=${threadId}` : `/document/${auditId}`}>Open</Link>
           </Button>
         ) : (
-          <span className="text-xs text-muted-foreground">Open in document view</span>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/dashboard">Continue in your dashboard</Link>
+          </Button>
         )}
       </div>
     </div>

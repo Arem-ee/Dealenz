@@ -52,7 +52,7 @@ export default async function LawyerWorkspacePage() {
       <section className="rounded-xl border border-border/60 bg-card p-5">
         <h2 className="text-sm font-semibold">Needs your action</h2>
         {overview.actionItems.length === 0 ? (
-          <p className="mt-1 text-xs text-muted-foreground">Nothing waiting on you right now.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Nothing waiting on you right now. New client requests land in <Link href="/lawyer/reviews" className="font-medium text-primary hover:underline">Reviews</Link>.</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {overview.actionItems.map((item) => (
@@ -78,7 +78,7 @@ export default async function LawyerWorkspacePage() {
           </Link>
         </div>
         {overview.recentActivity.length === 0 ? (
-          <p className="mt-1 text-xs text-muted-foreground">No recent activity on your reviews.</p>
+          <p className="mt-1 text-xs text-muted-foreground">No recent activity on your reviews. Updates from your assigned reviews will show here.</p>
         ) : (
           <ul className="mt-3 space-y-1.5">
             {overview.recentActivity.slice(0, 10).map((e) => (
