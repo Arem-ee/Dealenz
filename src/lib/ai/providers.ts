@@ -11,8 +11,10 @@ import type { ProviderResult, TokenUsage } from "./operations"
 
 export type AIProviderName = "gemini" | "openai_compatible" | "anthropic"
 
-// Product surface. Authenticated Deal Intelligence uses Claude Sonnet 5 with
-// an Opus 5 fallback. Every domain call declares its surface explicitly.
+// Product surface. Authenticated Deal Intelligence resolves its provider and
+// model from AUTH_AI_* env (openai_compatible for OpenRouter, anthropic for
+// direct Anthropic, gemini for Google). Every domain call declares its surface
+// explicitly.
 export type AISurface = "authenticated"
 
 export interface CallAIParams {
@@ -66,11 +68,6 @@ function resolveAuthModel(): string {
 function resolveAuthFallbackModel(): string {
   // Fallback only on retryable provider failures (timeout/network/rate_limit/provider) — rarely hit, keep Opus for resilience.
   return process.env.AUTH_AI_FALLBACK_MODEL ?? "claude-opus-5"
-}
-
-function resolveLightweightModel(): string {
-  // Trivial tasks only — greeting/input classification/routing (deterministic today, Haiku if ever needed for LLM lightweight)
-  return process.env.LIGHTWEIGHT_AI_MODEL ?? "claude-haiku-4-5"
 }
 
 export interface ResolvedSurfaceConfig {

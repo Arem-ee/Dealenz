@@ -463,8 +463,7 @@ describe("00071 step consumption RPC (static)", () => {
   })
 })
 
-describe("00072 signup grant (static)", () => {
-  const grant = code(sql("00072_signup_grant.sql"))
+describe("00072 signup grant (static)", () => {  const grant = code(sql("00072_signup_grant.sql"))
 
   it("grants the free-signup balance exactly once per new user", () => {
     expect(grant).toMatch(/CREATE OR REPLACE FUNCTION grant_signup_credits/)
@@ -479,5 +478,17 @@ describe("00072 signup grant (static)", () => {
     expect(grant).toMatch(/SECURITY DEFINER/)
     expect(grant).toMatch(/SET search_path = public/)
     expect(grant).toMatch(/DROP TRIGGER IF EXISTS trg_grant_signup_credits ON auth\.users/)
+  })
+})
+
+describe("00073 system_logs service read (static)", () => {
+  const read = code(sql("00073_system_logs_service_read.sql"))
+
+  it("grants read-only service access and nothing else", () => {
+    expect(read).toMatch(/GRANT SELECT ON public\.system_logs TO service_role/)
+    expect(read).not.toMatch(/GRANT (ALL|INSERT|UPDATE|DELETE)/i)
+    expect(read).not.toMatch(/CREATE POLICY/)
+    expect(read).not.toMatch(/ALTER TABLE/)
+    expect(read).not.toMatch(/FORCE/)
   })
 })

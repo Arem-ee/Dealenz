@@ -1,0 +1,11 @@
+-- Observability repair: let the service role read system_logs.
+--
+-- 00055 granted failure-reporting INSERTs, but /api/health's AI-degradation
+-- check (getFallbackSpike) and any ops diagnostics SELECT through the service
+-- role. Without this grant every read fails with 42501 and health reports
+-- "unknown" forever — which is how a full provider outage stayed invisible.
+-- Read-only, service_role only. No RLS change (service role bypasses RLS;
+-- no FORCE RLS is set on this table), no new policies, no schema change.
+--
+-- Forward-only. Safe re-run.
+GRANT SELECT ON public.system_logs TO service_role;

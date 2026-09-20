@@ -25,18 +25,17 @@ Do not commit real values. All values below are names only.
 |---|---|---|
 | `AI_PROVIDER` | Literal: `openai_compatible`, `gemini`, or `anthropic` | Controls `src/lib/ai/providers.ts` routing for legacy/shared paths; authenticated intelligence uses `AUTH_AI_*` |
 | `AI_API_KEY` | Provider dashboard (OpenAI-compatible / NVIDIA `nvapi-` / Gemini) | Server-only. Falls back to `GEMINI_API_KEY` if not set, but set the canonical name. |
-| `AI_BASE_URL` | Provider docs (e.g. `https://integrate.api.nvidia.com/v1` or `https://generativelanguage.googleapis.com/v1beta`) | Server-only |
+| `AI_BASE_URL` | Provider docs (OpenRouter: `https://openrouter.ai/api/v1`; NVIDIA: `https://integrate.api.nvidia.com/v1`; Gemini: `https://generativelanguage.googleapis.com/v1beta`) | Server-only |
 | `AI_MODEL` | Provider model catalog | Server-only |
 
-### AI — authenticated Deal Intelligence (Sonnet live, 2026-09-18)
+### AI — authenticated Deal Intelligence (OpenRouter live)
 
 | Variable | Where to obtain | Notes |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Anthropic Console → API Keys | Server-only. Required when `AUTH_AI_PROVIDER` is `anthropic` (default). |
-| `AUTH_AI_PROVIDER` | Literal: `anthropic` | Default `anthropic`. Controls `src/lib/ai/providers.ts:54` `resolveAuthProvider()` |
-| `AUTH_AI_MODEL` | Anthropic model ID | Default `claude-sonnet-5` (`src/lib/ai/providers.ts:62`, `src/lib/ai/providers/anthropic.ts:40`). Live for extraction/risk/generation. Previous `claude-opus-5` retired from primary. |
-| `AUTH_AI_FALLBACK_MODEL` | Anthropic model ID | Default `claude-opus-5` (`src/lib/ai/providers.ts:66`) — only on retryable provider failures (timeout/network/rate_limit/provider/malformed). Rarely hit. |
-| `LIGHTWEIGHT_AI_MODEL` | Anthropic model ID | Default `claude-haiku-4-5` (`src/lib/ai/providers.ts:70`) — reserved for trivial LLM tasks only; current greeting/classification is deterministic (`src/lib/conversation/classify.ts:15` `isGreeting`, `src/lib/ai/operations.ts` fast-path) so Haiku is not invoked for substantive work. |
+| `ANTHROPIC_API_KEY` | Anthropic Console → API Keys | Server-only. Only needed when `AUTH_AI_PROVIDER` is `anthropic` (direct Anthropic). **Unused on OpenRouter — do not set one for OpenRouter.** |
+| `AUTH_AI_PROVIDER` | Literal: `openai_compatible` | Set `openai_compatible` to route authenticated calls through the OpenAI-compatible adapter (OpenRouter). Controls `src/lib/ai/providers.ts:54` `resolveAuthProvider()` |
+| `AUTH_AI_MODEL` | OpenRouter model catalog (`https://openrouter.ai/models`) | **Must be an exact OpenRouter `provider/model` id — verified live 2026-09-19, e.g. `anthropic/claude-sonnet-5`.** A retired/unknown id (e.g. `anthropic/claude-3.5-sonnet`, absent from OpenRouter) fails EVERY authenticated call with HTTP 404. No fallback exists on this path. |
+| `AUTH_AI_FALLBACK_MODEL` | OpenRouter model ID | Unused when provider is `openai_compatible` (no fallback on that path); only applies to direct Anthropic. Leave empty. |
 
 ### Paddle (software commerce — Merchant of Record)
 
