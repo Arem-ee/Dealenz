@@ -342,7 +342,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask a question or paste a deal..."
+            placeholder="Paste their contract or describe the deal…"
             rows={3}
             aria-label="Message Dealenz"
             className="w-full min-h-[72px] resize-none bg-transparent text-sm leading-relaxed placeholder:text-muted-foreground/60 outline-none"

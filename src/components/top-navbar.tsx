@@ -62,11 +62,11 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
         <button
           type="button"
           onClick={() => setSearchOpen(true)}
-          aria-label="Search threads"
+          aria-label="Search deals"
           className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
         >
           <Search className="h-4 w-4 shrink-0" />
-          <span className="hidden truncate lg:inline">Search threads</span>
+          <span className="hidden truncate lg:inline">Search deals</span>
           <kbd className="hidden shrink-0 rounded border border-border/60 bg-muted/60 px-1 text-[10px] font-medium sm:inline">⌘K</kbd>
         </button>
         <div className="min-w-0 flex-1" />
@@ -143,7 +143,7 @@ function ThreadSearch({ threads, onClose }: { threads: SidebarThread[]; onClose:
   }
 
   return (
-    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Search threads">
+    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Search deals">
       <button aria-label="Close search" className="absolute inset-0 cursor-default bg-black/40" onClick={onClose} />
       <div className="relative mx-auto mt-24 w-[calc(100%-2rem)] max-w-lg overflow-hidden rounded-xl border border-border bg-background shadow-xl">
         <input
@@ -154,8 +154,8 @@ function ThreadSearch({ threads, onClose }: { threads: SidebarThread[]; onClose:
             if (e.key === "Escape") onClose()
             if (e.key === "Enter" && results.length > 0) go(results[0].id)
           }}
-          placeholder="Search threads…"
-          aria-label="Search threads"
+          placeholder="Search deals…"
+          aria-label="Search deals"
           className="w-full border-b border-border/60 bg-transparent px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/60"
         />
         <div className="max-h-72 overflow-y-auto p-1.5">

@@ -11,6 +11,7 @@ interface ThreadItem {
   title: string
   auditId: string | null
   updatedAt: string
+  status?: string | null
 }
 
 function formatDate(date: string): string {
@@ -22,11 +23,23 @@ function formatDate(date: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
+function statusLabel(status: string | null | undefined): string | null {
+  if (!status) return null
+  const map: Record<string, string> = {
+    draft: "Draft",
+    in_progress: "In progress",
+    processing: "Analyzing",
+    analyzed: "Analyzed",
+    failed: "Needs attention",
+  }
+  return map[status] ?? null
+}
+
 /**
- * Composer-first Home: heading, composer, one understated Library link, then
- * recent activity (title + relative time, straight into each thread). No
- * action cards, no tours, no tooltips — the classifier routes whatever is
- * typed, and the UI stays out of its way.
+ * Deal-first Home: the loop promise up top, the composer, one understated
+ * Library link, then recent deals with their state. No action cards, no
+ * tours, no tooltips — the classifier routes whatever is typed, and the UI
+ * stays out of its way.
  */
 export function ChatLanding({ threads, loadError }: { threads: ThreadItem[]; loadError?: string | null }) {
   // Anonymous landing input waits here after signup/signin: prefill on every
@@ -41,8 +54,9 @@ export function ChatLanding({ threads, loadError }: { threads: ThreadItem[]; loa
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-4">
       <div className="shrink-0 pb-3 pt-4 sm:pt-5">
-        <h1 className="text-xl font-semibold tracking-tight">How can I help?</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Ask a question, paste a contract, or drop a file. I will route it correctly — no extra steps.</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--burgundy)]">Counterparty-side review</p>
+        <h1 className="mt-1.5 font-serif text-[28px] font-semibold leading-tight tracking-[-0.01em] sm:text-[32px]">Send us their contract.</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Get back what to push back on — in your words. Sign here. Stay guarded.</p>
         {loadError && (
           <div role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-xs text-destructive">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -70,19 +84,32 @@ export function ChatLanding({ threads, loadError }: { threads: ThreadItem[]; loa
       </div>
 
       {threads.length > 0 && (
-        <ul aria-label="Recent activity" className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-4">
-          {threads.map((t) => (
-            <li key={t.id}>
-              <Link
-                href={`/chat/${t.id}`}
-                className="flex items-baseline justify-between gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/60"
-              >
-                <span className="min-w-0 truncate font-medium">{t.title || "Untitled"}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">{formatDate(t.updatedAt)}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+          <h2 className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Recent deals</h2>
+          <ul aria-label="Recent deals" className="space-y-0.5">
+            {threads.map((t) => {
+              const state = statusLabel(t.status)
+              return (
+                <li key={t.id}>
+                  <Link
+                    href={`/chat/${t.id}`}
+                    className="flex items-baseline justify-between gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/60"
+                  >
+                    <span className="min-w-0 truncate font-medium">{t.title || "Untitled"}</span>
+                    <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                      {state && (
+                        <span className="rounded-full border border-border/60 bg-muted/50 px-1.5 py-px text-[10px] font-medium">
+                          {state}
+                        </span>
+                      )}
+                      {formatDate(t.updatedAt)}
+                    </span>
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       )}
     </div>
   )

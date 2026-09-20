@@ -299,7 +299,7 @@ async function generateDocumentAndPostInner(threadId: string, auditId: string, v
   return { ok: true }
 }
 
-export async function listThreads(): Promise<Array<{ id: string; title: string; auditId: string | null; updatedAt: string; preview?: string }>> {
+export async function listThreads(): Promise<Array<{ id: string; title: string; auditId: string | null; updatedAt: string; preview?: string; status?: string | null }>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
@@ -313,7 +313,7 @@ export async function listThreads(): Promise<Array<{ id: string; title: string; 
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false })
     .limit(50)
-  const auditMap = new Map(((audits ?? []) as Array<{ id: string; title: string; updated_at: string }>).map((a) => [a.id, a]))
+  const auditMap = new Map(((audits ?? []) as Array<{ id: string; title: string; status: string; updated_at: string }>).map((a) => [a.id, a]))
   // Build thread list from conversations; include audit title if attached
   const threads = convs.map((c) => {
     const audit = c.attached_audit_id ? auditMap.get(c.attached_audit_id) : null
@@ -322,6 +322,7 @@ export async function listThreads(): Promise<Array<{ id: string; title: string; 
       title: c.title || audit?.title || "Untitled",
       auditId: c.attached_audit_id ?? null,
       updatedAt: c.updated_at,
+      status: audit?.status ?? null,
     }
   })
   // Also include audits without a conversation as standalone threads (legacy).
@@ -334,7 +335,7 @@ export async function listThreads(): Promise<Array<{ id: string; title: string; 
     if (attachedIds.has(a.id)) continue
     if (isGreeting(a.title)) continue
     if (a.status === "draft" && (a.title === "New Deal" || a.title.trim().length === 0)) continue
-    threads.push({ id: a.id, title: a.title, auditId: a.id, updatedAt: a.updated_at })
+    threads.push({ id: a.id, title: a.title, auditId: a.id, updatedAt: a.updated_at, status: a.status })
   }
   threads.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
   return threads.slice(0, 30)

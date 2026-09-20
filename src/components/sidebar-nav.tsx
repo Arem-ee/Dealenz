@@ -2,13 +2,13 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { Logo } from "@/components/logo"
 import { cn } from "@/lib/utils"
 import { PRIMARY_NAV, SECONDARY_NAV, isActiveEntry } from "@/lib/nav"
 
 /**
- * Minimal desktop sidebar: logo plus Home/Library only. Account, credits,
- * and notifications live in the top navbar; threads live on Home (recent
+ * Minimal desktop sidebar: Home/Library only. Brand mark lives once in the
+ * top navbar (no duplicate home target here). Account, credits, and
+ * notifications live in the top navbar; threads live on Home (recent
  * activity) and in navbar search.
  */
 export function SidebarNav() {
@@ -16,11 +16,7 @@ export function SidebarNav() {
 
   return (
     <aside className="hidden md:flex md:flex-col w-56 border-r border-border/60 bg-background shrink-0 md:sticky md:top-14 md:h-[calc(100dvh-3.5rem)]">
-      <div className="flex h-14 items-center px-5 border-b border-border/60" aria-hidden="true">
-        <Logo />
-      </div>
-
-      <nav className="flex-1 flex flex-col gap-0.5 p-3 mt-1 min-h-0" aria-label="Primary">
+      <nav className="flex-1 flex flex-col gap-0.5 p-3 min-h-0" aria-label="Primary">
         <div className="shrink-0 space-y-0.5">
           {PRIMARY_NAV.map((item) => {
             const Icon = item.icon
