@@ -12,6 +12,7 @@ import { getThreadMessages } from "@/lib/chat/actions"
 import { createClient } from "@/lib/supabase/client"
 import { getOpenItemsFromConversation } from "@/lib/open-items"
 import { AlertCircle, ChevronDown, ChevronUp } from "lucide-react"
+import { PushbackWords } from "@/components/findings/pushback-words"
 import { PlanPreview } from "@/components/work/PlanPreview"
 import { ExecutionProgress } from "@/components/work/ExecutionProgress"
 import { WorkspaceHeader, type MonitoringSummary } from "./WorkspaceHeader"
@@ -65,7 +66,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   const [deliverables, setDeliverables] = useState<string[]>([])
   const [missingInputs, setMissingInputs] = useState<string[]>([])
   const [workspaceTick, setWorkspaceTick] = useState<number>(0)
-  const [openItems, setOpenItems] = useState<{ items: Array<{ id: string; title: string; severity: string; category: string; summary?: string; guidance?: string }>; counts: { total: number; critical: number; material: number; attention: number; informational: number } }>({ items: [], counts: { total: 0, critical: 0, material: 0, attention: 0, informational: 0 } })
+  const [openItems, setOpenItems] = useState<{ items: Array<{ id: string; title: string; severity: string; category: string; summary?: string; guidance?: string; pushback?: string }>; counts: { total: number; critical: number; material: number; attention: number; informational: number } }>({ items: [], counts: { total: 0, critical: 0, material: 0, attention: 0, informational: 0 } })
   const [openItemsExpanded, setOpenItemsExpanded] = useState(false)
   const [workPlan, setWorkPlan] = useState<PlanRow | null>(null)
   const [workSteps, setWorkSteps] = useState<PlanStepRow[]>([])
@@ -488,6 +489,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
       summary: typeof item.summary === "string" ? item.summary : "",
       whyItMatters: typeof item.whyItMatters === "string" ? item.whyItMatters : undefined,
       guidance: typeof item.guidance === "string" ? item.guidance : undefined,
+      pushback: typeof item.pushback === "string" ? item.pushback : undefined,
       evidence: Array.isArray(item.evidence) ? (item.evidence as WorkspaceFinding["evidence"]) : [],
     } as WorkspaceFinding
   })
@@ -600,6 +602,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{item.summary}</p>
                   {item.guidance && <p className="mt-1 text-xs text-blue-600">{item.guidance}</p>}
+                  {item.pushback && <PushbackWords words={item.pushback} compact />}
                 </div>
               </div>
             ))}

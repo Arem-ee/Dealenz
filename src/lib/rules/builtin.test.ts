@@ -73,4 +73,13 @@ describe("built-in rules", () => {
     crossBorder.context.fields.crossBorder = { value: true, source: "user_confirmed", confidence: 1 }
     expect(find(evaluateApplicableRules(crossBorder, "document_analysis", "freelance"))).toBe("FAIL")
   })
+
+  it("gives every guided builtin finding sendable pushback words", async () => {
+    const { BUILTIN_RULES } = await import("./builtin")
+    for (const rule of BUILTIN_RULES) {
+      if (!rule.finding.guidance) continue
+      expect(rule.finding.pushback, rule.ruleKey).toBeDefined()
+      expect(rule.finding.pushback!, rule.ruleKey).not.toContain("—")
+    }
+  })
 })

@@ -12,6 +12,7 @@ export interface WorkspaceFinding {
   summary: string
   whyItMatters?: string
   guidance?: string
+  pushback?: string
   evidence?: Evidence[]
 }
 
@@ -22,6 +23,7 @@ export interface OpenItem {
   category: string
   summary?: string
   guidance?: string
+  pushback?: string
 }
 
 export interface DocVersion {

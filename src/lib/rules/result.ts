@@ -23,6 +23,7 @@ export interface Finding {
   summary: string
   severity: FindingSeverity
   guidance?: string
+  pushback?: string
   authority: RuleAuthority
   // Supporting evidence references, attached post-evaluation by
   // attachEvidence (src/lib/evidence/collect.ts). Absent means none was
@@ -83,6 +84,7 @@ export function evaluateRule(rule: Rule, input: RuleInput): RuleResult {
         summary: rule.finding.summary,
         severity: rule.finding.severity,
         guidance: rule.finding.guidance,
+        pushback: rule.finding.pushback,
         authority: rule.authority,
       },
       reason: `Rule "${rule.ruleKey}" v${rule.version} fired.`,

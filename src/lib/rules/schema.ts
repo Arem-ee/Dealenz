@@ -109,6 +109,11 @@ export interface RuleFindingTemplate {
   severity: FindingSeverity
   // Optional user-facing next step. Never a legal conclusion.
   guidance?: string
+  // Optional exact words the user can send to the counterparty about this
+  // finding. Deterministic per rule (never AI-generated), first-person
+  // request language, never a legal conclusion. Absent means this finding
+  // has no sendable wording and the UI shows no pushback block.
+  pushback?: string
 }
 
 export interface Rule {
@@ -249,7 +254,7 @@ export function parseRule(raw: unknown): Rule {
   }
   if (typeof fireOn !== "boolean") throw new Error("Rule needs an explicit fireOn polarity")
   if (!isRecord(finding)) throw new Error("Rule needs a finding template")
-  const { summary, severity, guidance } = finding as Record<string, unknown>
+  const { summary, severity, guidance, pushback } = finding as Record<string, unknown>
   if (!shortText(summary, 500)) throw new Error("Rule finding needs a summary")
   if (!(FINDING_SEVERITIES as readonly string[]).includes(severity as string)) {
     throw new Error("Rule finding has an invalid severity")
@@ -259,6 +264,12 @@ export function parseRule(raw: unknown): Rule {
   }
   if (guidance !== undefined && (guidance as string).includes("—")) {
     throw new Error("Rule finding guidance must not contain em dashes")
+  }
+  if (pushback !== undefined && typeof pushback !== "string") {
+    throw new Error("Rule finding has an invalid pushback")
+  }
+  if (pushback !== undefined && (pushback as string).includes("—")) {
+    throw new Error("Rule finding pushback must not contain em dashes")
   }
   if ((summary as string).includes("—")) {
     throw new Error("Rule finding summary must not contain em dashes")
@@ -281,6 +292,7 @@ export function parseRule(raw: unknown): Rule {
       summary: (summary as string).trim(),
       severity: severity as FindingSeverity,
       guidance: (guidance as string | undefined)?.trim() || undefined,
+      pushback: (pushback as string | undefined)?.trim() || undefined,
     },
     authority: checkAuthority(authority),
   }

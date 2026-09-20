@@ -24,6 +24,7 @@ export function ReviewWorkspace({ data, dealType, riskLevel, overallScore, onAsk
       summary: f.summary,
       whyItMatters: f.whyItMatters,
       guidance: f.guidance,
+      pushback: f.pushback,
       evidence: f.evidence ?? [],
     })),
   }

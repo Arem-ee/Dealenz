@@ -29,6 +29,7 @@ export interface OpenItem {
   title: string
   summary: string
   guidance?: string
+  pushback?: string
   evidence?: { quote: string; observationKey: string }[]
   status: "open" | "resolved" // derived from finding status
 }
@@ -118,6 +119,7 @@ export function deriveOpenItems(results: RuleResult[]): OpenItemsResult {
         title: generateOpenItemTitle(finding, result.ruleKey),
         summary: finding.summary,
         guidance: finding.guidance,
+        pushback: finding.pushback,
         evidence: finding.evidence?.map(e => ({ 
           quote: e.quote ?? "", 
           observationKey: e.observationKey 
@@ -182,7 +184,7 @@ export function getOpenItemsFromConversation(
     .pop()
   
   if (riskMsg?.metadata?.payload?.findings) {
-    const findings = riskMsg.metadata.payload.findings as Array<{ severity: string; summary: string; whyItMatters?: string }>
+    const findings = riskMsg.metadata.payload.findings as Array<{ severity: string; summary: string; whyItMatters?: string; pushback?: string }>
     const items: OpenItem[] = findings
       .filter(f => f.severity !== "low")
       .map((f, i) => {
@@ -195,6 +197,7 @@ export function getOpenItemsFromConversation(
           title: prefix + f.summary.toLowerCase(),
           summary: f.summary,
           guidance: f.whyItMatters,
+          pushback: f.pushback,
           evidence: [],
           status: "open" as const,
         }

@@ -4,6 +4,7 @@ import { useState } from "react"
 import { ChevronDown, ChevronRight, ShieldCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { EvidenceLine } from "@/components/evidence/evidence-line"
+import { PushbackWords } from "@/components/findings/pushback-words"
 import type { Evidence } from "@/lib/evidence/schema"
 
 const SEVERITY_LABEL: Record<string, string> = {
@@ -22,7 +23,7 @@ const SEVERITY_STYLE: Record<string, string> = {
 
 export function RiskReportCard({ payload, onAskFinding }: { payload: Record<string, unknown>; onAskFinding?: (question: string) => void }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-  const findings = (payload.findings as Array<{ ruleKey?: string | null; severity: string; summary: string; whyItMatters?: string; guidance?: string; evidence?: Evidence[] }> ) ?? []
+  const findings = (payload.findings as Array<{ ruleKey?: string | null; severity: string; summary: string; whyItMatters?: string; guidance?: string; pushback?: string; evidence?: Evidence[] }> ) ?? []
   const riskLevel = (payload.riskLevel as string) ?? "Unknown"
   const overallScore = payload.overallScore as number | undefined
 
@@ -69,6 +70,7 @@ export function RiskReportCard({ payload, onAskFinding }: { payload: Record<stri
                     <div key={i} className="rounded-lg border p-3 bg-card">
                       <p className="font-serif text-sm font-medium leading-relaxed">{f.summary}</p>
                       {f.whyItMatters && <p className="mt-1 font-serif text-xs leading-relaxed text-muted-foreground">Why it matters: {f.whyItMatters}</p>}
+                      {f.pushback && <PushbackWords words={f.pushback} />}
                       {Array.isArray(f.evidence) && f.evidence.length > 0 && (
                         <div className="mt-2 space-y-1 border-t border-border/40 pt-2">
                           {f.evidence.slice(0, 3).map((ev, j) => (

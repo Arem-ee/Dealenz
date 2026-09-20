@@ -113,10 +113,10 @@ async function analyzeAndPostRiskInner(threadId: string, auditId: string): Promi
     riskLevel: (result.riskReport as { riskLevel?: string })?.riskLevel ?? "Unknown",
     overallScore: (result.riskReport as { overallScore?: number })?.overallScore,
     findings: findings.map((f) => {
-      const src = (f.finding ?? f) as { severity: string; summary: string; guidance?: string; evidence?: unknown }
+      const src = (f.finding ?? f) as { severity: string; summary: string; guidance?: string; pushback?: string; evidence?: unknown }
       // Evidence travels from the deterministic findings (attached by
       // attachEvidence at analysis time). Absent stays absent, never faked.
-      return { ruleKey: f.ruleKey ?? null, severity: src.severity, summary: src.summary, whyItMatters: src.guidance, evidence: Array.isArray(src.evidence) ? src.evidence : [] }
+      return { ruleKey: f.ruleKey ?? null, severity: src.severity, summary: src.summary, whyItMatters: src.guidance, pushback: src.pushback, evidence: Array.isArray(src.evidence) ? src.evidence : [] }
     }),
   }
   // Re-checks announce their verdict (resolved / still open / new) instead of

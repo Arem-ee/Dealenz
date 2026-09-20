@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { AiConsentModal } from "@/components/ai-consent-modal"
+import { PushbackWords } from "@/components/findings/pushback-words"
 import { useAiConsent } from "@/hooks/use-ai-consent"
 import {
   askQuestionAction,
@@ -28,7 +29,7 @@ interface ChatMessage {
   role: "user" | "assistant"
   text: string
   auditId?: string | null
-  findings?: Array<{ ruleKey: string; summary: string; severity: string; guidance?: string; evidence?: Evidence[] }>
+  findings?: Array<{ ruleKey: string; summary: string; severity: string; guidance?: string; pushback?: string; evidence?: Evidence[] }>
   sources?: Array<{ itemKey: string; title: string; authority: string; sourceName: string; sourceReference: string; jurisdiction: string; effectiveFrom: string }>
   legalCitations?: Array<{ title: string; section: string; url: string | null; passage: string; jurisdiction: string; authorityTier: number; retrievedAt: string; effectiveStatus: string }>
   researchState?: string | null
@@ -134,6 +135,7 @@ export function AskClient({
         summary: f.summary,
         severity: f.severity,
         guidance: f.guidance,
+        pushback: f.pushback,
         evidence: f.evidence,
       })),
       sources: response.knowledgeSources,
@@ -337,6 +339,7 @@ export function AskClient({
                       <div key={f.ruleKey} className="text-[13px]">
                         <p className="font-medium capitalize">{f.severity}: {f.summary}</p>
                         {f.guidance && <p className="text-muted-foreground">{f.guidance}</p>}
+                        {f.pushback && <PushbackWords words={f.pushback} compact />}
                         {f.evidence?.slice(0, 2).map((evidence) => (
                           <div key={evidence.id} className="mt-1 space-y-0.5">
                             <EvidenceLine evidence={evidence} />

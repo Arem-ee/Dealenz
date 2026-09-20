@@ -70,4 +70,18 @@ describe("rule schema", () => {
       checkCondition({ field: "facts.x", op: "eq", value: (() => 1) as unknown } as unknown)
     ).toThrow(/functions/)
   })
+
+  it("validates optional pushback words like guidance", () => {
+    const withPushback = parseRule({
+      ...validRuleRaw(),
+      finding: { summary: "No payment terms were found.", severity: "attention" as const, pushback: "  Please confirm the fee in writing.  " },
+    })
+    expect(withPushback.finding.pushback).toBe("Please confirm the fee in writing.")
+    expect(() =>
+      parseRule({ ...validRuleRaw(), finding: { summary: "s", severity: "attention" as const, pushback: 42 } })
+    ).toThrow(/pushback/)
+    expect(() =>
+      parseRule({ ...validRuleRaw(), finding: { summary: "s", severity: "attention" as const, pushback: "Fix this — now" } })
+    ).toThrow(/em dash/)
+  })
 })

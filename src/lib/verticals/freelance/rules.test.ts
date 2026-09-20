@@ -135,6 +135,31 @@ describe("freelance rule pack", () => {
     expect(evidence[0].location.kind).toBe("approximate")
   })
 
+  it("gives every guided finding sendable pushback words", () => {
+    for (const rule of FREELANCE_RULES) {
+      if (!rule.finding.guidance) continue
+      const words = rule.finding.pushback
+      expect(words, rule.ruleKey).toBeDefined()
+      expect(words!.length, rule.ruleKey).toBeGreaterThan(20)
+      expect(words, rule.ruleKey).not.toContain("—")
+      for (const banned of ["unenforceable", "illegal", "unlawful", "legally required", "statute", "court"]) {
+        expect(words!.toLowerCase(), rule.ruleKey).not.toContain(banned)
+      }
+    }
+  })
+
+  it("carries pushback from rule to evaluated finding", () => {
+    registerFreelancePack()
+    const run = evaluateApplicableRules(
+      freelanceInput("Fixed price site with unlimited revisions.", extracted({ deliverables: ["Site with unlimited revisions"] })),
+      "document_analysis",
+      "freelance"
+    )
+    const hit = run.results.find((r) => r.ruleKey === "freelance-unlimited-revisions")
+    expect(hit?.status).toBe("FAIL")
+    expect(hit?.finding?.pushback).toMatch(/cap revisions/i)
+  })
+
   it("carries exact evidence when the source is an inspectable audit", () => {
     registerFreelancePack()
     const input = freelanceInput(

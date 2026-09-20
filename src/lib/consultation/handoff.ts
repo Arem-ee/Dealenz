@@ -23,6 +23,7 @@ export interface HandoffFindingRef {
   summary: string
   severity: string
   guidance?: string
+  pushback?: string
   evidence: Evidence[]
   status: RuleResult["status"]
 }
@@ -64,6 +65,7 @@ export function buildHandoffPackage(input: BuildHandoffInput, now: Date = new Da
       summary: r.finding!.summary,
       severity: r.finding!.severity,
       guidance: r.finding!.guidance,
+      pushback: r.finding!.pushback,
       evidence: (r.finding!.evidence ?? []) as Evidence[],
       status: r.status,
     }))

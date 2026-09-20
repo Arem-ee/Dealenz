@@ -119,8 +119,8 @@ export function selectFindingsForIntent(
     return [...material, ...sorted.filter((f) => f.severity !== "critical" && f.severity !== "material")].slice(0, limit)
   }
   if (intent === "negotiate") {
-    const actionable = sorted.filter((f) => f.guidance && f.guidance.trim().length > 0)
-    return [...actionable, ...sorted.filter((f) => !f.guidance || f.guidance.trim().length === 0)].slice(0, limit)
+    const actionable = sorted.filter((f) => (f.pushback && f.pushback.trim().length > 0) || (f.guidance && f.guidance.trim().length > 0))
+    return [...actionable, ...sorted.filter((f) => !((f.pushback && f.pushback.trim().length > 0) || (f.guidance && f.guidance.trim().length > 0)))].slice(0, limit)
   }
   return sorted.slice(0, limit)
 }
@@ -303,7 +303,7 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
           .map((f) => {
             const evidence = f.evidence && f.evidence.length > 0 ? ` Evidence: “${f.evidence[0].quote}”` : ""
             const why = f.severity === "material" || f.severity === "critical" ? " — why it matters: may materially affect payment, scope, or risk" : ""
-            return `- [${f.severity}] ${f.summary}${why}${f.guidance ? ` Next step: ${f.guidance}` : ""}${evidence}`
+            return `- [${f.severity}] ${f.summary}${why}${f.guidance ? ` Next step: ${f.guidance}` : ""}${f.pushback ? ` Words to send: ${f.pushback}` : ""}${evidence}`
           })
           .join("\n")}` +
         (allFindings.length > findingsUsed.length

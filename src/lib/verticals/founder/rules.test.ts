@@ -170,4 +170,27 @@ describe("founder rule pack", () => {
     expect(evidence[0].observationKey).toBe("facts.founder.liability")
     expect(evidence[0].quote).toMatch(/liab/i)
   })
+
+  it("gives every guided finding sendable pushback words", () => {
+    for (const rule of FOUNDER_RULES) {
+      if (!rule.finding.guidance) continue
+      const words = rule.finding.pushback
+      expect(words, rule.ruleKey).toBeDefined()
+      expect(words!.length, rule.ruleKey).toBeGreaterThan(20)
+      expect(words, rule.ruleKey).not.toContain("—")
+      for (const banned of ["unenforceable", "illegal", "unlawful", "legally required", "statute", "court"]) {
+        expect(words!.toLowerCase(), rule.ruleKey).not.toContain(banned)
+      }
+    }
+  })
+
+  it("carries pushback from rule to evaluated finding", () => {
+    registerFounderPack()
+    const raw = "50/50 ownership. Founders are liable for all losses with no cap."
+    const input = founderInput(raw, extracted())
+    const run = evaluateApplicableRules(input, "document_analysis", "founder")
+    const hit = run.results.find((r) => r.ruleKey === "founder-liability-uncapped")
+    expect(hit?.status).toBe("FAIL")
+    expect(hit?.finding?.pushback).toMatch(/cap liability/i)
+  })
 })

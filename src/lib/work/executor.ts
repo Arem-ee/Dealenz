@@ -532,18 +532,18 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
       const { data: updatedSteps } = await client.from("work_plan_steps").select("result_ref, status, operation").eq("plan_id", planId).eq("user_id", userId).order("step_index", { ascending: true })
       const artifactRefs: Array<{ type: string; id: string }> = []
       // Fetch actual audit findings/evidence for snapshot (do not invent)
-      let findingsSnapshot: Array<{ ruleKey: string; severity: string; summary: string; guidance?: string; evidenceId?: string }> = []
+      let findingsSnapshot: Array<{ ruleKey: string; severity: string; summary: string; guidance?: string; pushback?: string; evidenceId?: string }> = []
       const evidenceSnapshot: Array<{ quote: string | null; location: unknown }> = []
       let missingVariables: string[] = []
       try {
         if (plan.deal_id) {
           const { data: auditSnap } = await client.from("audits").select("structured_data").eq("id", plan.deal_id).eq("user_id", userId).maybeSingle()
           const sd = (auditSnap as { structured_data?: Record<string, unknown> } | null)?.structured_data as Record<string, unknown> | undefined
-          const det = (sd?.deterministicFindings as Array<{ finding?: { severity: string; summary: string; guidance?: string }; severity?: string; summary?: string; guidance?: string; ruleKey?: string; evidence?: Array<{ id: string; quote: string | null; location: unknown }> }> | undefined) ?? []
+          const det = (sd?.deterministicFindings as Array<{ finding?: { severity: string; summary: string; guidance?: string; pushback?: string }; severity?: string; summary?: string; guidance?: string; pushback?: string; ruleKey?: string; evidence?: Array<{ id: string; quote: string | null; location: unknown }> }> | undefined) ?? []
           findingsSnapshot = det.slice(0, 20).map((f) => {
-            const src = (f.finding ?? f) as { severity: string; summary: string; guidance?: string; ruleKey?: string; evidence?: Array<{ id: string }> }
+            const src = (f.finding ?? f) as { severity: string; summary: string; guidance?: string; pushback?: string; ruleKey?: string; evidence?: Array<{ id: string }> }
             const evId = Array.isArray((f as { evidence?: Array<{ id: string }> }).evidence) ? (f as { evidence?: Array<{ id: string }> }).evidence?.[0]?.id : undefined
-            return { ruleKey: (src as { ruleKey?: string }).ruleKey ?? (f as { ruleKey?: string }).ruleKey ?? "unknown", severity: src.severity, summary: src.summary, guidance: src.guidance, evidenceId: evId }
+            return { ruleKey: (src as { ruleKey?: string }).ruleKey ?? (f as { ruleKey?: string }).ruleKey ?? "unknown", severity: src.severity, summary: src.summary, guidance: src.guidance, pushback: src.pushback, evidenceId: evId }
           })
           // Evidence quotes/locations from findings
           for (const f of det) {
