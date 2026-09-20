@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { MessageList } from "./MessageList"
 import { Composer } from "./Composer"
+import { ReviseDealInput } from "./ReviseDealInput"
 import { ThreadPanel, latestRichMessage } from "./ThreadPanel"
 import { SplitPane, useIsDesktop } from "@/components/split-pane"
 import { useToast } from "@/components/ui/toast"
@@ -19,6 +20,25 @@ import type { ChecklistItem, DocVersion, Signer, SigningEvent, MonitoringAlert, 
 import { describeWorkspace } from "@/lib/work/workspace"
 import { classifyOperation } from "@/lib/conversation/classify"
 import type { PlanRow, PlanStepRow, WorkExecutionRow } from "@/lib/work/schema"
+import type { FindingDelta } from "@/lib/rules/result"
+
+// Persisted finding deltas are server-written, but validated by shape before
+// render — a malformed row must never break the thread.
+function isFindingDelta(value: unknown): value is FindingDelta {
+  if (typeof value !== "object" || value === null) return false
+  const d = value as Record<string, unknown>
+  const isEntry = (e: unknown): boolean => {
+    if (typeof e !== "object" || e === null) return false
+    const r = e as Record<string, unknown>
+    return typeof r.ruleKey === "string" && typeof r.summary === "string" && typeof r.severity === "string"
+  }
+  return (
+    Array.isArray(d.resolved) &&
+    Array.isArray(d.stillOpen) &&
+    Array.isArray(d.newIssues) &&
+    [...d.resolved, ...d.stillOpen, ...d.newIssues].every(isEntry)
+  )
+}
 
 export function ChatThread({ threadId, auditId, initialMessages }: { threadId: string; auditId?: string | null; initialMessages?: ThreadMessage[] }) {
   const isDesktop = useIsDesktop()
@@ -27,6 +47,9 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   const [userId, setUserId] = useState<string | null>(null)
   const [dealMeta, setDealMeta] = useState<{ dealType: string | null; jurisdiction: string | null } | null>(null)
   const [dealTitle, setDealTitle] = useState<string | null>(null)
+  const [dealInput, setDealInput] = useState<string | null>(null)
+  const [findingDelta, setFindingDelta] = useState<FindingDelta | null>(null)
+  const [verdictExpanded, setVerdictExpanded] = useState(false)
   const [documentCount, setDocumentCount] = useState<number>(0)
   const [monitoring, setMonitoring] = useState<MonitoringSummary | null>(null)
   const [prefill, setPrefill] = useState<{ text: string; key: number } | null>(null)
@@ -61,7 +84,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
     const supabase = createClient()
     supabase
       .from("audits")
-      .select("deal_type, context_envelope, structured_data, title")
+      .select("deal_type, context_envelope, structured_data, title, raw_input")
       .eq("id", auditId)
       .maybeSingle()
       .then(({ data }) => {
@@ -73,12 +96,15 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         } catch {}
         setDealMeta({ dealType: (data as { deal_type?: string | null }).deal_type ?? null, jurisdiction })
         setDealTitle((data as { title?: string | null }).title ?? null)
+        const rawInput = (data as { raw_input?: unknown }).raw_input
+        setDealInput(typeof rawInput === "string" ? rawInput : null)
 
         // Compute open items from audit's deterministic findings
         if (data.structured_data) {
           const computed = getOpenItemsFromConversation(data as { structured_data: Record<string, unknown> }, messages)
           setOpenItems(computed)
           const structured = data.structured_data as Record<string, unknown>
+          setFindingDelta(isFindingDelta(structured.findingDelta) ? (structured.findingDelta as FindingDelta) : null)
           const points = Array.isArray(structured.negotiationPoints) ? (structured.negotiationPoints as unknown[]).filter((p): p is string => typeof p === "string") : []
           setNegotiationPoints(points)
           setNegotiationDegraded(structured.genericRiskDegraded === true)
@@ -502,7 +528,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   const conversation = (
     <>
       {dealMeta && (dealMeta.dealType || dealMeta.jurisdiction) && (
-        <div className="mx-auto w-full max-w-3xl px-4 pt-3 flex flex-wrap gap-2">
+        <div className="mx-auto w-full max-w-3xl px-4 pt-3 flex flex-wrap items-center gap-2">
           {dealMeta.dealType && (
             <span className="inline-flex items-center gap-1 rounded-full border bg-muted px-2.5 py-1 text-xs">
               Deal type: <span className="font-medium capitalize">{dealMeta.dealType.replace("_", " ")}</span>
@@ -512,6 +538,18 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
             <span className="inline-flex items-center gap-1 rounded-full border bg-muted px-2.5 py-1 text-xs">
               Jurisdiction: <span className="font-medium">{dealMeta.jurisdiction}</span>
             </span>
+          )}
+          {auditId && dealInput !== null && (
+            <ReviseDealInput
+              auditId={auditId}
+              threadId={threadId}
+              initialText={dealInput}
+              onPlanReady={() => {
+                void refreshWorkPlan()
+                handleSent()
+              }}
+              onError={fail}
+            />
           )}
         </div>
       )}
@@ -568,6 +606,56 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
           </div>
         </div>
       )}
+      {/* Redline re-check verdict — persisted by analyzeDeal on re-analysis,
+          rendered wherever the findings render (both layouts). */}
+      {findingDelta &&
+        (findingDelta.resolved.length > 0 ||
+          findingDelta.stillOpen.length > 0 ||
+          findingDelta.newIssues.length > 0) && (
+          <div className="mx-auto w-full max-w-3xl px-4 pb-3">
+            <button
+              onClick={() => setVerdictExpanded(!verdictExpanded)}
+              className="flex w-full items-center gap-2 px-3 py-2 rounded-xl border bg-card hover:bg-muted/50 transition-colors"
+              aria-expanded={verdictExpanded}
+            >
+              <span className="text-sm font-medium">
+                Re-check: {findingDelta.resolved.length} resolved · {findingDelta.stillOpen.length} still open ·{" "}
+                {findingDelta.newIssues.length} new
+              </span>
+              <span className="ml-auto text-muted-foreground">
+                {verdictExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </span>
+            </button>
+            {verdictExpanded && (
+              <div className="mt-2 space-y-2">
+                {(
+                  [
+                    ["Resolved", findingDelta.resolved],
+                    ["Still open", findingDelta.stillOpen],
+                    ["New", findingDelta.newIssues],
+                  ] as const
+                ).map(
+                  ([label, items]) =>
+                    items.length > 0 && (
+                      <div key={label} className="rounded-xl bg-muted/30 px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {label} ({items.length})
+                        </p>
+                        <ul className="mt-1 space-y-1">
+                          {items.map((f) => (
+                            <li key={f.ruleKey} className="text-xs">
+                              <span className="font-medium">{f.summary}</span>{" "}
+                              <span className="text-muted-foreground">· {f.severity}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )
+                )}
+              </div>
+            )}
+          </div>
+        )}
       {/* Work plan — approval-gated, 0 credits + 5/day limit (mobile inline; desktop in work surface) */}
       {!isDesktop && workPlan && (
         <div className="mx-auto w-full max-w-3xl px-4 pb-3">
