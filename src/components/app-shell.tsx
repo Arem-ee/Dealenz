@@ -103,7 +103,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   let threads: SidebarThread[] = []
   try {
     const rows = await listThreads()
-    threads = rows.map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt }))
+    threads = rows.map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, status: t.status ?? null, riskLevel: t.riskLevel ?? null }))
   } catch {
     threads = []
   }
@@ -112,7 +112,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen flex-col bg-background">
       <TopNavbar email={email} businessName={businessName} isLawyer={isLawyer} creditBalance={creditBalance} threads={threads} />
       <div className="flex flex-1 min-h-0">
-        <SidebarNav />
+        <SidebarNav threads={threads} />
         <div className="flex flex-1 flex-col min-w-0 bg-background">
           <main className="flex flex-1 flex-col min-h-0 pb-16 md:pb-0 bg-background">
             <VerificationBanner />

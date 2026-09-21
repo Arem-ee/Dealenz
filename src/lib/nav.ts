@@ -36,6 +36,8 @@ export interface SidebarThread {
   id: string
   title: string
   updatedAt: string
+  status?: string | null
+  riskLevel?: string | null
 }
 
 export function threadDate(iso: string): string {
