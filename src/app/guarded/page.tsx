@@ -98,9 +98,6 @@ export default async function GuardedPage() {
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:py-8">
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--burgundy)]">After signing</p>
       <h1 className="mt-1.5  text-[28px] font-semibold leading-tight tracking-[-0.01em]">Guarded</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Signed deals and what they still need. Nothing needs your attention today unless a date says otherwise.
-      </p>
 
       {deals.length === 0 ? (
         <div className="mt-6 rounded-xl border border-dashed p-6 text-center">
