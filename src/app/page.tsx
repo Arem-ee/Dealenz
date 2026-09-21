@@ -1,20 +1,75 @@
 import Link from "next/link"
-import { LandingHeroComposer } from "@/components/landing-hero-composer"
 import {
-  FileSearch,
-  MessageCircleQuestion,
-  ShieldCheck,
-  FileText,
   ArrowRight,
-  Check,
   CircleAlert,
   Scale,
+  ShieldCheck,
 } from "lucide-react"
+import { LandingHeroPreview } from "@/components/landing-hero-preview"
 
 export const metadata = {
   title: "Dealenz: Know what you are signing before you sign it",
   description:
-    "They sent the contract. Dealenz shows what to push back on and in what words, then lets both sides sign here — and guards what was agreed afterwards.",
+    "They sent the contract. Dealenz reads it, tells you where the risk is, gives you the words to push back, and guards what was agreed.",
+}
+
+const steps = [
+  {
+    n: "1",
+    title: "Send it",
+    body: "Drop in their contract or describe the situation in your own words. No questionnaire, no legal form, no account homework.",
+  },
+  {
+    n: "2",
+    title: "Push back",
+    body: "For each real risk, get the exact words to send back — staged payments, clearer scope, a revised clause. Re-check the redline before you sign.",
+  },
+  {
+    n: "3",
+    title: "Sign guarded",
+    body: "Both sides sign in the same workspace. Renewals, notice windows, and obligations stay tracked, with email alerts before they matter.",
+  },
+]
+
+const faqs = [
+  {
+    q: "What kinds of deals can Dealenz look at?",
+    a: "Freelance contracts, leases, partnership agreements, purchase agreements, and more. Dealenz starts with your actual situation instead of forcing it into a template.",
+  },
+  {
+    q: "Is this a replacement for a lawyer?",
+    a: "No. Dealenz helps you catch problems before they become legal problems. For high value contracts or anything complex, have a lawyer review the final document. For deals where the stakes call for it, you can request a review from a verified lawyer without leaving the workspace.",
+  },
+  {
+    q: "How does Dealenz check its own work?",
+    a: "Every risk Dealenz flags goes through a deterministic rule check before it reaches you, not just an AI result. If the AI and the rules disagree, the rules win.",
+  },
+  {
+    q: "What do I leave with?",
+    a: "More than a report. Every freelance analysis can produce the documents you need: a proposal, a scope of work, a contract, or a deliverables checklist — plus the exact words to push back on unfair terms.",
+  },
+  {
+    q: "Can the other side sign here too?",
+    a: "Yes. You sign first, then the counterparty signs through a secure link — no account needed on their side. Once everyone has signed, the document locks and any later change becomes a new version, not a silent edit.",
+  },
+  {
+    q: "What happens after I sign?",
+    a: "Dealenz can track what was agreed in monitoring: renewal dates, notice windows, payment obligations, and material deadlines — connect Gmail once and it emails you before they matter.",
+  },
+  {
+    q: "Is the free tier a trial?",
+    a: "No. It is the product with a daily limit: five analyses per day plus 10 signup credits. No credit card required to start.",
+  },
+]
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
 }
 
 function LogoMark({ dark = false }: { dark?: boolean }) {
@@ -44,711 +99,312 @@ function LogoMark({ dark = false }: { dark?: boolean }) {
   )
 }
 
-function Nav() {
+function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <header className="bg-[#FAFAF8] pt-6">
-      <nav
-        aria-label="Primary"
-        className="mx-auto flex h-[64px] max-w-[1280px] items-center justify-between px-6 lg:px-8"
-      >
-        <div className="flex items-center gap-10">
-          <Link href="/" aria-label="Dealenz home">
-            <LogoMark />
-          </Link>
-          <div className="hidden items-center gap-7 md:flex">
-            <a
-              href="#how-it-works"
-              className="text-[13px] font-normal tracking-[0.04em] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]"
-            >
-              How it works
-            </a>
-            <a
-              href="#why-dealenz-exists"
-              className="text-[13px] font-normal tracking-[0.04em] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]"
-            >
-              Why Dealenz
-            </a>
-            <a
-              href="#pricing"
-              className="text-[13px] font-normal tracking-[0.04em] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]"
-            >
-              Pricing
-            </a>
-            <a
-              href="#faq"
-              className="text-[13px] font-normal tracking-[0.04em] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]"
-            >
-              FAQ
-            </a>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/login"
-            className="text-[13px] font-medium text-[#1C1917]/70 transition-colors hover:text-[#1C1917]"
-          >
-            Login
-          </Link>
-          <Link
-            href="/register"
-            className="inline-flex h-10 items-center rounded-full bg-[#1C1917] px-6 text-[13px] font-semibold text-white transition-colors hover:bg-black"
-          >
-            Analyze your deal
-          </Link>
-        </div>
-      </nav>
-    </header>
-  )
-}
-
-function Eyebrow({ children, light = false }: { children: React.ReactNode; light?: boolean }) {
-  return (
-    <p
-      className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${
-        light ? "text-white/50" : "text-[#1C1917]/40"
-      }`}
-    >
+    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--burgundy)]">
       {children}
     </p>
   )
 }
 
-function HeroBackdrop() {
-  const marks = [
-    { top: "12%", left: "8%" },
-    { top: "22%", left: "18%" },
-    { top: "10%", left: "72%" },
-    { top: "28%", left: "86%" },
-    { top: "46%", left: "4%" },
-    { top: "58%", left: "93%" },
-    { top: "38%", left: "64%" },
-    { top: "64%", left: "12%" },
-  ]
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      {marks.map((m, i) => (
-        <svg
-          key={i}
-          width="14"
-          height="14"
-          viewBox="0 0 14 14"
-          className="absolute text-[var(--burgundy)] opacity-[0.10]"
-          style={{ top: m.top, left: m.left }}
-        >
-          {i % 2 === 0 ? (
-            <path
-              d="M7 1v12M1 7h12"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          ) : (
-            <circle cx="7" cy="7" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          )}
-        </svg>
-      ))}
-    </div>
-  )
-}
-
-function RiskGauge() {
-  return (
-    <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-black/[0.06] bg-[#FAFAF8] px-4 py-6 text-center">
-      <div className="relative h-[120px] w-[120px]">
-        <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-          <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(28,25,23,0.08)" strokeWidth="12" />
-          <circle
-            cx="60"
-            cy="60"
-            r="50"
-            fill="none"
-            stroke="var(--burgundy)"
-            strokeWidth="12"
-            strokeLinecap="round"
-            strokeDasharray="314"
-            strokeDashoffset="88"
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[26px] font-semibold tracking-tight" data-numeric>
-            72
-          </span>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">
-            Risk score
-          </span>
-        </div>
-      </div>
-      <span className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-900">
-        <CircleAlert className="h-3 w-3" />
-        Needs attention
-      </span>
-      <p className="mt-3 text-[12px] leading-relaxed text-black/55">
-        3 terms carry most of the risk. The rest looks standard.
-      </p>
-    </div>
-  )
-}
-
-function HeroMockup() {
-  return (
-    <div className="rounded-[24px] border border-black/[0.07] bg-white p-3 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.22),0_1px_2px_rgba(0,0,0,0.06)] sm:p-4">
-      <div className="grid gap-3 lg:grid-cols-[0.9fr_1.2fr_0.9fr]">
-        <RiskGauge />
-        <div className="relative overflow-hidden rounded-2xl border border-black/[0.06] bg-[#1C1917] p-5 text-white">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/50">
-            Risk report preview
-          </p>
-          <p className="mt-2 text-[15px] font-semibold leading-snug">
-            Payment is due before you have leverage to enforce it.
-          </p>
-          <div className="mt-3 rounded-xl bg-white/[0.07] px-3.5 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/50">
-              Evidence
-            </p>
-            <p className="mt-1 text-[12px] leading-relaxed text-white/80">
-              Clause 4.2: full payment on signing, delivery within 60 days.
-            </p>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-[#1C1917]">
-              3 terms flagged
-            </span>
-            <span className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-medium text-white/80">
-              Clause 4.2
-            </span>
-            <span className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-medium text-white/80">
-              Rule checked
-            </span>
-          </div>
-        </div>
-        <div className="grid gap-3">
-          <div className="rounded-2xl border border-black/[0.06] bg-[#FAFAF8] px-4 py-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">
-              Risk across the deal
-            </p>
-            <svg viewBox="0 0 200 48" className="mt-3 h-12 w-full" aria-hidden>
-              <polyline
-                points="0,36 20,32 40,34 60,22 80,26 100,14 120,20 140,10 160,16 180,8 200,12"
-                fill="none"
-                stroke="var(--burgundy)"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle cx="140" cy="10" r="4" fill="var(--burgundy)" />
-            </svg>
-            <p className="mt-1 text-[11px] text-black/50">Highest exposure sits in payment terms.</p>
-          </div>
-          <div className="rounded-2xl border border-black/[0.06] bg-white px-4 py-4">
-            <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--burgundy)] text-[12px] font-bold text-white">
-                AK
-              </span>
-              <div>
-                <p className="text-[12px] font-semibold">Protection package ready</p>
-                <p className="text-[11px] text-black/50">Revised clause 4.2 is ready to send.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <div className="flex items-center gap-3 rounded-2xl border border-black/[0.06] bg-[#FAFAF8] px-4 py-3.5">
-          <ShieldCheck className="h-4 w-4 text-[var(--burgundy)]" />
-          <p className="text-[12px] font-medium">Protection checklist: 4 of 6 items done</p>
-        </div>
-        <div className="flex items-center gap-3 rounded-2xl border border-black/[0.06] bg-[#FAFAF8] px-4 py-3.5">
-          <Scale className="h-4 w-4 text-[var(--burgundy)]" />
-          <p className="text-[12px] font-medium">Request lawyer review without leaving the workspace</p>
-        </div>
-      </div>
-      <p className="mt-3 text-center text-[11px] text-black/40">Illustrated example. Your report will reflect your deal.</p>
-    </div>
-  )
-}
-
-const featureCards = [
-  {
-    n: "1/",
-    icon: MessageCircleQuestion,
-    tint: "bg-[var(--burgundy)]",
-    caption: "Drop in their contract, or say what is happening",
-  },
-  {
-    n: "2/",
-    icon: FileSearch,
-    tint: "bg-[#1C1917]",
-    caption: "See where the risk actually sits, with evidence",
-  },
-  {
-    n: "3/",
-    icon: ShieldCheck,
-    tint: "bg-[#3D5A45]",
-    caption: "Get the exact words to push back with",
-  },
-  {
-    n: "4/",
-    icon: FileText,
-    tint: "bg-[#5A4A3A]",
-    caption: "Sign here, and stay guarded afterwards",
-  },
-]
-
-const processSteps = [
-  {
-    title: "Describe",
-    body: "Drop in their contract or explain the situation in your own words. No questionnaire, no legal form. Dealenz asks one focused question at a time, and only when the answer changes what to check.",
-  },
-  {
-    title: "Understand",
-    body: "Dealenz reads the document in the context of your situation and shows what each finding means for you, with the clause it came from and why it matters.",
-  },
-  {
-    title: "Push back",
-    body: "For each real risk, Dealenz proposes the actual words to push back with: staged payments, clearer scope, a revised clause. You decide what to send — then re-check the redline before you sign.",
-  },
-  {
-    title: "Sign and stay guarded",
-    body: "Both sides sign in the same workspace. Track what was agreed — renewals, deadlines, obligations — in monitoring, with email alerts before it matters.",
-  },
-]
-
-const riskPoints = [
-  ["What is actually being agreed", "Not just what the clause says, but what it means for you."],
-  ["What is missing", "Silence in a contract can matter as much as what is written."],
-  ["What could leave you exposed", "Where the risk lands, and when it lands on you."],
-  ["What should change", "And what happens next if you do nothing."],
-]
-
-const documentCards = [
-  ["Proposal", "Set terms fairly before work starts."],
-  ["Scope of work", "Define what is included, and what is not."],
-  ["Contract", "Clear language for the deal in front of you."],
-  ["Deliverables checklist", "Track what was agreed, all the way to done."],
-]
-
-const pricingFree = [
-  "Five analyses per day.",
-  "10 free credits on signup.",
-  "All four document types on freelance deals.",
-  "Client portal and signing.",
-  "Activity timeline.",
-]
-
-const pricingCredits = [
-  "Free daily analyses included.",
-  "Ask credits for deeper conversations.",
-  "Fixed prices per outcome — a proposal costs 25 credits, a contract 45.",
-  "Top-up packs from $19 for 50 credits, inside the app when you need them.",
-]
-
-const faqs = [
-  {
-    q: "What kinds of deals can Dealenz look at?",
-    a: "Freelance contracts, leases, partnership agreements, purchase agreements, and more. Dealenz starts with your actual situation instead of forcing it into a template.",
-  },
-  {
-    q: "Is this a replacement for a lawyer?",
-    a: "No. Dealenz helps you catch problems before they become legal problems. For high value contracts or anything complex, have a lawyer review the final document. For deals where the stakes call for it, you can request a review from a verified lawyer without leaving the workspace.",
-  },
-  {
-    q: "How does Dealenz check its own work?",
-    a: "Every risk Dealenz flags goes through a deterministic rule check before it reaches you, not just an AI result. If the AI and the rules disagree, the rules win.",
-  },
-  {
-    q: "What do I leave with?",
-    a: "More than a report. Every freelance analysis can produce the documents you need: a proposal, a scope of work, a contract, or a deliverables checklist — plus the exact words to push back on unfair terms. Something to send, not just something to worry about.",
-  },
-  {
-    q: "Can the other side sign here too?",
-    a: "Yes. You sign first, then the counterparty signs through a secure link — no account needed on their side. Once everyone has signed, the document locks and any later change becomes a new version, not a silent edit.",
-  },
-  {
-    q: "What happens after I sign?",
-    a: "Dealenz can track what was agreed in monitoring: renewal dates, notice windows, payment obligations, and material deadlines — connect Gmail once and it emails you before they matter, so nothing auto-renews or lapses unnoticed.",
-  },
-  {
-    q: "Who can see my deals?",
-    a: "Only you. Every deal is scoped to your account and your documents stay in your workspace.",
-  },
-  {
-    q: "Is the free tier a trial?",
-    a: "No. It is the product with a daily limit. No credit card required to start.",
-  },
-]
-
-const howItWorks = [
-  {
-    title: "AI finds things. It does not decide things.",
-    body: "Every risk Dealenz flags goes through a deterministic rule check before it reaches you, not just an AI's best guess. If the AI and the rules disagree, the rules win. That's a deliberate choice: AI is good at reading a lot of text quickly, but it shouldn't be the final word on something that could cost you money or leave you exposed.",
-  },
-  {
-    title: "Dealenz is not a law firm.",
-    body: "Nothing Dealenz produces is legal advice, and we say that plainly instead of burying it in fine print. For deals where the stakes are high enough to need one, you can request a review from a verified lawyer without leaving the conversation. AI gets you most of the way there. A person should make the final call when it matters.",
-  },
-  {
-    title: "You leave with something real, not just an opinion.",
-    body: "A risk report on its own doesn't protect you. Every freelance analysis can produce the actual documents you need. A proposal, a scope of work, a contract, a deliverables checklist, whatever the situation calls for, so you have something to actually send, not just something to worry about.",
-  },
-  {
-    title: "Built for the deal in front of you, not a category of user.",
-    body: "Dealenz started narrow and grew because the same problem kept showing up in different rooms. It works the same way whether you're a freelancer, a founder, or a small business owner: it starts with your actual situation, not a form asking you to describe yourself first.",
-  },
-]
-
 export default function Home() {
   return (
     <div className="min-h-screen bg-[#FAFAF8] text-[#1C1917] selection:bg-[#1C1917] selection:text-white">
-      <Nav />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+
+      {/* Nav */}
+      <header className="bg-[#FAFAF8] pt-6">
+        <nav aria-label="Primary" className="mx-auto flex h-[64px] max-w-[1280px] items-center justify-between px-6 lg:px-8">
+          <div className="flex items-center gap-10">
+            <Link href="/" aria-label="Dealenz home">
+              <LogoMark />
+            </Link>
+            <div className="hidden items-center gap-7 md:flex">
+              <Link href="/#how-it-works" className="text-[13px] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]">
+                How it works
+              </Link>
+              <Link href="/#features" className="text-[13px] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]">
+                Features
+              </Link>
+              <Link href="/#pricing" className="text-[13px] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]">
+                Pricing
+              </Link>
+              <Link href="/#faq" className="text-[13px] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]">
+                FAQ
+              </Link>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link href="/login" className="hidden text-[13px] font-medium text-[#1C1917]/70 transition-colors hover:text-[#1C1917] sm:inline">
+              Sign in
+            </Link>
+            <Link
+              href="/register"
+              className="inline-flex h-10 items-center gap-2 rounded-full bg-[#1C1917] px-6 text-[13px] font-semibold text-white transition-all hover:bg-black hover:shadow-lg"
+            >
+              Analyze your deal
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </nav>
+      </header>
 
       <main>
+        {/* Hero */}
         <section className="relative overflow-hidden bg-gradient-to-b from-[#FAFAF8] via-[#F6F1EC] to-[#EFE3DC]">
-          <HeroBackdrop />
-          <div className="relative mx-auto max-w-[1280px] px-6 pb-14 pt-14 text-center lg:px-8 lg:pt-20">
-            <Eyebrow>Know what you are signing before you sign it</Eyebrow>
-            <h1 className="mx-auto mt-5 max-w-[20ch] text-[42px] font-semibold leading-[1.02] tracking-[-0.04em] sm:text-[56px] lg:text-[68px]">
-              The deal makes sense.
-              <br />
-              <span className="text-[var(--burgundy)]">Make sure the paperwork does too.</span>
+          <div className="relative mx-auto max-w-[1280px] px-6 pb-16 pt-14 text-center lg:px-8 lg:pt-24">
+            <Eyebrow>AI Contract Review Tool</Eyebrow>
+            <h1 className="mx-auto mt-5 max-w-[22ch] text-[42px] font-semibold leading-[1.02] tracking-[-0.04em] sm:text-[56px] lg:text-[72px]">
+              You signed something you didn&apos;t fully understand.
             </h1>
-            <p className="mx-auto mt-6 max-w-[52ch] text-[16px] leading-relaxed text-[#1C1917]/60">
-              They sent the contract. Dealenz reads it, tells you plainly where the risk
-              actually is, gives you the words to push back, and lets both sides sign
-              here — then guards what was agreed.
+            <p className="mx-auto mt-6 max-w-[58ch] text-[16px] leading-relaxed text-[#1C1917]/60 lg:text-[18px]">
+              Buried clauses, one-sided terms, quiet auto-renewals. Lawyers are slow and
+              expensive; generic AI is fast but answers to no one. Dealenz is the
+              counterparty-side loop: send us their contract, get back what to push
+              back on — in your words. Sign here. Stay guarded.
             </p>
-            <div className="mt-8 flex flex-col items-center">
+            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link
                 href="/register"
-                className="inline-flex h-12 items-center gap-2 rounded-full bg-[#1C1917] px-8 text-[15px] font-semibold text-white transition-colors hover:bg-black"
+                className="inline-flex h-12 items-center gap-2 rounded-full bg-[#1C1917] px-8 text-[15px] font-semibold text-white transition-all hover:bg-black hover:shadow-xl"
               >
                 Analyze your deal
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <p className="mt-3 text-[12px] text-[#1C1917]/45">
-                Free to start. No credit card required.
-              </p>
-            </div>
-            <LandingHeroComposer />
-            <div className="mt-12 text-left">
-              <HeroMockup />
-            </div>
-          </div>
-        </section>
-
-        <section className="border-t border-black/[0.06] bg-white">
-          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-[30px] font-semibold tracking-[-0.03em] sm:text-[38px]">
-                From first question to signed agreement
-              </h2>
-              <p className="mt-3 text-[15px] leading-relaxed text-black/60">
-                One workspace carries the matter forward, so context is never lost between steps.
-              </p>
-              <a
-                href="#how-it-works"
-                className="mt-6 inline-flex h-10 items-center rounded-full border border-black/10 bg-white px-6 text-[13px] font-medium transition-colors hover:bg-black/[0.03]"
+              <Link
+                href="/#how-it-works"
+                className="inline-flex h-12 items-center rounded-full border border-black/10 bg-white/60 px-8 text-[15px] font-medium transition-colors hover:bg-white"
               >
                 See how it works
-              </a>
+              </Link>
             </div>
-            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {featureCards.map((card) => (
-                <div
-                  key={card.n}
-                  className="relative overflow-hidden rounded-[20px] border border-black/[0.07] bg-white shadow-surface"
-                >
-                  <span className="absolute left-4 top-4 z-10 rounded-full bg-black/[0.45] px-2.5 py-1 text-[11px] font-bold tracking-widest text-white">
-                    {card.n}
-                  </span>
-                  <div
-                    className={`flex h-[220px] items-center justify-center ${card.tint}`}
-                  >
-                    <card.icon className="h-16 w-16 text-white" strokeWidth={1.25} />
-                  </div>
-                  <p className="px-5 py-4 text-[13px] font-medium leading-snug">{card.caption}</p>
-                </div>
-              ))}
+            <p className="mt-3 text-[12px] text-[#1C1917]/45">
+              Free to start. No credit card required.
+            </p>
+            <div className="mx-auto mt-12 max-w-[880px] text-left">
+              <LandingHeroPreview />
+              <p className="mt-3 text-center text-[11px] text-black/40">Illustrated example. Your report will reflect your deal.</p>
             </div>
           </div>
         </section>
 
-        <section id="why-dealenz-exists" className="border-t border-black/[0.06] bg-[#FAFAF8]">
-          <div className="mx-auto max-w-[760px] px-6 py-16 lg:py-24">
-            <Eyebrow>Why Dealenz exists</Eyebrow>
-            <div className="mt-5 space-y-5 text-[16px] leading-relaxed text-[#1C1917]/75">
-              <p>
-                Most people sign agreements without really understanding what they are agreeing to.
-                Not because they are careless, but because reading a contract closely takes time,
-                and knowing what actually matters in it takes experience most people do not have.
-              </p>
-              <p>
-                Dealenz started as a tool for freelancers, because that is where the problem is
-                easiest to see: a scope-of-work email, a payment clause buried in paragraph four,
-                a client who just wants one small change that turns into three unpaid weeks. But
-                the same blind spot exists everywhere. Founders signing their first partnership
-                agreement. Small business owners buying out a supplier. People renting a space for
-                the first time. The deal is different, but the moment is the same: you are being
-                asked to agree to something you do not have time to fully understand.
-              </p>
-              <p>
-                So Dealenz became a tool for anyone in that moment. It reads what you are being
-                asked to sign, tells you plainly where the risk actually is, and helps you decide
-                what to do about it, whether that is negotiating a term, generating your own
-                protective language, or bringing in a real lawyer when the stakes call for it.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="border-t border-black/[0.06] bg-white">
-          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
-            <div className="mx-auto max-w-3xl text-center">
-              <p className="text-[26px] font-medium leading-snug tracking-[-0.02em] sm:text-[32px]">
-                By the time you notice the bad terms, you have already agreed to them.
-              </p>
-              <p className="mt-4 text-[14px] leading-relaxed text-black/55">
-                The document is rarely the whole problem. Before anyone can tell you what matters,
-                they need to understand the situation around it.
-              </p>
-            </div>
-            <div className="mx-auto mt-10 grid max-w-4xl gap-4 sm:grid-cols-2">
-              {riskPoints.map(([title, desc]) => (
-                <div
-                  key={title}
-                  className="rounded-[16px] border border-black/[0.07] bg-[#FAFAF8] px-5 py-5 shadow-surface"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[var(--burgundy)]" aria-hidden />
-                    <p className="text-[13px] font-semibold">{title}</p>
-                  </div>
-                  <p className="mt-2 text-[13px] leading-relaxed text-black/55">{desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
+        {/* How it works */}
         <section id="how-it-works" className="border-t border-black/[0.06] bg-[#FAFAF8]">
           <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
             <div className="max-w-2xl">
-              <Eyebrow>How it works</Eyebrow>
+              <Eyebrow>The loop</Eyebrow>
               <h2 className="mt-4 text-[30px] font-semibold tracking-[-0.03em] sm:text-[38px]">
-                Four steps, one workspace
+                Three steps. Nothing to learn.
               </h2>
-              <p className="mt-3 text-[15px] leading-relaxed text-black/60">
-                Start with what you know. Dealenz structures the situation as you talk, checks
-                what matters, and helps you act on it.
-              </p>
             </div>
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {processSteps.map((step, i) => (
+            <div className="mt-10 grid gap-4 md:grid-cols-3">
+              {steps.map((s, i) => (
                 <div
-                  key={step.title}
-                  className="rounded-[20px] border border-black/[0.07] bg-white p-6 shadow-surface"
+                  key={s.n}
+                  className={`rounded-[20px] border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_-20px_rgba(0,0,0,0.25)] sm:p-7 ${
+                    i === 1
+                      ? "border-[var(--burgundy)]/25 bg-[#1C1917] text-white"
+                      : "border-black/[0.07] bg-white"
+                  }`}
                 >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1C1917] text-[12px] font-bold text-white">
-                    {i + 1}
+                  <span
+                    className={`flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-bold ${
+                      i === 1 ? "bg-[var(--burgundy)] text-white" : "bg-[#1C1917] text-white"
+                    }`}
+                  >
+                    {s.n}
                   </span>
-                  <h3 className="mt-4 text-[16px] font-semibold tracking-[-0.01em]">{step.title}</h3>
-                  <p className="mt-2 text-[13px] leading-relaxed text-black/60">{step.body}</p>
+                  <h3 className="mt-4 text-[18px] font-semibold tracking-[-0.01em]">{s.title}</h3>
+                  <p className={`mt-2 text-[14px] leading-relaxed ${i === 1 ? "text-white/65" : "text-black/60"}`}>{s.body}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        <section className="border-t border-black/[0.06] bg-white">
-          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-20">
-            <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+        {/* Mission / trust */}
+        <section id="mission" className="border-t border-black/[0.06] bg-white">
+          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
+            <div className="grid gap-10 lg:grid-cols-[1.2fr_1fr]">
               <div>
-                <Eyebrow>Risk intelligence</Eyebrow>
-                <h2 className="mt-4 text-[30px] font-semibold tracking-[-0.03em] sm:text-[36px]">
-                  Grounded in evidence, checked by rules
+                <Eyebrow>Why this exists</Eyebrow>
+                <h2 className="mt-4 text-[30px] font-semibold tracking-[-0.03em] sm:text-[38px]">
+                  Most people sign paper they did not write and cannot fully read.
                 </h2>
-                <p className="mt-4 text-[15px] leading-relaxed text-black/60">
-                  Not a summary. A reading of what the situation means for you. Every finding
-                  points to the clause it came from and says why it matters for your situation.
+                <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-black/60">
+                  The other side has lawyers. You have a deadline. Dealenz exists to close
+                  that gap for the person receiving the paper — the freelancer, the
+                  founder, the small business owner — with machine thoroughness,
+                  deterministic checks that overrule the AI when they disagree, and
+                  words you can actually send back.
                 </p>
-                <p className="mt-3 text-[14px] leading-relaxed text-black/55">
-                  When a conclusion can be grounded, Dealenz shows the basis. When it cannot, it
-                  says so plainly.
+                <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-black/60">
+                  Nothing here is legal advice, and we say that plainly instead of
+                  burying it in fine print. For high stakes, get a lawyer — Dealenz
+                  will tell you when that moment arrives.
                 </p>
               </div>
-              <div className="overflow-hidden rounded-[20px] border border-black/[0.07] bg-white shadow-surface">
-                <div className="flex items-center justify-between border-b border-black/[0.06] bg-[#FAFAF8] px-5 py-3">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-black/40">
-                    Finding: payment terms
-                  </span>
-                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
-                    Attention
-                  </span>
-                </div>
-                <div className="p-5 sm:p-6">
-                  <h3 className="text-[15px] font-semibold leading-snug">
-                    Payment is due before you have leverage to enforce it.
-                  </h3>
-                  <div className="mt-3 rounded-xl border border-black/[0.06] bg-[#FAFAF8] px-3.5 py-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-black/40">
-                      Evidence
-                    </p>
-                    <p className="mt-1 text-[13px] leading-relaxed text-black/70">
-                      Clause 4.2: full payment on signing, delivery within 60 days.
-                    </p>
+              <div className="rounded-[20px] border border-black/[0.07] bg-[#FAFAF8] p-6 sm:p-7">
+                <h3 className="text-[15px] font-semibold">How your data is handled</h3>
+                <ul className="mt-4 space-y-3">
+                  {[
+                    ["Your deals stay yours", "Every deal is scoped to your account. Nothing is shared, sold, or used to train anyone else's model."],
+                    ["AI processing, stated plainly", "Deal content goes to our AI processing provider to produce your analysis — and nowhere else."],
+                    ["Delete everything, anytime", "Settings → Delete account erases your account and everything in it. No retention games."],
+                    ["No trackers", "Sign-in cookies only. No advertising trackers, ever."],
+                  ].map(([title, body]) => (
+                    <li key={title} className="flex gap-3">
+                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--burgundy)]" />
+                      <div>
+                        <p className="text-[13px] font-semibold">{title}</p>
+                        <p className="mt-0.5 text-[13px] leading-relaxed text-black/55">{body}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Feature deep-dives */}
+        <section id="features" className="border-t border-black/[0.06] bg-[#FAFAF8]">
+          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
+            <div className="max-w-2xl">
+              <Eyebrow>What you get</Eyebrow>
+              <h2 className="mt-4 text-[30px] font-semibold tracking-[-0.03em] sm:text-[38px]">
+                Not a report. Leverage.
+              </h2>
+            </div>
+
+            <div className="mt-10 grid items-center gap-8 lg:grid-cols-2">
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--burgundy)]">Counter-words</p>
+                <h3 className="mt-2 text-[24px] font-semibold tracking-[-0.02em]">The exact words to push back with</h3>
+                <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-black/60">
+                  Every real risk comes with sendable language — staged payments,
+                  capped revisions, a revised clause. Written deterministically from
+                  the finding, ready to paste into your reply. Copy it straight
+                  from the report.
+                </p>
+              </div>
+              <div className="rounded-[20px] border border-black/[0.07] bg-white p-5 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.22)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_32px_72px_-24px_rgba(0,0,0,0.28)]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">Words to send</p>
+                <p className="mt-2 font-serif text-[15px] leading-relaxed">&ldquo;Please cap revisions at two rounds. Extra rounds will be billed at my standard rate.&rdquo;</p>
+                <p className="mt-2 text-[11px] text-black/40">Illustrated example · from an unlimited-revisions finding</p>
+              </div>
+            </div>
+
+            <div className="mt-14 grid items-center gap-8 lg:grid-cols-2">
+              <div className="order-2 rounded-[20px] border border-black/[0.07] bg-[#1C1917] p-5 text-white shadow-[0_24px_64px_-24px_rgba(0,0,0,0.4)] transition-all duration-300 hover:-translate-y-1 lg:order-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/50">Evidence</p>
+                <p className="mt-2 text-[15px] font-semibold leading-snug">Payment is due before you have leverage to enforce it.</p>
+                <p className="mt-3 rounded-xl bg-white/[0.07] px-3.5 py-3 text-[12px] leading-relaxed text-white/80">
+                  Clause 4.2: full payment on signing, delivery within 60 days.
+                </p>
+                <p className="mt-2 text-[11px] text-white/40">Illustrated example · deterministic rule, quoted source</p>
+              </div>
+              <div className="order-1 lg:order-2">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--burgundy)]">Evidence-anchored findings</p>
+                <h3 className="mt-2 text-[24px] font-semibold tracking-[-0.02em]">Every flag carries its clause</h3>
+                <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-black/60">
+                  Findings are checked by deterministic rules that overrule the AI
+                  when they disagree — and each one quotes the exact language it
+                  came from. What the model cannot support, it says unknown.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-14 grid items-center gap-8 lg:grid-cols-2">
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--burgundy)]">Sign & stay guarded</p>
+                <h3 className="mt-2 text-[24px] font-semibold tracking-[-0.02em]">Both sides sign here. Nothing lapses after.</h3>
+                <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-black/60">
+                  You sign first, the counterparty signs through a secure link —
+                  no account needed. The document locks; later changes become new
+                  versions. Renewals, notice windows, and obligations stay
+                  tracked in monitoring, with email alerts before they matter.
+                </p>
+              </div>
+              <div className="rounded-[20px] border border-black/[0.07] bg-white p-5 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.22)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_32px_72px_-24px_rgba(0,0,0,0.28)]">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--burgundy)] text-[12px] font-bold text-white">AK</span>
+                  <div>
+                    <p className="text-[13px] font-semibold">Protection package ready</p>
+                    <p className="text-[12px] text-black/50">Revised clause 4.2 is ready to send.</p>
                   </div>
-                  <p className="mt-3 text-[13px] leading-relaxed text-black/60">
-                    If delivery slips, you have already paid. Suggested next step: ask for staged
-                    payments tied to milestones.
-                  </p>
                 </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="border-t border-black/[0.06] bg-white">
-          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-20">
-            <div className="max-w-2xl">
-              <Eyebrow>Negotiation</Eyebrow>
-              <h2 className="mt-4 text-[30px] font-semibold tracking-[-0.03em] sm:text-[36px]">
-                Know the words, not just the worry
-              </h2>
-              <p className="mt-3 text-[15px] leading-relaxed text-black/60">
-                A flagged risk you cannot articulate is a concession waiting to happen. For
-                each real finding, Dealenz drafts the counter-language — staged payments,
-                a capped liability, a narrower IP grant — tied to the clause it answers.
-              </p>
-            </div>
-            <div className="mt-10 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-[20px] border border-black/[0.07] bg-[#FAFAF8] p-6 shadow-surface">
-                <h3 className="text-[15px] font-semibold">Counter-words per finding</h3>
-                <p className="mt-1 text-[13px] leading-relaxed text-black/55">
-                  Each risk arrives with something you can actually reply with, not just a warning.
-                </p>
-              </div>
-              <div className="rounded-[20px] border border-black/[0.07] bg-[#FAFAF8] p-6 shadow-surface">
-                <h3 className="text-[15px] font-semibold">You decide what to send</h3>
-                <p className="mt-1 text-[13px] leading-relaxed text-black/55">
-                  AI proposes, you dispose. Nothing goes to the other side without your explicit approval.
-                </p>
-              </div>
-              <div className="rounded-[20px] border border-black/[0.07] bg-[#FAFAF8] p-6 shadow-surface">
-                <h3 className="text-[15px] font-semibold">Re-check before signing</h3>
-                <p className="mt-1 text-[13px] leading-relaxed text-black/55">
-                  Pushed back? Run the redline through again and confirm nothing new crept in.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="border-t border-black/[0.06] bg-[#FAFAF8]">
-          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-20">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-[20px] border border-black/[0.07] bg-white p-6 sm:p-7 shadow-surface">
-                <Eyebrow>Signing</Eyebrow>
-                <h3 className="mt-3 text-[20px] font-semibold tracking-[-0.02em]">Sign here</h3>
-                <p className="mt-2 text-[14px] leading-relaxed text-black/60">
-                  You sign first, the counterparty signs through a secure link, and the
-                  document locks. Later changes become new versions — never silent edits.
-                </p>
-              </div>
-              <div className="rounded-[20px] border border-black/[0.07] bg-white p-6 sm:p-7 shadow-surface">
-                <Eyebrow>Ongoing</Eyebrow>
-                <h3 className="mt-3 text-[20px] font-semibold tracking-[-0.02em]">Stay guarded</h3>
-                <p className="mt-2 text-[14px] leading-relaxed text-black/60">
-                  Track renewals, notice windows, and payment obligations in monitoring after
-                  signing — connect Gmail once for an email before anything auto-renews or lapses.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="border-t border-black/[0.06] bg-[#FAFAF8]">
-          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-20">
-            <div className="max-w-2xl">
-              <Eyebrow>Documents you get</Eyebrow>
-              <h2 className="mt-4 text-[30px] font-semibold tracking-[-0.03em] sm:text-[36px]">
-                Leave with something to send
-              </h2>
-              <p className="mt-3 text-[15px] leading-relaxed text-black/60">
-                A risk report on its own does not protect you. Every freelance analysis can produce the
-                actual documents the situation calls for.
-              </p>
-            </div>
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {documentCards.map(([title, desc]) => (
-                <div
-                  key={title}
-                  className="rounded-[20px] border border-black/[0.07] bg-white p-6 shadow-surface"
-                >
-                  <FileText className="h-5 w-5 text-[var(--burgundy)]" />
-                  <h3 className="mt-4 text-[15px] font-semibold">{title}</h3>
-                  <p className="mt-1 text-[13px] leading-relaxed text-black/55">{desc}</p>
+                <div className="mt-3 flex items-center gap-2 rounded-xl bg-[#FAFAF8] px-3.5 py-2.5">
+                  <CircleAlert className="h-3.5 w-3.5 shrink-0 text-amber-700" />
+                  <p className="text-[12px]">Renewal in 21 days — alert scheduled</p>
                 </div>
-              ))}
+                <p className="mt-2 text-[11px] text-black/40">Illustrated example · signing and monitoring</p>
+              </div>
             </div>
           </div>
         </section>
 
+        {/* Pricing */}
         <section id="pricing" className="border-t border-black/[0.06] bg-white">
-          <div className="mx-auto max-w-4xl px-6 py-16 lg:py-24">
+          <div className="mx-auto max-w-5xl px-6 py-16 lg:py-24">
             <div className="text-center">
               <Eyebrow>Pricing</Eyebrow>
               <h2 className="mt-4 text-[30px] font-semibold tracking-[-0.03em] sm:text-[38px]">
-                Simple pricing
+                Pay per deal outcome. Nothing else.
               </h2>
-              <p className="mt-3 text-[15px] text-black/60">
-                Start free. Pay only for deeper work, when you need it.
+              <p className="mx-auto mt-3 max-w-xl text-[15px] text-black/60">
+                No subscriptions, no tiers, no feature gates. Free daily analyses —
+                credits only when the work goes deeper.
               </p>
             </div>
-            <div className="mt-12 grid gap-6 sm:grid-cols-2">
-              <div className="rounded-[20px] border border-black/[0.07] bg-white p-8 shadow-surface">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-black/40">
-                  Free
-                </p>
+            <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-[20px] border border-black/[0.07] bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-black/40">Free</p>
                 <p className="mt-2 text-4xl font-semibold tracking-tight">$0</p>
-                <p className="mt-1 text-sm text-black/55">For getting started</p>
-                <ul className="mt-6 space-y-2.5">
-                  {pricingFree.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm text-black/60">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                      {f}
-                    </li>
-                  ))}
+                <ul className="mt-5 space-y-2 text-[13px] text-black/60">
+                  <li>Five analyses per day</li>
+                  <li>10 signup credits</li>
+                  <li>All four document types on freelance deals</li>
                 </ul>
-                <Link
-                  href="/register"
-                  className="mt-8 flex w-full items-center justify-center rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm font-medium transition-colors hover:bg-black/[0.03]"
-                >
+                <Link href="/register" className="mt-6 flex w-full items-center justify-center rounded-full border border-black/10 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-black/[0.03]">
                   Get started free
                 </Link>
               </div>
-              <div className="rounded-[20px] border border-[var(--burgundy)]/25 bg-white p-8 shadow-raised">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-black/40">
-                  Credits
-                </p>
-                <p className="mt-2 text-4xl font-semibold tracking-tight">Pay as you go</p>
-                <p className="mt-1 text-sm text-black/55">For deeper AI work</p>
-                <ul className="mt-6 space-y-2.5">
-                  {pricingCredits.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm text-black/60">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href="/register"
-                  className="mt-8 flex w-full items-center justify-center rounded-full bg-[var(--burgundy)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-red-hover)]"
-                >
-                  Get started free
-                </Link>
+              {[
+                { name: "50 credits", price: "$19", note: "A deal or two" },
+                { name: "150 credits", price: "$49", note: "A busy month" },
+                { name: "400 credits", price: "$99", note: "Steady deal flow" },
+              ].map((p) => (
+                <div key={p.name} className="rounded-[20px] border border-black/[0.07] bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-black/40">{p.name}</p>
+                  <p className="mt-2 text-4xl font-semibold tracking-tight">{p.price}</p>
+                  <p className="mt-1 text-[13px] text-black/55">{p.note}</p>
+                  <p className="mt-4 text-[13px] text-black/60">One-time top-up. No subscription.</p>
+                  <Link href="/register" className="mt-5 flex w-full items-center justify-center rounded-full bg-[#1C1917] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-black">
+                    Get started free
+                  </Link>
+                </div>
+              ))}
+            </div>
+            <div className="mx-auto mt-8 max-w-3xl rounded-[20px] border border-black/[0.06] bg-[#FAFAF8] p-6">
+              <p className="text-[13px] font-semibold">Fixed prices per outcome</p>
+              <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-[13px] text-black/60 sm:grid-cols-3">
+                <p>Ask brief <span className="font-semibold text-black">10</span></p>
+                <p>Ask standard <span className="font-semibold text-black">30</span></p>
+                <p>Ask extended <span className="font-semibold text-black">100</span></p>
+                <p>Proposal <span className="font-semibold text-black">25</span></p>
+                <p>Scope of work <span className="font-semibold text-black">35</span></p>
+                <p>Contract <span className="font-semibold text-black">45</span></p>
+                <p>Checklist <span className="font-semibold text-black">20</span></p>
+                <p>Document upload <span className="font-semibold text-black">15</span></p>
+                <p>Signature send <span className="font-semibold text-black">25</span></p>
               </div>
+              <p className="mt-3 text-[12px] text-black/45">A typical freelance loop — analysis on the free allowance, proposal, signature send — runs about 50 credits.</p>
             </div>
           </div>
         </section>
 
+        {/* FAQ */}
         <section id="faq" className="border-t border-black/[0.06] bg-[#FAFAF8]">
           <div className="mx-auto max-w-[680px] px-6 py-16 lg:py-24">
             <h2 className="text-[30px] font-semibold tracking-[-0.03em] sm:text-[36px]">
@@ -756,145 +412,96 @@ export default function Home() {
             </h2>
             <div className="mt-10 space-y-4">
               {faqs.map((faq) => (
-                <div
+                <details
                   key={faq.q}
-                  className="rounded-[16px] border border-black/[0.06] bg-white p-5 shadow-surface"
+                  className="group rounded-[16px] border border-black/[0.06] bg-white p-5 shadow-sm transition-colors open:shadow-md"
                 >
-                  <p className="text-[15px] font-semibold">{faq.q}</p>
-                  <p className="mt-1.5 text-[14px] leading-relaxed text-black/60">{faq.a}</p>
-                </div>
+                  <summary className="cursor-pointer list-none text-[15px] font-semibold [&::-webkit-details-marker]:hidden">
+                    <span className="flex items-center justify-between gap-4">
+                      {faq.q}
+                      <span className="text-black/30 transition-transform duration-300 group-open:rotate-45">+</span>
+                    </span>
+                  </summary>
+                  <p className="mt-2.5 text-[14px] leading-relaxed text-black/60">{faq.a}</p>
+                </details>
               ))}
             </div>
           </div>
         </section>
 
-        <section id="how-it-works" className="border-t border-black/[0.06] bg-white">
-          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
-            <div className="max-w-2xl">
-              <Eyebrow>How Dealenz actually works</Eyebrow>
-              <h2 className="mt-4 text-[30px] font-semibold tracking-[-0.03em] sm:text-[38px]">
-                What we will and will not do
-              </h2>
-            </div>
-            <div className="mt-10 grid gap-4 md:grid-cols-2">
-              {howItWorks.map((item, i) => (
-                <div
-                  key={item.title}
-                  className="rounded-[20px] border border-black/[0.07] bg-[#FAFAF8] p-6 sm:p-7"
-                >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--burgundy)] text-[12px] font-bold text-white">
-                    {i + 1}
-                  </span>
-                  <h3 className="mt-4 text-[17px] font-semibold tracking-[-0.01em]">{item.title}</h3>
-                  <p className="mt-2 text-[14px] leading-relaxed text-black/60">{item.body}</p>
-                </div>
-              ))}
+        {/* Final CTA */}
+        <section className="border-t border-black/[0.06] bg-[#1C1917] text-white">
+          <div className="mx-auto max-w-[1280px] px-6 py-16 text-center lg:px-8 lg:py-24">
+            <h2 className="mx-auto max-w-[20ch] text-[32px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-[44px]">
+              Bring us what you are dealing with.
+            </h2>
+            <p className="mx-auto mt-3 max-w-[48ch] text-[15px] text-white/60">
+              You do not need to know where to start. Send the contract — leave with pushback words.
+            </p>
+            <div className="mt-8">
+              <Link
+                href="/register"
+                className="inline-flex h-12 items-center gap-2 rounded-full bg-white px-8 text-[15px] font-semibold text-[#141110] transition-all hover:bg-white/90 hover:shadow-xl"
+              >
+                Analyze your deal
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <p className="mt-3 text-[12px] text-white/45">Free to start. No credit card required.</p>
             </div>
           </div>
         </section>
       </main>
 
+      {/* Footer */}
       <footer className="relative overflow-hidden bg-[#141110] text-white">
         <div
           aria-hidden
           className="pointer-events-none absolute -bottom-40 -right-24 h-[480px] w-[480px] rounded-full bg-[var(--burgundy)] opacity-40 blur-[140px]"
         />
         <div className="relative mx-auto max-w-[1280px] px-6 pt-16 lg:px-8">
-          <h2 className="max-w-[18ch] text-[34px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-[44px]">
-            Bring us what you are dealing with.
-          </h2>
-          <p className="mt-3 text-[15px] text-white/60">You do not need to know where to start.</p>
-          <div className="mt-7">
-            <Link
-              href="/register"
-              className="inline-flex h-12 items-center gap-2 rounded-full bg-white px-8 text-[15px] font-semibold text-[#141110] transition-colors hover:bg-white/90"
-            >
-              Analyze your deal
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <p className="mt-3 text-[12px] text-white/45">Free to start. No credit card required.</p>
-          </div>
-
-          <div className="mt-16 grid gap-10 border-t border-white/10 pt-12 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
+          <div className="grid gap-10 border-b border-white/10 pb-12 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1fr]">
             <div>
               <LogoMark dark />
               <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-white/60">
-                Reads what you are being asked to sign and tells you plainly where the risk
-                actually is.
+                The counterparty-side loop for people who receive paper: what to
+                push back on, in your words. Sign here. Stay guarded.
               </p>
             </div>
             <nav aria-label="Product">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
-                Product
-              </p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Product</p>
               <ul className="mt-4 space-y-2.5 text-[13px]">
-                <li>
-                  <Link href="/#how-it-works" className="text-white/70 transition-colors hover:text-white">
-                    How it works
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/#pricing" className="text-white/70 transition-colors hover:text-white">
-                    Pricing
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/register" className="text-white/70 transition-colors hover:text-white">
-                    Analyze your deal
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/register" className="text-white/70 transition-colors hover:text-white">
-                    Lawyer review
-                  </Link>
-                </li>
+                <li><Link href="/#how-it-works" className="text-white/70 transition-colors hover:text-white">How it works</Link></li>
+                <li><Link href="/#features" className="text-white/70 transition-colors hover:text-white">Features</Link></li>
+                <li><Link href="/#pricing" className="text-white/70 transition-colors hover:text-white">Pricing</Link></li>
+                <li><Link href="/register" className="text-white/70 transition-colors hover:text-white">Analyze your deal</Link></li>
+                <li><Link href="/register" className="text-white/70 transition-colors hover:text-white">Lawyer review</Link></li>
+              </ul>
+            </nav>
+            <nav aria-label="Company">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Company</p>
+              <ul className="mt-4 space-y-2.5 text-[13px]">
+                <li><Link href="/#mission" className="text-white/70 transition-colors hover:text-white">Mission</Link></li>
+                <li><a href="mailto:support@dealenz.com" className="text-white/70 transition-colors hover:text-white">Contact</a></li>
+                <li><Link href="/lawyer-application" className="text-white/70 transition-colors hover:text-white">Apply as a lawyer</Link></li>
+              </ul>
+            </nav>
+            <nav aria-label="Resources">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Resources</p>
+              <ul className="mt-4 space-y-2.5 text-[13px]">
+                <li><Link href="/help" className="text-white/70 transition-colors hover:text-white">Help center</Link></li>
+                <li><Link href="/register" className="text-white/70 transition-colors hover:text-white">Get started</Link></li>
+                <li><Link href="/login" className="text-white/70 transition-colors hover:text-white">Sign in</Link></li>
               </ul>
             </nav>
             <nav aria-label="Legal">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
-                Legal
-              </p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Legal</p>
               <ul className="mt-4 space-y-2.5 text-[13px]">
-                <li>
-                  <Link href="/privacy" className="text-white/70 transition-colors hover:text-white">
-                    Privacy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/terms" className="text-white/70 transition-colors hover:text-white">
-                    Terms
-                  </Link>
-                </li>
-              </ul>
-            </nav>
-            <nav aria-label="Account">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
-                Account
-              </p>
-              <ul className="mt-4 space-y-2.5 text-[13px]">
-                <li>
-                  <Link href="/login" className="text-white/70 transition-colors hover:text-white">
-                    Sign in
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/register" className="text-white/70 transition-colors hover:text-white">
-                    Get started
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/lawyer-application"
-                    className="text-white/70 transition-colors hover:text-white"
-                  >
-                    Apply as a lawyer
-                  </Link>
-                </li>
+                <li><Link href="/privacy" className="text-white/70 transition-colors hover:text-white">Privacy</Link></li>
+                <li><Link href="/terms" className="text-white/70 transition-colors hover:text-white">Terms</Link></li>
               </ul>
             </nav>
           </div>
-
-          <div className="mt-12 border-t border-white/10 py-6">
+          <div className="py-6">
             <p className="max-w-3xl text-[12px] leading-relaxed text-white/40">
               Dealenz generates AI-assisted recommendations and document drafts. These are not
               legal services or legal advice. Review important agreements with a qualified

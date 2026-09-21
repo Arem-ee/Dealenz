@@ -4,19 +4,19 @@ import { ToastProvider } from "@/components/ui/toast"
 
 export const metadata: Metadata = {
   title: {
-    default: "Dealenz — Know the Risk Before You Sign",
+    default: "Dealenz — AI Contract Review Tool: Know the Risk Before You Sign",
     template: "%s | Dealenz",
   },
   description:
-    "Dealenz looks at the deal you're about to enter, whether that's a contract, a lease, or a partnership agreement, and tells you plainly where the risk actually is before you sign anything.",
-  keywords: ["freelance", "contract audit", "risk assessment", "scope protection", "AI auditor"],
+    "They sent the contract. Dealenz reads it, tells you where the risk is, gives you the words to push back, and guards what was agreed.",
+  keywords: ["AI contract review tool", "freelance", "contract audit", "risk assessment", "scope protection", "AI auditor"],
   authors: [{ name: "Dealenz" }],
   robots: { index: true, follow: true },
   icons: { icon: "/favicon.svg" },
   openGraph: {
-    title: "Dealenz — Know the Risk Before You Sign",
+    title: "Dealenz — AI Contract Review Tool: Know the Risk Before You Sign",
     description:
-      "Dealenz looks at the deal you're about to enter, whether that's a contract, a lease, or a partnership agreement, and tells you plainly where the risk actually is before you sign anything.",
+      "They sent the contract. Dealenz reads it, tells you where the risk is, gives you the words to push back, and guards what was agreed.",
     type: "website",
     siteName: "Dealenz",
   },
