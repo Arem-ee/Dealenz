@@ -28,7 +28,7 @@ const FAQS = [
   },
   {
     q: "What do credits pay for?",
-    a: "Credits pay for computation (analysis, answers, drafts) — never for a favorable answer. Greetings are always free.",
+    a: "Credits pay for deal outcomes: Ask answers (10/30/100 by size), documents (proposal 25, scope 35, contract 45, checklist 20), uploads (15), signature sends (25), and lawyer requests (15) — never for a favorable answer. Greetings are always free, and daily analyses never consume credits.",
   },
 ]
 

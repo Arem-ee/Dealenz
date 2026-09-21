@@ -398,6 +398,7 @@ export default function Home() {
                 <p>Checklist <span className="font-semibold text-black">20</span></p>
                 <p>Document upload <span className="font-semibold text-black">15</span></p>
                 <p>Signature send <span className="font-semibold text-black">25</span></p>
+                <p>Lawyer request <span className="font-semibold text-black">15</span></p>
               </div>
               <p className="mt-3 text-[12px] text-black/45">A typical freelance loop — analysis on the free allowance, proposal, signature send — runs about 50 credits.</p>
             </div>

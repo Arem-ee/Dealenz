@@ -86,6 +86,7 @@ export default function SettingsClient({ initialProfile, email, googleConnected,
             <button
               key={s.key}
               onClick={() => setActiveSection(s.key)}
+              aria-current={activeSection === s.key ? "page" : undefined}
               className={cn(
                 "shrink-0 text-sm px-3 py-2 rounded-md text-left transition-colors",
                 activeSection === s.key

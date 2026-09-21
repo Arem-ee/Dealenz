@@ -17,10 +17,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
   const body = await req.json().catch(() => ({})) as { name?: string; email?: string; partyLabel?: string; documentVersionId?: string }
   const name = typeof body.name === "string" ? body.name.trim() : ""
   const email = typeof body.email === "string" ? body.email.trim() : ""
-  const partyLabel = typeof body.partyLabel === "string" ? body.partyLabel.trim() || "counterparty" : "counterparty"
+  // Owner rows are created server-side by this route (ensure-owner); callers
+  // may only add counterparties. Free-text labels previously allowed an
+  // "owner"/"Owner " signer that evaded the owner-first ordering checks.
+  const partyLabel = "counterparty"
   const documentVersionId = typeof body.documentVersionId === "string" ? body.documentVersionId : null
   if (!name || name.length > 120) return NextResponse.json({ success: false, error: "Enter name" }, { status: 400 })
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ success: false, error: "Enter valid email" }, { status: 400 })
+  if (!user.email_confirmed_at) return NextResponse.json({ success: false, error: "Please verify your email address before inviting signers." }, { status: 403 })
 
   // Credit gate at the point of use (fail fast, before any reads/writes):
   // sending a signature request costs SIGNATURE_SEND_CREDITS. Same balance

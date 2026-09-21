@@ -532,7 +532,7 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
       const { data: updatedSteps } = await client.from("work_plan_steps").select("result_ref, status, operation").eq("plan_id", planId).eq("user_id", userId).order("step_index", { ascending: true })
       const artifactRefs: Array<{ type: string; id: string }> = []
       // Fetch actual audit findings/evidence for snapshot (do not invent)
-      let findingsSnapshot: Array<{ ruleKey: string; severity: string; summary: string; guidance?: string; pushback?: string; evidenceId?: string }> = []
+      let findingsSnapshot: Array<{ ruleKey: string; severity?: string; summary: string; guidance?: string; pushback?: string; evidenceId?: string; authority?: string }> = []
       const evidenceSnapshot: Array<{ quote: string | null; location: unknown }> = []
       let missingVariables: string[] = []
       try {
@@ -541,10 +541,18 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
           const sd = (auditSnap as { structured_data?: Record<string, unknown> } | null)?.structured_data as Record<string, unknown> | undefined
           const det = (sd?.deterministicFindings as Array<{ finding?: { severity: string; summary: string; guidance?: string; pushback?: string }; severity?: string; summary?: string; guidance?: string; pushback?: string; ruleKey?: string; evidence?: Array<{ id: string; quote: string | null; location: unknown }> }> | undefined) ?? []
           findingsSnapshot = det.slice(0, 20).map((f) => {
-            const src = (f.finding ?? f) as { severity: string; summary: string; guidance?: string; pushback?: string; ruleKey?: string; evidence?: Array<{ id: string }> }
+            const src = (f.finding ?? f) as { severity?: string; summary?: string; guidance?: string; pushback?: string; ruleKey?: string; authority?: { kind?: string }; evidence?: Array<{ id: string }> }
+            // Snapshot discipline: only FAIL rows with real summaries travel.
+            // PASS/UNKNOWN rows carry no finding and must never render as
+            // findings; rows without a ruleKey are skipped, never faked.
+            const status = (f as { status?: string }).status
+            if (status !== "FAIL" || typeof src.summary !== "string" || !src.summary) return null
+            const ruleKey = (src as { ruleKey?: string }).ruleKey ?? (f as { ruleKey?: string }).ruleKey
+            if (typeof ruleKey !== "string" || !ruleKey) return null
+            const authority = (f as { authority?: { kind?: string } }).authority?.kind ?? src.authority?.kind
             const evId = Array.isArray((f as { evidence?: Array<{ id: string }> }).evidence) ? (f as { evidence?: Array<{ id: string }> }).evidence?.[0]?.id : undefined
-            return { ruleKey: (src as { ruleKey?: string }).ruleKey ?? (f as { ruleKey?: string }).ruleKey ?? "unknown", severity: src.severity, summary: src.summary, guidance: src.guidance, pushback: src.pushback, evidenceId: evId }
-          })
+            return { ruleKey, severity: src.severity, summary: src.summary, guidance: src.guidance, pushback: src.pushback, evidenceId: evId, authority }
+          }).filter((s): s is NonNullable<typeof s> => s !== null)
           // Evidence quotes/locations from findings
           for (const f of det) {
             const evs = (f as { evidence?: Array<{ quote: string | null; location: unknown }> }).evidence ?? []

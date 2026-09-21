@@ -2,11 +2,13 @@
 
 import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { ArrowUp, FileUp, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/toast"
 import { useAiConsent } from "@/hooks/use-ai-consent"
 import { classifyInput } from "@/lib/chat/classifier"
+import { priceForOperation } from "@/lib/credits/pricing"
 import { UPLOAD_CREDITS } from "@/lib/credits/pricing"
 import { setPendingFile } from "@/lib/pending-file"
 import { askQuestionAction } from "@/app/ask/actions"
@@ -33,6 +35,22 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
   const fileRef = useRef<HTMLInputElement>(null)
   const [pendingFile, setPendingFileLocal] = useState<File | null>(null)
   const hasContent = value.trim().length > 0 || !!pendingFile
+  // Pre-send estimate, mirrored from Ask: greetings are free, questions
+  // price by operation size. Deal and action outcomes price downstream
+  // (analysis allowance, plan approval, document costs), so no number is
+  // shown rather than a wrong one.
+  const estimate = (() => {
+    const text = value.trim() || (pendingFile ? `Document: ${pendingFile.name}` : "")
+    if (!text) return null
+    try {
+      const { outcome, operation } = classifyInput(text, !!pendingFile)
+      if (outcome === "greeting") return 0
+      if (outcome === "question") return priceForOperation(operation)
+      return null
+    } catch {
+      return null
+    }
+  })()
 
   const [ephemeral, setEphemeral] = useState<Array<{ role: "user" | "assistant"; content: string }>>([])
   // Work-surface asks (e.g. "Ask about this finding") land in the box.
@@ -333,7 +351,14 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
           {pendingFile && (
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border bg-muted px-3 py-1 text-xs">
               <span className="truncate max-w-[200px]">{pendingFile.name}</span>
-              <button type="button" onClick={() => { setPendingFileLocal(null); setPendingFile(null) }} className="ml-1 text-muted-foreground hover:text-foreground">×</button>
+              <button
+                type="button"
+                aria-label="Remove attached document"
+                onClick={() => { setPendingFileLocal(null); setPendingFile(null) }}
+                className="ml-1 -mr-1 rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted"
+              >
+                <span aria-hidden>×</span>
+              </button>
             </div>
           )}
           <label htmlFor="composer-input" className="sr-only">Message Dealenz</label>
@@ -370,6 +395,15 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             Add a document
           </button>
           <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground/60">Enter to send · Shift+Enter for new line</span>
+          {estimate !== null && (
+            <span className="hidden sm:inline text-xs text-muted-foreground/60">
+              {estimate === 0 ? (
+                "Free to send"
+              ) : (
+                <>Estimated cost: {estimate} credit{estimate === 1 ? "" : "s"} · <Link href="/billing" className="underline underline-offset-2 hover:text-foreground">Billing</Link></>
+              )}
+            </span>
+          )}
           <div className="ml-auto flex items-center gap-2">
             <Button size="icon" onClick={() => void handleSubmit()} disabled={!hasContent || sending} aria-label={sending ? "Sending" : "Send"} className="h-8 w-8 rounded-full">
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}

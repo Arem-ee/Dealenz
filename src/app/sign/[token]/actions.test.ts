@@ -1,17 +1,52 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
 const mockRpc = vi.hoisted(() => vi.fn())
+const mockServiceMaybeSingle = vi.hoisted(() => vi.fn())
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(() => ({ rpc: mockRpc })),
+}))
+
+// ownerStillPending reads ordering state through the service client:
+// counterparty signer row, then the owner row on the same version.
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: vi.fn(() => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({ in: () => ({ maybeSingle: mockServiceMaybeSingle }), maybeSingle: mockServiceMaybeSingle }),
+          in: () => ({ maybeSingle: mockServiceMaybeSingle }),
+          maybeSingle: mockServiceMaybeSingle,
+        }),
+      }),
+    }),
+  })),
 }))
 
 import { getInviteeView, signInviteeDocument, declineInviteeDocument } from "./actions"
 
 const TOKEN = "A1b2C3d4E5f6G7h8I9j0"
 
+function ownerSigned() {
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co")
+  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "service-key")
+  let calls = 0
+  mockServiceMaybeSingle.mockImplementation(() => {
+    calls += 1
+    if (calls % 2 === 1) {
+      return Promise.resolve({ data: { audit_id: "audit-1", document_version_id: "v-1", party_label: "counterparty" }, error: null })
+    }
+    return Promise.resolve({ data: { id: "owner-1", status: "signed" }, error: null })
+  })
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
+  ownerSigned()
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
 })
 
 describe("invitee signing access", () => {
@@ -83,6 +118,15 @@ describe("invitee signing access", () => {
     expect(mockRpc).toHaveBeenCalledWith("sign_as_invitee", expect.objectContaining({ p_token: TOKEN }))
     await expect(declineInviteeDocument(TOKEN)).resolves.toEqual({ success: true })
     expect(mockRpc).toHaveBeenCalledWith("decline_as_invitee", { p_token: TOKEN })
+  })
+
+  it("blocks counterparty signing when owner state cannot be verified", async () => {
+    mockServiceMaybeSingle.mockReset()
+    mockServiceMaybeSingle.mockRejectedValue(new Error("db down"))
+    const res = await signInviteeDocument(TOKEN, "Alice", "alice@example.com")
+    expect(res.success).toBe(false)
+    expect(res.error).toMatch(/owner needs to sign first/i)
+    expect(mockRpc).not.toHaveBeenCalled()
   })
 
   it("surfaces superseded/duplicate rejections honestly", async () => {

@@ -5,7 +5,7 @@ import { listMessages, addMessage, createConversation } from "@/lib/conversation
 import { isGreeting } from "@/lib/conversation/classify"
 import { toActionFailure } from "@/lib/action-result"
 import { toThreadMessage, type ThreadMessage } from "./types"
-import { createHomeDeal } from "@/app/dashboard/home-actions"
+import { createHomeDeal } from "@/lib/deals/home"
 import { autoFillDocumentVariables, getRequiredVariablesForFamily } from "@/lib/documents/variable-autofill"
 import { familyById } from "@/lib/documents/families"
 import { parseContextEnvelope } from "@/lib/context/schema"

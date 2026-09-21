@@ -244,7 +244,8 @@ export function DocumentReader({
                 <div className="mt-4 space-y-2">
                   <Label htmlFor="cp-name" className="text-xs">Counterparty</Label>
                   <Input id="cp-name" placeholder="Name" value={counterpartyName} onChange={(e) => setCounterpartyName(e.target.value)} className="h-8 text-xs" />
-                  <Input placeholder="Email" value={counterpartyEmail} onChange={(e) => setCounterpartyEmail(e.target.value)} className="h-8 text-xs" />
+                  <Label htmlFor="cp-email" className="sr-only">Counterparty email</Label>
+                  <Input id="cp-email" placeholder="Email" value={counterpartyEmail} onChange={(e) => setCounterpartyEmail(e.target.value)} className="h-8 text-xs" type="email" autoComplete="email" />
                   <Button size="sm" variant="outline" className="w-full" onClick={() => void handleAddCounterparty()} disabled={busy}>
                     <Plus className="h-3.5 w-3.5 mr-1" /> Add counterparty
                   </Button>

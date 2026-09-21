@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
     .eq("id", lawyer_id)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: "Could not update verification. Please try again." }, { status: 500 })
   }
 
   // Audit trail on existing infrastructure: the actor's own feed (RLS

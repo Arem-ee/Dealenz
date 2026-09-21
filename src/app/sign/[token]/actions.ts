@@ -11,11 +11,13 @@ const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
 // signer on the same document version is still pending. Owner signatures
 // themselves are never gated. This is enforced here (application layer);
 // the underlying RPCs remain the security boundary for identity and version.
+// Fail-closed: any infra problem blocks counterparty signing rather than
+// silently permitting out-of-order execution.
 async function ownerStillPending(token: string): Promise<boolean> {
   try {
     const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!serviceUrl || !serviceKey) return false
+    if (!serviceUrl || !serviceKey) return true
     const service = createServiceClient(serviceUrl, serviceKey)
     const { data: me } = await service
       .from("document_signers")
@@ -35,8 +37,9 @@ async function ownerStillPending(token: string): Promise<boolean> {
     const ownerRow = owner as { status?: string } | null
     return ownerRow?.status === "pending"
   } catch {
-    // Ordering check is best-effort: never block signing on infra failure.
-    return false
+    // Ordering check is best-effort to run, fail-closed to enforce: never
+    // permit counterparty signing when the owner state cannot be verified.
+    return true
   }
 }
 

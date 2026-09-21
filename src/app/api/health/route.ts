@@ -14,7 +14,6 @@ interface HealthBody {
     database: DependencyStatus
     ai: DependencyStatus
   }
-  aiFallbacksLastHour?: number
 }
 
 // Required runtime configuration (presence only — values never leak).
@@ -41,16 +40,15 @@ export async function GET() {
 
   // AI degradation: trailing fallback/failure volume from system_logs.
   // Requires the service role (system_logs SELECT is service-only); without
-  // it the check honestly reports unknown instead of guessing.
+  // it the check honestly reports unknown instead of guessing. Only the
+  // derived status is exposed — raw volumes stay ops-internal.
   let ai: DependencyStatus = "unknown"
-  let aiFallbacksLastHour: number | undefined
   const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (serviceUrl && serviceKey) {
     try {
       const service = createServiceClient(serviceUrl, serviceKey)
       const spike = await getFallbackSpike(service, 60, 10)
-      aiFallbacksLastHour = spike.count
       ai = spike.spiking ? "degraded" : "ok"
     } catch {
       ai = "unknown"
@@ -62,7 +60,6 @@ export async function GET() {
 
   const status = database === "unavailable" ? "down" : ai === "degraded" ? "degraded" : "ok"
   const body: HealthBody = { status, checks: { app: "ok", database, ai } }
-  if (aiFallbacksLastHour !== undefined) body.aiFallbacksLastHour = aiFallbacksLastHour
   return NextResponse.json(body, {
     status: status === "down" ? 503 : 200,
     headers: { "cache-control": "no-store" },

@@ -211,7 +211,7 @@ export async function attachFileMetadata(
   if (!isValidUUID(auditId)) throw new Error("Invalid audit ID")
   // Server-authoritative file validation: sanitize the name, then require
   // the exact owner-scoped path (no prefix-only match, no nested keys).
-  const { sanitizeFilename } = await import("@/lib/validation/files")
+  const { sanitizeFilename, sniffUploadMime } = await import("@/lib/validation/files")
   const { isSupportedFileType, isValidFileSize } = await import("@/lib/text-extract")
   const safeName = sanitizeFilename(fileData.name)
   if (fileData.name !== safeName) {
@@ -226,6 +226,24 @@ export async function attachFileMetadata(
   const expectedPath = `audit-files/${user.id}/${auditId}/${safeName}`
   if (fileData.path !== expectedPath) {
     throw new Error("Invalid file path")
+  }
+
+  // Byte-level verification: the stored bytes must exist, fit the size cap,
+  // and sniff as the declared type. Client-supplied size/MIME are claims,
+  // not facts — a renamed binary must fail here, before any credits move.
+  const storageKey = `${user.id}/${auditId}/${safeName}`
+  const { data: stored, error: dlError } = await supabase.storage
+    .from("audit-files")
+    .download(storageKey)
+  if (dlError || !stored) {
+    throw new Error("Uploaded file not found. Please upload again.")
+  }
+  const buffer = Buffer.from(await stored.arrayBuffer())
+  if (!isValidFileSize(buffer.length)) {
+    throw new Error("Invalid file size")
+  }
+  if (sniffUploadMime(buffer) !== fileData.type) {
+    throw new Error("File content does not match its declared type")
   }
 
   // Credit gate at the point of use: file upload/parsing costs UPLOAD_CREDITS.

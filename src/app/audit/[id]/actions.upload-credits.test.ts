@@ -6,12 +6,19 @@ import { attachFileMetadata } from "./actions"
 const mockGetUser = vi.hoisted(() => vi.fn())
 const mockFrom = vi.hoisted(() => vi.fn())
 const mockRpc = vi.hoisted(() => vi.fn())
+const mockDownload = vi.hoisted(() => vi.fn())
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },
     from: mockFrom,
     rpc: (...args: unknown[]) => mockRpc(...args),
+    storage: {
+      from: () => ({
+        download: (...args: unknown[]) => mockDownload(...args),
+        remove: async () => ({}),
+      }),
+    },
   })),
 }))
 
@@ -50,8 +57,10 @@ beforeEach(() => {
   mockGetUser.mockReset()
   mockFrom.mockReset()
   mockRpc.mockReset()
+  mockDownload.mockReset()
   mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
   mockFrom.mockImplementation(() => tableMock())
+  mockDownload.mockResolvedValue({ data: { arrayBuffer: async () => Buffer.from("%PDF-1.4 test content") }, error: null })
 })
 
 describe("attachFileMetadata credit gate (15 credits)", () => {
@@ -82,6 +91,12 @@ describe("attachFileMetadata credit gate (15 credits)", () => {
 
   it("validates input before touching credits", async () => {
     await expect(attachFileMetadata(AUDIT_ID, { ...fileData(), name: "../evil.pdf" })).rejects.toThrow(/Invalid file name/)
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+
+  it("rejects bytes that do not match the declared type before reserving credits", async () => {
+    mockDownload.mockResolvedValue({ data: { arrayBuffer: async () => Buffer.from("just some plain text, not a pdf") }, error: null })
+    await expect(attachFileMetadata(AUDIT_ID, fileData())).rejects.toThrow(/does not match/)
     expect(mockRpc).not.toHaveBeenCalled()
   })
 })

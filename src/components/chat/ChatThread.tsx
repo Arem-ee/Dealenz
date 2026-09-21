@@ -570,15 +570,15 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
             className="flex items-center gap-2 px-3 py-2 rounded-xl border bg-card hover:bg-muted/50 transition-colors"
             aria-expanded={openItemsExpanded}
           >
-            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertCircle className="h-4 w-4 text-[var(--risk-medium-foreground)]" />
             <span className="text-sm font-medium">
               {openItems.counts.total} open item{openItems.counts.total !== 1 ? "s" : ""}
             </span>
             <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-              {openItems.counts.critical > 0 && <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-700">{openItems.counts.critical}</span>}
-              {openItems.counts.material > 0 && <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">{openItems.counts.material}</span>}
-              {openItems.counts.attention > 0 && <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">{openItems.counts.attention}</span>}
-              {openItems.counts.informational > 0 && <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">{openItems.counts.informational}</span>}
+              {openItems.counts.critical > 0 && <span className="px-1.5 py-0.5 rounded bg-[var(--risk-critical)] text-[var(--risk-critical-foreground)]">{openItems.counts.critical}</span>}
+              {openItems.counts.material > 0 && <span className="px-1.5 py-0.5 rounded bg-[var(--risk-medium)] text-[var(--risk-medium-foreground)]">{openItems.counts.material}</span>}
+              {openItems.counts.attention > 0 && <span className="px-1.5 py-0.5 rounded bg-[var(--risk-low)] text-[var(--risk-low-foreground)]">{openItems.counts.attention}</span>}
+              {openItems.counts.informational > 0 && <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{openItems.counts.informational}</span>}
             </span>
             {openItemsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
@@ -595,19 +595,19 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
                     <span className="text-sm font-medium">{item.title}</span>
                     <span className="text-[10px] font-medium px-1.5 py-0.5 rounded uppercase"
                           style={{
-                            backgroundColor: item.severity === "critical" ? "rgb(254 226 226)" :
-                                       item.severity === "material" ? "rgb(254 243 199)" :
-                                       item.severity === "attention" ? "rgb(219 234 254)" : "rgb(243 244 246)",
-                            color: item.severity === "critical" ? "rgb(185 28 28)" :
-                                     item.severity === "material" ? "rgb(146 64 14)" :
-                                     item.severity === "attention" ? "rgb(30 64 175)" : "rgb(75 85 99)"
+                            backgroundColor: item.severity === "critical" ? "var(--risk-critical)" :
+                                        item.severity === "material" ? "var(--risk-medium)" :
+                                        item.severity === "attention" ? "var(--risk-low)" : "var(--muted)",
+                            color: item.severity === "critical" ? "var(--risk-critical-foreground)" :
+                                      item.severity === "material" ? "var(--risk-medium-foreground)" :
+                                      item.severity === "attention" ? "var(--risk-low-foreground)" : "var(--muted-foreground)"
                           }}>
                       {item.severity}
                     </span>
                     <span className="text-[10px] text-muted-foreground">{item.category}</span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{item.summary}</p>
-                  {item.guidance && <p className="mt-1 text-xs text-blue-600">{item.guidance}</p>}
+                  {item.guidance && <p className="mt-1 text-xs text-[var(--risk-low-foreground)]">{item.guidance}</p>}
                   {item.pushback && <PushbackWords words={item.pushback} compact auditId={auditId} ruleKey={item.id} />}
                 </div>
               </div>

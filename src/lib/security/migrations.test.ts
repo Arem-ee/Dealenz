@@ -564,3 +564,20 @@ describe("00078 shared finding reports (static)", () => {
     expect(mig).not.toMatch(/sign_shared_document/)
   })
 })
+
+describe("00079 audit hardening bundle (static)", () => {
+  const mig = code(sql("00079_audit_hardening.sql"))
+
+  it("closes the verified gaps without widening any grant", () => {
+    expect(mig).toMatch(/WITH CHECK/)
+    expect(mig).toMatch(/REVOKE EXECUTE ON FUNCTION sign_document_as_counterparty\(UUID, TEXT\) FROM anon/)
+    expect(mig).toMatch(/locked[\s\S]*superseded/)
+    expect(mig).toMatch(/LEAST\(COALESCE\(p_consumption_amount/)
+    expect(mig).toMatch(/ON DELETE CASCADE/)
+    expect(mig).toMatch(/founder-agreement/)
+    expect(mig).toMatch(/phase IN \(/)
+    expect(mig).toMatch(/'auth_login'/)
+    expect(mig).toMatch(/'client_error'/)
+    expect(mig).not.toMatch(/GRANT EXECUTE ON FUNCTION sign_document_as_counterparty\(UUID, TEXT\) TO anon/)
+  })
+})

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 
-export type RateLimitedAction = "analyzeDeal" | "generateProtectionPackage" | "submitLawyerApplication" | "createCheckout" | "consultant_free_turn"
+export type RateLimitedAction = "analyzeDeal" | "generateProtectionPackage" | "submitLawyerApplication" | "createCheckout" | "consultant_free_turn" | "gmail_send"
 
 const LIMITS: Record<RateLimitedAction, number> = {
   analyzeDeal: 5,
@@ -8,6 +8,7 @@ const LIMITS: Record<RateLimitedAction, number> = {
   submitLawyerApplication: 3,
   createCheckout: 10,
   consultant_free_turn: 3,
+  gmail_send: 20,
 }
 
 /** Single source for free daily usage limits shown in the UI. */

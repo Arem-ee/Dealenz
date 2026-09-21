@@ -24,7 +24,7 @@ vi.mock("@/lib/conversation/store", () => ({
   })),
 }))
 
-vi.mock("@/app/dashboard/home-actions", () => ({
+vi.mock("@/lib/deals/home", () => ({
   createHomeDeal: vi.fn(async () => ({ id: "audit-1" })),
 }))
 

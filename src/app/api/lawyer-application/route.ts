@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   void sendOpsAlert({
     severity: "info",
     phase: "lawyer_application",
-    summary: `New lawyer application from ${v.full_name} (${v.bar_jurisdiction})`,
+    summary: `New lawyer application received (${v.bar_jurisdiction})`,
   })
 
   return NextResponse.json({ success: true })

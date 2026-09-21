@@ -2,7 +2,10 @@
 // draft -> ready_to_sign -> owner_signed -> counterparty_pending -> fully_signed -> locked
 // Legacy ready_to_send/sent map to ready_to_sign/counterparty_pending for compat.
 // superseded is terminal after redraft.
-// All transitions are explicit, server-validated, never client-invented.
+// owner_signed NEVER transitions directly to fully_signed: execution requires
+// every counterparty signature (enforced here, in the DB trigger, and by the
+// RPC signer-count check). All transitions are explicit, server-validated,
+// never client-invented.
 
 export type SigningStatus =
   | "draft"
@@ -19,7 +22,7 @@ export const SIGNING_TRANSITIONS: Record<SigningStatus, SigningStatus[]> = {
   draft: ["ready_to_sign", "ready_to_send"],
   ready_to_sign: ["owner_signed"],
   ready_to_send: ["owner_signed"],
-  owner_signed: ["counterparty_pending", "sent", "fully_signed"],
+  owner_signed: ["counterparty_pending", "sent"],
   counterparty_pending: ["fully_signed", "locked"],
   sent: ["fully_signed", "locked"],
   fully_signed: ["locked"],

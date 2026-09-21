@@ -47,6 +47,12 @@ Do not commit real values. All values below are names only.
 | `PADDLE_PRICE_STANDARD` | Paddle Dashboard → Catalog → Product → Price ID | Server-only. Price for 150-credit Standard. |
 | `PADDLE_PRICE_PRO` | Paddle Dashboard → Catalog → Product → Price ID | Server-only. Price for 400-credit Pro. |
 
+### Cron
+
+| Variable | Where to obtain | Notes |
+|---|---|---|
+| `CRON_SECRET` | Generate with `openssl rand -hex 32` | Server-only. Vercel Cron sends it as `Authorization: Bearer`. If unset, cron routes accept unauthenticated calls — always set in deployed envs. |
+
 All other variables (`PADDLE_ENVIRONMENT`, `LEGAL_RESEARCH_LIVE`, `LEGAL_SEARCH_API_KEY`, `OPS_ALERT_WEBHOOK`, `GEMINI_*`) are optional. Prompt caching is always on for `claude-sonnet-5` via `src/lib/ai/providers/anthropic.ts:123` (`anthropic-beta: prompt-caching-2024-07-31` + cached `system` block `cache_control: ephemeral`); no env flag needed. System prompts per vertical (`src/lib/ai/prompts.ts:18` `EXTRACTION_SYSTEM_PROMPT`, `src/lib/ai/prompts.ts:44` `RISK_ANALYSIS_SYSTEM_PROMPT`, etc.) are ~300-520 tokens each and benefit after first call per vertical (cached input 90% off: $0.30 vs $3.00 per 1M).
 
 ## Checklist

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { Timeline, type TimelineEvent } from "@/components/audit/timeline"
 
@@ -81,9 +82,9 @@ export default async function ActivityPage() {
               Once you start a deal, every step gets logged here automatically —
               useful if a client ever disputes what was agreed.
             </p>
-            <a href="/dashboard" className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+            <Link href="/dashboard" className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
               New deal
-            </a>
+            </Link>
           </div>
         ) : (
           <Timeline events={events} />

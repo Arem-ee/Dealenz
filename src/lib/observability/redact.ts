@@ -17,6 +17,9 @@ const SECRET_PATTERNS: Array<{ re: RegExp; replacement: string }> = [
   { re: /\b(whsec_[A-Za-z0-9_-]+)/g, replacement: "[REDACTED_SECRET]" },
   { re: /\b(nvapi-[A-Za-z0-9_-]+)/g, replacement: "[REDACTED_API_KEY]" },
   { re: /\b(AIza[A-Za-z0-9_-]{10,})/g, replacement: "[REDACTED_API_KEY]" },
+  // OpenRouter (live AI provider) and Paddle (billing) keys.
+  { re: /\b(sk-or-[A-Za-z0-9_-]{8,})/g, replacement: "[REDACTED_API_KEY]" },
+  { re: /\b(pdl_[A-Za-z0-9_-]+)/g, replacement: "[REDACTED_API_KEY]" },
   // Bearer / token headers and key= query params that leak into messages.
   { re: /\b(Bearer\s+)[A-Za-z0-9._~+/=-]{8,}/gi, replacement: "$1[REDACTED]" },
   { re: /([?&](?:key|token|secret|signature)=)[^&\s]{4,}/gi, replacement: "$1[REDACTED]" },

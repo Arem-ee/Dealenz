@@ -75,7 +75,8 @@ describe("GET /api/health", () => {
     const body = await res.json()
     expect(body.status).toBe("degraded")
     expect(body.checks.ai).toBe("degraded")
-    expect(body.aiFallbacksLastHour).toBe(15)
+    // Raw fallback volumes stay ops-internal; only the derived status ships.
+    expect(body).not.toHaveProperty("aiFallbacksLastHour")
   })
 
   it("reports down when required configuration is absent", async () => {

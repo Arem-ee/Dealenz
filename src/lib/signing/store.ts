@@ -74,26 +74,6 @@ export async function createSigningReadyVersion(
   return data as DocumentVersionRow
 }
 
-export async function transitionSigningStatus(
-  client: Client,
-  userId: string,
-  versionId: string,
-  to: SigningStatus,
-  provenance?: Record<string, unknown>
-): Promise<DocumentVersionRow> {
-  const current = await getDocumentVersion(client, userId, versionId)
-  if (!current) throw new Error("Version not found")
-  if (!canTransitionSigning(current.status as SigningStatus, to)) throw new Error(`Invalid signing transition ${current.status} -> ${to}`)
-  const updates: Record<string, unknown> = { status: to, updated_at: new Date().toISOString(), signing_provenance: { ...(current.signing_provenance ?? {}), ...(provenance ?? {}), transition: `${current.status}->${to}`, at: new Date().toISOString() } }
-  if (to === "owner_signed") updates.owner_signed_at = new Date().toISOString()
-  if (to === "counterparty_pending" || to === "sent") updates.counterparty_signed_at = new Date().toISOString()
-  if (to === "fully_signed") updates.fully_signed_at = new Date().toISOString()
-  if (to === "locked") updates.locked_at = new Date().toISOString()
-  const { data, error } = await client.from("document_versions").update(updates).eq("id", versionId).eq("user_id", userId).select("*").single()
-  if (error || !data) throw new Error(error?.message ?? "Failed to transition")
-  return data as DocumentVersionRow
-}
-
 export async function redraftFromLocked(
   client: Client,
   userId: string,

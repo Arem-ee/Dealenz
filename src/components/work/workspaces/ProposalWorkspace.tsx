@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { Section } from "./Section"
 import { DocVersionList } from "./DocVersionList"
+import { creditsForDocumentType } from "@/lib/credits/pricing"
 import type { DocVersion, WorkspaceData } from "./types"
 
 function groupByType(versions: DocVersion[]): Array<[string, DocVersion[]]> {
@@ -85,7 +86,7 @@ export function ProposalWorkspace({ data, focus, auditId, dealType, onGenerate }
               onClick={onGenerate}
               className="rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
             >
-              Generate {focus === "proposal" ? "proposal" : "SOW"}
+              Generate {focus === "proposal" ? "proposal" : "SOW"} ({creditsForDocumentType(focus)} credits)
             </button>
           )}
           {auditId && focused.length > 0 && (
