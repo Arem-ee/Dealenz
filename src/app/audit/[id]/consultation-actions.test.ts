@@ -97,84 +97,23 @@ beforeEach(() => {
   })
 })
 
-function routeAutoAssign(payload: unknown) {
-  mockRpc.mockImplementation((fn: string) => {
-    if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: true, balance: 100, reservation_id: "res-1" }], error: null })
-    if (fn === "finalize_reservation") return Promise.resolve({ data: [{ balance: 85 }], error: null })
-    if (fn === "void_reservation") return Promise.resolve({ data: null, error: null })
-    if (fn === "auto_assign_review") return Promise.resolve({ data: payload, error: null })
-    return Promise.resolve({ data: null, error: null })
-  })
-}
-
-describe("createConsultationRequest auto-matching", () => {
-  it("returns matched when the deterministic matcher assigns", async () => {
-    routeAutoAssign([{ assigned: true, lawyer_id: "00000000-0000-0000-0000-00000000bb01", message: "Lawyer assigned automatically" }])
-    const res = await createConsultationRequest(AUDIT_ID, "help")
-    expect(res).toEqual({ success: true, status: "matched", autoAssigned: true })
-    expect(mockRpc).toHaveBeenCalledWith("auto_assign_review", { p_request_id: REQUEST_ID })
-  })
-
-  it("falls back to waitlist when no lawyer is safely eligible", async () => {
-    routeAutoAssign([{ assigned: false, lawyer_id: null, message: "no_eligible_lawyer" }])
-    const res = await createConsultationRequest(AUDIT_ID, "help")
-    expect(res).toEqual({ success: true, status: "waitlist", autoAssigned: false })
-    // Truthful state persisted on the owner's own row.
-    expect(state.updates.some((u) => u.table === "consultation_requests")).toBe(true)
-  })
-
-  it("degrades to the stored manual state when matching infrastructure fails", async () => {
-    mockRpc.mockImplementation((fn: string) => {
-      if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: true, balance: 100, reservation_id: "res-1" }], error: null })
-      if (fn === "finalize_reservation") return Promise.resolve({ data: [{ balance: 85 }], error: null })
-      if (fn === "void_reservation") return Promise.resolve({ data: null, error: null })
-      return Promise.resolve({ data: null, error: { message: "function does not exist" } })
-    })
-    const res = await createConsultationRequest(AUDIT_ID, "help")
-    // Request survives as requested; admin remains the exception path.
-    expect(res).toEqual({ success: true, status: "requested", autoAssigned: false })
-  })
-
-  it("keeps the stored state on a lost assignment race", async () => {
-    routeAutoAssign([{ assigned: false, lawyer_id: null, message: "race_lost" }])
-    const res = await createConsultationRequest(AUDIT_ID, "help")
-    expect(res).toEqual({ success: true, status: "requested", autoAssigned: false })
-  })
-
-  it("still waitlists immediately when no verified lawyer exists at all", async () => {
-    state.opts.verifiedCount = 0
-    routeAutoAssign([{ assigned: false, lawyer_id: null, message: "no_eligible_lawyer" }])
-    const res = await createConsultationRequest(AUDIT_ID, "help")
-    expect(res.status).toBe("waitlist")
-    expect(res.autoAssigned).toBe(false)
-  })
-
-  it("denies never-purchased accounts before creating anything", async () => {
-    mockRpc.mockImplementation((fn: string) => {
-      if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: false, balance: 10, reservation_id: null }], error: null })
-      return Promise.resolve({ data: null, error: null })
-    })
+describe("createConsultationRequest (coming soon gate)", () => {
+  it("fails closed without touching the database or credits", async () => {
     const res = await createConsultationRequest(AUDIT_ID, "help")
     expect(res.success).toBe(false)
     if (res.success) throw new Error("unreachable")
-    expect(res.error).toMatch(/Insufficient credits/)
-    expect(res.error).toMatch(/15 credits/)
+    expect(res.error).toMatch(/coming soon/i)
+    expect(res.error).toMatch(/No credits were charged/)
+    expect(mockRpc).not.toHaveBeenCalled()
   })
 
-  it("deducts exactly the lawyer-request price on success", async () => {
-    const seen: Array<{ fn: string; args: unknown }> = []
-    mockRpc.mockImplementation((fn: string, args: unknown) => {
-      seen.push({ fn, args })
-      if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: true, balance: 100, reservation_id: "res-1" }], error: null })
-      if (fn === "finalize_reservation") return Promise.resolve({ data: [{ balance: 85 }], error: null })
-      return Promise.resolve({ data: [{ assigned: false, lawyer_id: null, message: "no_eligible_lawyer" }], error: null })
-    })
+  it("still rejects unauthenticated callers first", async () => {
+    state.opts.user = null
     const res = await createConsultationRequest(AUDIT_ID, "help")
-    expect(res.success).toBe(true)
-    const reserve = seen.find((s) => s.fn === "reserve_credits")
-    expect((reserve?.args as { p_amount?: number }).p_amount).toBe(15)
-    const fin = seen.find((s) => s.fn === "finalize_reservation")
-    expect((fin?.args as { p_consumption_amount?: number }).p_consumption_amount).toBe(15)
+    expect(res.success).toBe(false)
+    if (res.success) throw new Error("unreachable")
+    expect(res.error).toMatch("signed in")
+    expect(mockRpc).not.toHaveBeenCalled()
   })
 })
 

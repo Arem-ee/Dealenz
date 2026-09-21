@@ -13,6 +13,11 @@ import {
 
 type AutoAssignRow = { assigned: boolean; lawyer_id: string | null; message: string }
 
+// Launch flag for in-app lawyer review. False until the lawyer supply side
+// opens; createConsultationRequest fails closed on it (no DB touch, no
+// charge) while the rest of the flow stays intact for launch day.
+const LAWYER_REVIEW_OPEN = false
+
 /**
  * Best-effort automatic matching on the caller's own request.
  * Never throws: every failure degrades to the stored manual state
@@ -75,6 +80,13 @@ export async function createConsultationRequest(auditId: string, note: string, h
 
   if (!user) {
     return { success: false, error: "You must be signed in to request a consultation" }
+  }
+
+  // Lawyer review is not open yet. Fail before any database touch or credit
+  // movement so nobody pays for a waitlist. Remove this gate at launch —
+  // the full request flow below is preserved as written.
+  if (!LAWYER_REVIEW_OPEN) {
+    return { success: false, error: "Lawyer review is coming soon — we will announce it in the app when it opens. No credits were charged." }
   }
 
   const { data: audit, error: auditError } = await supabase

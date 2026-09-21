@@ -24,11 +24,11 @@ const FAQS = [
   },
   {
     q: "When should a lawyer review my deal?",
-    a: "Ask for a lawyer review any time from chat by typing something like “get a lawyer on this”. Dealenz also suggests a review on its own, but only when a deal has both real stakes (meaningful value or a hard-to-reverse consequence like an ownership change) and a genuine exposure pattern (uncapped liability, a personal guarantee, unclear dispute terms on a valuable deal, or cross-border enforcement risk).",
+    a: "In-app lawyer review is coming soon — Dealenz will announce it here when it opens. Until then: for high-stakes deals (meaningful value or a hard-to-reverse consequence like an ownership change, uncapped liability, a personal guarantee, unclear dispute terms, or cross-border enforcement risk), take the final document to a lawyer of your own.",
   },
   {
     q: "What do credits pay for?",
-    a: "Credits pay for deal outcomes: Ask answers (10/30/100 by size), documents (proposal 25, scope 35, contract 45, checklist 20), uploads (15), signature sends (25), and lawyer requests (15) — never for a favorable answer. Greetings are always free, and daily analyses never consume credits.",
+    a: "Credits pay for deal outcomes: Ask answers (10/30/100 by size), documents (proposal 25, scope 35, contract 45, checklist 20), uploads (15), signature sends (25), and lawyer requests (15, coming soon — not currently charged) — never for a favorable answer. Greetings are always free, and daily analyses never consume credits.",
   },
 ]
 

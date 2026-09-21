@@ -43,7 +43,7 @@ const faqs = [
   },
   {
     q: "Is this a replacement for a lawyer?",
-    a: "No. Dealenz helps you catch problems before they become legal problems. For high value contracts or anything complex, have a lawyer review the final document. For deals where the stakes call for it, you can request a review from a verified lawyer without leaving the workspace.",
+    a: "No. Dealenz helps you catch problems before they become legal problems. For high value contracts or anything complex, have a lawyer review the final document. In-app lawyer review is coming soon — until then, take the final document to a lawyer of your own for high-stakes deals.",
   },
   {
     q: "How does Dealenz check its own work?",
@@ -488,7 +488,8 @@ export default function Home() {
                     icon: <Scale className="h-4 w-4 text-white" />,
                     bg: "bg-[var(--burgundy)]",
                     name: "Lawyer review",
-                    body: "For high stakes, request a verified lawyer without leaving the workspace.",
+                    body: "In-app lawyer review is coming soon. For high stakes, have a lawyer bless the final document.",
+                    badge: "Coming soon",
                   },
                 ].map((r) => (
                   <li key={r.name} className="flex items-start gap-3.5 rounded-2xl border border-black/[0.06] bg-white p-4">
@@ -496,7 +497,14 @@ export default function Home() {
                       {r.icon}
                     </span>
                     <div>
-                      <p className="text-[14px] font-semibold">{r.name}</p>
+                      <p className="text-[14px] font-semibold">
+                        {r.name}{" "}
+                        {"badge" in r && typeof r.badge === "string" ? (
+                          <span className="ml-1 rounded-full bg-black/[0.06] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-black/55">
+                            {r.badge}
+                          </span>
+                        ) : null}
+                      </p>
                       <p className="mt-0.5 text-[13px] leading-relaxed text-black/55">{r.body}</p>
                     </div>
                   </li>
@@ -632,7 +640,7 @@ export default function Home() {
                 <li><Link href="/#features" className="text-white/70 transition-colors hover:text-white">Features</Link></li>
                 <li><Link href="/#pricing" className="text-white/70 transition-colors hover:text-white">Pricing</Link></li>
                 <li><Link href="/register" className="text-white/70 transition-colors hover:text-white">Analyze your deal</Link></li>
-                <li><Link href="/register" className="text-white/70 transition-colors hover:text-white">Lawyer review</Link></li>
+                <li><span className="text-white/40">Lawyer review · Coming soon</span></li>
               </ul>
             </nav>
             <nav aria-label="Company">
