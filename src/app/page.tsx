@@ -1,11 +1,16 @@
 import Link from "next/link"
 import {
   ArrowRight,
+  Bell,
   CircleAlert,
+  FileText,
+  Mail,
+  PenLine,
   Scale,
+  Search,
   ShieldCheck,
+  Upload,
 } from "lucide-react"
-import { LandingHeroPreview } from "@/components/landing-hero-preview"
 
 export const metadata = {
   title: "Dealenz: Know what you are signing before you sign it",
@@ -99,40 +104,42 @@ function LogoMark({ dark = false }: { dark?: boolean }) {
   )
 }
 
-function Eyebrow({ children }: { children: React.ReactNode }) {
+function OrbitChip({ className, label, children }: { className?: string; label: string; children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--burgundy)]">
+    <div
+      title={label}
+      aria-hidden
+      className={`absolute flex h-11 w-11 items-center justify-center rounded-2xl border border-black/[0.06] bg-white shadow-[0_12px_32px_-12px_rgba(0,0,0,0.25)] ${className ?? ""}`}
+    >
       {children}
-    </p>
+    </div>
   )
 }
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#FAFAF8] text-[#1C1917] selection:bg-[#1C1917] selection:text-white">
+    <div className="min-h-screen bg-white text-[#1C1917] selection:bg-[#1C1917] selection:text-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
 
       {/* Nav */}
-      <header className="bg-[#FAFAF8] pt-6">
-        <nav aria-label="Primary" className="mx-auto flex h-[64px] max-w-[1280px] items-center justify-between px-6 lg:px-8">
-          <div className="flex items-center gap-10">
-            <Link href="/" aria-label="Dealenz home">
-              <LogoMark />
+      <header className="border-b border-black/[0.06] bg-white">
+        <nav aria-label="Primary" className="mx-auto flex h-[68px] max-w-[1280px] items-center justify-between px-6 lg:px-8">
+          <Link href="/" aria-label="Dealenz home">
+            <LogoMark />
+          </Link>
+          <div className="hidden items-center gap-7 md:flex">
+            <Link href="/#how-it-works" className="text-[13px] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]">
+              How it works
             </Link>
-            <div className="hidden items-center gap-7 md:flex">
-              <Link href="/#how-it-works" className="text-[13px] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]">
-                How it works
-              </Link>
-              <Link href="/#features" className="text-[13px] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]">
-                Features
-              </Link>
-              <Link href="/#pricing" className="text-[13px] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]">
-                Pricing
-              </Link>
-              <Link href="/#faq" className="text-[13px] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]">
-                FAQ
-              </Link>
-            </div>
+            <Link href="/#features" className="text-[13px] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]">
+              Features
+            </Link>
+            <Link href="/#pricing" className="text-[13px] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]">
+              Pricing
+            </Link>
+            <Link href="/#faq" className="text-[13px] text-[#1C1917]/60 transition-colors hover:text-[#1C1917]">
+              FAQ
+            </Link>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login" className="hidden text-[13px] font-medium text-[#1C1917]/70 transition-colors hover:text-[#1C1917] sm:inline">
@@ -140,10 +147,9 @@ export default function Home() {
             </Link>
             <Link
               href="/register"
-              className="inline-flex h-10 items-center gap-2 rounded-full bg-[#1C1917] px-6 text-[13px] font-semibold text-white transition-all hover:bg-black hover:shadow-lg"
+              className="inline-flex h-9 items-center rounded-full bg-[var(--burgundy)] px-5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
             >
-              Analyze your deal
-              <ArrowRight className="h-3.5 w-3.5" />
+              Get started free
             </Link>
           </div>
         </nav>
@@ -151,57 +157,165 @@ export default function Home() {
 
       <main>
         {/* Hero */}
-        <section className="relative overflow-hidden bg-gradient-to-b from-[#FAFAF8] via-[#F6F1EC] to-[#EFE3DC]">
-          <div className="relative mx-auto max-w-[1280px] px-6 pb-16 pt-14 text-center lg:px-8 lg:pt-24">
-            <Eyebrow>AI Contract Review Tool</Eyebrow>
-            <h1 className="mx-auto mt-5 max-w-[22ch] text-[42px] font-semibold leading-[1.02] tracking-[-0.04em] sm:text-[56px] lg:text-[72px]">
-              You signed something you didn&apos;t fully understand.
+        <section className="relative overflow-hidden bg-white">
+          <div className="relative mx-auto max-w-[1280px] px-6 pt-12 text-center lg:px-8 lg:pt-16">
+            <div className="flex items-center justify-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-3 py-1 text-[11px] font-medium text-black/60">
+                <ShieldCheck className="h-3 w-3 text-[var(--burgundy)]" />
+                Rules check every flag
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-3 py-1 text-[11px] font-medium text-black/60">
+                <FileText className="h-3 w-3 text-[var(--burgundy)]" />
+                5 free analyses daily
+              </span>
+            </div>
+            <h1 className="mx-auto mt-5 max-w-[20ch] text-[40px] font-semibold leading-[1.04] tracking-[-0.04em] sm:text-[54px] lg:text-[64px]">
+              Know what you are signing before you sign it
             </h1>
-            <p className="mx-auto mt-6 max-w-[58ch] text-[16px] leading-relaxed text-[#1C1917]/60 lg:text-[18px]">
-              Buried clauses, one-sided terms, quiet auto-renewals. Lawyers are slow and
-              expensive; generic AI is fast but answers to no one. Dealenz is the
-              counterparty-side loop: send us their contract, get back what to push
-              back on — in your words. Sign here. Stay guarded.
+            <p className="mx-auto mt-5 max-w-[56ch] text-[15px] leading-relaxed text-[#1C1917]/60 lg:text-[16px]">
+              They sent the contract. Dealenz reads it, tells you where the risk
+              is, gives you the words to push back, and guards what was agreed.
             </p>
-            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link
                 href="/register"
-                className="inline-flex h-12 items-center gap-2 rounded-full bg-[#1C1917] px-8 text-[15px] font-semibold text-white transition-all hover:bg-black hover:shadow-xl"
+                className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--burgundy)] px-7 text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
               >
-                Analyze your deal
+                Get started free
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/#how-it-works"
-                className="inline-flex h-12 items-center rounded-full border border-black/10 bg-white/60 px-8 text-[15px] font-medium transition-colors hover:bg-white"
+                className="inline-flex h-11 items-center rounded-full border border-black/10 bg-white px-7 text-[14px] font-medium transition-colors hover:bg-black/[0.03]"
               >
                 See how it works
               </Link>
             </div>
-            <p className="mt-3 text-[12px] text-[#1C1917]/45">
-              Free to start. No credit card required.
-            </p>
-            <div className="mx-auto mt-12 max-w-[880px] text-left">
-              <LandingHeroPreview />
-              <p className="mt-3 text-center text-[11px] text-black/40">Illustrated example. Your report will reflect your deal.</p>
+
+            {/* Orbit visual */}
+            <div className="relative mx-auto mt-6 h-[440px] max-w-[760px] sm:h-[480px]" aria-hidden>
+              <div className="absolute left-1/2 top-1/2 h-[280px] w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-black/10 sm:h-[320px] sm:w-[320px]" />
+              <div className="absolute left-1/2 top-1/2 h-[440px] w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-black/10 sm:h-[500px] sm:w-[500px]" />
+              <div className="absolute left-1/2 top-1/2 hidden h-[680px] w-[680px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-black/[0.07] md:block" />
+              <OrbitChip label="Contract" className="left-[8%] top-[16%]">
+                <FileText className="h-4 w-4 text-[var(--burgundy)]" />
+              </OrbitChip>
+              <OrbitChip label="Review" className="right-[10%] top-[12%]">
+                <Search className="h-4 w-4 text-amber-600" />
+              </OrbitChip>
+              <OrbitChip label="Fair terms" className="left-[2%] top-[52%]">
+                <Scale className="h-4 w-4 text-emerald-600" />
+              </OrbitChip>
+              <OrbitChip label="Alerts" className="right-[3%] top-[48%]">
+                <Bell className="h-4 w-4 text-sky-600" />
+              </OrbitChip>
+              <OrbitChip label="Upload" className="bottom-[10%] left-[16%]">
+                <Upload className="h-4 w-4 text-violet-600" />
+              </OrbitChip>
+              <OrbitChip label="Signature" className="bottom-[12%] right-[16%]">
+                <PenLine className="h-4 w-4 text-rose-600" />
+              </OrbitChip>
+              <OrbitChip label="Monitoring" className="bottom-[2%] left-1/2 hidden -translate-x-1/2 sm:flex">
+                <Mail className="h-4 w-4 text-orange-500" />
+              </OrbitChip>
+
+              {/* Center notification stack */}
+              <div className="absolute left-1/2 top-1/2 w-[300px] -translate-x-1/2 -translate-y-1/2 space-y-2.5 text-left sm:w-[330px]">
+                <div className="rounded-2xl border border-black/[0.06] bg-white p-3.5 shadow-[0_20px_48px_-16px_rgba(0,0,0,0.25)]">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[11px] font-bold text-amber-800">F1</span>
+                    <div className="min-w-0">
+                      <p className="truncate text-[12px] font-semibold">Unlimited revisions, fixed price</p>
+                      <p className="text-[11px] text-black/50">High risk · Clause 3.1 quoted</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="ml-6 rounded-2xl border border-black/[0.06] bg-white p-3.5 shadow-[0_20px_48px_-16px_rgba(0,0,0,0.25)]">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">Words to send</p>
+                  <p className="mt-1 text-[12px] leading-relaxed">&ldquo;Please cap revisions at two rounds. Extra rounds will be billed at my standard rate.&rdquo;</p>
+                </div>
+                <div className="ml-12 flex items-center gap-2 rounded-2xl border border-black/[0.06] bg-white px-3.5 py-2.5 shadow-[0_20px_48px_-16px_rgba(0,0,0,0.25)]">
+                  <CircleAlert className="h-3.5 w-3.5 shrink-0 text-amber-700" />
+                  <p className="text-[12px]">Renewal in 21 days — alert scheduled</p>
+                </div>
+              </div>
+            </div>
+            <p className="relative mt-2 text-[11px] text-black/40">Illustrated example. Your report will reflect your deal.</p>
+          </div>
+        </section>
+
+        {/* Deal-type cloud */}
+        <section className="border-y border-black/[0.06] bg-white">
+          <div className="mx-auto max-w-[1280px] px-6 py-10 lg:px-8">
+            <p className="text-center text-[12px] text-black/40">Built for the people who receive the paper</p>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-[15px] text-black/35">
+              <span className="font-semibold tracking-tight">Freelance contracts</span>
+              <span className="font-medium">Founder agreements</span>
+              <span className="font-bold tracking-tight">Leases</span>
+              <span className="font-medium">Employment terms</span>
+              <span className="font-semibold tracking-tight">Partnerships</span>
+              <span className="font-medium">Purchase agreements</span>
+              <span className="font-bold tracking-tight">MSAs</span>
             </div>
           </div>
         </section>
 
-        {/* How it works */}
+        {/* 2x2 features */}
+        <section id="features" className="bg-white">
+          <div className="mx-auto max-w-[1080px] px-6 py-16 lg:px-8 lg:py-24">
+            <h2 className="mx-auto max-w-[24ch] text-center text-[28px] font-semibold leading-tight tracking-[-0.03em] sm:text-[36px]">
+              Clarity for every deal you didn&apos;t write
+            </h2>
+            <div className="mt-12 grid gap-x-10 gap-y-10 sm:grid-cols-2">
+              {[
+                {
+                  icon: <Search className="h-4 w-4 text-[var(--burgundy)]" />,
+                  title: "Every flag carries its clause",
+                  body: "Findings quote the exact language they came from. What the model cannot support, it says unknown — never a confident guess.",
+                },
+                {
+                  icon: <PenLine className="h-4 w-4 text-[var(--burgundy)]" />,
+                  title: "Words you can actually send",
+                  body: "Every real risk comes with sendable language — staged payments, capped revisions, a revised clause. Copy it straight from the report.",
+                },
+                {
+                  icon: <ShieldCheck className="h-4 w-4 text-[var(--burgundy)]" />,
+                  title: "Rules overrule the AI",
+                  body: "Each finding passes a deterministic rule check before it reaches you. If the AI and the rules disagree, the rules win.",
+                },
+                {
+                  icon: <Bell className="h-4 w-4 text-[var(--burgundy)]" />,
+                  title: "Sign here, stay guarded",
+                  body: "Both sides sign in one workspace. Renewals, notice windows, and obligations stay tracked, with email alerts before they matter.",
+                },
+              ].map((f) => (
+                <div key={f.title} className="text-center sm:px-6">
+                  <span className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.04]">
+                    {f.icon}
+                  </span>
+                  <h3 className="mt-3 text-[16px] font-semibold tracking-[-0.01em]">{f.title}</h3>
+                  <p className="mx-auto mt-2 max-w-[42ch] text-[13px] leading-relaxed text-black/55">{f.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Workspace + loop */}
         <section id="how-it-works" className="border-t border-black/[0.06] bg-[#FAFAF8]">
           <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
-            <div className="max-w-2xl">
-              <Eyebrow>The loop</Eyebrow>
-              <h2 className="mt-4 text-[30px] font-semibold tracking-[-0.03em] sm:text-[38px]">
-                Three steps. Nothing to learn.
-              </h2>
-            </div>
+            <h2 className="mx-auto max-w-[26ch] text-center text-[28px] font-semibold leading-tight tracking-[-0.03em] sm:text-[36px]">
+              Your all-in-one deal workspace
+            </h2>
+            <p className="mx-auto mt-3 max-w-[54ch] text-center text-[14px] leading-relaxed text-black/55">
+              Send the contract, push back with the right words, sign, and stay
+              guarded — three steps, one place, nothing to learn.
+            </p>
             <div className="mt-10 grid gap-4 md:grid-cols-3">
               {steps.map((s, i) => (
                 <div
                   key={s.n}
-                  className={`rounded-[20px] border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_-20px_rgba(0,0,0,0.25)] sm:p-7 ${
+                  className={`rounded-[20px] border p-6 ${
                     i === 1
                       ? "border-[var(--burgundy)]/25 bg-[#1C1917] text-white"
                       : "border-black/[0.07] bg-white"
@@ -214,89 +328,19 @@ export default function Home() {
                   >
                     {s.n}
                   </span>
-                  <h3 className="mt-4 text-[18px] font-semibold tracking-[-0.01em]">{s.title}</h3>
-                  <p className={`mt-2 text-[14px] leading-relaxed ${i === 1 ? "text-white/65" : "text-black/60"}`}>{s.body}</p>
+                  <h3 className="mt-4 text-[17px] font-semibold tracking-[-0.01em]">{s.title}</h3>
+                  <p className={`mt-2 text-[13px] leading-relaxed ${i === 1 ? "text-white/65" : "text-black/60"}`}>{s.body}</p>
                 </div>
               ))}
             </div>
-          </div>
-        </section>
 
-        {/* Mission / trust */}
-        <section id="mission" className="border-t border-black/[0.06] bg-white">
-          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
-            <div className="grid gap-10 lg:grid-cols-[1.2fr_1fr]">
-              <div>
-                <Eyebrow>Why this exists</Eyebrow>
-                <h2 className="mt-4 text-[30px] font-semibold tracking-[-0.03em] sm:text-[38px]">
-                  Most people sign paper they did not write and cannot fully read.
-                </h2>
-                <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-black/60">
-                  The other side has lawyers. You have a deadline. Dealenz exists to close
-                  that gap for the person receiving the paper — the freelancer, the
-                  founder, the small business owner — with machine thoroughness,
-                  deterministic checks that overrule the AI when they disagree, and
-                  words you can actually send back.
-                </p>
-                <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-black/60">
-                  Nothing here is legal advice, and we say that plainly instead of
-                  burying it in fine print. For high stakes, get a lawyer — Dealenz
-                  will tell you when that moment arrives.
-                </p>
-              </div>
-              <div className="rounded-[20px] border border-black/[0.07] bg-[#FAFAF8] p-6 sm:p-7">
-                <h3 className="text-[15px] font-semibold">How your data is handled</h3>
-                <ul className="mt-4 space-y-3">
-                  {[
-                    ["Your deals stay yours", "Every deal is scoped to your account. Nothing is shared, sold, or used to train anyone else's model."],
-                    ["AI processing, stated plainly", "Deal content goes to our AI processing provider to produce your analysis — and nowhere else."],
-                    ["Delete everything, anytime", "Settings → Delete account erases your account and everything in it. No retention games."],
-                    ["No trackers", "Sign-in cookies only. No advertising trackers, ever."],
-                  ].map(([title, body]) => (
-                    <li key={title} className="flex gap-3">
-                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--burgundy)]" />
-                      <div>
-                        <p className="text-[13px] font-semibold">{title}</p>
-                        <p className="mt-0.5 text-[13px] leading-relaxed text-black/55">{body}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Feature deep-dives */}
-        <section id="features" className="border-t border-black/[0.06] bg-[#FAFAF8]">
-          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
-            <div className="max-w-2xl">
-              <Eyebrow>What you get</Eyebrow>
-              <h2 className="mt-4 text-[30px] font-semibold tracking-[-0.03em] sm:text-[38px]">
-                Not a report. Leverage.
-              </h2>
-            </div>
-
-            <div className="mt-10 grid items-center gap-8 lg:grid-cols-2">
-              <div>
-                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--burgundy)]">Counter-words</p>
-                <h3 className="mt-2 text-[24px] font-semibold tracking-[-0.02em]">The exact words to push back with</h3>
-                <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-black/60">
-                  Every real risk comes with sendable language — staged payments,
-                  capped revisions, a revised clause. Written deterministically from
-                  the finding, ready to paste into your reply. Copy it straight
-                  from the report.
-                </p>
-              </div>
-              <div className="rounded-[20px] border border-black/[0.07] bg-white p-5 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.22)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_32px_72px_-24px_rgba(0,0,0,0.28)]">
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-[20px] border border-black/[0.07] bg-white p-5">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">Words to send</p>
-                <p className="mt-2  text-[15px] leading-relaxed">&ldquo;Please cap revisions at two rounds. Extra rounds will be billed at my standard rate.&rdquo;</p>
+                <p className="mt-2 text-[15px] leading-relaxed">&ldquo;Please cap revisions at two rounds. Extra rounds will be billed at my standard rate.&rdquo;</p>
                 <p className="mt-2 text-[11px] text-black/40">Illustrated example · from an unlimited-revisions finding</p>
               </div>
-            </div>
-
-            <div className="mt-14 grid items-center gap-8 lg:grid-cols-2">
-              <div className="order-2 rounded-[20px] border border-black/[0.07] bg-[#1C1917] p-5 text-white shadow-[0_24px_64px_-24px_rgba(0,0,0,0.4)] transition-all duration-300 hover:-translate-y-1 lg:order-1">
+              <div className="rounded-[20px] border border-black/[0.07] bg-[#1C1917] p-5 text-white">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/50">Evidence</p>
                 <p className="mt-2 text-[15px] font-semibold leading-snug">Payment is due before you have leverage to enforce it.</p>
                 <p className="mt-3 rounded-xl bg-white/[0.07] px-3.5 py-3 text-[12px] leading-relaxed text-white/80">
@@ -304,61 +348,178 @@ export default function Home() {
                 </p>
                 <p className="mt-2 text-[11px] text-white/40">Illustrated example · deterministic rule, quoted source</p>
               </div>
-              <div className="order-1 lg:order-2">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--burgundy)]">Evidence-anchored findings</p>
-                <h3 className="mt-2 text-[24px] font-semibold tracking-[-0.02em]">Every flag carries its clause</h3>
-                <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-black/60">
-                  Findings are checked by deterministic rules that overrule the AI
-                  when they disagree — and each one quotes the exact language it
-                  came from. What the model cannot support, it says unknown.
-                </p>
-              </div>
             </div>
+          </div>
+        </section>
 
-            <div className="mt-14 grid items-center gap-8 lg:grid-cols-2">
+        {/* In-view deal tracking */}
+        <section className="border-t border-black/[0.06] bg-white">
+          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
+            <div className="grid items-center gap-10 lg:grid-cols-2">
               <div>
-                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--burgundy)]">Sign & stay guarded</p>
-                <h3 className="mt-2 text-[24px] font-semibold tracking-[-0.02em]">Both sides sign here. Nothing lapses after.</h3>
-                <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-black/60">
-                  You sign first, the counterparty signs through a secure link —
-                  no account needed. The document locks; later changes become new
-                  versions. Renewals, notice windows, and obligations stay
-                  tracked in monitoring, with email alerts before they matter.
+                <div className="flex gap-2">
+                  {["Flagged", "Pushback", "Guarded"].map((t, i) => (
+                    <span
+                      key={t}
+                      className={`rounded-full px-4 py-1.5 text-[12px] font-medium ${
+                        i === 0 ? "bg-[#1C1917] text-white" : "border border-black/10 text-black/55"
+                      }`}
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+                <h2 className="mt-5 max-w-[20ch] text-[28px] font-semibold leading-tight tracking-[-0.03em] sm:text-[34px]">
+                  Move faster with the whole deal in view
+                </h2>
+                <p className="mt-3 max-w-[46ch] text-[14px] leading-relaxed text-black/55">
+                  Flags, counter-words, signatures, and deadlines live on one
+                  timeline. Nothing slips between the report and the handshake.
                 </p>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <Link
+                    href="/register"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--burgundy)] px-7 text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
+                  >
+                    Get started free
+                  </Link>
+                  <Link
+                    href="/#pricing"
+                    className="inline-flex h-11 items-center justify-center rounded-full border border-black/10 px-7 text-[14px] font-medium transition-colors hover:bg-black/[0.03]"
+                  >
+                    See pricing
+                  </Link>
+                </div>
               </div>
-              <div className="rounded-[20px] border border-black/[0.07] bg-white p-5 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.22)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_32px_72px_-24px_rgba(0,0,0,0.28)]">
-                <div className="flex items-center gap-3">
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-3 rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.2)]">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--burgundy)] text-[12px] font-bold text-white">AK</span>
-                  <div>
-                    <p className="text-[13px] font-semibold">Protection package ready</p>
-                    <p className="text-[12px] text-black/50">Revised clause 4.2 is ready to send.</p>
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-semibold">Protection package ready</p>
+                    <p className="truncate text-[12px] text-black/50">Revised clause 4.2 is ready to send.</p>
                   </div>
                 </div>
-                <div className="mt-3 flex items-center gap-2 rounded-xl bg-[#FAFAF8] px-3.5 py-2.5">
-                  <CircleAlert className="h-3.5 w-3.5 shrink-0 text-amber-700" />
-                  <p className="text-[12px]">Renewal in 21 days — alert scheduled</p>
+                <div className="ml-8 flex items-center gap-2.5 rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.2)]">
+                  <CircleAlert className="h-4 w-4 shrink-0 text-amber-700" />
+                  <p className="text-[13px]">Renewal in 21 days — alert scheduled</p>
                 </div>
-                <p className="mt-2 text-[11px] text-black/40">Illustrated example · signing and monitoring</p>
+                <div className="ml-16 flex items-center gap-2.5 rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.2)]">
+                  <Mail className="h-4 w-4 shrink-0 text-[var(--burgundy)]" />
+                  <p className="text-[13px]">Signed by both sides — document locked</p>
+                </div>
+                <p className="pl-16 pt-1 text-[11px] text-black/40">Illustrated example · signing and monitoring</p>
               </div>
             </div>
           </div>
         </section>
 
+        {/* Trio */}
+        <section className="border-t border-black/[0.06] bg-[#FAFAF8]">
+          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
+            <h2 className="mx-auto max-w-[24ch] text-center text-[28px] font-semibold leading-tight tracking-[-0.03em] sm:text-[36px]">
+              From redline to signature without leaving
+            </h2>
+            <div className="mt-12 grid gap-8 sm:grid-cols-3">
+              {[
+                {
+                  icon: <Upload className="h-4 w-4 text-[var(--burgundy)]" />,
+                  title: "Drop in anything",
+                  body: "Paste text or upload the file they sent — PDF, Word, or scan. Analysis starts immediately, on the free daily allowance.",
+                },
+                {
+                  icon: <Scale className="h-4 w-4 text-[var(--burgundy)]" />,
+                  title: "Re-check the redline",
+                  body: "Past back their revised version and see what actually changed: what got fixed, what got worse, what is still open.",
+                },
+                {
+                  icon: <Mail className="h-4 w-4 text-[var(--burgundy)]" />,
+                  title: "Never miss a date",
+                  body: "Connect Gmail once. Renewals, notice windows, and payment obligations surface as email alerts before they matter.",
+                },
+              ].map((f) => (
+                <div key={f.title} className="rounded-[20px] border border-black/[0.07] bg-white p-6">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.04]">
+                    {f.icon}
+                  </span>
+                  <h3 className="mt-3 text-[16px] font-semibold tracking-[-0.01em]">{f.title}</h3>
+                  <p className="mt-2 text-[13px] leading-relaxed text-black/55">{f.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Workflow integrations */}
+        <section className="border-t border-black/[0.06] bg-white">
+          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
+            <div className="grid items-center gap-10 lg:grid-cols-2">
+              <div>
+                <h2 className="max-w-[20ch] text-[28px] font-semibold leading-tight tracking-[-0.03em] sm:text-[34px]">
+                  Plays well with how you already work
+                </h2>
+                <p className="mt-3 max-w-[46ch] text-[14px] leading-relaxed text-black/55">
+                  No new platform to live in. Dealenz meets the deal where it
+                  already lives — your inbox, their signature, your lawyer.
+                </p>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <Link
+                    href="/register"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--burgundy)] px-7 text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
+                  >
+                    Get started free
+                  </Link>
+                </div>
+              </div>
+              <ul className="space-y-3">
+                {[
+                  {
+                    icon: <Mail className="h-4 w-4 text-white" />,
+                    bg: "bg-[#EA4335]",
+                    name: "Gmail",
+                    body: "Deadline alerts land in your inbox before they matter. Connect once, in Settings.",
+                  },
+                  {
+                    icon: <PenLine className="h-4 w-4 text-white" />,
+                    bg: "bg-[#1C1917]",
+                    name: "Counterparty signing link",
+                    body: "The other side signs through a secure link — no account needed on their end.",
+                  },
+                  {
+                    icon: <Scale className="h-4 w-4 text-white" />,
+                    bg: "bg-[var(--burgundy)]",
+                    name: "Lawyer review",
+                    body: "For high stakes, request a verified lawyer without leaving the workspace.",
+                  },
+                ].map((r) => (
+                  <li key={r.name} className="flex items-start gap-3.5 rounded-2xl border border-black/[0.06] bg-white p-4">
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${r.bg}`}>
+                      {r.icon}
+                    </span>
+                    <div>
+                      <p className="text-[14px] font-semibold">{r.name}</p>
+                      <p className="mt-0.5 text-[13px] leading-relaxed text-black/55">{r.body}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
         {/* Pricing */}
-        <section id="pricing" className="border-t border-black/[0.06] bg-white">
+        <section id="pricing" className="border-t border-black/[0.06] bg-[#FAFAF8]">
           <div className="mx-auto max-w-5xl px-6 py-16 lg:py-24">
             <div className="text-center">
-              <Eyebrow>Pricing</Eyebrow>
-              <h2 className="mt-4 text-[30px] font-semibold tracking-[-0.03em] sm:text-[38px]">
+              <h2 className="text-[28px] font-semibold tracking-[-0.03em] sm:text-[36px]">
                 Pay per deal outcome. Nothing else.
               </h2>
-              <p className="mx-auto mt-3 max-w-xl text-[15px] text-black/60">
+              <p className="mx-auto mt-3 max-w-xl text-[14px] text-black/55">
                 No subscriptions, no tiers, no feature gates. Free daily analyses —
                 credits only when the work goes deeper.
               </p>
             </div>
             <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-[20px] border border-black/[0.07] bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+              <div className="rounded-[20px] border border-black/[0.07] bg-white p-6 shadow-sm">
                 <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-black/40">Free</p>
                 <p className="mt-2 text-4xl font-semibold tracking-tight">$0</p>
                 <ul className="mt-5 space-y-2 text-[13px] text-black/60">
@@ -375,18 +536,18 @@ export default function Home() {
                 { name: "150 credits", price: "$49", note: "A busy month" },
                 { name: "400 credits", price: "$99", note: "Steady deal flow" },
               ].map((p) => (
-                <div key={p.name} className="rounded-[20px] border border-black/[0.07] bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                <div key={p.name} className="rounded-[20px] border border-black/[0.07] bg-white p-6 shadow-sm">
                   <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-black/40">{p.name}</p>
                   <p className="mt-2 text-4xl font-semibold tracking-tight">{p.price}</p>
                   <p className="mt-1 text-[13px] text-black/55">{p.note}</p>
                   <p className="mt-4 text-[13px] text-black/60">One-time top-up. No subscription.</p>
-                  <Link href="/register" className="mt-5 flex w-full items-center justify-center rounded-full bg-[#1C1917] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-black">
+                  <Link href="/register" className="mt-5 flex w-full items-center justify-center rounded-full bg-[var(--burgundy)] px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90">
                     Get started free
                   </Link>
                 </div>
               ))}
             </div>
-            <div className="mx-auto mt-8 max-w-3xl rounded-[20px] border border-black/[0.06] bg-[#FAFAF8] p-6">
+            <div className="mx-auto mt-8 max-w-3xl rounded-[20px] border border-black/[0.06] bg-white p-6">
               <p className="text-[13px] font-semibold">Fixed prices per outcome</p>
               <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-[13px] text-black/60 sm:grid-cols-3">
                 <p>Ask brief <span className="font-semibold text-black">10</span></p>
@@ -406,12 +567,12 @@ export default function Home() {
         </section>
 
         {/* FAQ */}
-        <section id="faq" className="border-t border-black/[0.06] bg-[#FAFAF8]">
+        <section id="faq" className="border-t border-black/[0.06] bg-white">
           <div className="mx-auto max-w-[680px] px-6 py-16 lg:py-24">
-            <h2 className="text-[30px] font-semibold tracking-[-0.03em] sm:text-[36px]">
+            <h2 className="text-center text-[28px] font-semibold tracking-[-0.03em] sm:text-[36px]">
               Common questions
             </h2>
-            <div className="mt-10 space-y-4">
+            <div className="mt-10 space-y-3">
               {faqs.map((faq) => (
                 <details
                   key={faq.q}
@@ -431,35 +592,31 @@ export default function Home() {
         </section>
 
         {/* Final CTA */}
-        <section className="border-t border-black/[0.06] bg-[#1C1917] text-white">
-          <div className="mx-auto max-w-[1280px] px-6 py-16 text-center lg:px-8 lg:py-24">
-            <h2 className="mx-auto max-w-[20ch] text-[32px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-[44px]">
+        <section className="bg-white px-6 pb-16 lg:px-8 lg:pb-24">
+          <div className="mx-auto max-w-[1280px] rounded-[28px] bg-[var(--burgundy)] px-6 py-16 text-center text-white lg:py-20">
+            <h2 className="mx-auto max-w-[20ch] text-[30px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-[42px]">
               Bring us what you are dealing with.
             </h2>
-            <p className="mx-auto mt-3 max-w-[48ch] text-[15px] text-white/60">
+            <p className="mx-auto mt-3 max-w-[48ch] text-[15px] text-white/70">
               You do not need to know where to start. Send the contract — leave with pushback words.
             </p>
             <div className="mt-8">
               <Link
                 href="/register"
-                className="inline-flex h-12 items-center gap-2 rounded-full bg-white px-8 text-[15px] font-semibold text-[#141110] transition-all hover:bg-white/90 hover:shadow-xl"
+                className="inline-flex h-12 items-center gap-2 rounded-full bg-white px-8 text-[15px] font-semibold text-[var(--burgundy)] transition-colors hover:bg-white/90"
               >
-                Analyze your deal
+                Get started free
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <p className="mt-3 text-[12px] text-white/45">Free to start. No credit card required.</p>
+              <p className="mt-3 text-[12px] text-white/60">Free to start. No credit card required.</p>
             </div>
           </div>
         </section>
       </main>
 
       {/* Footer */}
-      <footer className="relative overflow-hidden bg-[#141110] text-white">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-40 -right-24 h-[480px] w-[480px] rounded-full bg-[var(--burgundy)] opacity-40 blur-[140px]"
-        />
-        <div className="relative mx-auto max-w-[1280px] px-6 pt-16 lg:px-8">
+      <footer className="bg-[#141110] text-white">
+        <div className="mx-auto max-w-[1280px] px-6 pt-16 lg:px-8">
           <div className="grid gap-10 border-b border-white/10 pb-12 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1fr]">
             <div>
               <LogoMark dark />
@@ -481,7 +638,6 @@ export default function Home() {
             <nav aria-label="Company">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Company</p>
               <ul className="mt-4 space-y-2.5 text-[13px]">
-                <li><Link href="/#mission" className="text-white/70 transition-colors hover:text-white">Mission</Link></li>
                 <li><a href="mailto:support@dealenz.com" className="text-white/70 transition-colors hover:text-white">Contact</a></li>
                 <li><Link href="/lawyer-application" className="text-white/70 transition-colors hover:text-white">Apply as a lawyer</Link></li>
               </ul>
