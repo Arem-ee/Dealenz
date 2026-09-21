@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Loader2, Eye, EyeOff } from "lucide-react"
 import { FcGoogle } from "react-icons/fc"
@@ -121,7 +122,9 @@ export default function RegisterPage() {
       <div className="flex flex-1 flex-col justify-center px-6 py-10 sm:px-10 lg:px-16 bg-white">
         <div className="mx-auto w-full max-w-sm">
           <Link href="/" className="inline-flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-[var(--burgundy)] text-[11px] font-bold tracking-[0.08em] text-white">D</span>
+            <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-[7px]">
+              <Image src="/favicon.svg" alt="Dealenz logo" fill className="object-cover" priority />
+            </span>
             <span className="text-[15px] font-semibold tracking-[-0.02em]">dealenz</span>
           </Link>
 
