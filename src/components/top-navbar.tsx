@@ -158,11 +158,40 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
 function ThreadSearch({ threads, onClose }: { threads: SidebarThread[]; onClose: () => void }) {
   const router = useRouter()
   const [query, setQuery] = useState("")
+  const [selectedIndex, setSelectedIndex] = useState(-1)
   const results = useMemo(() => filterThreads(threads, query), [threads, query])
 
   const go = (id: string) => {
     onClose()
     router.push(`/chat/${id}`)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      onClose()
+      return
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1))
+      return
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setSelectedIndex((prev) => Math.max(prev - 1, -1))
+      return
+    }
+    if (e.key === "Enter") {
+      e.preventDefault()
+      if (selectedIndex >= 0 && results[selectedIndex]) {
+        go(results[selectedIndex].id)
+      } else if (results.length > 0) {
+        go(results[0].id)
+      }
+      return
+    }
+    // Reset selection when typing
+    setSelectedIndex(-1)
   }
 
   return (
@@ -173,21 +202,27 @@ function ThreadSearch({ threads, onClose }: { threads: SidebarThread[]; onClose:
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") onClose()
-            if (e.key === "Enter" && results.length > 0) go(results[0].id)
-          }}
+          onKeyDown={handleKeyDown}
           placeholder="Search deals…"
           aria-label="Search deals"
+          aria-activedescendant={selectedIndex >= 0 ? `search-result-${selectedIndex}` : undefined}
+          aria-controls="search-results"
+          aria-expanded={results.length > 0}
           className="w-full border-b border-border/60 bg-transparent px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/60"
         />
-        <div className="max-h-72 overflow-y-auto p-1.5">
+        <div id="search-results" className="max-h-72 overflow-y-auto p-1.5" role="listbox">
           {results.length > 0 ? (
-            results.map((t) => (
+            results.map((t, i) => (
               <button
                 key={t.id}
+                id={`search-result-${i}`}
                 onClick={() => go(t.id)}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted/80"
+                onMouseEnter={() => setSelectedIndex(i)}
+                role="option"
+                aria-selected={i === selectedIndex}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                  i === selectedIndex ? "bg-muted/80" : "hover:bg-muted/80"
+                }`}
               >
                 <span className="min-w-0 flex-1 truncate font-medium">{t.title || "Untitled"}</span>
                 <span className="shrink-0 text-xs text-muted-foreground">{threadDate(t.updatedAt)}</span>
