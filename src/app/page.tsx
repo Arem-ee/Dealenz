@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import {
   ArrowRight,
   Bell,
@@ -80,18 +81,14 @@ const faqSchema = {
 function LogoMark({ dark = false }: { dark?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div
-        className={`flex h-7 w-7 items-center justify-center rounded-[7px] ${
-          dark ? "bg-white" : "bg-[var(--burgundy)]"
-        }`}
-      >
-        <span
-          className={`text-[11px] font-bold tracking-[0.08em] ${
-            dark ? "text-[#141110]" : "text-white"
-          }`}
-        >
-          D
-        </span>
+      <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-[7px]">
+        <Image
+          src="/favicon.svg"
+          alt="Dealenz logo"
+          fill
+          className="object-cover"
+          priority
+        />
       </div>
       <span
         className={`text-[15px] font-semibold tracking-[-0.02em] ${
