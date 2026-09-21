@@ -12,6 +12,14 @@ interface ThreadItem {
   auditId: string | null
   updatedAt: string
   status?: string | null
+  riskLevel?: string | null
+}
+
+export interface DeadlineItem {
+  id: string
+  title: string
+  dueDate: string
+  href: string
 }
 
 function formatDate(date: string): string {
@@ -21,6 +29,15 @@ function formatDate(date: string): string {
   if (diff === 1) return "Yesterday"
   if (diff < 7) return `${diff} days ago`
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+function riskClass(level: string | null | undefined): string | null {
+  if (!level) return null
+  const l = level.toLowerCase()
+  if (l === "high" || l === "critical") return "border-red-500/30 bg-red-500/5 text-red-700"
+  if (l === "medium" || l === "material") return "border-amber-500/30 bg-amber-500/5 text-amber-700"
+  if (l === "low") return "border-border bg-muted/50 text-muted-foreground"
+  return null
 }
 
 function statusLabel(status: string | null | undefined): string | null {
@@ -41,7 +58,12 @@ function statusLabel(status: string | null | undefined): string | null {
  * tours, no tooltips — the classifier routes whatever is typed, and the UI
  * stays out of its way.
  */
-export function ChatLanding({ threads, loadError }: { threads: ThreadItem[]; loadError?: string | null }) {
+export function ChatLanding({ threads, loadError, stats, deadlines }: {
+  threads: ThreadItem[]
+  loadError?: string | null
+  stats?: { deals: number | null; analyzed: number | null } | null
+  deadlines?: DeadlineItem[]
+}) {
   // Anonymous landing input waits here after signup/signin: prefill on every
   // fresh mount (the composer applies it once per key) and clear on the
   // first successful send, so intent survives navigation but never
@@ -85,10 +107,42 @@ export function ChatLanding({ threads, loadError }: { threads: ThreadItem[]; loa
 
       {threads.length > 0 && (
         <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+          {(stats || (deadlines && deadlines.length > 0)) && (
+            <div className="mb-3 space-y-2 px-2">
+              {stats && (stats.deals !== null || stats.analyzed !== null) && (
+                <p className="text-xs text-muted-foreground">
+                  {stats.deals !== null && <span className="font-medium text-foreground">{stats.deals} deal{stats.deals === 1 ? "" : "s"}</span>}
+                  {stats.deals !== null && stats.analyzed !== null && " · "}
+                  {stats.analyzed !== null && <span><span className="font-medium text-foreground">{stats.analyzed}</span> analyzed</span>}
+                </p>
+              )}
+              {deadlines && deadlines.length > 0 && (
+                <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-700">Upcoming deadlines</p>
+                  <ul className="mt-1.5 space-y-1">
+                    {deadlines.map((d) => {
+                      const overdue = new Date(d.dueDate + "T00:00:00Z").getTime() < new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z").getTime()
+                      return (
+                        <li key={d.id}>
+                          <Link href={d.href} className="flex items-baseline justify-between gap-3 text-xs hover:underline">
+                            <span className="min-w-0 truncate font-medium">{d.title}</span>
+                            <span className={`shrink-0 font-medium tabular-nums ${overdue ? "text-red-700" : "text-amber-700"}`}>
+                              {overdue ? "Overdue · " : ""}{new Date(d.dueDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            </span>
+                          </Link>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
           <h2 className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Recent deals</h2>
           <ul aria-label="Recent deals" className="space-y-0.5">
             {threads.map((t) => {
               const state = statusLabel(t.status)
+              const risk = riskClass(t.riskLevel)
               return (
                 <li key={t.id}>
                   <Link
@@ -97,6 +151,11 @@ export function ChatLanding({ threads, loadError }: { threads: ThreadItem[]; loa
                   >
                     <span className="min-w-0 truncate font-medium">{t.title || "Untitled"}</span>
                     <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                      {risk && t.riskLevel && (
+                        <span className={`rounded-full border px-1.5 py-px text-[10px] font-medium ${risk}`}>
+                          {t.riskLevel}
+                        </span>
+                      )}
                       {state && (
                         <span className="rounded-full border border-border/60 bg-muted/50 px-1.5 py-px text-[10px] font-medium">
                           {state}
