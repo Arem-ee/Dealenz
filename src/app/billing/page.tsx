@@ -1,4 +1,4 @@
-import { CreditCard, Shield } from "lucide-react"
+import { Shield } from "lucide-react"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
@@ -62,6 +62,24 @@ export function checkoutReturnNotice(
   return null
 }
 
+// A full freelance loop with the analysis on the free daily allowance:
+// proposal + signature send. The anchor every other number on this page
+// hangs off.
+const FULL_DEAL_CREDITS = DOCUMENT_CREDIT_COSTS.proposal + SIGNATURE_SEND_CREDITS
+
+const PRICE_ROWS: Array<[string, number]> = [
+  ["Ask, brief", CREDIT_PRICE_BRIEF],
+  ["Ask, standard", CREDIT_PRICE_STANDARD],
+  ["Ask, extended", CREDIT_PRICE_EXTENDED],
+  ["Proposal", DOCUMENT_CREDIT_COSTS.proposal],
+  ["Scope of work", DOCUMENT_CREDIT_COSTS.sow],
+  ["Contract", DOCUMENT_CREDIT_COSTS.contract],
+  ["Checklist", DOCUMENT_CREDIT_COSTS.checklist],
+  ["Document upload", UPLOAD_CREDITS],
+  ["Signature send", SIGNATURE_SEND_CREDITS],
+  ["Lawyer request", LAWYER_REQUEST_CREDITS],
+]
+
 export default async function BillingPage({
   searchParams,
 }: {
@@ -79,6 +97,7 @@ export default async function BillingPage({
     redirect("/dashboard")
   }
 
+  const dailyLimit = rateLimitFor("analyzeDeal")
   let usedAnalyses = 0
   let creditBalance: number | null = null
   let purchases: PurchaseRow[] = []
@@ -109,14 +128,21 @@ export default async function BillingPage({
     }
   }
 
+  const dealsCovered = creditBalance !== null ? Math.floor(creditBalance / FULL_DEAL_CREDITS) : null
+  const freeUsedUp = usedAnalyses >= dailyLimit
+
   return (
     <div className="px-4 sm:px-6 py-5 sm:py-7 max-w-3xl mx-auto">
-      <div>
-        <h1 className="text-lg font-semibold">Billing</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Manage your credits and usage — no subscriptions
-        </p>
-      </div>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-burgundy">
+        Billing · No subscriptions
+      </p>
+      <h1 className="mt-1 text-[26px] font-bold leading-tight tracking-tight sm:text-[30px]">
+        One full deal, about {FULL_DEAL_CREDITS} credits.
+      </h1>
+      <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted-foreground">
+        Analysis is free every day. Credits pay for outcomes — proposals, documents,
+        signature sends — never for a favorable answer.
+      </p>
 
       {notice && (
         <div role="status" className="mt-4 rounded-xl border border-border bg-card p-4 text-sm shadow-surface">
@@ -125,91 +151,85 @@ export default async function BillingPage({
         </div>
       )}
 
+      {/* Balance hero: what you hold, what it buys, one action. */}
+      <div className="mt-5 rounded-3xl bg-burgundy p-6 text-white shadow-sm sm:p-7">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">
+              Your balance
+            </p>
+            <p className="mt-1 text-[44px] font-bold leading-none tracking-tight tabular-nums" data-numeric>
+              {creditBalance !== null ? creditBalance : "—"}
+              <span className="ml-2 align-middle text-[13px] font-normal text-white/60">credits</span>
+            </p>
+            <p className="mt-2 text-[13px] text-white/75">
+              {dealsCovered !== null
+                ? dealsCovered > 0
+                  ? `Covers about ${dealsCovered} full deal${dealsCovered === 1 ? "" : "s"} from proposal to signature.`
+                  : "Not enough for a full deal yet — top up or earn free credits below."
+                : "Balance unavailable right now — the packages below still work."}
+            </p>
+          </div>
+          <a
+            href="#buy-credits"
+            className="inline-flex h-11 items-center rounded-full bg-white px-6 text-sm font-semibold text-burgundy transition-colors hover:bg-white/90"
+          >
+            Buy credits
+          </a>
+        </div>
+      </div>
+
+      {/* Free daily allowance: one line, one bar. */}
+      <div className="mt-3 flex items-center gap-3 rounded-2xl border border-border/60 bg-card px-4 py-3 shadow-sm">
+        <Shield className="h-4 w-4 shrink-0 text-burgundy" />
+        <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">Free analyses today</span>{" "}
+          <span className="tabular-nums" data-numeric>{usedAnalyses}/{dailyLimit}</span>
+          {freeUsedUp ? " — daily allowance used, credits cover the rest." : " — resets tomorrow."}
+        </p>
+        <div className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-black/[0.07]" aria-hidden>
+          <div
+            className={cn("h-full rounded-full", freeUsedUp ? "bg-burgundy" : "bg-black/30")}
+            style={{ width: `${Math.min(100, Math.round((usedAnalyses / Math.max(1, dailyLimit)) * 100))}%` }}
+          />
+        </div>
+      </div>
+
       <div className="mt-7 space-y-4">
-        <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Shield className="h-5 w-5 text-primary" />
-              <div>
-                <p className="text-sm font-medium">Free usage</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {rateLimitFor("analyzeDeal")} deal analyses per day. No subscriptions — extra AI work uses purchased credits below.
-                </p>
-              </div>
-            </div>
-            <span className="rounded-md bg-primary/10 text-primary px-2.5 py-1 text-xs font-medium">
-              Free
-            </span>
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-border/60">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Free AI analyses used today</span>
-                <span className={cn(
-                  "font-medium tabular-nums",
-                  usedAnalyses >= rateLimitFor("analyzeDeal") ? "text-risk-high" : "text-foreground"
-                )} data-numeric>{usedAnalyses}/{rateLimitFor("analyzeDeal")}</span>
-              </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <CreditCard className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-sm font-medium">What credits pay for {creditBalance !== null ? `— ${creditBalance} available` : ""}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Credits pay for deal outcomes across all deal types — never for a favorable answer. Greetings cost 0, and the free daily analyses above never consume credits.
-              </p>
-            </div>
-          </div>
-          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 border-t border-border/60 pt-4 text-xs sm:grid-cols-3">
-            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Ask, brief</dt><dd className="font-medium tabular-nums" data-numeric>{CREDIT_PRICE_BRIEF}</dd></div>
-            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Ask, standard</dt><dd className="font-medium tabular-nums" data-numeric>{CREDIT_PRICE_STANDARD}</dd></div>
-            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Ask, extended</dt><dd className="font-medium tabular-nums" data-numeric>{CREDIT_PRICE_EXTENDED}</dd></div>
-            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Proposal</dt><dd className="font-medium tabular-nums" data-numeric>{DOCUMENT_CREDIT_COSTS.proposal}</dd></div>
-            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Scope of work</dt><dd className="font-medium tabular-nums" data-numeric>{DOCUMENT_CREDIT_COSTS.sow}</dd></div>
-            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Contract</dt><dd className="font-medium tabular-nums" data-numeric>{DOCUMENT_CREDIT_COSTS.contract}</dd></div>
-            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Checklist</dt><dd className="font-medium tabular-nums" data-numeric>{DOCUMENT_CREDIT_COSTS.checklist}</dd></div>
-            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Document upload</dt><dd className="font-medium tabular-nums" data-numeric>{UPLOAD_CREDITS}</dd></div>
-            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Signature send</dt><dd className="font-medium tabular-nums" data-numeric>{SIGNATURE_SEND_CREDITS}</dd></div>
-            <div className="flex items-baseline justify-between gap-2"><dt className="text-muted-foreground">Lawyer request</dt><dd className="font-medium tabular-nums" data-numeric>{LAWYER_REQUEST_CREDITS}</dd></div>
-          </dl>
-          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-            A typical freelance loop — analysis on the free daily allowance, proposal ({DOCUMENT_CREDIT_COSTS.proposal}), signature send ({SIGNATURE_SEND_CREDITS}) — runs about {DOCUMENT_CREDIT_COSTS.proposal + SIGNATURE_SEND_CREDITS} credits
-            when the analysis itself is free.
-          </p>
-        </div>
-
-        <ReferralSection />
-
         <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm" id="buy-credits">
           <PurchaseSection />
         </div>
 
-        <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <CreditCard className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-sm font-medium">Payment processing</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                After checkout, return here — your purchased credits appear after verified webhook settlement (idempotent). Redirect alone does not mean payment succeeded.
-              </p>
-            </div>
-          </div>
-        </div>
+        <ReferralSection />
 
-        <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm">
-          <p className="text-sm font-medium">Purchase history</p>
+        <details className="group rounded-xl border border-border/60 bg-card p-5 shadow-sm">
+          <summary className="cursor-pointer text-sm font-medium">
+            Full price list
+            <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+              Every credit price, in one place. A full deal runs about {FULL_DEAL_CREDITS} credits.
+            </span>
+          </summary>
+          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 border-t border-border/60 pt-4 text-xs sm:grid-cols-3">
+            {PRICE_ROWS.map(([label, cost]) => (
+              <div key={label} className="flex items-baseline justify-between gap-2">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="font-medium tabular-nums" data-numeric>{cost}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+
+        <details className="group rounded-xl border border-border/60 bg-card p-5 shadow-sm">
+          <summary className="cursor-pointer text-sm font-medium">
+            Purchase history{purchases.length > 0 ? ` (${purchases.length})` : ""}
+            <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+              Credits appear here once settlement is verified — returning from checkout alone means nothing.
+            </span>
+          </summary>
           {purchases.length === 0 ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              No purchases yet. Completed purchases appear here once settlement is verified.{" "}
-              <a href="#buy-credits" className="font-medium text-primary hover:underline">
-                Buy credits above
-              </a>
-            </p>
+            <p className="mt-3 text-xs text-muted-foreground">No purchases yet.</p>
           ) : (
-            <ul className="mt-3 space-y-2">
+            <ul className="mt-3 space-y-2 border-t border-border/60 pt-3">
               {purchases.map((p) => {
                 const state = PURCHASE_STATUS_LABEL[p.status] ?? { label: p.status, tone: "text-muted-foreground" }
                 const price =
@@ -225,7 +245,7 @@ export default async function BillingPage({
               })}
             </ul>
           )}
-        </div>
+        </details>
       </div>
     </div>
   )
