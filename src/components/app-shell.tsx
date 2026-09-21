@@ -101,9 +101,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   // Navbar thread search. Load failures degrade to no results (the pages
   // surface their own load states) rather than breaking the whole shell.
   let threads: SidebarThread[] = []
+  let openIssues = 0
   try {
     const rows = await listThreads()
     threads = rows.map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, status: t.status ?? null, riskLevel: t.riskLevel ?? null }))
+    openIssues = rows.reduce((s, t) => s + (typeof t.openIssues === "number" ? t.openIssues : 0), 0)
   } catch {
     threads = []
   }
@@ -112,7 +114,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen flex-col bg-background">
       <TopNavbar email={email} businessName={businessName} isLawyer={isLawyer} creditBalance={creditBalance} threads={threads} />
       <div className="flex flex-1 min-h-0">
-        <SidebarNav threads={threads} />
+        <SidebarNav openIssues={openIssues} creditBalance={creditBalance} />
         <div className="flex flex-1 flex-col min-w-0 bg-background">
           <main className="flex flex-1 flex-col min-h-0 pb-16 md:pb-0 bg-background">
             <VerificationBanner />

@@ -2,10 +2,11 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { AlertTriangle } from "lucide-react"
-import { Composer } from "./Composer"
-import { clearPendingDeal, getPendingDeal } from "@/lib/pending-deal"
+import { AlertTriangle, Plus } from "lucide-react"
+import { getPendingDeal } from "@/lib/pending-deal"
 import { dealMomentState, DEAL_MOMENT_LABEL } from "@/lib/deals/moment"
+import type { DayBucket } from "@/lib/activity/week"
+import { cn } from "@/lib/utils"
 
 interface ThreadItem {
   id: string
@@ -14,13 +15,10 @@ interface ThreadItem {
   updatedAt: string
   status?: string | null
   riskLevel?: string | null
+  overallScore?: number | null
   openIssues?: number | null
-  budget?: string | null
-  dealType?: string | null
-  jurisdiction?: string | null
-  counterpartyRole?: string | null
   resolvedCount?: number | null
-  topFindings?: string[]
+  topCategories?: Array<{ label: string; count: number }>
 }
 
 export interface DeadlineItem {
@@ -29,6 +27,15 @@ export interface DeadlineItem {
   title: string
   dueDate: string
   href: string
+}
+
+export interface PortfolioSummary {
+  totalOpen: number
+  openDeals: number
+  avgScore: number | null
+  ratedCount: number
+  topCategories: Array<{ label: string; count: number }>
+  weekTotal: number
 }
 
 function formatDate(date: string): string {
@@ -40,6 +47,15 @@ function formatDate(date: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
+function riskPill(level: string | null | undefined): string | null {
+  if (!level) return null
+  const l = level.toLowerCase()
+  if (l === "high" || l === "critical") return "border-red-500/30 bg-red-500/5 text-red-700"
+  if (l === "medium" || l === "material") return "border-amber-500/30 bg-amber-500/5 text-amber-700"
+  if (l === "low") return "border-border bg-muted/50 text-muted-foreground"
+  return null
+}
+
 const LOOP_STEPS = [
   { n: "1", title: "Describe", body: "Drop in their contract or explain the situation." },
   { n: "2", title: "Understand", body: "See where the risk sits, with the clause it came from." },
@@ -47,159 +63,242 @@ const LOOP_STEPS = [
   { n: "4", title: "Sign & stay guarded", body: "Both sides sign here; deadlines stay tracked." },
 ]
 
-/**
- * Deal-first Home: the loop promise up top, the composer, one understated
- * Library link, then recent deals with their state. No action cards, no
- * tours, no tooltips — the classifier routes whatever is typed, and the UI
- * stays out of its way.
- */
-export function ChatLanding({ threads, loadError, stats, deadlines, executedAuditIds, signingAuditIds, monitoredAuditIds }: {
+function todayKey(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, signingAuditIds, monitoredAuditIds, portfolio, week }: {
   threads: ThreadItem[]
   loadError?: string | null
-  stats?: { deals: number | null; analyzed: number | null } | null
   deadlines?: DeadlineItem[]
   executedAuditIds?: string[]
   signingAuditIds?: string[]
   monitoredAuditIds?: string[]
+  portfolio?: PortfolioSummary | null
+  week?: DayBucket[]
 }) {
-  // Anonymous landing input waits here after signup/signin: prefill on every
-  // fresh mount (the composer applies it once per key) and clear on the
-  // first successful send, so intent survives navigation but never
-  // resurrects after it is used.
-  const [pendingPrefill] = useState<{ text: string; key: number } | null>(() => {
-    const pending = getPendingDeal()
-    if (!pending) return null
-    return { text: pending, key: Date.now() }
-  })
+  // Anonymous landing input waits for its composer on /chat: surface a
+  // resume banner here instead of a composer — this screen triages.
+  const [hasPending] = useState(() => getPendingDeal() !== null)
+  const today = todayKey()
+  const nextDeadline = (deadlines ?? [])[0] ?? null
+  const topDeals = [...threads]
+    .filter((t) => typeof t.openIssues === "number" && (t.openIssues ?? 0) > 0)
+    .sort((a, b) => (b.openIssues ?? 0) - (a.openIssues ?? 0))
+    .slice(0, 3)
+  const maxCat = Math.max(1, ...(portfolio?.topCategories.map((c) => c.count) ?? [1]))
+  const maxWeek = Math.max(1, ...(week ?? []).map((b) => b.count))
+
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-4">
-      <div className="shrink-0 pb-3 pt-4 sm:pt-5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--burgundy)]">Counterparty-side review</p>
-        <h1 className="mt-1.5 font-serif text-[28px] font-semibold leading-tight tracking-[-0.01em] sm:text-[32px]">Send us their contract.</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Get back what to push back on — in your words. Sign here. Stay guarded.</p>
-        {loadError && (
-          <div role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-xs text-destructive">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>We couldn&apos;t load your recent threads. {loadError}</span>
-          </div>
-        )}
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col overflow-y-auto px-4 pb-4">
+      <div className="flex shrink-0 items-center justify-between gap-3 pb-3 pt-4 sm:pt-5">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--burgundy)]">Counterparty-side review</p>
+          <h1 className="mt-1 font-serif text-[26px] font-semibold leading-tight tracking-[-0.01em] sm:text-[30px]">Your deals</h1>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="hidden text-xs text-muted-foreground sm:inline">
+            {new Date(`${today}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          </span>
+          <Link
+            href="/audit/new"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            New deal
+          </Link>
+        </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pb-3">
-        {(stats || (deadlines && deadlines.length > 0)) && (
-            <div className="mb-3 space-y-2 px-2">
-              {stats && (stats.deals !== null || stats.analyzed !== null) && (
-                <p className="text-xs text-muted-foreground">
-                  {stats.deals !== null && <span className="font-medium text-foreground">{stats.deals} deal{stats.deals === 1 ? "" : "s"}</span>}
-                  {stats.deals !== null && stats.analyzed !== null && " · "}
-                  {stats.analyzed !== null && <span><span className="font-medium text-foreground">{stats.analyzed}</span> analyzed</span>}
-                </p>
+      {loadError && (
+        <div role="alert" className="mb-3 flex shrink-0 items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-xs text-destructive">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>We couldn&apos;t load your deals. {loadError}</span>
+        </div>
+      )}
+
+      {hasPending && (
+        <Link
+          href="/chat"
+          onClick={() => {
+            // Kept staged until the /chat composer consumes it on send.
+          }}
+          className="mb-3 block shrink-0 rounded-xl border border-primary/25 bg-primary/[0.04] px-4 py-3 text-xs transition-colors hover:bg-primary/[0.07]"
+        >
+          <span className="font-semibold">Your deal text is waiting.</span>{" "}
+          <span className="text-muted-foreground">Continue where you left off →</span>
+        </Link>
+      )}
+
+      {threads.length > 0 && portfolio && (
+        <>
+          <section aria-label="Portfolio health" className="grid shrink-0 gap-3 sm:grid-cols-[1.2fr_1fr]">
+            <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Open issues</p>
+              <p className="mt-1 font-serif text-[44px] font-semibold leading-none tracking-tight" data-numeric>
+                {portfolio.totalOpen}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                across {portfolio.openDeals} deal{portfolio.openDeals === 1 ? "" : "s"}
+              </p>
+              {topDeals.length > 0 && (
+                <div className="mt-4 flex items-center">
+                  {topDeals.map((t, i) => (
+                    <div
+                      key={t.id}
+                      title={`${t.title || "Untitled"} — ${t.openIssues} open`}
+                      className={cn(
+                        "flex h-14 w-14 items-center justify-center rounded-full text-sm font-bold ring-4 ring-card",
+                        i === 0 && "bg-primary text-primary-foreground",
+                        i === 1 && "bg-[var(--burgundy)] text-white",
+                        i === 2 && "bg-muted text-foreground",
+                        i > 0 && "-ml-3"
+                      )}
+                    >
+                      {t.openIssues}
+                    </div>
+                  ))}
+                  <div className="ml-3 min-w-0 space-y-0.5">
+                    {topDeals.map((t) => (
+                      <p key={t.id} className="truncate text-[11px] text-muted-foreground">
+                        <span className="font-semibold text-foreground">{t.openIssues}</span> · {t.title || "Untitled"}
+                      </p>
+                    ))}
+                  </div>
+                </div>
               )}
-              {deadlines && deadlines.length > 0 && (
-                <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-700">Upcoming deadlines</p>
-                  <ul className="mt-1.5 space-y-1">
-                    {deadlines.map((d) => {
-                      const overdue = new Date(d.dueDate + "T00:00:00Z").getTime() < new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z").getTime()
-                      return (
-                        <li key={d.id}>
-                          <Link href={d.href} className="flex items-baseline justify-between gap-3 text-xs hover:underline">
-                            <span className="min-w-0 truncate font-medium">{d.title}</span>
-                            <span className={`shrink-0 font-medium tabular-nums ${overdue ? "text-red-700" : "text-amber-700"}`}>
-                              {overdue ? "Overdue · " : ""}{new Date(d.dueDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                            </span>
-                          </Link>
-                        </li>
-                      )
-                    })}
-                  </ul>
+              {portfolio.topCategories.length > 0 && (
+                <div className="mt-4 space-y-1.5">
+                  {portfolio.topCategories.map((c) => (
+                    <div key={c.label} className="flex items-center gap-2">
+                      <span className="w-28 shrink-0 truncate text-[11px] text-muted-foreground">{c.label}</span>
+                      <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
+                        <span
+                          className="block h-full rounded-full bg-[var(--burgundy)]"
+                          style={{ width: `${Math.max(6, Math.round((c.count / maxCat) * 100))}%` }}
+                        />
+                      </span>
+                      <span className="w-6 shrink-0 text-right text-[11px] font-medium tabular-nums" data-numeric>{c.count}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
+
+            <div className="grid shrink-0 content-start gap-3">
+              <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Avg risk</p>
+                {portfolio.avgScore !== null ? (
+                  <>
+                    <p className="mt-1 font-serif text-[30px] font-semibold leading-none" data-numeric>{portfolio.avgScore}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">across {portfolio.ratedCount} rated deal{portfolio.ratedCount === 1 ? "" : "s"}</p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">No rated deals yet — ratings appear after analysis.</p>
+                )}
+              </div>
+              <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Next deadline</p>
+                {nextDeadline ? (
+                  <Link href={nextDeadline.href} className="group mt-1 block">
+                    <p className="truncate text-sm font-semibold group-hover:underline">{nextDeadline.title}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {new Date(nextDeadline.dueDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </p>
+                  </Link>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">Nothing dated tracked. Deadlines appear after signing.</p>
+                )}
+              </div>
+              <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">This week</p>
+                <p className="mt-1 font-serif text-[30px] font-semibold leading-none" data-numeric>{portfolio.weekTotal}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">deal events</p>
+              </div>
+            </div>
+          </section>
+
+          {(week ?? []).length > 0 && (
+            <section aria-label="Activity this week" className="mt-3 shrink-0 rounded-2xl bg-[#1C1917] p-5 text-white shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/50">Deal activity</p>
+                <p className="text-[11px] text-white/50">Last 7 days</p>
+              </div>
+              <div className="mt-3 flex h-24 items-end gap-2">
+                {(week ?? []).map((b) => (
+                  <div key={b.key} className="flex min-w-0 flex-1 flex-col items-center gap-1.5" title={`${b.label}: ${b.count}`}>
+                    <span
+                      className={cn("w-full max-w-8 rounded-sm", b.isToday ? "bg-[var(--burgundy)]" : "bg-white/15")}
+                      style={{ height: `${Math.max(6, Math.round((b.count / maxWeek) * 100))}%` }}
+                    />
+                    <span className={cn("text-[10px]", b.isToday ? "font-semibold text-white" : "text-white/45")}>
+                      {b.isToday ? "Today" : b.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
           )}
-          {/* Deal inbox stream: deals live in the sidebar as a compact
-              switcher on desktop; here every deal reads as a triage row —
-              state, attention, next notice, one action. */}
-          <h2 className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Your deals</h2>
-          <ul aria-label="Your deals" className="space-y-2.5">
-            {threads.map((t) => {
-              const executed = !!t.auditId && (executedAuditIds ?? []).includes(t.auditId)
-              const signingActive = !!t.auditId && (signingAuditIds ?? []).includes(t.auditId) && !executed
-              const hasMonitoring = !!t.auditId && (monitoredAuditIds ?? []).includes(t.auditId)
-              const moment = dealMomentState({
-                status: t.status,
-                openIssues: t.openIssues ?? null,
-                resolvedCount: t.resolvedCount ?? null,
-                executed,
-                signingActive,
-                hasMonitoring,
-              })
-              const notice = t.auditId ? (deadlines ?? []).find((d) => d.auditId === t.auditId) : undefined
-              const metaParts: string[] = []
-              if (t.budget) metaParts.push(t.budget)
-              if (t.dealType) metaParts.push(t.dealType.replace("_", " ").replace(/^\w/, (c) => c.toUpperCase()))
-              if (t.counterpartyRole) metaParts.push(`${t.counterpartyRole.replace(/^\w/, (c) => c.toUpperCase())} paper`)
-              else if (t.jurisdiction) metaParts.push(t.jurisdiction)
-              metaParts.push(formatDate(t.updatedAt))
-              const stateTone =
-                moment === "needs-action" || moment === "needs-attention"
-                  ? "text-red-700"
-                  : moment === "negotiating"
-                    ? "text-amber-700"
-                    : moment === "ready-to-sign" || moment === "signed" || moment === "guarded"
-                      ? "text-emerald-700"
-                      : "text-muted-foreground"
-              const cta = moment === "needs-action" || moment === "negotiating" ? "Review deal →" : "Open →"
-              return (
-                <li key={t.id} className="rounded-xl border border-border/60 bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <p className="min-w-0 flex-1 truncate font-serif text-[15px] font-semibold leading-snug">{t.title || "Untitled"}</p>
-                    <p className={`shrink-0 text-[12px] font-semibold uppercase tracking-[0.08em] ${stateTone}`}>
-                      {DEAL_MOMENT_LABEL[moment]}
-                    </p>
-                  </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{metaParts.join(" · ")}</p>
-                  {moment === "guarded" && notice && (
-                    <p className="mt-1.5 text-xs text-muted-foreground">
-                      Next notice: <span className="font-medium text-foreground">{notice.title}</span> ·{" "}
-                      {new Date(notice.dueDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    </p>
-                  )}
-                  {moment === "guarded" && !notice && hasMonitoring && (
-                    <p className="mt-1.5 text-xs text-muted-foreground">Obligations being watched.</p>
-                  )}
-                  {typeof t.openIssues === "number" && t.openIssues > 0 && (
-                    <div className="mt-1.5">
-                      <p className="text-xs font-medium">
-                        {t.openIssues} thing{t.openIssues === 1 ? "" : "s"} need{t.openIssues === 1 ? "s" : ""} your attention
-                      </p>
-                      {t.topFindings && t.topFindings.length > 0 && (
-                        <ul className="mt-1 space-y-0.5">
-                          {t.topFindings.map((s, i) => (
-                            <li key={i} className="truncate text-xs text-muted-foreground">{s}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  )}
-                  {typeof t.openIssues === "number" && t.openIssues === 0 && (t.resolvedCount ?? 0) > 0 && (
-                    <p className="mt-1.5 text-xs text-muted-foreground">All previous issues resolved. No new findings.</p>
-                  )}
-                  {moment === "draft" && (
-                    <p className="mt-1.5 text-xs text-muted-foreground">Not analyzed yet.</p>
-                  )}
-                  <div className="mt-2">
-                    <Link href={`/chat/${t.id}`} className="text-xs font-semibold text-primary hover:underline">
-                      {cta}
-                    </Link>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
+
+          <section aria-label="All deals" className="mt-3 shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-border/60 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                  <th scope="col" className="px-4 py-2.5 font-semibold">Deal</th>
+                  <th scope="col" className="px-2 py-2.5 font-semibold">State</th>
+                  <th scope="col" className="px-2 py-2.5 text-right font-semibold">Open</th>
+                  <th scope="col" className="hidden px-2 py-2.5 font-semibold sm:table-cell">Risk</th>
+                  <th scope="col" className="hidden px-4 py-2.5 text-right font-semibold md:table-cell">Updated</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {threads.map((t) => {
+                  const executed = !!t.auditId && (executedAuditIds ?? []).includes(t.auditId)
+                  const signingActive = !!t.auditId && (signingAuditIds ?? []).includes(t.auditId) && !executed
+                  const hasMonitoring = !!t.auditId && (monitoredAuditIds ?? []).includes(t.auditId)
+                  const moment = dealMomentState({
+                    status: t.status,
+                    openIssues: t.openIssues ?? null,
+                    resolvedCount: t.resolvedCount ?? null,
+                    executed,
+                    signingActive,
+                    hasMonitoring,
+                  })
+                  const pill = riskPill(t.riskLevel)
+                  return (
+                    <tr key={t.id} className="transition-colors hover:bg-muted/40">
+                      <td className="max-w-0 px-4 py-2.5">
+                        <Link href={`/chat/${t.id}`} className="block truncate font-medium hover:underline">
+                          {t.title || "Untitled"}
+                        </Link>
+                      </td>
+                      <td className="whitespace-nowrap px-2 py-2.5 text-xs font-medium">{DEAL_MOMENT_LABEL[moment]}</td>
+                      <td className="px-2 py-2.5 text-right text-xs tabular-nums">
+                        {typeof t.openIssues === "number" ? t.openIssues : "—"}
+                      </td>
+                      <td className="hidden px-2 py-2.5 sm:table-cell">
+                        {pill && t.riskLevel ? (
+                          <span className={`inline-block rounded-full border px-1.5 py-px text-[10px] font-medium ${pill}`}>
+                            {t.riskLevel}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="hidden whitespace-nowrap px-4 py-2.5 text-right text-xs text-muted-foreground md:table-cell">
+                        {formatDate(t.updatedAt)}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </section>
+        </>
+      )}
+
       {threads.length === 0 && !loadError && (
-        <div className="min-h-0 flex-1 overflow-y-auto pb-3">
+        <div className="pb-4">
           <div className="grid gap-2 px-2 sm:grid-cols-2 lg:grid-cols-4">
             {LOOP_STEPS.map((s) => (
               <div key={s.n} className="rounded-xl border border-border/60 bg-card p-3.5">
@@ -211,33 +310,17 @@ export function ChatLanding({ threads, loadError, stats, deadlines, executedAudi
               </div>
             ))}
           </div>
-          <p className="mt-3 px-2 text-xs text-muted-foreground">Start below — paste their contract, drop the file, or describe the deal.</p>
-          <div className="mt-2 px-2">
+          <div className="mt-3 px-2">
             <Link
-              href="/library"
-              className="text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+              href="/audit/new"
+              className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
             >
-              Browse the Library
+              <Plus className="h-3.5 w-3.5" />
+              New deal
             </Link>
           </div>
         </div>
       )}
-      <div className="shrink-0 py-2">
-        <Link
-          href="/library"
-          className="text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
-        >
-          Browse the Library
-        </Link>
-      </div>
-      <div className="shrink-0 pb-4">
-        <Composer
-          prefill={pendingPrefill}
-          onMessageSent={() => {
-            if (pendingPrefill) clearPendingDeal()
-          }}
-        />
-      </div>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { Composer } from "@/components/chat/Composer"
+import { NewDealComposer } from "@/components/chat/NewDealComposer"
 
 export const dynamic = "force-dynamic"
 
@@ -10,7 +10,7 @@ export default function ChatNewPage() {
         <p className="mt-1 text-sm text-muted-foreground">Paste it, drop the file, or describe the deal. We will route it correctly.</p>
       </div>
       <div className="mt-8">
-        <Composer />
+        <NewDealComposer />
       </div>
     </div>
   )
