@@ -220,6 +220,25 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
   async function reportSubmitFailure(err: unknown) {
     const msg = err instanceof Error ? err.message : String(err ?? "")
     try {
+      // Capture the full diagnostic (including any framework digest) for
+      // operators before the user ever sees the sanitized copy.
+      const { digest } = await import("@/lib/errors/sanitize").then((m) => ({
+        digest: m.errorDigest(err),
+      }))
+      void fetch("/api/client-errors", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: `composer submit failure: ${msg}`.slice(0, 500),
+          stack: `${digest ? `digest:${digest} ` : ""}${err instanceof Error ? (err.stack ?? "") : ""}`.slice(0, 2000) || null,
+          url: typeof window !== "undefined" ? window.location.pathname.slice(0, 500) : null,
+        }),
+        keepalive: true,
+      }).catch(() => {})
+    } catch {
+      // Diagnostics must never break the failure path.
+    }
+    try {
       // Anything below the action layer (expired session, redirect to login
       // followed by an unparseable page, network drop) arrives here without a
       // real message. If the browser holds no session, say so plainly.

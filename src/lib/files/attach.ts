@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client"
 import { sanitizeFilename } from "@/lib/validation/files"
+import { sanitizeUserError } from "@/lib/errors/sanitize"
 import { attachFileMetadata } from "@/app/audit/[id]/actions"
 
 // Single file-intake path for user-dropped deal documents (chat composer,
@@ -63,10 +64,10 @@ export async function uploadAndAttachFile(auditId: string, file: File): Promise<
           error: `${raw} Buy credits in Billing, or paste the contract text instead — analysis works the same.`,
         }
       }
-      return { ok: false, error: raw }
+      return { ok: false, error: sanitizeUserError(raw) }
     }
     return { ok: true }
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "We couldn't attach that file. Please try again." }
+    return { ok: false, error: sanitizeUserError(e instanceof Error ? e.message : "We couldn't attach that file. Please try again.") }
   }
 }

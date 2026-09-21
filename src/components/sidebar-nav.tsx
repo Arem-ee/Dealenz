@@ -2,19 +2,32 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Zap } from "lucide-react"
+import { PanelLeftClose, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PRIMARY_NAV, SECONDARY_NAV, isActiveEntry } from "@/lib/nav"
 
 // Brand sidebar: light surface, burgundy marks the active destination,
 // the open-issue count, and the low-credit top-up. Navigation carries
 // live state; history lives in the main table, not here.
-export function SidebarNav({ openIssues = 0, creditBalance = null }: { openIssues?: number; creditBalance?: number | null }) {
+export function SidebarNav({ openIssues = 0, creditBalance = null, onCollapse, flushTop = false }: { openIssues?: number; creditBalance?: number | null; onCollapse?: () => void; flushTop?: boolean }) {
   const pathname = usePathname()
   const showTopUp = typeof creditBalance === "number" && creditBalance < 25
 
   return (
-    <aside className="hidden md:flex md:flex-col w-60 shrink-0 border-r border-border/60 bg-background md:sticky md:top-14 md:h-[calc(100dvh-3.5rem)]">
+    <aside className={`hidden md:flex md:flex-col w-60 shrink-0 border-r border-border/60 bg-background md:sticky ${flushTop ? "md:top-0 md:h-[100dvh]" : "md:top-14 md:h-[calc(100dvh-3.5rem)]"}`}>
+      {onCollapse && (
+        <div className="flex justify-end px-3 pt-2">
+          <button
+            type="button"
+            onClick={onCollapse}
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar for more room"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3" aria-label="Primary">
         <div className="shrink-0 space-y-0.5">
           {PRIMARY_NAV.map((item) => {

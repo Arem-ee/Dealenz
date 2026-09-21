@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Bell, LogOut, Scale, Search } from "lucide-react"
+import { Bell, ChevronUp, LogOut, Menu, Scale, Search } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Logo } from "@/components/logo"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -22,6 +22,8 @@ interface TopNavbarProps {
   isLawyer?: boolean
   creditBalance?: number | null
   threads?: SidebarThread[]
+  onToggleSidebar?: () => void
+  onHideTopbar?: () => void
 }
 
 /**
@@ -29,7 +31,7 @@ interface TopNavbarProps {
  * balance (always visible, plain), notifications entry, and the single
  * account menu on the right. The sidebar carries no account row.
  */
-export function TopNavbar({ email, businessName, isLawyer = false, creditBalance = null, threads = [] }: TopNavbarProps) {
+export function TopNavbar({ email, businessName, isLawyer = false, creditBalance = null, threads = [], onToggleSidebar, onHideTopbar }: TopNavbarProps) {
   const router = useRouter()
   const supabase = createClient()
   const displayName = businessName ?? email
@@ -56,6 +58,17 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
   return (
     <header className="sticky top-0 z-40 h-14 shrink-0 border-b border-border/60 bg-background/90 backdrop-blur">
       <div className="flex h-full items-center gap-1.5 px-3 sm:gap-2 sm:px-4">
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            aria-label="Toggle navigation sidebar"
+            title="Toggle sidebar"
+            className="hidden shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:inline-flex"
+          >
+            <Menu className="h-4 w-4" />
+          </button>
+        )}
         <Link href="/dashboard" aria-label="Home" className="shrink-0">
           <Logo />
         </Link>
@@ -94,8 +107,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
                 <AvatarFallback className="text-[11px] font-medium">{initials}</AvatarFallback>
               </Avatar>
             </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-52" align="end">
+          </DropdownMenuTrigger>          <DropdownMenuContent className="w-52" align="end">
             <div className="max-w-full truncate px-2 py-1.5 text-xs text-muted-foreground">{displayName}</div>
             <DropdownMenuSeparator />
             {ACCOUNT_NAV.map((item) => {
@@ -126,6 +138,17 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        {onHideTopbar && (
+          <button
+            type="button"
+            onClick={onHideTopbar}
+            aria-label="Hide header"
+            title="Hide header for more room"
+            className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+          >
+            <ChevronUp className="h-4 w-4" />
+          </button>
+        )}
       </div>
       {searchOpen && <ThreadSearch threads={threads} onClose={() => setSearchOpen(false)} />}
     </header>

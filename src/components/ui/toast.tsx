@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react"
 import { AlertCircle, CheckCircle2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { sanitizeUserError } from "@/lib/errors/sanitize"
 
 export interface ToastItem {
   id: number
@@ -59,7 +60,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const showError = useCallback(
     (message: string, title = "Something went wrong") => {
-      toast({ title, description: message, tone: "error" })
+      // Central choke point: framework internals can never reach the user
+      // as toast copy, no matter which handler produced them.
+      toast({ title, description: sanitizeUserError(message), tone: "error" })
     },
     [toast]
   )
