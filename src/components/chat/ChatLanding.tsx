@@ -35,7 +35,6 @@ export interface PortfolioSummary {
   avgScore: number | null
   ratedCount: number
   topCategories: Array<{ label: string; count: number }>
-  weekTotal: number
 }
 
 function formatDate(date: string): string {
@@ -179,7 +178,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                           <p className="text-[22px] font-semibold tracking-tight" data-numeric>
                             {pct}<span className="text-[13px] font-normal text-black/45"> %</span>
                           </p>
-                          <p className="truncate text-[11px] text-black/50">{c.label} <span aria-hidden className={cn("ml-1 inline-block h-1.5 w-1.5 rounded-full", DOT_COLORS[i % DOT_COLORS.length])}>●</span></p>
+                          <p className="truncate text-[11px] text-black/50">{c.label} <span aria-hidden className={cn("ml-1 inline-block h-1.5 w-1.5 rounded-full align-middle", DOT_COLORS[i % DOT_COLORS.length])} /></p>
                         </div>
                         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
                           <div className={cn("h-full rounded-full", BAR_COLORS[i % BAR_COLORS.length])} style={{ width: `${Math.max(6, Math.round((c.count / maxCat) * 100))}%` }} />

@@ -20,7 +20,6 @@ export interface PortfolioSummary {
   avgScore: number | null
   ratedCount: number
   topCategories: Array<{ label: string; count: number }>
-  weekTotal: number
 }
 
 export default async function DashboardPage() {
@@ -74,14 +73,12 @@ export default async function DashboardPage() {
       .limit(500)
     const nowIso = new Date().toISOString()
     weekBuckets = bucketActivityByDay(((activity ?? []) as Array<{ created_at?: unknown }>) ?? [], nowIso)
-    const weekTotal = weekBuckets.reduce((s, b) => s + b.count, 0)
     portfolio = {
       totalOpen,
       openDeals: openDeals.size,
       avgScore: ratedCount > 0 ? Math.round(scoreSum / ratedCount) : null,
       ratedCount,
       topCategories,
-      weekTotal,
     }
   } catch {
     portfolio = null

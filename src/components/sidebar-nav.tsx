@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Zap } from "lucide-react"
-import { Logo } from "@/components/logo"
 import { cn } from "@/lib/utils"
 import { PRIMARY_NAV, SECONDARY_NAV, isActiveEntry } from "@/lib/nav"
 
@@ -16,9 +15,6 @@ export function SidebarNav({ openIssues = 0, creditBalance = null }: { openIssue
 
   return (
     <aside className="hidden md:flex md:flex-col w-60 shrink-0 border-r border-border/60 bg-background md:sticky md:top-14 md:h-[calc(100dvh-3.5rem)]">
-      <div className="flex items-center px-5 pt-6">
-        <Logo />
-      </div>
       <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3" aria-label="Primary">
         <div className="shrink-0 space-y-0.5">
           {PRIMARY_NAV.map((item) => {
