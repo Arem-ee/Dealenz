@@ -42,7 +42,7 @@ export function PushbackWords({ words, compact, auditId, ruleKey }: { words: str
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-      <p className="mt-1 font-serif text-xs leading-relaxed">&ldquo;{words}&rdquo;</p>
+      <p className="mt-1  text-xs leading-relaxed">&ldquo;{words}&rdquo;</p>
     </div>
   )
 }

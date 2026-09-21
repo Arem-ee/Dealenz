@@ -67,7 +67,7 @@ export function ThreadPanel({ messages, auditId, onContextConfirm, onDocumentGen
         </p>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
-        <div className="mx-auto w-full max-w-2xl font-serif">
+        <div className="mx-auto w-full max-w-2xl ">
           {latest ? (
             <PanelCard message={latest} onContextConfirm={onContextConfirm} onDocumentGenerate={onDocumentGenerate} onAskFinding={onAskFinding} />
           ) : (

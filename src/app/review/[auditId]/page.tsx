@@ -53,7 +53,7 @@ export default async function LawyerReviewPage({ params, searchParams }: { param
             <div className="space-y-4 p-1">
               <div className="rounded-xl border bg-card p-4">
                 <h3 className="text-sm font-semibold flex items-center gap-2"><FileText className="h-4 w-4" /> Deal context</h3>
-                <p className="mt-2 font-serif text-sm leading-relaxed whitespace-pre-wrap">{String((audit as { raw_input?: unknown }).raw_input ?? "").slice(0, 800) || "No deal text yet."}</p>
+                <p className="mt-2  text-sm leading-relaxed whitespace-pre-wrap">{String((audit as { raw_input?: unknown }).raw_input ?? "").slice(0, 800) || "No deal text yet."}</p>
                 {handoff && (
                   <div className="mt-3 rounded-lg bg-muted/30 p-3 text-xs">
                     <p className="font-medium">Handoff snapshot</p>

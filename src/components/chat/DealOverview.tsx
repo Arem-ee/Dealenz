@@ -66,7 +66,7 @@ export function DealOverview({ input }: {
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {d.counterpartyRole ? `${d.counterpartyRole.replace(/^\w/, (c) => c.toUpperCase())} paper` : "Deal"}
         </p>
-        <h2 className="mt-1 font-serif text-[22px] font-semibold leading-tight tracking-[-0.01em]">
+        <h2 className="mt-1  text-[22px] font-semibold leading-tight tracking-[-0.01em]">
           {d.title || "Untitled deal"}
         </h2>
         {metaParts.length > 0 && (

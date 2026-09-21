@@ -65,7 +65,7 @@ export function LandingHeroPreview() {
         {tab === "words" && (
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">Words to send</p>
-            <p className="mt-2 font-serif text-[16px] leading-relaxed">&ldquo;Please cap revisions at two rounds. Extra rounds will be billed at my standard rate.&rdquo;</p>
+            <p className="mt-2  text-[16px] leading-relaxed">&ldquo;Please cap revisions at two rounds. Extra rounds will be billed at my standard rate.&rdquo;</p>
             <div className="mt-3 flex items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-[#1C1917] px-3 py-1.5 text-[11px] font-semibold text-white">
                 <FileText className="h-3 w-3" /> Copy

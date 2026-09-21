@@ -13,7 +13,7 @@ interface SignReviewProps {
 export function SignReview({ version, parties, assumptions, missing, onApprove, onCancel, approving }: SignReviewProps) {
   return (
     <div className="border rounded-lg p-4 bg-card">
-      <h3 className="font-serif text-lg">What you are signing</h3>
+      <h3 className=" text-lg">What you are signing</h3>
       <p className="text-sm text-muted-foreground">Version {version.version_number} — {version.document_type} — hash {version.contentHash ?? "pending"}</p>
       <p className="text-sm mt-2">Status: {version.status}</p>
       <div className="mt-3">

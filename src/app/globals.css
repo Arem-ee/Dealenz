@@ -60,10 +60,9 @@
   --radius-xl: calc(var(--radius) + 6px);
   --font-sans: "Mona Sans Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  /* Document serif: actual report/document bodies (risk reports, generated
-   * drafts, the Document Reader). Interface chrome stays in Mona Sans. The
-   * serif/sans contrast signals "this is a real document." */
-  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Charter, Georgia, "Times New Roman", serif;
+  /* Mona Sans throughout: interface, numbers, and document bodies.
+   * No serif anywhere in the product. */
+  --font-serif: "Mona Sans Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 :root {
@@ -72,9 +71,8 @@
   /* Dealenz visual system (UX architecture pass).
    * Star white is the foundation; surfaces step down in strict order:
    * page (star) -> card (#FFFFFF) -> sunken (#F5F4F2). No greige defaults.
-   * Ink is the default action color. Burgundy is reserved for meaningful
-   * brand emphasis (identity, executed seal, key highlights) — never the
-   * default for buttons, nav, badges, or focus. */
+   * Ink is the default action color. Burgundy is the brand color: active
+   * nav, counts, primary CTAs, key highlights, executed seal. */
 
   --star: #FAFAF8;
 

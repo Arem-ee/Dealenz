@@ -111,20 +111,18 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#D9E021] p-2 sm:p-4">
-      <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col overflow-hidden rounded-[28px] bg-[#F1F3F5] shadow-2xl">
+    <div className="flex min-h-screen flex-col bg-background">
       <TopNavbar email={email} businessName={businessName} isLawyer={isLawyer} creditBalance={creditBalance} threads={threads} />
       <div className="flex flex-1 min-h-0">
         <SidebarNav openIssues={openIssues} creditBalance={creditBalance} />
-        <div className="flex flex-1 flex-col min-w-0 bg-transparent">
-          <main className="flex flex-1 flex-col min-h-0 pb-16 md:pb-0 bg-transparent">
+        <div className="flex flex-1 flex-col min-w-0 bg-background">
+          <main className="flex flex-1 flex-col min-h-0 pb-16 md:pb-0 bg-background">
             <VerificationBanner />
             <BackBar />
             <div className="flex flex-1 flex-col min-h-0">{children}</div>
           </main>
         </div>
         <MobileNav isLawyer={isLawyer} />
-      </div>
       </div>
     </div>
   )

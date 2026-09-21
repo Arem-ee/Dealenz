@@ -64,13 +64,13 @@ const LOOP_STEPS = [
 ]
 
 const BUBBLE_STYLES = [
-  "bg-[#8B7CF6] text-white",
+  "bg-burgundy text-white",
   "bg-[#14161B] text-white",
-  "bg-[#D4F527] text-black",
+  "bg-black/[0.07] text-black",
 ]
 
-const BAR_COLORS = ["bg-[#8B7CF6]", "bg-[#14161B]", "bg-[#D4F527]"]
-const DOT_COLORS = ["bg-[#8B7CF6]", "bg-[#14161B]", "bg-[#D4F527]"]
+const BAR_COLORS = ["bg-burgundy", "bg-[#14161B]", "bg-black/20"]
+const DOT_COLORS = ["bg-burgundy", "bg-[#14161B]", "bg-black/30"]
 
 function todayLabel(): string {
   return new Date().toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })
@@ -109,7 +109,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
           <span className="hidden text-xs text-black/50 sm:inline">{todayLabel()}</span>
           <Link
             href="/audit/new"
-            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#14161B] px-4 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-burgundy px-4 text-xs font-semibold text-white transition-opacity hover:opacity-90"
           >
             <Plus className="h-3.5 w-3.5" />
             New deal
@@ -141,7 +141,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
               <div className="flex items-start justify-between">
                 <p className="text-[13px] font-semibold">Open Issues</p>
               </div>
-              <p className="mt-2 font-serif text-[44px] font-semibold leading-none tracking-tight" data-numeric>
+              <p className="mt-2 text-[44px] font-semibold leading-none tracking-tight" data-numeric>
                 {portfolio.totalOpen}
                 <span className="ml-1 align-middle text-[13px] font-normal text-black/45">across {portfolio.openDeals} deal{portfolio.openDeals === 1 ? "" : "s"}</span>
               </p>
@@ -240,7 +240,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                 {(week ?? []).map((b) => (
                   <div key={b.key} className="flex min-w-0 flex-1 flex-col items-center gap-1" title={`${b.label}: ${b.count}`}>
                     <span
-                      className={cn("w-full rounded-sm", b.isToday ? "bg-[#D4F527]" : "bg-white/15")}
+                      className={cn("w-full rounded-sm", b.isToday ? "bg-burgundy" : "bg-white/15")}
                       style={{ height: `${Math.max(5, Math.round((b.count / maxWeek) * 100))}%` }}
                     />
                     <span className={cn("truncate text-[9px]", b.isToday ? "font-semibold text-white" : "text-white/40")}>
@@ -325,7 +325,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
           <div className="mt-3 px-2">
             <Link
               href="/audit/new"
-              className="inline-flex h-10 items-center gap-2 rounded-full bg-[#14161B] px-5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+              className="inline-flex h-10 items-center gap-2 rounded-full bg-burgundy px-5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
             >
               <Plus className="h-3.5 w-3.5" />
               New deal

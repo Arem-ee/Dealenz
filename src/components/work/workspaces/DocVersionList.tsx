@@ -39,7 +39,7 @@ export function DocVersionList({ versions, previewChars = 280 }: {
           )}
         </div>
         {current.content && (
-          <p className="mt-2 font-serif text-sm leading-relaxed whitespace-pre-wrap">
+          <p className="mt-2  text-sm leading-relaxed whitespace-pre-wrap">
             {current.content.slice(0, previewChars)}{current.content.length > previewChars ? "…" : ""}
           </p>
         )}

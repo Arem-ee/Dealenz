@@ -149,7 +149,7 @@ export function DocumentDraftCard({ payload, onGenerate }: DocumentDraftCardProp
           <p className="text-sm font-medium">{title}</p>
           {status && <span className="ml-auto text-xs text-muted-foreground">{status}</span>}
         </div>
-      {preview && <p className="mt-2 font-serif text-xs leading-relaxed text-muted-foreground line-clamp-3 whitespace-pre-wrap">{preview.slice(0, 400)}</p>}
+      {preview && <p className="mt-2  text-xs leading-relaxed text-muted-foreground line-clamp-3 whitespace-pre-wrap">{preview.slice(0, 400)}</p>}
         
         {allVars.size > 0 && (
           <div className="mt-3 space-y-3">

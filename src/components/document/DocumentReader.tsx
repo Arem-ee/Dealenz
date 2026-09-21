@@ -145,7 +145,7 @@ export function DocumentReader({
 
       <div className="mx-auto max-w-6xl px-4 py-6 grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
-          <div className="rounded-xl border bg-card p-6 prose prose-sm max-w-none font-serif">
+          <div className="rounded-xl border bg-card p-6 prose prose-sm max-w-none ">
             {selected ? renderMarkdown(selected.content) : <p className="text-sm text-muted-foreground">No document versions yet. Generate a draft in chat first.</p>}
           </div>
           {executed && (

@@ -97,7 +97,7 @@ export default async function GuardedPage() {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:py-8">
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--burgundy)]">After signing</p>
-      <h1 className="mt-1.5 font-serif text-[28px] font-semibold leading-tight tracking-[-0.01em]">Guarded</h1>
+      <h1 className="mt-1.5  text-[28px] font-semibold leading-tight tracking-[-0.01em]">Guarded</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Signed deals and what they still need. Nothing needs your attention today unless a date says otherwise.
       </p>
@@ -126,7 +126,7 @@ export default async function GuardedPage() {
               return (
                 <li key={d.auditId} className="rounded-xl border border-border/60 bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md">
                   <div className="flex items-baseline justify-between gap-3">
-                    <p className="min-w-0 flex-1 truncate font-serif text-[15px] font-semibold leading-snug">{d.title}</p>
+                    <p className="min-w-0 flex-1 truncate  text-[15px] font-semibold leading-snug">{d.title}</p>
                     <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/5 px-1.5 py-px text-[10px] font-medium text-emerald-700">
                       Signed{d.signedAt ? ` · ${new Date(d.signedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}
                     </span>

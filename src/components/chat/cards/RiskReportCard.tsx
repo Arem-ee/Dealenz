@@ -114,7 +114,7 @@ export function RiskReportCard({ payload, onAskFinding, auditId }: { payload: Re
                           {f.severity}
                         </span>
                       </div>
-                      <p className="mt-1.5 font-serif text-[15px] font-medium leading-relaxed">{f.summary}</p>
+                      <p className="mt-1.5  text-[15px] font-medium leading-relaxed">{f.summary}</p>
                       {Array.isArray(f.evidence) && f.evidence.length > 0 && (
                         <div className="mt-2.5">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Document</p>
@@ -128,7 +128,7 @@ export function RiskReportCard({ payload, onAskFinding, auditId }: { payload: Re
                       {f.whyItMatters && (
                         <div className="mt-2.5">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Dealenz</p>
-                          <p className="mt-1 font-serif text-xs leading-relaxed text-muted-foreground">{f.whyItMatters}</p>
+                          <p className="mt-1  text-xs leading-relaxed text-muted-foreground">{f.whyItMatters}</p>
                         </div>
                       )}
                       {f.pushback && (

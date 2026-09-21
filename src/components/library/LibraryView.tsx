@@ -58,7 +58,7 @@ function ResultCard({ match }: { match: VaultMatch }) {
             {typeof match.overallScore === "number" ? ` · ${match.overallScore}/100` : ""}
           </p>
           {match.topFinding ? (
-            <p className="mt-1.5 line-clamp-2 font-serif text-[13px] leading-relaxed">{match.topFinding.summary}</p>
+            <p className="mt-1.5 line-clamp-2  text-[13px] leading-relaxed">{match.topFinding.summary}</p>
           ) : null}
         </div>
         {match.riskLevel ? (

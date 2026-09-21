@@ -27,8 +27,8 @@ export function NegotiationWorkspace({ data, auditId, onAskFinding }: {
           <div className="space-y-2">
             {keyIssues.map((f, i) => (
               <div key={f.ruleKey ?? i} className="rounded-xl border bg-card p-3">
-                <p className="font-serif text-sm font-medium leading-relaxed">{f.summary}</p>
-                {f.whyItMatters && <p className="mt-1 font-serif text-xs leading-relaxed text-muted-foreground">{f.whyItMatters}</p>}
+                <p className=" text-sm font-medium leading-relaxed">{f.summary}</p>
+                {f.whyItMatters && <p className="mt-1  text-xs leading-relaxed text-muted-foreground">{f.whyItMatters}</p>}
                 {Array.isArray(f.evidence) && f.evidence.length > 0 && (
                   <div className="mt-2 space-y-1 border-t border-border/40 pt-2">
                     {f.evidence.slice(0, 2).map((ev, j) => (
@@ -59,7 +59,7 @@ export function NegotiationWorkspace({ data, auditId, onAskFinding }: {
               : "No prepared points yet. They are drafted when a non-freelance deal is analyzed."}
           </p>
         ) : (
-          <ul className="list-disc space-y-1.5 pl-5 font-serif text-sm leading-relaxed">
+          <ul className="list-disc space-y-1.5 pl-5  text-sm leading-relaxed">
             {data.negotiationPoints.map((p, i) => (
               <li key={i}>{p}</li>
             ))}

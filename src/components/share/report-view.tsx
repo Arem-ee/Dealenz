@@ -37,17 +37,17 @@ export function ReportView({ report }: { report: SharedReport }) {
               return (
               <section key={num} aria-label={`Finding ${num}`} className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white shadow-sm">
                 <div className="px-5 pt-4">
-                  <p className="font-serif text-[26px] font-semibold tracking-tight">{num}</p>
+                  <p className=" text-[26px] font-semibold tracking-tight">{num}</p>
                   <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-black/40">
                     {f.severity}
                   </p>
-                  <p className="mt-2 font-serif text-[17px] font-medium leading-snug">{f.summary}</p>
+                  <p className="mt-2  text-[17px] font-medium leading-snug">{f.summary}</p>
                 </div>
                 {Array.isArray(f.evidence) && f.evidence.length > 0 && (
                   <div className="mx-5 mt-3 border-t border-black/[0.06] pt-3">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">Evidence</p>
                     {f.evidence.slice(0, 2).map((ev, j) => (
-                      <p key={j} className="mt-1 font-serif text-[13px] italic leading-relaxed text-black/70">
+                      <p key={j} className="mt-1  text-[13px] italic leading-relaxed text-black/70">
                         &ldquo;{ev.quote}&rdquo;
                       </p>
                     ))}
@@ -62,7 +62,7 @@ export function ReportView({ report }: { report: SharedReport }) {
                 {f.pushback && (
                   <div className="mx-5 mt-3 border-t border-black/[0.06] pt-3">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">What you could ask for</p>
-                    <p className="mt-1 font-serif text-[14px] leading-relaxed">&ldquo;{f.pushback}&rdquo;</p>
+                    <p className="mt-1  text-[14px] leading-relaxed">&ldquo;{f.pushback}&rdquo;</p>
                   </div>
                 )}
                 <div className="h-4" />

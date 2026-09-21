@@ -690,7 +690,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
               <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Re-check complete
               </span>
-              <span className="font-serif text-[26px] font-semibold leading-tight tracking-[-0.01em]">
+              <span className=" text-[26px] font-semibold leading-tight tracking-[-0.01em]">
                 {findingDelta.resolved.length} resolved · {findingDelta.stillOpen.length} still open ·{" "}
                 {findingDelta.newIssues.length} new
               </span>

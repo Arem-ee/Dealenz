@@ -290,7 +290,7 @@ export default function Home() {
               </div>
               <div className="rounded-[20px] border border-black/[0.07] bg-white p-5 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.22)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_32px_72px_-24px_rgba(0,0,0,0.28)]">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/40">Words to send</p>
-                <p className="mt-2 font-serif text-[15px] leading-relaxed">&ldquo;Please cap revisions at two rounds. Extra rounds will be billed at my standard rate.&rdquo;</p>
+                <p className="mt-2  text-[15px] leading-relaxed">&ldquo;Please cap revisions at two rounds. Extra rounds will be billed at my standard rate.&rdquo;</p>
                 <p className="mt-2 text-[11px] text-black/40">Illustrated example · from an unlimited-revisions finding</p>
               </div>
             </div>

@@ -50,7 +50,7 @@ export function ProposalWorkspace({ data, focus, auditId, dealType, onGenerate }
       </Section>
       {data.deliverables.length > 0 && (
         <Section title="Source scope" hint="Deliverables the output was built from.">
-          <ul className="list-disc space-y-1 pl-5 font-serif text-sm leading-relaxed">
+          <ul className="list-disc space-y-1 pl-5  text-sm leading-relaxed">
             {data.deliverables.slice(0, 10).map((d, i) => (
               <li key={i}>{d}</li>
             ))}
