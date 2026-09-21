@@ -3,19 +3,22 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Zap } from "lucide-react"
+import { Logo } from "@/components/logo"
 import { cn } from "@/lib/utils"
 import { PRIMARY_NAV, SECONDARY_NAV, isActiveEntry } from "@/lib/nav"
 
-// Flux-model sidebar: navigation with live counts, plus a low-credit
-// top-up card. No history list — deals live in the main table, where
-// they can carry state, risk, and actions. Navigation carries state
-// (badges), never decoration.
+// Dark control sidebar: white pill for the active destination, lime count
+// badges, lime top-up card when credits run low. Navigation carries live
+// state; history lives in the main table, not here.
 export function SidebarNav({ openIssues = 0, creditBalance = null }: { openIssues?: number; creditBalance?: number | null }) {
   const pathname = usePathname()
   const showTopUp = typeof creditBalance === "number" && creditBalance < 25
 
   return (
-    <aside className="hidden md:flex md:flex-col w-56 border-r border-border/60 bg-background shrink-0 md:sticky md:top-14 md:h-[calc(100dvh-3.5rem)]">
+    <aside className="hidden md:flex md:flex-col w-60 shrink-0 bg-[#101216] text-white md:sticky md:top-0 md:h-auto md:max-h-none">
+      <div className="flex items-center px-5 pt-6 text-white">
+        <Logo />
+      </div>
       <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3" aria-label="Primary">
         <div className="shrink-0 space-y-0.5">
           {PRIMARY_NAV.map((item) => {
@@ -28,16 +31,16 @@ export function SidebarNav({ openIssues = 0, creditBalance = null }: { openIssue
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                  "flex items-center gap-3 rounded-full px-4 py-2.5 text-sm transition-colors",
                   isActive
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                    ? "bg-white font-semibold text-black"
+                    : "text-white/60 hover:bg-white/10 hover:text-white"
                 )}
               >
                 <Icon className="h-4 w-4" />
                 <span className="flex-1">{item.label}</span>
                 {badge !== null && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--burgundy)] px-1.5 text-[10px] font-bold text-white" aria-label={`${badge} open issues`}>
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#D4F527] px-1.5 text-[10px] font-bold text-black" aria-label={`${badge} open issues`}>
                     {badge > 99 ? "99+" : badge}
                   </span>
                 )}
@@ -46,7 +49,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null }: { openIssue
           })}
           {SECONDARY_NAV.length > 0 && (
             <>
-              <p className="px-3 pt-4 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+              <p className="px-4 pt-4 pb-1 text-[11px] font-medium uppercase tracking-wide text-white/40">
                 Workspace
               </p>
               {SECONDARY_NAV.map((item) => {
@@ -58,10 +61,10 @@ export function SidebarNav({ openIssues = 0, creditBalance = null }: { openIssue
                     href={item.href}
                     aria-current={isActive ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                      "flex items-center gap-3 rounded-full px-4 py-2.5 text-sm transition-colors",
                       isActive
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                        ? "bg-white font-semibold text-black"
+                        : "text-white/60 hover:bg-white/10 hover:text-white"
                     )}
                   >
                     <Icon className="h-4 w-4" />
@@ -74,17 +77,17 @@ export function SidebarNav({ openIssues = 0, creditBalance = null }: { openIssue
         </div>
         {showTopUp && (
           <div className="mt-auto shrink-0 px-1 pb-1 pt-4">
-            <div className="rounded-xl bg-[#1C1917] p-4 text-white">
-              <p className="flex items-center gap-1.5 text-[13px] font-semibold">
+            <div className="rounded-2xl bg-[#D4F527] p-4 text-black">
+              <p className="flex items-center gap-1.5 text-[13px] font-bold">
                 <Zap className="h-3.5 w-3.5" />
                 Low credits
               </p>
-              <p className="mt-1 text-[11px] leading-relaxed text-white/60">
+              <p className="mt-1 text-[11px] leading-relaxed text-black/60">
                 {creditBalance} left. Top up to keep analyzing, generating, and signing.
               </p>
               <Link
                 href="/billing"
-                className="mt-3 flex h-8 items-center justify-center rounded-full bg-white text-[12px] font-semibold text-[#141110] transition-colors hover:bg-white/90"
+                className="mt-3 flex h-9 items-center justify-center rounded-full bg-black text-[12px] font-semibold text-white transition-colors hover:bg-black/80"
               >
                 Top up
               </Link>
