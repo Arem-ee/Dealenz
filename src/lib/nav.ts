@@ -1,5 +1,5 @@
 import type { ComponentType } from "react"
-import { LayoutDashboard, Settings, Library, ReceiptText, LifeBuoy } from "lucide-react"
+import { LayoutDashboard, Library, ShieldCheck, Settings, ReceiptText, LifeBuoy } from "lucide-react"
 
 export interface NavEntry {
   label: string
@@ -8,14 +8,15 @@ export interface NavEntry {
 }
 
 /**
- * Single customer information architecture — chat-first.
- * Home is composer-first (composer, Library link, recent activity). The
- * sidebar holds only the two primary destinations; the account menu lives
- * solely in the top navbar. Ask is just the composer (classifier), not a
- * destination.
+ * Single customer information architecture — deal control room.
+ * Deals is the deal inbox (composer, portfolio, deadlines). Guarded is
+ * everything after signing that requires watching. Library holds search
+ * and inbox import. The account menu lives solely in the top navbar. Ask
+ * is just the composer (classifier), not a destination.
  */
 export const PRIMARY_NAV: NavEntry[] = [
-  { label: "Home", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Deals", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Guarded", href: "/guarded", icon: ShieldCheck },
   { label: "Library", href: "/library", icon: Library },
 ]
 
@@ -70,7 +71,7 @@ export function backTargetFor(pathname: string): string | null {
 
 /** Human title for any customer route, used by the top bar. */
 export function titleFor(pathname: string): string {
-  if (pathname === "/dashboard" || pathname.startsWith("/dashboard")) return "Home"
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard")) return "Deals"
   if (pathname.startsWith("/chat")) return "Chat"
   if (pathname.startsWith("/document")) return "Document"
   if (pathname.startsWith("/review")) return "Review"
@@ -79,6 +80,7 @@ export function titleFor(pathname: string): string {
   // separate destination. No /clients surface exists (the product has no CRM).
   if (pathname.startsWith("/deals")) return "Home"
   if (pathname.startsWith("/library") || pathname.startsWith("/vault")) return "Library"
+  if (pathname.startsWith("/guarded")) return "Guarded"
   if (pathname.startsWith("/settings")) return "Settings"
   if (pathname.startsWith("/billing")) return "Billing"
   if (pathname === "/help") return "Get help"

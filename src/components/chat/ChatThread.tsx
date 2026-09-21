@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { MessageList } from "./MessageList"
 import { Composer } from "./Composer"
 import { ReviseDealInput } from "./ReviseDealInput"
+import { DealOverview } from "./DealOverview"
 import { ThreadPanel, latestRichMessage } from "./ThreadPanel"
 import { SplitPane, useIsDesktop } from "@/components/split-pane"
 import { useToast } from "@/components/ui/toast"
@@ -49,6 +50,11 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   const [dealMeta, setDealMeta] = useState<{ dealType: string | null; jurisdiction: string | null } | null>(null)
   const [dealTitle, setDealTitle] = useState<string | null>(null)
   const [dealInput, setDealInput] = useState<string | null>(null)
+  const [dealFacts, setDealFacts] = useState<{ budget: string | null; userRole: string | null; counterpartyRole: string | null }>({
+    budget: null,
+    userRole: null,
+    counterpartyRole: null,
+  })
   const [findingDelta, setFindingDelta] = useState<FindingDelta | null>(null)
   const [verdictExpanded, setVerdictExpanded] = useState(false)
   const [documentCount, setDocumentCount] = useState<number>(0)
@@ -99,6 +105,23 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         } catch {}
         setDealMeta({ dealType: (data as { deal_type?: string | null }).deal_type ?? null, jurisdiction })
         setDealTitle((data as { title?: string | null }).title ?? null)
+        try {
+          const structuredFacts = (data as { structured_data?: Record<string, unknown> }).structured_data as
+            | { extractedData?: { budget?: unknown } | null }
+            | undefined
+          const budgetRaw = structuredFacts?.extractedData?.budget
+          const envFacts = (data as { context_envelope?: unknown }).context_envelope as {
+            fields?: { userRole?: { value?: unknown }; counterpartyRole?: { value?: unknown } }
+          } | null
+          setDealFacts({
+            budget: typeof budgetRaw === "string" && budgetRaw.trim() ? budgetRaw.trim().slice(0, 40) : null,
+            userRole: typeof envFacts?.fields?.userRole?.value === "string" ? (envFacts.fields.userRole.value as string) : null,
+            counterpartyRole:
+              typeof envFacts?.fields?.counterpartyRole?.value === "string" ? (envFacts.fields.counterpartyRole.value as string) : null,
+          })
+        } catch {
+          setDealFacts({ budget: null, userRole: null, counterpartyRole: null })
+        }
         const rawInput = (data as { raw_input?: unknown }).raw_input
         setDealInput(typeof rawInput === "string" ? rawInput : null)
 
@@ -562,6 +585,42 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         </div>
       )}
 
+      {/* Deal overview: the deal is the centerpiece. Renders once the
+          thread is attached to an audit; absent otherwise. */}
+      {auditId && (() => {
+        const executed = signers.length > 0 && signers.every((s) => s.status === "signed")
+        const signingActive = signers.length > 0 && !executed
+        return (
+          <DealOverview
+            input={{
+              title: dealTitle,
+              budget: dealFacts.budget,
+              dealType: dealMeta?.dealType ?? null,
+              userRole: dealFacts.userRole,
+              counterpartyRole: dealFacts.counterpartyRole,
+              jurisdiction: dealMeta?.jurisdiction ?? null,
+              openIssues: openItems.counts.total,
+              resolvedCount: findingDelta?.resolved.length ?? 0,
+              executed,
+              signingActive,
+              hasMonitoring: monitoringEvents.length > 0,
+              topIssues: openItems.items.slice(0, 3).map((item) => ({
+                title: item.category || item.title,
+                summary: item.summary ?? item.title,
+                severity: item.severity,
+              })),
+              signedLabel: executed
+                ? "All signatures collected."
+                : signingActive
+                  ? "Waiting on signatures."
+                  : null,
+              onAskPushback: () => handleAskFinding("What should I push back on in this deal?"),
+              onAskRecheck: () => handleAskFinding("I have a revised version of this deal. What changed?"),
+            }}
+          />
+        )
+      })()}
+
       {/* Open Items */}
       {openItems.counts.total > 0 && (
         <div className="mx-auto w-full max-w-3xl px-4 flex flex-wrap gap-2 border-t border-border/40">
@@ -616,7 +675,8 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         </div>
       )}
       {/* Redline re-check verdict — persisted by analyzeDeal on re-analysis,
-          rendered wherever the findings render (both layouts). */}
+          rendered wherever the findings render (both layouts). The verdict
+          is the moment: enormous counts first, itemized change below. */}
       {findingDelta &&
         (findingDelta.resolved.length > 0 ||
           findingDelta.stillOpen.length > 0 ||
@@ -624,31 +684,35 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
           <div className="mx-auto w-full max-w-3xl px-4 pb-3">
             <button
               onClick={() => setVerdictExpanded(!verdictExpanded)}
-              className="flex w-full items-center gap-2 px-3 py-2 rounded-xl border bg-card hover:bg-muted/50 transition-colors"
+              className="flex w-full flex-col items-center gap-1 rounded-2xl border bg-card px-4 py-5 text-center hover:bg-muted/30 transition-colors"
               aria-expanded={verdictExpanded}
             >
-              <span className="text-sm font-medium">
-                Re-check: {findingDelta.resolved.length} resolved · {findingDelta.stillOpen.length} still open ·{" "}
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Re-check complete
+              </span>
+              <span className="font-serif text-[26px] font-semibold leading-tight tracking-[-0.01em]">
+                {findingDelta.resolved.length} resolved · {findingDelta.stillOpen.length} still open ·{" "}
                 {findingDelta.newIssues.length} new
               </span>
-              <span className="ml-auto text-muted-foreground">
-                {verdictExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                What changed
+                {verdictExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
               </span>
             </button>
             {verdictExpanded && (
               <div className="mt-2 space-y-2">
                 {(
                   [
-                    ["Resolved", findingDelta.resolved],
-                    ["Still open", findingDelta.stillOpen],
-                    ["New", findingDelta.newIssues],
+                    ["Resolved", findingDelta.resolved, "text-emerald-700"],
+                    ["Still open", findingDelta.stillOpen, "text-amber-700"],
+                    ["New", findingDelta.newIssues, "text-red-700"],
                   ] as const
                 ).map(
-                  ([label, items]) =>
+                  ([label, items, tone]) =>
                     items.length > 0 && (
                       <div key={label} className="rounded-xl bg-muted/30 px-3 py-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          {label} ({items.length})
+                        <p className={`text-[11px] font-semibold uppercase tracking-wide ${tone}`}>
+                          {label === "Resolved" ? "✓" : label === "New" ? "!" : "→"} {label} ({items.length})
                         </p>
                         <ul className="mt-1 space-y-1">
                           {items.map((f) => (

@@ -299,7 +299,7 @@ async function generateDocumentAndPostInner(threadId: string, auditId: string, v
   return { ok: true }
 }
 
-export async function listThreads(): Promise<Array<{ id: string; title: string; auditId: string | null; updatedAt: string; preview?: string; status?: string | null; riskLevel?: string | null; openIssues?: number | null }>> {
+export async function listThreads(): Promise<Array<{ id: string; title: string; auditId: string | null; updatedAt: string; preview?: string; status?: string | null; riskLevel?: string | null; openIssues?: number | null; budget?: string | null; dealType?: string | null; jurisdiction?: string | null; counterpartyRole?: string | null; resolvedCount?: number | null; topFindings?: string[] }>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
@@ -309,7 +309,7 @@ export async function listThreads(): Promise<Array<{ id: string; title: string; 
   const convs = await listConversations(supabase as never, user.id)
   const { data: audits } = await supabase
     .from("audits")
-    .select("id, title, status, risk_report, structured_data, updated_at, created_at")
+    .select("id, title, status, deal_type, context_envelope, risk_report, structured_data, updated_at, created_at")
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false })
     .limit(50)
@@ -320,6 +320,39 @@ export async function listThreads(): Promise<Array<{ id: string; title: string; 
     const det = audit?.structured_data?.deterministicFindings
     if (!Array.isArray(det)) return null
     return det.filter((r) => typeof r === "object" && r !== null && (r as { status?: unknown }).status === "FAIL").length
+  }
+  // Inbox-stream fields, all projected from the same persisted rows: deal
+  // amount, resolved movement, and top attention summaries. Capped and
+  // defensive — malformed rows yield absence, never invention.
+  function streamFields(audit: {
+    deal_type?: unknown
+    context_envelope?: { fields?: Record<string, { value?: unknown }> } | null
+    structured_data?: { extractedData?: { budget?: unknown } | null; deterministicFindings?: unknown; findingDelta?: { resolved?: unknown } | null } | null
+  } | null | undefined): { budget: string | null; dealType: string | null; jurisdiction: string | null; counterpartyRole: string | null; resolvedCount: number | null; topFindings: string[] } {
+    const empty = { budget: null, dealType: null, jurisdiction: null, counterpartyRole: null, resolvedCount: null, topFindings: [] as string[] }
+    if (!audit) return empty
+    const budgetRaw = audit.structured_data?.extractedData?.budget
+    const budget = typeof budgetRaw === "string" && budgetRaw.trim() ? budgetRaw.trim().slice(0, 40) : null
+    const dealType = typeof audit.deal_type === "string" && audit.deal_type ? audit.deal_type : null
+    const fields = audit.context_envelope?.fields ?? {}
+    const jurisdiction = typeof fields.jurisdiction?.value === "string" && fields.jurisdiction.value ? fields.jurisdiction.value : null
+    const counterpartyRole = typeof fields.counterpartyRole?.value === "string" && fields.counterpartyRole.value ? fields.counterpartyRole.value : null
+    const det = audit.structured_data?.deterministicFindings
+    let resolvedCount: number | null = null
+    const resolved = audit.structured_data?.findingDelta?.resolved
+    if (Array.isArray(resolved)) resolvedCount = resolved.length
+    const topFindings: string[] = []
+    if (Array.isArray(det)) {
+      for (const r of det) {
+        if (typeof r !== "object" || r === null) continue
+        const rec = r as { status?: unknown; finding?: { summary?: unknown } }
+        if (rec.status !== "FAIL" || !rec.finding) continue
+        const summary = typeof rec.finding.summary === "string" ? rec.finding.summary : ""
+        if (summary) topFindings.push(summary.slice(0, 120))
+        if (topFindings.length >= 3) break
+      }
+    }
+    return { budget, dealType, jurisdiction, counterpartyRole, resolvedCount, topFindings }
   }
   // Build thread list from conversations; include audit title if attached
   const threads = convs.map((c) => {
@@ -332,6 +365,7 @@ export async function listThreads(): Promise<Array<{ id: string; title: string; 
       status: audit?.status ?? null,
       riskLevel: audit?.risk_report && typeof audit.risk_report.riskLevel === "string" ? audit.risk_report.riskLevel : null,
       openIssues: openIssueCount(audit),
+      ...streamFields(audit),
     }
   })
   // Also include audits without a conversation as standalone threads (legacy).
@@ -352,6 +386,7 @@ export async function listThreads(): Promise<Array<{ id: string; title: string; 
       status: a.status,
       riskLevel: a.risk_report && typeof a.risk_report.riskLevel === "string" ? a.risk_report.riskLevel : null,
       openIssues: openIssueCount(a),
+      ...streamFields(a),
     })
   }
   threads.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())

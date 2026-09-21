@@ -1,36 +1,26 @@
 import Link from "next/link"
 import { ShieldCheck } from "lucide-react"
-import { PushbackWords } from "@/components/findings/pushback-words"
 import type { SharedReport } from "@/lib/share/report"
 
-const SEVERITY_LABEL: Record<string, string> = {
-  critical: "Fix before signing",
-  material: "Should fix",
-  attention: "Worth checking",
-  informational: "For context",
-}
-
-// Public shared finding report: what a tokenized link shows. Branded,
-// evidence-honest, and explicit that this is one user's published findings —
-// never advice, never the full deal. Ends with the acquisition CTA.
+// Public shared finding report: what a tokenized link shows. Numbered
+// findings in the product's visual grammar — DOCUMENT (quoted evidence),
+// DEALENZ (interpretation), ACTION (counter-words) — branded and explicit
+// that this is one user's published findings. Ends with the acquisition
+// CTA: built to be forwarded.
 export function ReportView({ report }: { report: SharedReport }) {
-  const grouped = report.findings.reduce<Record<string, typeof report.findings>>((acc, f) => {
-    const label = SEVERITY_LABEL[f.severity] ?? f.severity
-    if (!acc[label]) acc[label] = []
-    acc[label].push(f)
-    return acc
-  }, {})
+  const numbered = report.findings.map((f, i) => ({ finding: f, num: String(i + 1).padStart(2, "0") }))
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] text-[#1C1917]">
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/40">Dealenz · Shared risk report</p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-          {report.dealType === "unknown" ? "Deal findings" : <><span className="capitalize">{report.dealType.replace("_", " ")}</span> deal findings</>}
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/40">Dealenz</p>
+        <h1 className="mt-2 text-[26px] font-semibold tracking-tight sm:text-3xl">
+          What we found
         </h1>
         <p className="mt-1 text-sm text-black/55">
-          {report.overallScore !== null ? `Overall rating: ${report.overallScore}/100 · ${report.riskLevel}` : report.riskLevel}
-          {" · "}{report.findingCount} finding{report.findingCount === 1 ? "" : "s"}
+          {report.dealType === "unknown" ? "A shared deal" : <><span className="capitalize">{report.dealType.replace("_", " ")}</span> deal</>} ·{" "}
+          {report.findingCount} thing{report.findingCount === 1 ? "" : "s"} worth reviewing
+          {report.overallScore !== null ? ` · rated ${report.overallScore}/100` : ""}
         </p>
 
         {report.findings.length === 0 ? (
@@ -42,43 +32,54 @@ export function ReportView({ report }: { report: SharedReport }) {
             <p className="mt-1 text-xs text-muted-foreground">The shared analysis found nothing standing out as needing a fix before signing.</p>
           </div>
         ) : (
-          <div className="mt-6 overflow-hidden rounded-xl border bg-white">
-            <div className="divide-y">
-              {Object.entries(grouped).map(([label, items]) => (
-                <div key={label} className="px-4 py-3">
-                  <p className="text-sm font-medium">{label} · {items.length}</p>
-                  <div className="mt-2 space-y-2">
-                    {items.map((f, i) => (
-                      <div key={i} className="rounded-lg border p-3">
-                        <p className="font-serif text-sm font-medium leading-relaxed">{f.summary}</p>
-                        {f.guidance && <p className="mt-1 font-serif text-xs leading-relaxed text-muted-foreground">{f.guidance}</p>}
-                        {f.pushback && <PushbackWords words={f.pushback} />}
-                        {Array.isArray(f.evidence) && f.evidence.length > 0 && (
-                          <div className="mt-2 space-y-1 border-t border-border/40 pt-2">
-                            {f.evidence.slice(0, 2).map((ev, j) => (
-                              <p key={j} className="font-serif text-xs italic leading-relaxed text-muted-foreground">
-                                &ldquo;{ev.quote}&rdquo;
-                              </p>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+          <div className="mt-6 space-y-5">
+            {numbered.map(({ finding: f, num }) => {
+              return (
+              <section key={num} aria-label={`Finding ${num}`} className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white shadow-sm">
+                <div className="px-5 pt-4">
+                  <p className="font-serif text-[26px] font-semibold tracking-tight">{num}</p>
+                  <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-black/40">
+                    {f.severity}
+                  </p>
+                  <p className="mt-2 font-serif text-[17px] font-medium leading-snug">{f.summary}</p>
+                </div>
+                {Array.isArray(f.evidence) && f.evidence.length > 0 && (
+                  <div className="mx-5 mt-3 border-t border-black/[0.06] pt-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">Evidence</p>
+                    {f.evidence.slice(0, 2).map((ev, j) => (
+                      <p key={j} className="mt-1 font-serif text-[13px] italic leading-relaxed text-black/70">
+                        &ldquo;{ev.quote}&rdquo;
+                      </p>
                     ))}
                   </div>
-                </div>
-              ))}
-            </div>
+                )}
+                {f.guidance && (
+                  <div className="mx-5 mt-3 border-t border-black/[0.06] pt-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">Why it matters</p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-black/65">{f.guidance}</p>
+                  </div>
+                )}
+                {f.pushback && (
+                  <div className="mx-5 mt-3 border-t border-black/[0.06] pt-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">What you could ask for</p>
+                    <p className="mt-1 font-serif text-[14px] leading-relaxed">&ldquo;{f.pushback}&rdquo;</p>
+                  </div>
+                )}
+                <div className="h-4" />
+              </section>
+              )
+            })}
           </div>
         )}
 
         <div className="mt-8 rounded-xl bg-[#1C1917] p-6 text-center text-white">
-          <p className="text-base font-semibold">Have paper of your own to check?</p>
-          <p className="mt-1 text-sm text-white/60">Send us their contract. Get back what to push back on.</p>
+          <p className="text-base font-semibold">Reviewed with Dealenz</p>
+          <p className="mt-1 text-sm text-white/60">Have paper of your own to check? Send us their contract.</p>
           <Link
             href="/register"
             className="mt-4 inline-flex h-11 items-center rounded-full bg-white px-7 text-sm font-semibold text-[#141110] transition-colors hover:bg-white/90"
           >
-            Analyze your deal — free to start
+            Review your own deal
           </Link>
           <p className="mx-auto mt-4 max-w-xl text-[11px] leading-relaxed text-white/40">
             Shared by a Dealenz user about their own deal. AI-assisted findings, not legal advice. Review important agreements with a qualified professional.

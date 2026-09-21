@@ -58,6 +58,18 @@ export function RiskReportCard({ payload, onAskFinding, auditId }: { payload: Re
     )
   }
 
+  // Numbered across severity groups in display order: "01 PAYMENT TERMS".
+  // Offsets precomputed (no render-time mutation): StrictMode-safe.
+  let runningTotal = 0
+  const groupEntries = Object.entries(grouped).map(([label, items]) => {
+    const start = runningTotal
+    runningTotal += items.length
+    return {
+      label,
+      items: items.map((f, i) => ({ finding: f, num: String(start + i + 1).padStart(2, "0") })),
+    }
+  })
+
   return (
     <div className="rounded-xl border bg-card overflow-hidden">
       <div className="px-4 py-3 border-b bg-muted/30 flex items-center justify-between">
@@ -82,7 +94,7 @@ export function RiskReportCard({ payload, onAskFinding, auditId }: { payload: Re
         </div>
       )}
       <div className="divide-y">
-        {Object.entries(grouped).map(([label, items]) => {
+        {groupEntries.map(({ label, items }) => {
           const isOpen = expanded[label] ?? true
           return (
             <div key={label}>
@@ -91,24 +103,47 @@ export function RiskReportCard({ payload, onAskFinding, auditId }: { payload: Re
                 {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
               </button>
               {isOpen && (
-                <div className="px-4 pb-3 space-y-2">
-                  {items.map((f, i) => (
-                    <div key={i} className="rounded-lg border p-3 bg-card">
-                      <p className="font-serif text-sm font-medium leading-relaxed">{f.summary}</p>
-                      {f.whyItMatters && <p className="mt-1 font-serif text-xs leading-relaxed text-muted-foreground">Why it matters: {f.whyItMatters}</p>}
-                      {f.pushback && <PushbackWords words={f.pushback} auditId={auditId} ruleKey={f.ruleKey ?? null} />}
+                <div className="px-4 pb-3 space-y-3">
+                  {items.map(({ finding: f, num }, i) => (
+                    <div key={i} className="rounded-lg border p-3.5 bg-card">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                          {num} · {f.ruleKey ? f.ruleKey.replace(/-/g, " ") : label}
+                        </p>
+                        <span className={cn("rounded-full border px-1.5 py-px text-[10px] font-medium", SEVERITY_STYLE[f.severity] ?? SEVERITY_STYLE.informational)}>
+                          {f.severity}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 font-serif text-[15px] font-medium leading-relaxed">{f.summary}</p>
                       {Array.isArray(f.evidence) && f.evidence.length > 0 && (
-                        <div className="mt-2 space-y-1 border-t border-border/40 pt-2">
-                          {f.evidence.slice(0, 3).map((ev, j) => (
-                            <EvidenceLine key={j} evidence={ev} />
-                          ))}
+                        <div className="mt-2.5">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Document</p>
+                          <div className="mt-1 space-y-1 border-l-2 border-border pl-2.5">
+                            {f.evidence.slice(0, 2).map((ev, j) => (
+                              <EvidenceLine key={j} evidence={ev} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {f.whyItMatters && (
+                        <div className="mt-2.5">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Dealenz</p>
+                          <p className="mt-1 font-serif text-xs leading-relaxed text-muted-foreground">{f.whyItMatters}</p>
+                        </div>
+                      )}
+                      {f.pushback && (
+                        <div className="mt-2.5">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Action</p>
+                          <div className="mt-1">
+                            <PushbackWords words={f.pushback} auditId={auditId} ruleKey={f.ruleKey ?? null} />
+                          </div>
                         </div>
                       )}
                       {onAskFinding && (
                         <button
                           type="button"
                           onClick={() => onAskFinding(`Explain this finding: ${f.summary}`)}
-                          className="mt-2 text-xs font-medium text-primary hover:underline"
+                          className="mt-2.5 text-xs font-medium text-primary hover:underline"
                         >
                           Ask about this finding
                         </button>

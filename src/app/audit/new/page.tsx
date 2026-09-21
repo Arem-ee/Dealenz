@@ -26,12 +26,14 @@ function NewAuditContent() {
   const [createdThreadId, setCreatedThreadId] = useState<string | null>(null)
 
   async function handleContinue() {
-    if (!dealType) return
     setCreating(true)
     setError(null)
     setAttachError(null)
     try {
-      const created = await createAudit(dealType)
+      // Deal type is optional: skipping classifies as freelance and the
+      // system refines context from the deal itself. Never block entry on
+      // taxonomy.
+      const created = await createAudit(dealType ?? undefined)
       const staged = hasFileParam ? getPendingFile() : null
       if (staged) {
         // The staged file's bytes finally land: upload + credit-gated
@@ -77,6 +79,7 @@ function NewAuditContent() {
             </button>
           </div>
         )}
+        <p className="text-xs text-muted-foreground">What kind of deal is this? Optional — Dealenz figures it out if you skip.</p>
         <DealTypeSelector value={dealType} onChange={setDealType} />
         {error && <p className="text-sm text-destructive">{error}</p>}
         {attachError && createdThreadId && (
@@ -96,7 +99,7 @@ function NewAuditContent() {
           <div className="flex items-center gap-3">
             <Button variant="ghost" onClick={() => router.push("/dashboard")}>Cancel</Button>
           </div>
-          <Button onClick={handleContinue} disabled={!dealType || creating}>
+          <Button onClick={handleContinue} disabled={creating}>
             {creating && <Loader2 className="h-4 w-4 animate-spin" />}
             Continue
           </Button>

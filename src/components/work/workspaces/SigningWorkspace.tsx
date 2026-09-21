@@ -32,8 +32,54 @@ export function SigningWorkspace({ data, auditId }: {
   auditId?: string | null
 }) {
   const pending = data.signers.filter((s) => s.status === "pending")
+  const executed = data.signers.length > 0 && pending.length === 0
+  const signingActive = data.signers.length > 0 && !executed
+  const reminders = data.monitoringEvents.slice(0, 3)
   return (
     <div>
+      {(signingActive || executed) && (
+        <Section title={executed ? "Signed" : "Ready to sign"} hint={executed ? "The ceremony is complete." : "Analysis ends here. Certainty begins."}>
+          <div className="rounded-xl border border-border/60 bg-card p-4 text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {executed ? "Signed" : "Ready to sign"}
+            </p>
+            {executed ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Fully executed and immutable. {data.monitoringEvents.length > 0
+                  ? `${data.monitoringEvents.length} obligation${data.monitoringEvents.length === 1 ? "" : "s"} staying guarded.`
+                  : "Track its obligations in monitoring."}
+              </p>
+            ) : (
+              <div className="mt-2 text-left">
+                <p className="text-xs font-medium">
+                  {data.openCounts.total > 0
+                    ? `${data.openCounts.total} open item${data.openCounts.total === 1 ? "" : "s"} on this deal`
+                    : "No open items on this deal"}
+                </p>
+                {reminders.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                      Things you will want to remember
+                    </p>
+                    <ul className="mt-1 space-y-0.5">
+                      {reminders.map((e) => (
+                        <li key={e.id} className="text-xs text-muted-foreground">
+                          {e.title ?? "Obligation"}{e.due_date ? ` — ${e.due_date}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {auditId && (
+                  <Link href={`/document/${auditId}`} className="mt-3 inline-block rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90">
+                    Sign deal
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+        </Section>
+      )}
       <Section title="Status" hint={nextAction(data)}>
         <div className="flex gap-4 text-xs text-muted-foreground">
           <span><span className="font-medium text-foreground">{data.versions.length}</span> versions</span>

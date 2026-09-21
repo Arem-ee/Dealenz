@@ -5,6 +5,7 @@ import Link from "next/link"
 import { AlertTriangle } from "lucide-react"
 import { Composer } from "./Composer"
 import { clearPendingDeal, getPendingDeal } from "@/lib/pending-deal"
+import { dealMomentState, DEAL_MOMENT_LABEL } from "@/lib/deals/moment"
 
 interface ThreadItem {
   id: string
@@ -14,10 +15,17 @@ interface ThreadItem {
   status?: string | null
   riskLevel?: string | null
   openIssues?: number | null
+  budget?: string | null
+  dealType?: string | null
+  jurisdiction?: string | null
+  counterpartyRole?: string | null
+  resolvedCount?: number | null
+  topFindings?: string[]
 }
 
 export interface DeadlineItem {
   id: string
+  auditId: string
   title: string
   dueDate: string
   href: string
@@ -39,29 +47,20 @@ const LOOP_STEPS = [
   { n: "4", title: "Sign & stay guarded", body: "Both sides sign here; deadlines stay tracked." },
 ]
 
-function statusLabel(status: string | null | undefined): string | null {
-  if (!status) return null
-  const map: Record<string, string> = {
-    draft: "Draft",
-    in_progress: "In progress",
-    processing: "Analyzing",
-    analyzed: "Analyzed",
-    failed: "Needs attention",
-  }
-  return map[status] ?? null
-}
-
 /**
  * Deal-first Home: the loop promise up top, the composer, one understated
  * Library link, then recent deals with their state. No action cards, no
  * tours, no tooltips — the classifier routes whatever is typed, and the UI
  * stays out of its way.
  */
-export function ChatLanding({ threads, loadError, stats, deadlines }: {
+export function ChatLanding({ threads, loadError, stats, deadlines, executedAuditIds, signingAuditIds, monitoredAuditIds }: {
   threads: ThreadItem[]
   loadError?: string | null
   stats?: { deals: number | null; analyzed: number | null } | null
   deadlines?: DeadlineItem[]
+  executedAuditIds?: string[]
+  signingAuditIds?: string[]
+  monitoredAuditIds?: string[]
 }) {
   // Anonymous landing input waits here after signup/signin: prefill on every
   // fresh mount (the composer applies it once per key) and clear on the
@@ -118,36 +117,86 @@ export function ChatLanding({ threads, loadError, stats, deadlines }: {
               )}
             </div>
           )}
-          {/* Recent deals live in the sidebar on desktop; this compact list
-              keeps them one tap away on mobile, where the sidebar hides. */}
-          {threads.length > 0 && (
-          <div className="md:hidden">
-            <h2 className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Recent deals</h2>
-            <ul aria-label="Recent deals" className="space-y-0.5">
-              {threads.map((t) => {
-                const state = statusLabel(t.status)
-                return (
-                  <li key={t.id}>
-                    <Link
-                      href={`/chat/${t.id}`}
-                      className="flex items-baseline justify-between gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/60"
-                    >
-                      <span className="min-w-0 truncate font-medium">{t.title || "Untitled"}</span>
-                      <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-                        {state && (
-                          <span className="rounded-full border border-border/60 bg-muted/50 px-1.5 py-px text-[10px] font-medium">
-                            {state}
-                          </span>
-                        )}
-                        {formatDate(t.updatedAt)}
-                      </span>
+          {/* Deal inbox stream: deals live in the sidebar as a compact
+              switcher on desktop; here every deal reads as a triage row —
+              state, attention, next notice, one action. */}
+          <h2 className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Your deals</h2>
+          <ul aria-label="Your deals" className="space-y-2.5">
+            {threads.map((t) => {
+              const executed = !!t.auditId && (executedAuditIds ?? []).includes(t.auditId)
+              const signingActive = !!t.auditId && (signingAuditIds ?? []).includes(t.auditId) && !executed
+              const hasMonitoring = !!t.auditId && (monitoredAuditIds ?? []).includes(t.auditId)
+              const moment = dealMomentState({
+                status: t.status,
+                openIssues: t.openIssues ?? null,
+                resolvedCount: t.resolvedCount ?? null,
+                executed,
+                signingActive,
+                hasMonitoring,
+              })
+              const notice = t.auditId ? (deadlines ?? []).find((d) => d.auditId === t.auditId) : undefined
+              const metaParts: string[] = []
+              if (t.budget) metaParts.push(t.budget)
+              if (t.dealType) metaParts.push(t.dealType.replace("_", " ").replace(/^\w/, (c) => c.toUpperCase()))
+              if (t.counterpartyRole) metaParts.push(`${t.counterpartyRole.replace(/^\w/, (c) => c.toUpperCase())} paper`)
+              else if (t.jurisdiction) metaParts.push(t.jurisdiction)
+              metaParts.push(formatDate(t.updatedAt))
+              const stateTone =
+                moment === "needs-action" || moment === "needs-attention"
+                  ? "text-red-700"
+                  : moment === "negotiating"
+                    ? "text-amber-700"
+                    : moment === "ready-to-sign" || moment === "signed" || moment === "guarded"
+                      ? "text-emerald-700"
+                      : "text-muted-foreground"
+              const cta = moment === "needs-action" || moment === "negotiating" ? "Review deal →" : "Open →"
+              return (
+                <li key={t.id} className="rounded-xl border border-border/60 bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="min-w-0 flex-1 truncate font-serif text-[15px] font-semibold leading-snug">{t.title || "Untitled"}</p>
+                    <p className={`shrink-0 text-[12px] font-semibold uppercase tracking-[0.08em] ${stateTone}`}>
+                      {DEAL_MOMENT_LABEL[moment]}
+                    </p>
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{metaParts.join(" · ")}</p>
+                  {moment === "guarded" && notice && (
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      Next notice: <span className="font-medium text-foreground">{notice.title}</span> ·{" "}
+                      {new Date(notice.dueDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </p>
+                  )}
+                  {moment === "guarded" && !notice && hasMonitoring && (
+                    <p className="mt-1.5 text-xs text-muted-foreground">Obligations being watched.</p>
+                  )}
+                  {typeof t.openIssues === "number" && t.openIssues > 0 && (
+                    <div className="mt-1.5">
+                      <p className="text-xs font-medium">
+                        {t.openIssues} thing{t.openIssues === 1 ? "" : "s"} need{t.openIssues === 1 ? "s" : ""} your attention
+                      </p>
+                      {t.topFindings && t.topFindings.length > 0 && (
+                        <ul className="mt-1 space-y-0.5">
+                          {t.topFindings.map((s, i) => (
+                            <li key={i} className="truncate text-xs text-muted-foreground">{s}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                  {typeof t.openIssues === "number" && t.openIssues === 0 && (t.resolvedCount ?? 0) > 0 && (
+                    <p className="mt-1.5 text-xs text-muted-foreground">All previous issues resolved. No new findings.</p>
+                  )}
+                  {moment === "draft" && (
+                    <p className="mt-1.5 text-xs text-muted-foreground">Not analyzed yet.</p>
+                  )}
+                  <div className="mt-2">
+                    <Link href={`/chat/${t.id}`} className="text-xs font-semibold text-primary hover:underline">
+                      {cta}
                     </Link>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-          )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
         </div>
       {threads.length === 0 && !loadError && (
         <div className="min-h-0 flex-1 overflow-y-auto pb-3">

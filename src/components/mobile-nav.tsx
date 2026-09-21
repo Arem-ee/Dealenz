@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { PRIMARY_NAV, SECONDARY_NAV, isActiveEntry } from "@/lib/nav"
 
-/** Bottom bar renders the chat-first IA: Home, Vault, create (new chat), More. */
+/** Bottom bar renders the deal control room IA: Deals, Guarded, create (new chat), More. */
 const BAR_TABS = [PRIMARY_NAV[0], PRIMARY_NAV[1]]
 
 /** Overflow sheet: everything else, deduplicated by destination. Account

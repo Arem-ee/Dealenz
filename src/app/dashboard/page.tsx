@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic"
 
 export interface DeadlineItem {
   id: string
+  auditId: string
   title: string
   dueDate: string
   href: string
@@ -33,6 +34,9 @@ export default async function DashboardPage() {
   let dealCount: number | null = null
   let analyzedCount: number | null = null
   let deadlines: DeadlineItem[] = []
+  const executedAuditIds: string[] = []
+  const signingAuditIds: string[] = []
+  let monitoredAuditIds: string[] = []
   try {
     const [deals, analyzed, events] = await Promise.all([
       supabase.from("audits").select("id", { count: "exact", head: true }).eq("user_id", user.id),
@@ -44,7 +48,7 @@ export default async function DashboardPage() {
         .eq("status", "active")
         .not("due_date", "is", null)
         .order("due_date", { ascending: true })
-        .limit(50),
+        .limit(200),
     ])
     if (typeof deals.count === "number") dealCount = deals.count
     if (typeof analyzed.count === "number") analyzedCount = analyzed.count
@@ -56,6 +60,7 @@ export default async function DashboardPage() {
       due_date: e.due_date,
       status: String(e.status),
     }))
+    monitoredAuditIds = [...new Set(rows.map((r) => r.audit_id))]
     const due = selectDueEvents(rows, new Date().toISOString()).slice(0, 5)
     if (due.length > 0) {
       const auditIds = [...new Set(due.map((d) => d.audit_id))]
@@ -73,10 +78,35 @@ export default async function DashboardPage() {
       }
       deadlines = due.map((d) => ({
         id: d.id,
+        auditId: d.audit_id,
         title: d.title,
         dueDate: d.due_date as string,
         href: threadByAudit.has(d.audit_id) ? `/chat/${threadByAudit.get(d.audit_id)}` : `/document/${d.audit_id}`,
       }))
+    }
+    // Signing posture per audit for deal-moment derivation (one query for
+    // the visible threads; best-effort like everything else here).
+    try {
+      const threadAuditIds = [...new Set(threads.map((t) => t.auditId).filter((id): id is string => !!id))]
+      if (threadAuditIds.length > 0) {
+        const { data: signerRows } = await supabase
+          .from("document_signers")
+          .select("audit_id, status")
+          .in("audit_id", threadAuditIds)
+          .limit(200)
+        const byAudit = new Map<string, string[]>()
+        for (const s of ((signerRows ?? []) as Array<{ audit_id: string; status: string }>)) {
+          const list = byAudit.get(String(s.audit_id)) ?? []
+          list.push(String(s.status))
+          byAudit.set(String(s.audit_id), list)
+        }
+        for (const [auditId, statuses] of byAudit) {
+          if (statuses.length > 0) signingAuditIds.push(auditId)
+          if (statuses.length > 0 && statuses.every((s) => s === "signed")) executedAuditIds.push(auditId)
+        }
+      }
+    } catch {
+      // Deal moments fall back to analysis-derived states.
     }
   } catch {
     // Portfolio blocks stay hidden; the composer below always works.
@@ -89,6 +119,9 @@ export default async function DashboardPage() {
         loadError={loadError}
         stats={dealCount !== null || analyzedCount !== null ? { deals: dealCount, analyzed: analyzedCount } : null}
         deadlines={deadlines}
+        executedAuditIds={executedAuditIds}
+        signingAuditIds={signingAuditIds}
+        monitoredAuditIds={monitoredAuditIds}
       />
     </div>
   )
