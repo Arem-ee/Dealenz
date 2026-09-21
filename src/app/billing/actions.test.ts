@@ -49,6 +49,14 @@ describe("getMyReferralCode", () => {
     const result = await getMyReferralCode()
     expect(result.success).toBe(false)
   })
+
+  it("never leaks raw database errors into the UI", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: "function gen_random_bytes(integer) does not exist" } })
+    const result = await getMyReferralCode()
+    expect(result.success).toBe(false)
+    expect(result.error).not.toMatch(/gen_random_bytes/)
+    expect(result.error).toMatch(/refresh/i)
+  })
 })
 
 describe("getMyReferrals", () => {

@@ -21,7 +21,12 @@ export async function getMyReferralCode(): Promise<{ success: boolean; code?: st
   }
 
   const { data, error } = await supabase.rpc("ensure_referral_code")
-  if (error) return { success: false, error: error.message }
+  if (error) {
+    // Never surface raw database errors: they leak internals (e.g. missing
+    // function names) into the UI. Log server-side, show generic copy.
+    console.error("[referral] ensure_referral_code failed:", error.message)
+    return { success: false, error: "Could not load your referral link — please refresh and try again." }
+  }
   const row = Array.isArray(data) ? data[0] : data
   const code = (row as { code?: unknown } | null)?.code
   if (typeof code !== "string" || code.length === 0) {
@@ -48,7 +53,8 @@ export async function getMyReferrals(): Promise<{ success: boolean; referrals?: 
     .limit(50)
 
   if (error) {
-    return { success: false, error: error.message }
+    console.error("[referral] getMyReferrals failed:", error.message)
+    return { success: false, error: "Could not load your referrals — please refresh and try again." }
   }
 
   return { success: true, referrals: (data ?? []) as ReferralAttributionView[] }
