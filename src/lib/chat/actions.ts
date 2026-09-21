@@ -299,7 +299,7 @@ async function generateDocumentAndPostInner(threadId: string, auditId: string, v
   return { ok: true }
 }
 
-export async function listThreads(): Promise<Array<{ id: string; title: string; auditId: string | null; updatedAt: string; preview?: string; status?: string | null; riskLevel?: string | null }>> {
+export async function listThreads(): Promise<Array<{ id: string; title: string; auditId: string | null; updatedAt: string; preview?: string; status?: string | null; riskLevel?: string | null; openIssues?: number | null }>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
@@ -309,11 +309,18 @@ export async function listThreads(): Promise<Array<{ id: string; title: string; 
   const convs = await listConversations(supabase as never, user.id)
   const { data: audits } = await supabase
     .from("audits")
-    .select("id, title, status, risk_report, updated_at, created_at")
+    .select("id, title, status, risk_report, structured_data, updated_at, created_at")
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false })
     .limit(50)
-  const auditMap = new Map(((audits ?? []) as Array<{ id: string; title: string; status: string; risk_report?: { riskLevel?: string } | null; updated_at: string }>).map((a) => [a.id, a]))
+  const auditMap = new Map(((audits ?? []) as Array<{ id: string; title: string; status: string; risk_report?: { riskLevel?: string } | null; structured_data?: { deterministicFindings?: unknown } | null; updated_at: string }>).map((a) => [a.id, a]))
+  // Open-issue counts come from persisted deterministic FAIL findings, the
+  // same source the workspace renders — never recomputed or guessed here.
+  function openIssueCount(audit: { structured_data?: { deterministicFindings?: unknown } | null } | null | undefined): number | null {
+    const det = audit?.structured_data?.deterministicFindings
+    if (!Array.isArray(det)) return null
+    return det.filter((r) => typeof r === "object" && r !== null && (r as { status?: unknown }).status === "FAIL").length
+  }
   // Build thread list from conversations; include audit title if attached
   const threads = convs.map((c) => {
     const audit = c.attached_audit_id ? auditMap.get(c.attached_audit_id) : null
@@ -324,6 +331,7 @@ export async function listThreads(): Promise<Array<{ id: string; title: string; 
       updatedAt: c.updated_at,
       status: audit?.status ?? null,
       riskLevel: audit?.risk_report && typeof audit.risk_report.riskLevel === "string" ? audit.risk_report.riskLevel : null,
+      openIssues: openIssueCount(audit),
     }
   })
   // Also include audits without a conversation as standalone threads (legacy).
@@ -332,7 +340,7 @@ export async function listThreads(): Promise<Array<{ id: string; title: string; 
   // placeholder drafts are skipped. Greeting *conversations* still appear
   // above as question threads (no audit attached) — that is correct.
   const attachedIds = new Set(convs.map((c) => c.attached_audit_id).filter(Boolean))
-  for (const a of (audits ?? []) as Array<{ id: string; title: string; status: string; risk_report?: { riskLevel?: string } | null; updated_at: string }>) {
+  for (const a of (audits ?? []) as Array<{ id: string; title: string; status: string; risk_report?: { riskLevel?: string } | null; structured_data?: { deterministicFindings?: unknown } | null; updated_at: string }>) {
     if (attachedIds.has(a.id)) continue
     if (isGreeting(a.title)) continue
     if (a.status === "draft" && (a.title === "New Deal" || a.title.trim().length === 0)) continue
@@ -343,6 +351,7 @@ export async function listThreads(): Promise<Array<{ id: string; title: string; 
       updatedAt: a.updated_at,
       status: a.status,
       riskLevel: a.risk_report && typeof a.risk_report.riskLevel === "string" ? a.risk_report.riskLevel : null,
+      openIssues: openIssueCount(a),
     })
   }
   threads.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())

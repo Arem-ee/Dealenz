@@ -13,6 +13,7 @@ interface ThreadItem {
   updatedAt: string
   status?: string | null
   riskLevel?: string | null
+  openIssues?: number | null
 }
 
 export interface DeadlineItem {
@@ -30,6 +31,13 @@ function formatDate(date: string): string {
   if (diff < 7) return `${diff} days ago`
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
+
+const LOOP_STEPS = [
+  { n: "1", title: "Describe", body: "Drop in their contract or explain the situation." },
+  { n: "2", title: "Understand", body: "See where the risk sits, with the clause it came from." },
+  { n: "3", title: "Push back", body: "Get the exact words to send back." },
+  { n: "4", title: "Sign & stay guarded", body: "Both sides sign here; deadlines stay tracked." },
+]
 
 function riskClass(level: string | null | undefined): string | null {
   if (!level) return null
@@ -139,7 +147,7 @@ export function ChatLanding({ threads, loadError, stats, deadlines }: {
             </div>
           )}
           <h2 className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Recent deals</h2>
-          <ul aria-label="Recent deals" className="space-y-0.5">
+          <ul aria-label="Recent deals" className="grid gap-2.5 sm:grid-cols-2">
             {threads.map((t) => {
               const state = statusLabel(t.status)
               const risk = riskClass(t.riskLevel)
@@ -147,27 +155,50 @@ export function ChatLanding({ threads, loadError, stats, deadlines }: {
                 <li key={t.id}>
                   <Link
                     href={`/chat/${t.id}`}
-                    className="flex items-baseline justify-between gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/60"
+                    className="flex h-full flex-col gap-2 rounded-xl border border-border/60 bg-card p-3.5 shadow-sm transition-all hover:shadow-md hover:border-border"
                   >
-                    <span className="min-w-0 truncate font-medium">{t.title || "Untitled"}</span>
-                    <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                    <span className="flex items-start justify-between gap-2">
+                      <span className="min-w-0 flex-1 truncate font-serif text-[15px] font-semibold leading-snug">{t.title || "Untitled"}</span>
                       {risk && t.riskLevel && (
-                        <span className={`rounded-full border px-1.5 py-px text-[10px] font-medium ${risk}`}>
+                        <span className={`shrink-0 rounded-full border px-1.5 py-px text-[10px] font-medium ${risk}`}>
                           {t.riskLevel}
                         </span>
                       )}
+                    </span>
+                    <span className="flex items-center gap-2 text-xs text-muted-foreground">
                       {state && (
                         <span className="rounded-full border border-border/60 bg-muted/50 px-1.5 py-px text-[10px] font-medium">
                           {state}
                         </span>
                       )}
-                      {formatDate(t.updatedAt)}
+                      {typeof t.openIssues === "number" && t.openIssues > 0 && (
+                        <span className="font-medium text-foreground">
+                          {t.openIssues} open issue{t.openIssues === 1 ? "" : "s"}
+                        </span>
+                      )}
+                      <span className="ml-auto shrink-0">{formatDate(t.updatedAt)}</span>
                     </span>
                   </Link>
                 </li>
               )
             })}
           </ul>
+        </div>
+      )}
+      {threads.length === 0 && !loadError && (
+        <div className="pb-4">
+          <div className="grid gap-2 px-2 sm:grid-cols-2 lg:grid-cols-4">
+            {LOOP_STEPS.map((s) => (
+              <div key={s.n} className="rounded-xl border border-border/60 bg-card p-3.5">
+                <p className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+                  {s.n}
+                </p>
+                <p className="mt-2 text-[13px] font-semibold">{s.title}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{s.body}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 px-2 text-xs text-muted-foreground">Start above — paste their contract, drop the file, or describe the deal.</p>
         </div>
       )}
     </div>
