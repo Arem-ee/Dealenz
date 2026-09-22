@@ -359,7 +359,7 @@ export async function attachFileMetadata(
     return { ok: true, files }
   } catch (e) {
     await voidReservation(ledger, uploadReservation.reservationId).catch(() => null)
-    return { ok: false, error: e instanceof Error && e.message ? e.message : "We couldn't attach that file. Please try again." }
+    return { ok: false, error: publicErrorMessage(e, "We couldn't attach that file. Please try again.") }
   }
 }
 

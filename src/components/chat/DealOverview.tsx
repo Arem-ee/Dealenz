@@ -65,13 +65,13 @@ export function DealOverview({ input, collapsed = false, onToggleCollapsed }: {
 
   if (collapsed && onToggleCollapsed) {
     return (
-      <section aria-label="Deal overview" className="mx-auto w-full max-w-3xl px-4 pt-3">
+      <section aria-label="Deal overview" className="mx-auto w-full max-w-3xl shrink-0 px-4 pt-3 pb-2">
         <button
           type="button"
           onClick={onToggleCollapsed}
           aria-expanded={false}
           aria-label="Expand deal overview"
-          className="flex w-full items-center gap-2 rounded-xl border border-border/60 bg-card px-4 py-2.5 text-left shadow-sm transition-colors hover:bg-muted/40"
+          className="flex w-full items-center gap-2 rounded-xl border border-border/60 bg-card px-4 py-2.5 text-left transition-colors hover:bg-muted/40"
         >
           <span className="min-w-0 flex-1 truncate text-[13px]">
             <span className="font-semibold">{d.title || "Untitled deal"}</span>
