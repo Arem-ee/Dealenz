@@ -25,15 +25,15 @@ export function BackBar() {
 
   return (
     <div className="shrink-0 border-b border-border/60 bg-background/90 backdrop-blur">
-      <div className="flex h-12 items-center px-3 sm:px-4">
+      <div className="flex h-10 items-center px-3 sm:px-4">
         <button
           type="button"
           onClick={goBack}
           aria-label="Back"
-          className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+          title="Back"
+          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back</span>
         </button>
       </div>
     </div>
