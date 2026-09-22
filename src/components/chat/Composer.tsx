@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowUp, FileUp, Loader2 } from "lucide-react"
@@ -33,7 +33,16 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
   const { showError } = useToast()
   const { consented: aiConsented, consenting, grant: grantConsent } = useAiConsent()
   const fileRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [pendingFile, setPendingFileLocal] = useState<File | null>(null)
+  // Auto-grow the box with the text (capped), so the empty composer stays
+  // one line tall and long pastes still fit without a page scroll.
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = "auto"
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  }, [value])
   const hasContent = value.trim().length > 0 || !!pendingFile
   // Pre-send estimate, mirrored from Ask: greetings are free, questions
   // price by operation size. Deal and action outcomes price downstream
@@ -383,13 +392,14 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
           <label htmlFor="composer-input" className="sr-only">Message Dealenz</label>
           <textarea
             id="composer-input"
+            ref={textareaRef}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Paste their contract or describe the deal…"
-            rows={3}
+            rows={1}
             aria-label="Message Dealenz"
-            className="w-full min-h-[72px] resize-none bg-transparent text-sm leading-relaxed placeholder:text-muted-foreground/60 outline-none"
+            className="max-h-[160px] min-h-[40px] w-full resize-none overflow-y-auto bg-transparent text-sm leading-relaxed placeholder:text-muted-foreground/60 outline-none"
           />
         </div>
         <div className="flex items-center gap-2 px-3 py-2.5 border-t border-border/60 bg-muted/20">

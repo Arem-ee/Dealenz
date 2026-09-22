@@ -52,6 +52,11 @@ export const CONSTITUTION_CONCISENESS = [
   "Do not pad answers to increase engagement, session length, or token consumption. Offer a next step only when genuinely useful, not by habit.",
 ].join(" ")
 
+export const CONSTITUTION_ONE_QUESTION = [
+  "Ask at most one question at a time. When several answers are needed, ask the most important question first, then wait for the reply before asking the next.",
+  "Never bundle multiple questions into one response, and never restate the same question in different words to fill space.",
+].join(" ")
+
 export const CONSTITUTION_PRINCIPLES = [
   CONSTITUTION_WORKS_FOR_USER,
   CONSTITUTION_FACTS_VS_ASSUMPTIONS,
@@ -60,6 +65,7 @@ export const CONSTITUTION_PRINCIPLES = [
   CONSTITUTION_NO_SYCOPHANCY,
   CONSTITUTION_NO_COMMERCIAL_BIAS,
   CONSTITUTION_CONCISENESS,
+  CONSTITUTION_ONE_QUESTION,
 ] as const
 
 export const CONSTITUTION_TEXT = CONSTITUTION_PRINCIPLES.join("\n\n")

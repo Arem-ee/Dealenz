@@ -558,30 +558,21 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
 
   const conversation = (
     <>
-      {(dealMeta || (auditId && dealInput !== null)) && (
-        <div className="mx-auto w-full max-w-3xl px-4 pt-3 flex flex-wrap items-center gap-2">
-          {dealMeta?.dealType && (
-            <span className="inline-flex items-center gap-1 rounded-full border bg-muted px-2.5 py-1 text-xs">
-              Deal type: <span className="font-medium capitalize">{dealMeta.dealType.replace("_", " ")}</span>
-            </span>
-          )}
-          {dealMeta?.jurisdiction && (
-            <span className="inline-flex items-center gap-1 rounded-full border bg-muted px-2.5 py-1 text-xs">
-              Jurisdiction: <span className="font-medium">{dealMeta.jurisdiction}</span>
-            </span>
-          )}
-          {auditId && dealInput !== null && (
-            <ReviseDealInput
-              auditId={auditId}
-              threadId={threadId}
-              initialText={dealInput}
-              onPlanReady={() => {
-                void refreshWorkPlan()
-                handleSent()
-              }}
-              onError={fail}
-            />
-          )}
+      {/* Revise affordance only. Deal type and jurisdiction already show in
+          the overview card below and the workspace panel; repeating them here
+          crowded the reply viewport. */}
+      {auditId && dealInput !== null && (
+        <div className="mx-auto w-full max-w-3xl px-4 pt-2">
+          <ReviseDealInput
+            auditId={auditId}
+            threadId={threadId}
+            initialText={dealInput}
+            onPlanReady={() => {
+              void refreshWorkPlan()
+              handleSent()
+            }}
+            onError={fail}
+          />
         </div>
       )}
 

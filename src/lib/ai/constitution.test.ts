@@ -34,6 +34,11 @@ describe("AI constitution", () => {
     expect(CONSTITUTION_TEXT).toMatch(/unnecessary computation or words/i)
   })
 
+  it("asks at most one question at a time", () => {
+    expect(CONSTITUTION_TEXT).toMatch(/at most one question at a time/i)
+    expect(CONSTITUTION_TEXT).toMatch(/most important question first/i)
+  })
+
   it("encodes user-first non-sycophancy", () => {
     expect(CONSTITUTION_TEXT).toMatch(/disadvantage/i)
     expect(CONSTITUTION_TEXT).toMatch(/insufficient is always acceptable|insufficient/i)

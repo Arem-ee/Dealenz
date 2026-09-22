@@ -97,7 +97,8 @@ async function analyzeAndPostRiskInner(threadId: string, auditId: string): Promi
   } catch { envelope = null }
   const gate = envelope ? (await import("@/lib/context/gate")).evaluateContextGate(envelope, (audit as { deal_type?: string })?.deal_type as never) : null
   if (gate && gate.state !== "READY") {
-    const fields = [...gate.missingRequired, ...gate.unconfirmedRequired].slice(0, 3).map((k) => ({ key: k, label: k.replace(/([A-Z])/g, " $1").replace(/_/g, " "), value: String((envelope?.fields as Record<string, { value?: unknown }>)[k]?.value ?? ""), confidence: (envelope?.fields as Record<string, { confidence?: number }>)[k]?.confidence ?? 0 }))
+    const { optionsForContextKey } = await import("@/lib/context/options")
+    const fields = [...gate.missingRequired, ...gate.unconfirmedRequired].slice(0, 3).map((k) => ({ key: k, label: k.replace(/([A-Z])/g, " $1").replace(/_/g, " "), value: String((envelope?.fields as Record<string, { value?: unknown }>)[k]?.value ?? ""), confidence: (envelope?.fields as Record<string, { confidence?: number }>)[k]?.confidence ?? 0, options: optionsForContextKey(k) }))
     const posted = await postRichMessage(threadId, { type: "context_confirm", payload: { fields }, content: "Quick check — is this right?" })
     if (!posted.ok) throw new Error(posted.error)
     return { status: "needs_confirm" as const }
