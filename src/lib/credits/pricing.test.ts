@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
 import {
+  ANALYSIS_CREDITS,
   CREDIT_PRICE_BRIEF,
   CREDIT_PRICE_STANDARD,
   CREDIT_PRICE_EXTENDED,
@@ -72,5 +73,10 @@ describe("standard credit policy", () => {
     for (const cost of [UPLOAD_CREDITS, SIGNATURE_SEND_CREDITS, LAWYER_REQUEST_CREDITS]) {
       expect(cost).toBeGreaterThan(SIGNUP_GRANT_CREDITS)
     }
+  })
+
+  it("prices one analysis exactly at the signup grant: the first analysis is free", () => {
+    expect(ANALYSIS_CREDITS).toBe(10)
+    expect(ANALYSIS_CREDITS).toBe(SIGNUP_GRANT_CREDITS)
   })
 })

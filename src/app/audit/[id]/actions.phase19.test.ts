@@ -69,28 +69,28 @@ function qbAudit(auditRow: any, lockRows: any[] = [{ id: "audit-1" }]) {
   return builder
 }
 
-describe("Phase19 — atomic rate limiting (F-04)", () => {
+describe("Phase19 — credit-gated analyses (free allowance retired)", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
     mockRpc.mockResolvedValue({ data: [{ allowed: true, current_count: 1 }], error: null })
   })
 
-  it("denied request does not analyze and returns rate-limit error", async () => {
-    mockRpc.mockResolvedValueOnce({ data: [{ allowed: false, current_count: 5 }], error: null })
+  it("never consults the usage allowance, even when the usage RPC would deny", async () => {
+    mockRpc.mockResolvedValueOnce({ data: [{ allowed: false, current_count: 99 }], error: null })
     const audits = qbAudit({ id: "audit-1", ai_consent: true, raw_input: "hello", structured_data: { files: [] } })
     mockFrom.mockImplementation((table: string) => {
       if (table === "audits") return audits as never
       if (table === "user_ai_consents") return { select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn(() => Promise.resolve({ data: { has_consented_to_ai_analysis: true }, error: null })) })) })) } as never
       return { select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })) })) })) })) } as never
     })
-    const result = await analyzeDeal("audit-1")
-    expect(result.success).toBe(false)
-    expect(result.error).toMatch(/usage limit/i)
-    expect(mockExtractAndValidate).not.toHaveBeenCalled()
+    const result = await analyzeDeal("audit-1").catch(() => null)
+    void result
+    const gated = mockRpc.mock.calls.filter(([fn]) => fn === "increment_usage")
+    expect(gated).toHaveLength(0)
   })
 
-  it("RPC failure fails closed", async () => {
+  it("never consults the usage allowance, even when the usage RPC errors", async () => {
     mockRpc.mockResolvedValueOnce({ data: null, error: { message: "db down" } })
     const audits = qbAudit({ id: "audit-1", ai_consent: true, raw_input: "hello", structured_data: { files: [] } })
     mockFrom.mockImplementation((table: string) => {
@@ -98,9 +98,10 @@ describe("Phase19 — atomic rate limiting (F-04)", () => {
       if (table === "user_ai_consents") return { select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn(() => Promise.resolve({ data: { has_consented_to_ai_analysis: true }, error: null })) })) })) } as never
       return { select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })) })) })) })) } as never
     })
-    const result = await analyzeDeal("audit-1")
-    expect(result.success).toBe(false)
-    expect(result.error).toMatch(/Usage tracking unavailable|Rate limit check failed/i)
+    const result2 = await analyzeDeal("audit-1").catch(() => null)
+    void result2
+    const gated2 = mockRpc.mock.calls.filter(([fn]) => fn === "increment_usage")
+    expect(gated2).toHaveLength(0)
   })
 })
 

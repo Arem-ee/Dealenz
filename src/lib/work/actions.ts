@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createPlan, requestPlanApproval, approvePlan, rejectPlan } from "./store"
 import { executePlan } from "./executor"
 import { toActionFailure } from "@/lib/action-result"
+import { ANALYSIS_CREDITS } from "@/lib/credits/pricing"
 
 export type CreatePlanResult = { ok: true; planId: string } | { ok: false; error: string }
 export type ApprovalResult = { ok: true; planId: string } | { ok: false; error: string }
@@ -12,7 +13,7 @@ export type ExecuteResult = { ok: true; executionId: string; status: string } | 
 // Email-verification policy (P0-3): work-plan mutations and execution are
 // AI/cost-bearing (credits reserved, AI calls, possible external sends), so
 // they require a verified email like analyzeDeal/generate/Ask. Pure reads
-// below (getLatestPlanForThread, getWorkProductForPlan, getAnalysisUsage)
+// below (getLatestPlanForThread, getWorkProductForPlan)
 // stay available pre-verification: they touch only the caller's own rows.
 const VERIFY_REQUIRED_ERROR = "Please verify your email address before using this feature."
 
@@ -124,9 +125,11 @@ export async function createDealAnalysisPlan(input: { conversationId: string; de
       dealId: input.dealId,
       objective,
       objectiveKind: "deal_analysis",
-      // document_analysis is intentionally zero-credit + usage-limited (5/day via increment_usage, see src/app/audit/[id]/actions.ts:369).
-      // Credits are not reserved for this operation; the plan remains approval-gated for auditability.
-      steps: [{ operation: "document_analysis", inputRef: { auditId: input.dealId, threadId: input.conversationId }, estimatedCredits: 0 }],
+      // Analysis costs ANALYSIS_CREDITS, reserved by the executor at approval
+      // execution and reported as measured consumption by the
+      // document_analysis step. No free daily allowance: credits are the
+      // only gate.
+      steps: [{ operation: "document_analysis", inputRef: { auditId: input.dealId, threadId: input.conversationId }, estimatedCredits: ANALYSIS_CREDITS }],
     })
     return { ok: true, planId: plan.id }
   } catch (e) {
@@ -161,20 +164,6 @@ export async function getWorkProductForPlan(planId: string): Promise<{ ok: true;
     return { ok: true, product: (data as import("./schema").WorkProductRow | null) ?? null }
   } catch (e) {
     return toActionFailure(e, "Could not load work product.") as never
-  }
-}
-
-export async function getAnalysisUsage(): Promise<{ ok: true; count: number; limit: number } | { ok: false; error: string }> {
-  try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { ok: false, error: "You must be signed in." }
-    const { data, error } = await supabase.from("usage_tracking").select("count").eq("user_id", user.id).eq("action_type", "analyzeDeal").eq("date", new Date().toISOString().slice(0, 10)).maybeSingle()
-    if (error) throw new Error(error.message)
-    const count = (data as { count?: number } | null)?.count ?? 0
-    return { ok: true, count, limit: 5 }
-  } catch (e) {
-    return toActionFailure(e, "Could not load usage.") as never
   }
 }
 

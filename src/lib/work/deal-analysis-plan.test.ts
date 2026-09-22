@@ -113,7 +113,7 @@ describe("deal_analysis proving workflow", () => {
     mockAnalyzeDeal.mockReset()
   })
 
-  it("creates plan with estimatedCredits 0 (zero-credit + usage-limited), approval hash matches, and step is document_analysis", async () => {
+  it("creates plan with estimatedCredits 0 (generic zero-cost plan), approval hash matches, and step is document_analysis", async () => {
     const { client, userId } = makeSupabaseMock()
     const res = await createPlan(client as never, userId, {
       objective: "Analyze deal: Test Deal",
@@ -168,8 +168,8 @@ describe("deal_analysis proving workflow", () => {
     expect(artifactRefs[0].type).toBe("audit")
   })
 
-  it("credit reservation is plan-level and idempotent, zero-cost plans reserve nothing", async () => {
-    // Zero-credit plan: estimated 0, so executor performs no reserveCredits call
+  it("credit reservation is plan-level and idempotent; generic zero-cost plans reserve nothing", async () => {
+    // Generic zero-credit plan: estimated 0, so executor performs no reserveCredits call
     const planId = "00000000-0000-0000-0000-000000000001"
     const executionId = "00000000-0000-0000-0000-000000000020"
     const key = `plan:${planId}:v1:exec:${executionId}`

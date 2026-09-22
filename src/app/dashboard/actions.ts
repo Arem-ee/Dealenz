@@ -1,7 +1,6 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { rateLimitFor } from "@/lib/rate-limit"
 
 export async function searchDeals(query: string) {
   const supabase = await createClient()
@@ -65,36 +64,4 @@ export async function getCreditBalanceForHome(): Promise<number | null> {
   } catch {
     return null
   }
-}
-
-export async function getUsageStats() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return null
-  }
-
-  const today = new Date().toISOString().split("T")[0]
-
-  const { data } = await supabase
-    .from("usage_tracking")
-    .select("action_type, count")
-    .eq("user_id", user.id)
-    .eq("date", today)
-
-  const stats = {
-    analyzeDeal: 0,
-    generateProtectionPackage: 0,
-    analyzeLimit: rateLimitFor("analyzeDeal"),
-    generationLimit: rateLimitFor("generateProtectionPackage"),
-  }
-  if (data) {
-    for (const row of data) {
-      if (row.action_type === "analyzeDeal") stats.analyzeDeal = row.count
-      if (row.action_type === "generateProtectionPackage") stats.generateProtectionPackage = row.count
-    }
-  }
-
-  return stats
 }

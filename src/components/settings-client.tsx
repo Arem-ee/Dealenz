@@ -302,7 +302,7 @@ function BillingSection() {
       <div className="flex items-center justify-between rounded-lg border p-3">
         <div>
           <p className="text-sm font-medium">Credits & purchases</p>
-          <p className="text-xs text-muted-foreground">Free daily analyses, Ask credit packs, and purchase history.</p>
+          <p className="text-xs text-muted-foreground">Deal analyses, Ask credit packs, and purchase history.</p>
         </div>
         <Button variant="outline" size="sm" asChild>
           <Link href="/billing">Open billing</Link>

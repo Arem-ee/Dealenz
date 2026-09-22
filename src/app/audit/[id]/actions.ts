@@ -444,15 +444,10 @@ export async function analyzeDeal(
     return { success: false, error: "This audit is currently being analyzed. Please wait." }
   }
 
-  // Atomic rate limit: single authoritative increment before expensive AI work via shared abstraction.
-  // Fail closed on RPC error; deny before AI if limit exceeded; no second increment later.
-  {
-    const rate = await checkRateLimit("analyzeDeal")
-    if (!rate.allowed) {
-      await supabase.from("audits").update({ locked_at: null, updated_at: new Date().toISOString() }).eq("id", auditId).eq("user_id", user.id)
-      return { success: false, error: rate.error ?? "Rate limit check failed. Please try again." }
-    }
-  }
+  // Credits are the only gate: the plan executor reserves ANALYSIS_CREDITS
+  // before running (approval shows the estimate), and the direct path in
+  // analyzeAndPostRisk reserves before calling. There is no free daily
+  // allowance — a free account's only funds are its 10 signup credits.
 
   // Phase 5B context gate: analysis must not silently treat unresolved
   // required context as confirmed. Legacy audits without an envelope are

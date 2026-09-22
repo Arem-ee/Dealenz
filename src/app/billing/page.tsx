@@ -1,12 +1,11 @@
-import { Shield } from "lucide-react"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 import { ReferralSection } from "@/components/referral-section"
 import { PurchaseSection } from "@/components/billing/purchase-section"
 import { formatPrice, type Currency } from "@/lib/billing/catalog"
-import { rateLimitFor } from "@/lib/rate-limit"
 import {
+  ANALYSIS_CREDITS,
   CREDIT_PRICE_BRIEF,
   CREDIT_PRICE_STANDARD,
   CREDIT_PRICE_EXTENDED,
@@ -62,12 +61,12 @@ export function checkoutReturnNotice(
   return null
 }
 
-// A full freelance loop with the analysis on the free daily allowance:
-// proposal + signature send. The anchor every other number on this page
-// hangs off.
-const FULL_DEAL_CREDITS = DOCUMENT_CREDIT_COSTS.proposal + SIGNATURE_SEND_CREDITS
+// A full freelance loop — analysis plus proposal plus signature send.
+// The anchor every other number on this page hangs off.
+const FULL_DEAL_CREDITS = ANALYSIS_CREDITS + DOCUMENT_CREDIT_COSTS.proposal + SIGNATURE_SEND_CREDITS
 
 const PRICE_ROWS: Array<[string, number]> = [
+  ["Deal analysis", ANALYSIS_CREDITS],
   ["Ask, brief", CREDIT_PRICE_BRIEF],
   ["Ask, standard", CREDIT_PRICE_STANDARD],
   ["Ask, extended", CREDIT_PRICE_EXTENDED],
@@ -97,20 +96,9 @@ export default async function BillingPage({
     redirect("/dashboard")
   }
 
-  const dailyLimit = rateLimitFor("analyzeDeal")
-  let usedAnalyses = 0
   let creditBalance: number | null = null
   let purchases: PurchaseRow[] = []
   if (user) {
-    const today = new Date().toISOString().split("T")[0]
-    const { data: usage } = await supabase
-      .from("usage_tracking")
-      .select("count")
-      .eq("user_id", user.id)
-      .eq("action_type", "analyzeDeal")
-      .gte("date", today)
-      .maybeSingle()
-    if (usage) usedAnalyses = (usage as { count: number }).count ?? 0
     // Purchase history is a read-only view: authoritative state lives in
     // credit_purchases (server/webhook path), never in browser navigation.
     const { data: purchaseRows } = await supabase
@@ -128,8 +116,7 @@ export default async function BillingPage({
     }
   }
 
-  const dealsCovered = creditBalance !== null ? Math.floor(creditBalance / FULL_DEAL_CREDITS) : null
-  const freeUsedUp = usedAnalyses >= dailyLimit
+  const analysesCovered = creditBalance !== null ? Math.floor(creditBalance / ANALYSIS_CREDITS) : null
 
   return (
     <div className="px-4 sm:px-6 py-5 sm:py-7 max-w-3xl mx-auto">
@@ -137,11 +124,11 @@ export default async function BillingPage({
         Billing · No subscriptions
       </p>
       <h1 className="mt-1 text-[26px] font-bold leading-tight tracking-tight sm:text-[30px]">
-        One full deal, about {FULL_DEAL_CREDITS} credits.
+        Every analysis, {ANALYSIS_CREDITS} credits.
       </h1>
       <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted-foreground">
-        Analysis is free every day. Credits pay for outcomes — proposals, documents,
-        signature sends — never for a favorable answer.
+        Each deal analysis — extract, rules check, risk report — costs {ANALYSIS_CREDITS} credits.
+        Your 10 signup credits cover the first one. Credits pay for outcomes — never for a favorable answer.
       </p>
 
       {notice && (
@@ -163,10 +150,10 @@ export default async function BillingPage({
               <span className="ml-2 align-middle text-[13px] font-normal text-white/60">credits</span>
             </p>
             <p className="mt-2 text-[13px] text-white/75">
-              {dealsCovered !== null
-                ? dealsCovered > 0
-                  ? `Covers about ${dealsCovered} full deal${dealsCovered === 1 ? "" : "s"} from proposal to signature.`
-                  : "Not enough for a full deal yet — top up or earn free credits below."
+              {analysesCovered !== null
+                ? analysesCovered > 0
+                  ? `Covers about ${analysesCovered} deal analys${analysesCovered === 1 ? "is" : "es"}.`
+                  : "Not enough for an analysis yet — top up below to continue."
                 : "Balance unavailable right now — the packages below still work."}
             </p>
           </div>
@@ -176,22 +163,6 @@ export default async function BillingPage({
           >
             Buy credits
           </a>
-        </div>
-      </div>
-
-      {/* Free daily allowance: one line, one bar. */}
-      <div className="mt-3 flex items-center gap-3 rounded-2xl border border-border/60 bg-card px-4 py-3 shadow-sm">
-        <Shield className="h-4 w-4 shrink-0 text-burgundy" />
-        <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-          <span className="font-semibold text-foreground">Free analyses today</span>{" "}
-          <span className="tabular-nums" data-numeric>{usedAnalyses}/{dailyLimit}</span>
-          {freeUsedUp ? " — daily allowance used, credits cover the rest." : " — resets tomorrow."}
-        </p>
-        <div className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-foreground/[0.07]" aria-hidden>
-          <div
-            className={cn("h-full rounded-full", freeUsedUp ? "bg-burgundy" : "bg-foreground/30")}
-            style={{ width: `${Math.min(100, Math.round((usedAnalyses / Math.max(1, dailyLimit)) * 100))}%` }}
-          />
         </div>
       </div>
 

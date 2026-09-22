@@ -9,7 +9,7 @@
 // amounts. The webhook rejects any payment below catalog (400) and flags
 // drift — repricing here without updating Paddle breaks checkout.
 
-import { CREDIT_PRICE_BRIEF, DOCUMENT_CREDIT_COSTS, SIGNATURE_SEND_CREDITS } from "@/lib/credits/pricing"
+import { ANALYSIS_CREDITS, CREDIT_PRICE_BRIEF, DOCUMENT_CREDIT_COSTS } from "@/lib/credits/pricing"
 
 export type Currency = "USD" | "GBP" | "EUR"
 
@@ -85,12 +85,10 @@ export function validatePurchaseInput(input: { packageId: unknown; currency: unk
 
 // What a pack buys, derived from the live credit prices so listings can
 // never drift from the price list. "About" throughout: real mixes vary.
-const FULL_DEAL_COST = DOCUMENT_CREDIT_COSTS.proposal + SIGNATURE_SEND_CREDITS
-
 export function packageValueLines(credits: number): string[] {
   const plural = (n: number, one: string, many: string) => `≈ ${n} ${n === 1 ? one : many}`
   return [
-    plural(Math.floor(credits / FULL_DEAL_COST), "full deal loop", "full deal loops"),
+    plural(Math.floor(credits / ANALYSIS_CREDITS), "deal analysis", "deal analyses"),
     plural(Math.floor(credits / DOCUMENT_CREDIT_COSTS.proposal), "proposal", "proposals"),
     plural(Math.floor(credits / CREDIT_PRICE_BRIEF), "quick answer", "quick answers"),
   ]

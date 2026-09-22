@@ -4,7 +4,6 @@ import {
   createDealAnalysisPlan,
   createWorkPlan,
   executeApprovedPlan,
-  getAnalysisUsage,
   rejectWorkPlan,
   requestApproval,
   resumeWorkPlan,
@@ -53,17 +52,6 @@ describe("work actions email verification (P0-3)", () => {
       if (!result.ok) expect(result.error, name).toMatch(/verify your email/)
     }
     expect(mockFrom).not.toHaveBeenCalled()
-  })
-
-  it("keeps the read-only usage check available pre-verification", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: unverifiedUser }, error: null })
-    const builder: Record<string, unknown> = {}
-    builder.select = vi.fn(() => builder)
-    builder.eq = vi.fn(() => builder)
-    builder.maybeSingle = vi.fn().mockResolvedValue({ data: { count: 2 }, error: null })
-    mockFrom.mockImplementation(() => builder)
-    const result = await getAnalysisUsage()
-    expect(result).toEqual({ ok: true, count: 2, limit: 5 })
   })
 
   it("lets verified users past the gate (DB reached)", async () => {

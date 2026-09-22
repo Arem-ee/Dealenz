@@ -80,7 +80,6 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   const [workSteps, setWorkSteps] = useState<PlanStepRow[]>([])
   const [workExecution, setWorkExecution] = useState<WorkExecutionRow | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
-  const [analysisUsage, setAnalysisUsage] = useState<{ count: number; limit: number } | null>(null)
 
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
@@ -315,12 +314,6 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         setWorkSteps([])
         setWorkExecution(null)
       }
-      // Live usage awareness — authoritative server-side source, frontend not authoritative
-      try {
-        const { getAnalysisUsage } = await import("@/lib/work/actions")
-        const usageRes = await getAnalysisUsage()
-        if (usageRes.ok) setAnalysisUsage({ count: usageRes.count, limit: usageRes.limit })
-      } catch {}
     } catch {
       // keep previous
     } finally {
@@ -720,10 +713,10 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
             )}
           </div>
         )}
-      {/* Work plan — approval-gated, 0 credits + 5/day limit (mobile inline; desktop in work surface) */}
+      {/* Work plan — approval-gated, 10 credits (mobile inline; desktop in work surface) */}
       {!isDesktop && workPlan && (
         <div className="mx-auto w-full max-w-3xl px-4 pb-3">
-          <PlanPreview plan={workPlan} steps={workSteps} usage={analysisUsage} onApprove={handlePlanApprove} onReject={handlePlanReject} onResume={handlePlanResume} />
+          <PlanPreview plan={workPlan} steps={workSteps} onApprove={handlePlanApprove} onReject={handlePlanReject} onResume={handlePlanResume} />
           {workExecution && workPlan.status !== "awaiting_approval" && (
             <div className="mt-3">
               <ExecutionProgress execution={workExecution} steps={workSteps} />
@@ -735,7 +728,6 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         <WorkspaceHeader
           compact
           dealTitle={dealTitle}
-          dealType={dealMeta?.dealType ?? null}
           jurisdiction={dealMeta?.jurisdiction ?? null}
           workspace={workspace}
           auditId={auditId}
@@ -802,7 +794,6 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
           <div className="flex h-full min-h-0 flex-col">
             <WorkspaceHeader
               dealTitle={dealTitle}
-              dealType={dealMeta?.dealType ?? null}
               jurisdiction={dealMeta?.jurisdiction ?? null}
               workspace={workspace}
               auditId={auditId}
@@ -811,7 +802,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
             />
             {workPlan && (
               <div className="shrink-0 border-b border-border/60 bg-card p-3">
-                <PlanPreview plan={workPlan} steps={workSteps} usage={analysisUsage} onApprove={handlePlanApprove} onReject={handlePlanReject} onResume={handlePlanResume} />
+                <PlanPreview plan={workPlan} steps={workSteps} onApprove={handlePlanApprove} onReject={handlePlanReject} onResume={handlePlanResume} />
                 {workExecution && workPlan.status !== "awaiting_approval" && (
                   <div className="mt-3">
                     <ExecutionProgress execution={workExecution} steps={workSteps} />

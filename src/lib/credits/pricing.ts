@@ -61,6 +61,12 @@ export function creditsForDocumentType(documentType: string | null | undefined):
   return 1
 }
 
+// Deal analysis (extract + deterministic rules + risk report) costs 10
+// credits: exactly the signup grant, so a new account's first analysis is
+// free and every analysis after that draws from purchased credits. There is
+// no free daily allowance anymore — credits are the only gate.
+export const ANALYSIS_CREDITS = 10
+
 // Gated product actions (credit-only access control — no plans, no flags).
 // Each deliberately exceeds the free-signup grant, so never-purchased
 // accounts cannot afford them while funded accounts pass the same balance

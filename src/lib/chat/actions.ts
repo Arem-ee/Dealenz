@@ -103,10 +103,51 @@ async function analyzeAndPostRiskInner(threadId: string, auditId: string): Promi
     if (!posted.ok) throw new Error(posted.error)
     return { status: "needs_confirm" as const }
   }
+  // Direct (non-plan) path charges the analysis price itself: reserve before
+  // AI work, finalize on a completed report, void on anything else so failed
+  // or gated attempts never consume credits. The plan path instead reserves
+  // at execution and reports measured consumption via the step handler.
+  const { ANALYSIS_CREDITS } = await import("@/lib/credits/pricing")
+  const { reserveCredits, finalizeReservation, voidReservation } = await import("@/lib/credits/ledger")
+  const directLedger = {
+    rpc: async (functionName: string, args: Record<string, unknown> = {}) => {
+      const result = await (supabase.rpc as unknown as (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        functionName,
+        args
+      )
+      return { data: result.data, error: result.error }
+    },
+  }
+  let directReservationId: string | null = null
+  try {
+    const reservation = await reserveCredits(directLedger, {
+      operation: "document_analysis",
+      amount: ANALYSIS_CREDITS,
+      idempotencyKey: `analysis-direct:${auditId}:${crypto.randomUUID()}`,
+    })
+    if (!reservation.allowed || !reservation.reservationId) {
+      const posted = await postRichMessage(threadId, { type: "text", payload: {}, content: `This analysis needs ${ANALYSIS_CREDITS} credits — top up in Billing to continue.` })
+      if (!posted.ok) throw new Error(posted.error)
+      return { status: "failed" as const }
+    }
+    directReservationId = reservation.reservationId
+  } catch (e) {
+    if (e instanceof Error && e.message === "Failed to reserve credits") {
+      const posted = await postRichMessage(threadId, { type: "text", payload: {}, content: "We couldn't verify your credit balance. Please try again — nothing was charged." })
+      if (!posted.ok) throw new Error(posted.error)
+      return { status: "failed" as const }
+    }
+    throw e
+  }
   const result = await analyzeDeal(auditId)
   if (!result.success || !result.riskReport) {
     const posted = await postRichMessage(threadId, { type: "text", payload: {}, content: result.error ?? "Analysis failed." })
     if (!posted.ok) throw new Error(posted.error)
+    // The direct (non-plan) path settles its own analysis charge: void the
+    // hold so failed or gated attempts never consume credits.
+    try {
+      if (directReservationId) await voidReservation(directLedger, directReservationId)
+    } catch {}
     return { status: "failed" as const }
   }
   const findings = (result.deterministicFindings ?? []) as Array<{ ruleKey?: string; finding?: { severity: string; summary: string; guidance?: string; evidence?: unknown }; severity?: string; summary?: string; guidance?: string; evidence?: unknown }>
@@ -129,6 +170,14 @@ async function analyzeAndPostRiskInner(threadId: string, auditId: string): Promi
   const content = analysisThreadMessage({ findingDelta: result.findingDelta ?? null })
   const riskPosted = await postRichMessage(threadId, { type: "risk_report", payload, content })
   if (!riskPosted.ok) throw new Error(riskPosted.error)
+  // Settle the direct-path hold: the report landed, so the analysis price
+  // is earned. Posting failures above throw first, leaving the hold for
+  // ops to reconcile rather than charging for an undelivered report.
+  try {
+    if (directReservationId) {
+      await finalizeReservation(directLedger, { reservationId: directReservationId, consumptionAmount: ANALYSIS_CREDITS, operation: "document_analysis" })
+    }
+  } catch {}
 
   // Lawyer-review trigger — dual condition, once per deal
   try {

@@ -6,7 +6,6 @@ export function PlanPreview({
   plan,
   steps,
   assumptions,
-  usage,
   onApprove,
   onReject,
   onResume,
@@ -14,7 +13,6 @@ export function PlanPreview({
   plan: PlanRow
   steps: PlanStepRow[]
   assumptions?: { known: string[]; inferred: string[]; missing: string[] }
-  usage?: { count: number; limit: number } | null
   onApprove: (planId: string) => Promise<void>
   onReject: (planId: string) => Promise<void>
   onResume?: (planId: string) => Promise<void>
@@ -24,13 +22,7 @@ export function PlanPreview({
       <h3 className="text-sm font-semibold">Plan — {plan.objective_kind}</h3>
       <p className="mt-2 text-sm text-muted-foreground">{plan.objective}</p>
       <div className="mt-3 text-xs text-muted-foreground">
-        {plan.estimated_credits === 0 ? (
-          <span>
-            No credit charge{usage ? ` — ${usage.count}/${usage.limit} used today` : " — 5 analyses/day limit applies"} · Version {plan.version} · {plan.status}
-          </span>
-        ) : (
-          <span>Estimated cost: {plan.estimated_credits} credits · Version {plan.version} · {plan.status}</span>
-        )}
+        <span>Estimated cost: {plan.estimated_credits} credits · Version {plan.version} · {plan.status}</span>
       </div>
       <ol className="mt-4 space-y-2">
         {steps.map((s, i) => (
@@ -51,7 +43,7 @@ export function PlanPreview({
       {plan.status === "awaiting_approval" && (
         <div className="mt-4 flex gap-2">
           <button onClick={() => onApprove(plan.id)} className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground">
-            {plan.estimated_credits === 0 ? "Approve — no charge" : `Approve — ${plan.estimated_credits} credits`}
+            {`Approve — ${plan.estimated_credits} credits`}
           </button>
           <button onClick={() => onReject(plan.id)} className="rounded-md border px-4 py-2 text-sm">
             Reject / Edit

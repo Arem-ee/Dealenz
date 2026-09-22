@@ -1,9 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 
-export type RateLimitedAction = "analyzeDeal" | "generateProtectionPackage" | "submitLawyerApplication" | "createCheckout" | "consultant_free_turn" | "gmail_send"
+export type RateLimitedAction = "generateProtectionPackage" | "submitLawyerApplication" | "createCheckout" | "consultant_free_turn" | "gmail_send"
 
 const LIMITS: Record<RateLimitedAction, number> = {
-  analyzeDeal: 5,
   generateProtectionPackage: 10,
   submitLawyerApplication: 3,
   createCheckout: 10,
@@ -11,7 +10,8 @@ const LIMITS: Record<RateLimitedAction, number> = {
   gmail_send: 20,
 }
 
-/** Single source for free daily usage limits shown in the UI. */
+/** Single source for daily usage limits shown in the UI. Analyses are not
+ * rate-limited: they cost ANALYSIS_CREDITS each, so credits are the gate. */
 export function rateLimitFor(action: RateLimitedAction): number {
   return LIMITS[action]
 }

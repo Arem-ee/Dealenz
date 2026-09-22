@@ -16,13 +16,13 @@ beforeEach(() => {
 describe("checkRateLimit", () => {
   it("allows when the RPC row allows (array shape, as PostgREST returns)", async () => {
     mockRpc.mockResolvedValue({ data: [{ allowed: true, current_count: 2 }], error: null })
-    await expect(checkRateLimit("analyzeDeal")).resolves.toEqual({ allowed: true })
-    expect(mockRpc).toHaveBeenCalledWith("increment_usage", { p_action_type: "analyzeDeal", p_limit: 5 })
+    await expect(checkRateLimit("generateProtectionPackage")).resolves.toEqual({ allowed: true })
+    expect(mockRpc).toHaveBeenCalledWith("increment_usage", { p_action_type: "generateProtectionPackage", p_limit: 10 })
   })
 
   it("denies when the RPC row denies", async () => {
     mockRpc.mockResolvedValue({ data: [{ allowed: false, current_count: 5 }], error: null })
-    const res = await checkRateLimit("analyzeDeal")
+    const res = await checkRateLimit("generateProtectionPackage")
     expect(res.allowed).toBe(false)
     expect(res.error).toMatch(/usage limit/)
   })
@@ -46,16 +46,15 @@ describe("checkRateLimit", () => {
   })
 
   it("exposes the single source for UI-displayed limits", () => {
-    expect(rateLimitFor("analyzeDeal")).toBe(5)
     expect(rateLimitFor("generateProtectionPackage")).toBe(10)
   })
 
   it("fails closed on RPC error or malformed rows", async () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: "down" } })
-    await expect(checkRateLimit("analyzeDeal")).resolves.toMatchObject({ allowed: false })
+    await expect(checkRateLimit("generateProtectionPackage")).resolves.toMatchObject({ allowed: false })
     mockRpc.mockResolvedValue({ data: [], error: null })
-    await expect(checkRateLimit("analyzeDeal")).resolves.toMatchObject({ allowed: false })
+    await expect(checkRateLimit("generateProtectionPackage")).resolves.toMatchObject({ allowed: false })
     mockRpc.mockResolvedValue({ data: [{ allowed: "yes" }], error: null })
-    await expect(checkRateLimit("analyzeDeal")).resolves.toMatchObject({ allowed: false })
+    await expect(checkRateLimit("generateProtectionPackage")).resolves.toMatchObject({ allowed: false })
   })
 })

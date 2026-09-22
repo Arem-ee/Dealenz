@@ -10,6 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { isApprovalValidForPlan } from "./transitions"
 import type { PlanRow, PlanStepRow } from "./schema"
 import { getCreditBalance } from "@/lib/credits/ledger"
+import { ANALYSIS_CREDITS } from "@/lib/credits/pricing"
 
 type Client = SupabaseClient
 
@@ -59,7 +60,10 @@ registerStepHandler("document_analysis", async (step) => {
       }
       return { error: msg, creditsConsumed: 0, resultRef: { auditId, error: msg } }
     }
-    // Success — return existing analysis artifact identifiers + findings summary for work product
+    // Success — the analysis itself costs ANALYSIS_CREDITS, reported as
+    // measured consumption so the executor settles it against the plan
+    // reservation. Failures and needs-input report 0: nothing is charged
+    // for work that did not complete.
     const riskReport = result.riskReport as { overallScore?: number; riskLevel?: string } | undefined
     const findings = (result.deterministicFindings ?? []) as Array<unknown>
     return {
@@ -73,7 +77,7 @@ registerStepHandler("document_analysis", async (step) => {
         // Snapshot of existing evidence/provenance is already persisted on audits.structured_data
         // Work product will link by auditId rather than duplicating the full report.
       },
-      creditsConsumed: 0,
+      creditsConsumed: ANALYSIS_CREDITS,
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Analysis failed"

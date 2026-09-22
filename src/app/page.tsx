@@ -65,7 +65,7 @@ const faqs = [
   },
   {
     q: "Is the free tier a trial?",
-    a: "No. It is the product with a daily limit: five analyses per day plus 10 signup credits. No credit card required to start.",
+    a: "No. It is the product with no free tier beyond signup: 10 signup credits, enough for your first analysis. No credit card required to start.",
   },
 ]
 
@@ -164,7 +164,7 @@ export default function Home() {
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-medium text-foreground/60">
                 <FileText className="h-3 w-3 text-[var(--burgundy)]" />
-                5 free analyses daily
+                10 signup credits — first analysis free
               </span>
             </div>
             <h1 className="mx-auto mt-5 max-w-[20ch] text-[40px] font-semibold leading-[1.04] tracking-[-0.04em] sm:text-[54px] lg:text-[64px]">
@@ -422,7 +422,7 @@ export default function Home() {
                 {
                   icon: <Upload className="h-4 w-4 text-[var(--burgundy)]" />,
                   title: "Drop in anything",
-                  body: "Paste text or upload the file they sent — PDF, Word, or scan. Analysis starts immediately, on the free daily allowance.",
+                  body: "Paste text or upload the file they sent — PDF, Word, or scan. Analysis starts immediately, for 10 credits.",
                 },
                 {
                   icon: <Scale className="h-4 w-4 text-[var(--burgundy)]" />,
@@ -520,8 +520,8 @@ export default function Home() {
                 Pay per deal outcome. Nothing else.
               </h2>
               <p className="mx-auto mt-3 max-w-xl text-[14px] text-foreground/55">
-                No subscriptions, no tiers, no feature gates. Free daily analyses —
-                credits only when the work goes deeper.
+                No subscriptions, no tiers, no feature gates. 10 signup credits
+                to start — every analysis after that costs 10 credits.
               </p>
             </div>
             <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -529,8 +529,7 @@ export default function Home() {
                 <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-foreground/40">Free</p>
                 <p className="mt-2 text-4xl font-semibold tracking-tight">$0</p>
                 <ul className="mt-5 space-y-2 text-[13px] text-foreground/60">
-                  <li>Five analyses per day</li>
-                  <li>10 signup credits</li>
+                  <li>10 signup credits — first analysis free</li>
                   <li>All four document types on freelance deals</li>
                 </ul>
                 <Link href="/register" className="mt-6 flex w-full items-center justify-center rounded-full border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-foreground/[0.03]">

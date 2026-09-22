@@ -11,7 +11,6 @@ export interface MonitoringSummary {
 
 export function WorkspaceHeader({
   dealTitle,
-  dealType,
   jurisdiction,
   workspace,
   auditId,
@@ -20,7 +19,6 @@ export function WorkspaceHeader({
   compact,
 }: {
   dealTitle?: string | null
-  dealType?: string | null
   jurisdiction?: string | null
   workspace: WorkspaceDescription
   auditId?: string | null
@@ -35,18 +33,13 @@ export function WorkspaceHeader({
       </p>
       <h2 className="mt-0.5 text-sm font-semibold">{workspace.title}</h2>
       <p className="mt-0.5 text-xs text-muted-foreground">{workspace.description}</p>
-      {(dealType || jurisdiction) && (
+      {/* Deal type lives in the overview card; repeating it here crowded
+          the narrow panel. Jurisdiction stays as compact context. */}
+      {jurisdiction && (
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {dealType && (
-            <span className="inline-flex items-center rounded-full border bg-muted px-2 py-0.5 text-[11px]">
-              Deal type: <span className="ml-1 font-medium capitalize">{dealType.replace("_", " ")}</span>
-            </span>
-          )}
-          {jurisdiction && (
-            <span className="inline-flex items-center rounded-full border bg-muted px-2 py-0.5 text-[11px]">
-              Jurisdiction: <span className="ml-1 font-medium">{jurisdiction}</span>
-            </span>
-          )}
+          <span className="inline-flex items-center rounded-full border bg-muted px-2 py-0.5 text-[11px]">
+            Jurisdiction: <span className="ml-1 font-medium">{jurisdiction}</span>
+          </span>
         </div>
       )}
       <div className="mt-2 flex flex-wrap gap-1.5">

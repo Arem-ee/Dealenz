@@ -56,10 +56,10 @@ describe("credit package catalog — international", () => {
 
   it("describes what each pack buys from live credit prices", () => {
     expect(packageValueLines(50)).toEqual([
-      "≈ 1 full deal loop",
+      "≈ 5 deal analyses",
       "≈ 2 proposals",
       "≈ 5 quick answers",
     ])
-    expect(packageValueLines(400)[0]).toBe("≈ 8 full deal loops")
+    expect(packageValueLines(400)[0]).toBe("≈ 40 deal analyses")
   })
 })
