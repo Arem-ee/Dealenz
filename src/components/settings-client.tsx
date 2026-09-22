@@ -9,12 +9,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-import { Loader2, Check, AlertCircle } from "lucide-react"
+import { Loader2, Check, AlertCircle, Sun, Moon, Monitor } from "lucide-react"
+import { useTheme, type ThemeChoice } from "@/components/theme-provider"
 
-type Section = "account" | "billing" | "security"
+type Section = "account" | "appearance" | "billing" | "security"
 
 const sections: { key: Section; label: string }[] = [
   { key: "account", label: "Account" },
+  { key: "appearance", label: "Appearance" },
   { key: "billing", label: "Billing" },
   { key: "security", label: "Security" },
 ]
@@ -120,6 +122,7 @@ export default function SettingsClient({ initialProfile, email, googleConnected,
             />
           )}
           {activeSection === "account" && <DeleteAccountSection />}
+          {activeSection === "appearance" && <AppearanceSection />}
           {activeSection === "billing" && <BillingSection />}
           {activeSection === "security" && <SecuritySection email={email} googleConnected={googleConnected} gmailConnected={gmailConnected} />}
         </div>
@@ -136,6 +139,46 @@ function SectionCard({ title, description, children }: { title: string; descript
         {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
       </div>
       {children}
+    </div>
+  )
+}
+
+const THEME_OPTIONS: { key: ThemeChoice; label: string; hint: string; Icon: typeof Sun }[] = [
+  { key: "light", label: "Light", hint: "Always light", Icon: Sun },
+  { key: "dark", label: "Dark", hint: "Always dark", Icon: Moon },
+  { key: "system", label: "System", hint: "Follows your device", Icon: Monitor },
+]
+
+function AppearanceSection() {
+  const { choice, setChoice } = useTheme()
+  return (
+    <div className="space-y-4">
+      <SectionCard title="Appearance" description="Light or dark, across the whole app">
+        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Color theme">
+          {THEME_OPTIONS.map(({ key, label, hint, Icon }) => {
+            const active = choice === key
+            return (
+              <button
+                key={key}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setChoice(key)}
+                className={cn(
+                  "flex flex-col items-center gap-1 rounded-xl border px-2 py-3 text-xs transition-colors",
+                  active
+                    ? "border-burgundy bg-burgundy/10 font-semibold text-burgundy"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+                <span className="text-[10px] font-normal opacity-70">{hint}</span>
+              </button>
+            )
+          })}
+        </div>
+      </SectionCard>
     </div>
   )
 }

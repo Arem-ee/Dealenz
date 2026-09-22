@@ -187,9 +187,9 @@ export default async function BillingPage({
           <span className="tabular-nums" data-numeric>{usedAnalyses}/{dailyLimit}</span>
           {freeUsedUp ? " — daily allowance used, credits cover the rest." : " — resets tomorrow."}
         </p>
-        <div className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-black/[0.07]" aria-hidden>
+        <div className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-foreground/[0.07]" aria-hidden>
           <div
-            className={cn("h-full rounded-full", freeUsedUp ? "bg-burgundy" : "bg-black/30")}
+            className={cn("h-full rounded-full", freeUsedUp ? "bg-burgundy" : "bg-foreground/30")}
             style={{ width: `${Math.min(100, Math.round((usedAnalyses / Math.max(1, dailyLimit)) * 100))}%` }}
           />
         </div>

@@ -61,12 +61,12 @@ function ComicBlobs() {
   const offsets = ["", "ml-8", "ml-4"]
 
   return (
-    <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[#FAFAF8] p-8 lg:p-10">
+      <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-background p-8 lg:p-10">
       <div className="absolute -left-24 -top-24 h-[380px] w-[380px] rounded-full bg-[#EDEBE7] opacity-60 blur-[60px]" aria-hidden />
       <div className="absolute -bottom-20 -right-20 h-[420px] w-[420px] rounded-full bg-[#EDEBE7] opacity-50 blur-[70px]" aria-hidden />
 
       <div className="relative w-full max-w-[420px]">
-        <p className="mb-6 text-[11px] font-semibold uppercase tracking-[0.14em] text-black/30">Dealenz</p>
+        <p className="mb-6 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/30">Dealenz</p>
 
         <div
           className="space-y-5"
@@ -80,7 +80,7 @@ function ComicBlobs() {
                 <BubbleShape tone={tones[i]} />
                 <p
                   className={`relative text-[15px] font-medium leading-snug tracking-[-0.01em] ${
-                    tones[i] === "dark" ? "text-white" : "text-[#1C1917]"
+                    tones[i] === "dark" ? "text-white" : "text-foreground"
                   }`}
                 >
                   &ldquo;{quote}&rdquo;
@@ -103,13 +103,13 @@ function ComicBlobs() {
                 window.setTimeout(() => setPaused(false), 8000)
               }}
               className={`h-2 w-2 rounded-full transition-colors ${
-                i === index ? "bg-[#1C1917]" : "bg-black/15 hover:bg-black/25"
+                i === index ? "bg-primary" : "bg-foreground/15 hover:bg-foreground/25"
               }`}
             />
           ))}
         </div>
 
-        <p className="mt-6 max-w-[32ch] text-[12px] leading-relaxed text-black/40">
+        <p className="mt-6 max-w-[32ch] text-[12px] leading-relaxed text-foreground/40">
           You do not need to know what to ask. Just explain what is happening.
         </p>
       </div>
@@ -190,12 +190,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#FAFAF8] flex">
-      <div className="hidden md:flex w-[46%] shrink-0 border-r border-black/5">
+    <div className="min-h-screen w-full bg-background flex">
+      <div className="hidden md:flex w-[46%] shrink-0 border-r border-border">
         <ComicBlobs />
       </div>
 
-      <div className="flex flex-1 flex-col justify-center px-6 py-10 sm:px-10 lg:px-16 bg-white">
+      <div className="flex flex-1 flex-col justify-center px-6 py-10 sm:px-10 lg:px-16 bg-card">
         <div className="mx-auto w-full max-w-sm">
           <Link href="/" className="inline-flex items-center gap-2">
             <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-[7px]">
@@ -205,7 +205,7 @@ export default function LoginPage() {
           </Link>
 
           <h1 className="mt-8 text-[22px] font-semibold tracking-[-0.02em]">Welcome back</h1>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-black/55">Sign in to continue your work.</p>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-foreground/55">Sign in to continue your work.</p>
 
           <form onSubmit={handleSubmit} className="mt-7 space-y-4" noValidate>
             <div>
@@ -220,7 +220,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="mt-1.5 h-11 rounded-xl border-black/10 bg-white px-4 text-[14px]"
+                className="mt-1.5 h-11 rounded-xl border-border bg-card px-4 text-[14px]"
               />
             </div>
             <div className="relative">
@@ -238,13 +238,13 @@ export default function LoginPage() {
                 required
                 autoComplete="current-password"
                 minLength={8}
-                className="mt-1.5 h-11 rounded-xl border-black/10 bg-white px-4 pr-11 text-[14px]"
+                className="mt-1.5 h-11 rounded-xl border-border bg-card px-4 pr-11 text-[14px]"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? "Hide password" : "Show password"}
-                className="absolute right-3 top-[38px] text-black/40 hover:text-black"
+                className="absolute right-3 top-[38px] text-foreground/40 hover:text-foreground"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -259,7 +259,7 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
-            <Button type="submit" disabled={loading} className="h-11 w-full rounded-full bg-[#1C1917] text-white text-[14px] font-medium hover:bg-black">
+            <Button type="submit" disabled={loading} className="h-11 w-full rounded-full bg-primary text-primary-foreground text-[14px] font-medium hover:bg-primary/85">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Sign in
             </Button>
@@ -278,10 +278,10 @@ export default function LoginPage() {
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-black/10" />
+              <span className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center">
-              <span className="bg-white px-3 text-[11px] font-medium tracking-wide uppercase text-black/30">or</span>
+              <span className="bg-card px-3 text-[11px] font-medium tracking-wide uppercase text-foreground/30">or</span>
             </div>
           </div>
 
@@ -289,21 +289,21 @@ export default function LoginPage() {
             type="button"
             onClick={handleGoogleSignIn}
             disabled={loading}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/10 bg-white text-[13px] font-medium hover:bg-black/[0.02] transition-colors"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card text-[13px] font-medium hover:bg-foreground/[0.02] transition-colors"
           >
             <FcGoogle className="h-[18px] w-[18px]" />
             Continue with Google
           </button>
 
-          <p className="mt-6 text-center text-[13px] text-black/55">
+          <p className="mt-6 text-center text-[13px] text-foreground/55">
             Don&apos;t have an account?{" "}
-            <Link href="/register" className="font-medium text-[#1C1917] underline decoration-black/20 underline-offset-4 hover:decoration-black/40">
+            <Link href="/register" className="font-medium text-foreground underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/40">
               Create account
             </Link>
           </p>
-          <p className="mt-2 text-center text-[12px] text-black/40">
+          <p className="mt-2 text-center text-[12px] text-foreground/40">
             Applying as a lawyer?{" "}
-            <Link href="/lawyer-application" className="font-medium underline decoration-black/20 underline-offset-4 hover:decoration-black/40">
+            <Link href="/lawyer-application" className="font-medium underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/40">
               Apply to join Dealenz
             </Link>
           </p>

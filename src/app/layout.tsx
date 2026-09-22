@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import "./globals.css"
 import { ToastProvider } from "@/components/ui/toast"
+import { ThemeProvider, THEME_BOOTSTRAP_SCRIPT } from "@/components/theme-provider"
 
 export const metadata: Metadata = {
   title: {
@@ -28,9 +29,14 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
+      </head>
       <body className="min-h-full">
-        <ToastProvider>{children}</ToastProvider>
+        <ThemeProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

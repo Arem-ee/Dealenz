@@ -153,7 +153,7 @@ export default function LawyerApplicationStatus() {
           Back to Home
         </Link>
 
-        <div className="bg-white rounded-2xl border border-black/10 shadow-sm p-6 sm:p-8 text-center">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-6 sm:p-8 text-center">
           <div className="flex justify-center mb-6">
             <div className={cn("flex h-16 w-16 items-center justify-center rounded-full", config.color)}>
               <Icon className="h-8 w-8" />
@@ -279,7 +279,7 @@ function PendingEditForm({ initial, onSaved, rejected }: { initial: PendingAppli
   }
 
   return (
-    <div className="mt-6 bg-white rounded-2xl border border-black/10 shadow-sm p-6 sm:p-8 text-left">
+    <div className="mt-6 bg-card rounded-2xl border border-border shadow-sm p-6 sm:p-8 text-left">
       <h2 className="text-lg font-semibold tracking-tight">Update your application</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         {rejected

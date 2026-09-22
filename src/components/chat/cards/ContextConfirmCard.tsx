@@ -72,7 +72,7 @@ export function ContextConfirmCard({ payload, onConfirm }: { payload: Record<str
           {safeStep + 1} of {fields.length}
         </p>
       </div>
-      <div className="mt-2 h-1 overflow-hidden rounded-full bg-black/[0.07]" aria-hidden>
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-foreground/[0.07]" aria-hidden>
         <div
           className="h-full rounded-full bg-burgundy transition-all"
           style={{ width: `${Math.round(((safeStep + 1) / fields.length) * 100)}%` }}

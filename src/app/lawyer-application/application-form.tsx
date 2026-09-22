@@ -128,9 +128,9 @@ export default function LawyerApplicationForm() {
           Back to Home
         </Link>
 
-        <div className="bg-white rounded-2xl border border-black/10 shadow-sm p-6 sm:p-8">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-6 sm:p-8">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-semibold tracking-tight text-[#141110]">Apply to Join Dealenz</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Apply to Join Dealenz</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Help freelancers and business owners understand their risks before they sign.
             </p>

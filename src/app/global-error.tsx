@@ -34,14 +34,14 @@ export default function GlobalError({
   return (
     <html>
       <body>
-        <div style={{ maxWidth: 560, margin: "10vh auto", padding: 24, fontFamily: "'Mona Sans Variable', system-ui, sans-serif" }}>
+        <div style={{ maxWidth: 560, margin: "10vh auto", padding: 24, fontFamily: "'Mona Sans Variable', system-ui, sans-serif", color: "var(--foreground)", background: "var(--background)" }}>
           <h1 style={{ fontSize: 20, fontWeight: 700 }}>{error?.message ? String(error.message).slice(0, 300) : "An unexpected error occurred"}</h1>
-          <p style={{ marginTop: 8, color: "#555" }}>
+          <p style={{ marginTop: 8, color: "var(--muted-foreground)" }}>
             Your data is safe — try again, and contact support if it keeps happening.
           </p>
           <button
             onClick={() => reset()}
-            style={{ marginTop: 16, padding: "8px 16px", borderRadius: 8, border: "1px solid #ccc", cursor: "pointer" }}
+            style={{ marginTop: 16, padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--foreground)", cursor: "pointer" }}
           >
             Try again
           </button>

@@ -64,12 +64,12 @@ const LOOP_STEPS = [
 
 const BUBBLE_STYLES = [
   "bg-burgundy text-white",
-  "bg-[#14161B] text-white",
-  "bg-black/[0.07] text-black",
+  "bg-primary text-primary-foreground",
+  "bg-foreground/[0.07] text-foreground",
 ]
 
-const BAR_COLORS = ["bg-burgundy", "bg-[#14161B]", "bg-black/20"]
-const DOT_COLORS = ["bg-burgundy", "bg-[#14161B]", "bg-black/30"]
+const BAR_COLORS = ["bg-burgundy", "bg-primary", "bg-foreground/20"]
+const DOT_COLORS = ["bg-burgundy", "bg-primary", "bg-foreground/30"]
 
 function todayLabel(): string {
   return new Date().toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })
@@ -101,11 +101,11 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
     <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-y-auto px-4 pb-4 sm:px-6">
       <div className="flex shrink-0 items-end justify-between gap-3 pb-4 pt-4 sm:pt-5">
         <div>
-          <h1 className="text-[28px] font-bold tracking-tight text-[#14161B] sm:text-[32px]">Deal Overview</h1>
-          <p className="mt-0.5 text-[13px] text-black/50">Take control of your deals today.</p>
+          <h1 className="text-[28px] font-bold tracking-tight text-foreground sm:text-[32px]">Deal Overview</h1>
+          <p className="mt-0.5 text-[13px] text-foreground/50">Take control of your deals today.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="hidden text-xs text-black/50 sm:inline">{todayLabel()}</span>
+          <span className="hidden text-xs text-foreground/50 sm:inline">{todayLabel()}</span>
           <Link
             href="/audit/new"
             className="inline-flex h-9 items-center gap-1.5 rounded-full bg-burgundy px-4 text-xs font-semibold text-white transition-opacity hover:opacity-90"
@@ -126,7 +126,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
       {hasPending && (
         <Link
           href="/chat"
-          className="mb-3 block shrink-0 rounded-2xl border border-black/10 bg-white px-4 py-3 text-xs shadow-sm transition-shadow hover:shadow-md"
+          className="mb-3 block shrink-0 rounded-2xl border border-border bg-card px-4 py-3 text-xs shadow-sm transition-shadow hover:shadow-md"
         >
           <span className="font-semibold">Your deal text is waiting.</span>{" "}
           <span className="text-muted-foreground">Continue where you left off →</span>
@@ -136,13 +136,13 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
       {threads.length > 0 && portfolio && (
         <>
           <section aria-label="Portfolio health" className="grid shrink-0 gap-3 lg:grid-cols-3">
-            <div className="rounded-3xl border border-black/[0.06] bg-white p-5 shadow-sm lg:row-span-2">
+            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm lg:row-span-2">
               <div className="flex items-start justify-between">
                 <p className="text-[13px] font-semibold">Open Issues</p>
               </div>
               <p className="mt-2 text-[44px] font-semibold leading-none tracking-tight" data-numeric>
                 {portfolio.totalOpen}
-                <span className="ml-1 align-middle text-[13px] font-normal text-black/45">across {portfolio.openDeals} deal{portfolio.openDeals === 1 ? "" : "s"}</span>
+                <span className="ml-1 align-middle text-[13px] font-normal text-foreground/45">across {portfolio.openDeals} deal{portfolio.openDeals === 1 ? "" : "s"}</span>
               </p>
               {topDeals.length > 0 && (
                 <div className="mt-4 flex items-center">
@@ -161,8 +161,8 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                   ))}
                   <div className="ml-3 min-w-0 space-y-0.5">
                     {topDeals.map((t) => (
-                      <p key={t.id} className="truncate text-[11px] text-black/50">
-                        <span className="font-semibold text-black">{t.openIssues}</span> · {t.title || "Untitled"}
+                      <p key={t.id} className="truncate text-[11px] text-foreground/50">
+                        <span className="font-semibold text-foreground">{t.openIssues}</span> · {t.title || "Untitled"}
                       </p>
                     ))}
                   </div>
@@ -176,11 +176,11 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                       <div key={c.label}>
                         <div className="flex items-baseline justify-between gap-2">
                           <p className="text-[22px] font-semibold tracking-tight" data-numeric>
-                            {pct}<span className="text-[13px] font-normal text-black/45"> %</span>
+                            {pct}<span className="text-[13px] font-normal text-foreground/45"> %</span>
                           </p>
-                          <p className="truncate text-[11px] text-black/50">{c.label} <span aria-hidden className={cn("ml-1 inline-block h-1.5 w-1.5 rounded-full align-middle", DOT_COLORS[i % DOT_COLORS.length])} /></p>
+                          <p className="truncate text-[11px] text-foreground/50">{c.label} <span aria-hidden className={cn("ml-1 inline-block h-1.5 w-1.5 rounded-full align-middle", DOT_COLORS[i % DOT_COLORS.length])} /></p>
                         </div>
-                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
+                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-foreground/[0.06]">
                           <div className={cn("h-full rounded-full", BAR_COLORS[i % BAR_COLORS.length])} style={{ width: `${Math.max(6, Math.round((c.count / maxCat) * 100))}%` }} />
                         </div>
                       </div>
@@ -190,59 +190,59 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
               )}
             </div>
 
-            <div className="rounded-3xl border border-black/[0.06] bg-white p-5 shadow-sm">
+            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
               <p className="text-[13px] font-semibold">Avg Risk</p>
               {portfolio.avgScore !== null ? (
                 <>
                   <p className="mt-2 text-[34px] font-semibold leading-none tracking-tight" data-numeric>
-                    {portfolio.avgScore}<span className="text-[13px] font-normal text-black/45"> /100</span>
+                    {portfolio.avgScore}<span className="text-[13px] font-normal text-foreground/45"> /100</span>
                   </p>
-                  <p className="mt-1 text-[11px] text-black/50">Avg across {portfolio.ratedCount} rated deal{portfolio.ratedCount === 1 ? "" : "s"}</p>
+                  <p className="mt-1 text-[11px] text-foreground/50">Avg across {portfolio.ratedCount} rated deal{portfolio.ratedCount === 1 ? "" : "s"}</p>
                 </>
               ) : (
-                <p className="mt-2 text-xs text-black/50">No rated deals yet — ratings appear after analysis.</p>
+                <p className="mt-2 text-xs text-foreground/50">No rated deals yet — ratings appear after analysis.</p>
               )}
             </div>
 
-            <div className="rounded-3xl border border-black/[0.06] bg-white p-5 shadow-sm">
+            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
               <p className="text-[13px] font-semibold">Next Deadline</p>
               {nextDeadline ? (
                 <Link href={nextDeadline.href} className="group mt-2 block">
                   <p className="truncate text-[15px] font-semibold leading-snug group-hover:underline">{nextDeadline.title}</p>
-                  <p className="mt-1 text-[11px] text-black/50">
+                  <p className="mt-1 text-[11px] text-foreground/50">
                     {new Date(nextDeadline.dueDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                   </p>
                 </Link>
               ) : (
-                <p className="mt-2 text-xs text-black/50">Nothing dated tracked. Deadlines appear after signing.</p>
+                <p className="mt-2 text-xs text-foreground/50">Nothing dated tracked. Deadlines appear after signing.</p>
               )}
             </div>
 
-            <div className="rounded-3xl border border-black/[0.06] bg-white p-5 shadow-sm">
+            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
               <p className="text-[13px] font-semibold">Resolved</p>
               <p className="mt-2 text-[34px] font-semibold leading-none tracking-tight" data-numeric>
                 {threads.reduce((s, t) => s + (typeof t.resolvedCount === "number" ? t.resolvedCount : 0), 0)}
               </p>
-              <p className="mt-1 text-[11px] text-black/50">pushbacks landed via re-check</p>
+              <p className="mt-1 text-[11px] text-foreground/50">pushbacks landed via re-check</p>
             </div>
 
-            <div className="rounded-3xl bg-[#14161B] p-5 text-white shadow-sm">
+            <div className="rounded-3xl bg-primary p-5 text-primary-foreground shadow-sm">
               <div className="flex items-center justify-between">
                 <p className="text-[13px] font-semibold">This Week</p>
-                <p className="text-[11px] text-white/45">Last 7 days</p>
+                <p className="text-[11px] text-primary-foreground/60">Last 7 days</p>
               </div>
               <p className="mt-2 text-[34px] font-semibold leading-none tracking-tight" data-numeric>
                 {weekTotal}
-                <span className="ml-1 align-middle text-[11px] font-normal text-white/45">deal events</span>
+                <span className="ml-1 align-middle text-[11px] font-normal text-primary-foreground/60">deal events</span>
               </p>
               <div className="mt-3 flex h-20 items-end gap-1.5">
                 {(week ?? []).map((b) => (
                   <div key={b.key} className="flex min-w-0 flex-1 flex-col items-center gap-1" title={`${b.label}: ${b.count}`}>
                     <span
-                      className={cn("w-full rounded-sm", b.isToday ? "bg-burgundy" : "bg-white/15")}
+                      className={cn("w-full rounded-sm", b.isToday ? "bg-burgundy" : "bg-primary-foreground/15")}
                       style={{ height: `${Math.max(5, Math.round((b.count / maxWeek) * 100))}%` }}
                     />
-                    <span className={cn("truncate text-[9px]", b.isToday ? "font-semibold text-white" : "text-white/40")}>
+                    <span className={cn("truncate text-[9px]", b.isToday ? "font-semibold text-primary-foreground" : "text-primary-foreground/50")}>
                       {b.isToday ? "Now" : b.label}
                     </span>
                   </div>
@@ -251,10 +251,10 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
             </div>
           </section>
 
-          <section aria-label="All deals" className="mt-3 shrink-0 overflow-hidden rounded-3xl border border-black/[0.06] bg-white shadow-sm">
+          <section aria-label="All deals" className="mt-3 shrink-0 overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-black/[0.06] text-[11px] uppercase tracking-[0.08em] text-black/45">
+                <tr className="border-b border-border text-[11px] uppercase tracking-[0.08em] text-foreground/45">
                   <th scope="col" className="px-5 py-3 font-semibold">Deal</th>
                   <th scope="col" className="px-2 py-3 font-semibold">State</th>
                   <th scope="col" className="px-2 py-3 text-right font-semibold">Open</th>
@@ -262,7 +262,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                   <th scope="col" className="hidden px-5 py-3 text-right font-semibold md:table-cell">Updated</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-black/[0.04]">
+              <tbody className="divide-y divide-border">
                 {threads.map((t) => {
                   const executed = !!t.auditId && (executedAuditIds ?? []).includes(t.auditId)
                   const signingActive = !!t.auditId && (signingAuditIds ?? []).includes(t.auditId) && !executed
@@ -277,7 +277,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                   })
                   const pill = riskPill(t.riskLevel)
                   return (
-                    <tr key={t.id} className="relative cursor-pointer transition-colors hover:bg-black/[0.02]">
+                    <tr key={t.id} className="relative cursor-pointer transition-colors hover:bg-foreground/[0.02]">
                       <td className="max-w-0 px-5 py-3">
                         <Link href={`/chat/${t.id}`} className="block truncate font-medium hover:underline after:absolute after:inset-0" aria-label={`Open ${t.title || "Untitled deal"}`}>
                           {t.title || "Untitled"}
@@ -293,10 +293,10 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                             {t.riskLevel}
                           </span>
                         ) : (
-                          <span className="text-xs text-black/40">—</span>
+                          <span className="text-xs text-foreground/40">—</span>
                         )}
                       </td>
-                      <td className="hidden whitespace-nowrap px-5 py-3 text-right text-xs text-black/45 md:table-cell">
+                      <td className="hidden whitespace-nowrap px-5 py-3 text-right text-xs text-foreground/45 md:table-cell">
                         {formatDate(t.updatedAt)}
                       </td>
                     </tr>
@@ -312,12 +312,12 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
         <div className="pb-4">
           <div className="grid gap-2 px-2 sm:grid-cols-2 lg:grid-cols-4">
             {LOOP_STEPS.map((s) => (
-              <div key={s.n} className="rounded-2xl border border-black/[0.06] bg-white p-4 shadow-sm">
-                <p className="flex h-6 w-6 items-center justify-center rounded-full bg-[#14161B] text-[11px] font-bold text-white">
+              <div key={s.n} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                <p className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
                   {s.n}
                 </p>
                 <p className="mt-2 text-[13px] font-semibold">{s.title}</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-black/50">{s.body}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-foreground/50">{s.body}</p>
               </div>
             ))}
           </div>

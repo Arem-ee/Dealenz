@@ -771,9 +771,9 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         </div>
       </div>
 
-      {/* Composer — sticky at bottom, shrinks on small viewports */}
-      <div className="shrink-0 border-t border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto max-w-3xl px-4 py-3">
+      {/* Composer — floats above the thread, not cemented to a bar. */}
+      <div className="shrink-0 bg-transparent px-4 pb-4 pt-1">
+        <div className="mx-auto max-w-3xl rounded-2xl shadow-[0_16px_48px_-16px_rgba(0,0,0,0.3)] dark:shadow-[0_16px_48px_-16px_rgba(0,0,0,0.8)]">
           <Composer threadId={threadId} auditId={auditId} onMessageSent={handleSent} prefill={prefill} />
         </div>
       </div>
