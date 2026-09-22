@@ -49,12 +49,22 @@ export async function uploadAndAttachFile(auditId: string, file: File): Promise<
       return { ok: false, error: "We couldn't upload that file. Please try again." }
     }
     try {
-      await attachFileMetadata(auditId, {
+      const attached = await attachFileMetadata(auditId, {
         name: safeName,
         size: file.size,
         type: mime,
         path: `audit-files/${storageKey}`,
       })
+      if (!attached.ok) {
+        await supabase.storage.from("audit-files").remove([storageKey]).catch(() => null)
+        if (/insufficient credits/i.test(attached.error)) {
+          return {
+            ok: false,
+            error: `${attached.error} Buy credits in Billing, or paste the contract text instead — analysis works the same.`,
+          }
+        }
+        return { ok: false, error: attached.error }
+      }
     } catch (e) {
       await supabase.storage.from("audit-files").remove([storageKey]).catch(() => null)
       const raw = e instanceof Error ? e.message : "We couldn't attach that file."

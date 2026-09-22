@@ -192,6 +192,10 @@ export async function updateAudit(
   }
 }
 
+export type AttachFileResult =
+  | { ok: true; files: Array<Record<string, unknown>> }
+  | { ok: false; error: string }
+
 export async function attachFileMetadata(
   auditId: string,
   fileData: {
@@ -200,32 +204,35 @@ export async function attachFileMetadata(
     type: string
     path: string
   }
-) {
+): Promise<AttachFileResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Every expected failure returns { ok: false } instead of throwing:
+  // thrown server-action errors reach the browser as an opaque framework
+  // error, hiding the real reason (e.g. which check failed) from the user.
   if (!user || !isValidUUID(user.id)) {
-    throw new Error("Unauthorized")
+    return { ok: false, error: "Unauthorized" }
   }
 
-  if (!isValidUUID(auditId)) throw new Error("Invalid audit ID")
+  if (!isValidUUID(auditId)) return { ok: false, error: "Invalid audit ID" }
   // Server-authoritative file validation: sanitize the name, then require
   // the exact owner-scoped path (no prefix-only match, no nested keys).
   const { sanitizeFilename, sniffUploadMime } = await import("@/lib/validation/files")
   const { isSupportedFileType, isValidFileSize } = await import("@/lib/text-extract")
   const safeName = sanitizeFilename(fileData.name)
   if (fileData.name !== safeName) {
-    throw new Error("Invalid file name")
+    return { ok: false, error: "Invalid file name" }
   }
   if (typeof fileData.size !== "number" || !isValidFileSize(fileData.size)) {
-    throw new Error("Invalid file size")
+    return { ok: false, error: "Invalid file size" }
   }
   if (typeof fileData.type !== "string" || !isSupportedFileType(fileData.type)) {
-    throw new Error("Unsupported file type")
+    return { ok: false, error: "Unsupported file type" }
   }
   const expectedPath = `audit-files/${user.id}/${auditId}/${safeName}`
   if (fileData.path !== expectedPath) {
-    throw new Error("Invalid file path")
+    return { ok: false, error: "Invalid file path" }
   }
 
   // Byte-level verification: the stored bytes must exist, fit the size cap,
@@ -236,14 +243,14 @@ export async function attachFileMetadata(
     .from("audit-files")
     .download(storageKey)
   if (dlError || !stored) {
-    throw new Error("Uploaded file not found. Please upload again.")
+    return { ok: false, error: "Uploaded file not found. Please upload again." }
   }
   const buffer = Buffer.from(await stored.arrayBuffer())
   if (!isValidFileSize(buffer.length)) {
-    throw new Error("Invalid file size")
+    return { ok: false, error: "Invalid file size" }
   }
   if (sniffUploadMime(buffer) !== fileData.type) {
-    throw new Error("File content does not match its declared type")
+    return { ok: false, error: "File content does not match its declared type" }
   }
 
   // Credit gate at the point of use: file upload/parsing costs UPLOAD_CREDITS.
@@ -267,10 +274,10 @@ export async function attachFileMetadata(
       idempotencyKey: `upload:${auditId}:${safeName}:${fileData.size}:${crypto.randomUUID()}`,
     })
   } catch {
-    throw new Error("Could not verify credit balance. Please try again.")
+    return { ok: false, error: "Could not verify credit balance. Please try again." }
   }
   if (!uploadReservation.allowed || !uploadReservation.reservationId) {
-    throw new Error(`Insufficient credits for this operation. File upload costs ${UPLOAD_CREDITS} credits.`)
+    return { ok: false, error: `Insufficient credits for this operation. File upload costs ${UPLOAD_CREDITS} credits.` }
   }
 
   try {
@@ -281,13 +288,13 @@ export async function attachFileMetadata(
       .eq("user_id", user.id)
       .single()
 
-    if (!audit) throw new Error("Audit not found")
+    if (!audit) return { ok: false, error: "Audit not found" }
 
     const existing = (audit.structured_data as Record<string, unknown>) ?? {}
     const files = (existing.files as Array<Record<string, unknown>>) ?? []
 
     if (files.length >= MAX_FILES_PER_AUDIT) {
-      throw new Error(`Maximum of ${MAX_FILES_PER_AUDIT} files allowed per audit`)
+      return { ok: false, error: `Maximum of ${MAX_FILES_PER_AUDIT} files allowed per audit` }
     }
 
     files.push({
@@ -304,7 +311,7 @@ export async function attachFileMetadata(
       .eq("id", auditId)
       .eq("user_id", user.id)
 
-    if (error) throw new Error(error.message)
+    if (error) return { ok: false, error: "We couldn't attach that file. Please try again." }
 
     try {
       await finalizeReservation(ledger, {
@@ -332,10 +339,10 @@ export async function attachFileMetadata(
 
     await logActivity(user.id, "file_attached", { fileName: fileData.name }, auditId)
 
-    return files
+    return { ok: true, files }
   } catch (e) {
     await voidReservation(ledger, uploadReservation.reservationId).catch(() => null)
-    throw e
+    return { ok: false, error: e instanceof Error && e.message ? e.message : "We couldn't attach that file. Please try again." }
   }
 }
 

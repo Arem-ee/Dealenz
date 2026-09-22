@@ -35,7 +35,7 @@ describe("uploadAndAttachFile", () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: USER_ID } } })
     mockUpload.mockResolvedValue({ error: null })
     mockRemove.mockResolvedValue({ error: null })
-    mockAttach.mockResolvedValue([{ name: "x" }])
+    mockAttach.mockResolvedValue({ ok: true, files: [{ name: "x" }] })
   })
 
   it("uploads bytes to the caller-scoped path and attaches the sanitized name", async () => {
@@ -60,7 +60,7 @@ describe("uploadAndAttachFile", () => {
   })
 
   it("removes the orphan and explains next actions when credits are insufficient", async () => {
-    mockAttach.mockRejectedValue(new Error("Insufficient credits for this operation. File upload costs 15 credits."))
+    mockAttach.mockResolvedValue({ ok: false, error: "Insufficient credits for this operation. File upload costs 15 credits." })
     const res = await uploadAndAttachFile(AUDIT_ID, pdfFile())
     expect(res.ok).toBe(false)
     if (!res.ok) {
