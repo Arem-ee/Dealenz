@@ -67,7 +67,9 @@
   --font-serif: "Mona Sans Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-:root {
+:root,
+.light {
+  color-scheme: light;
   --radius: 0.625rem;
 
   /* Dealenz visual system (UX architecture pass).

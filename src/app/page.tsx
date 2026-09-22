@@ -116,7 +116,7 @@ function OrbitChip({ className, label, children }: { className?: string; label: 
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-card text-foreground selection:bg-primary selection:text-primary-foreground">
+    <div className="light min-h-screen bg-card text-foreground selection:bg-primary selection:text-primary-foreground">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
 
       {/* Nav */}
