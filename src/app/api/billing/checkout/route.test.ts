@@ -46,7 +46,7 @@ describe("POST /api/billing/checkout", () => {
     expect(mockCreateSession).toHaveBeenCalledTimes(1)
     const sessionCalls = mockCreateSession.mock.calls as unknown as Array<[Record<string, unknown>]>
     const input = sessionCalls[0]![0] as { amountMinor: number; currency: string; package: { id: string; credits: number } }
-    expect(input.amountMinor).toBe(3900)
+    expect(input.amountMinor).toBe(1999)
     expect(input.currency).toBe("GBP")
     expect(input.package.id).toBe("standard")
     expect(input.package.credits).toBe(150)

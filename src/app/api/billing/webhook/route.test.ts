@@ -71,7 +71,7 @@ function paddleBody(overrides: { event_type?: string; data?: Record<string, unkn
       currency_code: "USD",
       custom_data: { user_id: USER_ID, package_id: "standard" },
       items: [{ price: { id: "pri_standard_222" }, quantity: 1 }],
-      details: { totals: { total: "4900", currency_code: "USD" } },
+      details: { totals: { total: "2499", currency_code: "USD" } },
       ...(overrides.data ?? {}),
     },
   })

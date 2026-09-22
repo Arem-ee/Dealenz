@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Loader2, CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { CREDIT_PACKAGES, formatPrice, type Currency } from "@/lib/billing/catalog"
+import { CREDIT_PACKAGES, formatPrice, packageValueLines, type Currency } from "@/lib/billing/catalog"
 
 export function PurchaseSection() {
   const [currency, setCurrency] = useState<Currency>("USD")
@@ -50,6 +50,11 @@ export function PurchaseSection() {
               {formatPrice(pkg.prices[currency], currency)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">{pkg.description}</p>
+            <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+              {packageValueLines(pkg.credits).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
             <Button onClick={() => handleBuy(pkg.id)} disabled={loading !== null} className="mt-4 w-full" size="sm">
               {loading === pkg.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
               Buy credits

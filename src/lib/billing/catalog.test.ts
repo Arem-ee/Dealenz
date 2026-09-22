@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { CREDIT_PACKAGES, getPackage, validatePurchaseInput, formatPrice, priceForPackage } from "./catalog"
+import { CREDIT_PACKAGES, getPackage, validatePurchaseInput, formatPrice, priceForPackage, packageValueLines } from "./catalog"
 
 describe("credit package catalog — international", () => {
   it("has 3 active packages with stable ids and credits", () => {
@@ -17,9 +17,9 @@ describe("credit package catalog — international", () => {
   it("valid package resolves correctly", () => {
     const pkg = getPackage("standard")
     expect(pkg?.credits).toBe(150)
-    expect(priceForPackage(pkg!, "USD")).toBe(4900)
-    expect(formatPrice(4900, "USD")).toMatch(/\$49/)
-    expect(formatPrice(3900, "GBP")).toMatch(/£39/)
+    expect(priceForPackage(pkg!, "USD")).toBe(2499)
+    expect(formatPrice(2499, "USD")).toMatch(/\$24\.99/)
+    expect(formatPrice(1999, "GBP")).toMatch(/£19\.99/)
   })
 
   it("invalid package rejected", () => {
@@ -44,7 +44,22 @@ describe("credit package catalog — international", () => {
     expect("error" in validated).toBe(false)
     if (!("error" in validated)) {
       expect(validated.package.credits).toBe(400)
-      expect(priceForPackage(validated.package, "EUR")).toBe(9900)
+      expect(priceForPackage(validated.package, "EUR")).toBe(5699)
     }
+  })
+
+  it("keeps volume discount: unit price falls as packs grow", () => {
+    const unit = (id: string) => priceForPackage(getPackage(id)!, "USD") / getPackage(id)!.credits
+    expect(unit("starter")).toBeGreaterThan(unit("standard"))
+    expect(unit("standard")).toBeGreaterThan(unit("pro"))
+  })
+
+  it("describes what each pack buys from live credit prices", () => {
+    expect(packageValueLines(50)).toEqual([
+      "≈ 1 full deal loop",
+      "≈ 2 proposals",
+      "≈ 5 quick answers",
+    ])
+    expect(packageValueLines(400)[0]).toBe("≈ 8 full deal loops")
   })
 })

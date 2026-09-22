@@ -1,5 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
+import { CREDIT_PACKAGES, formatPrice, packageValueLines } from "@/lib/billing/catalog"
 import {
   ArrowRight,
   Bell,
@@ -536,22 +537,24 @@ export default function Home() {
                   Get started free
                 </Link>
               </div>
-              {[
-                { name: "50 credits", price: "$19", note: "A deal or two" },
-                { name: "150 credits", price: "$49", note: "A busy month" },
-                { name: "400 credits", price: "$99", note: "Steady deal flow" },
-              ].map((p) => (
-                <div key={p.name} className="rounded-[20px] border border-black/[0.07] bg-white p-6 shadow-sm">
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-black/40">{p.name}</p>
-                  <p className="mt-2 text-4xl font-semibold tracking-tight">{p.price}</p>
-                  <p className="mt-1 text-[13px] text-black/55">{p.note}</p>
+              {CREDIT_PACKAGES.filter((p) => p.active).map((p) => (
+                <div key={p.id} className="rounded-[20px] border border-black/[0.07] bg-white p-6 shadow-sm">
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-black/40">{p.credits} credits</p>
+                  <p className="mt-2 text-4xl font-semibold tracking-tight">{formatPrice(p.prices.USD, "USD")}</p>
+                  <p className="mt-1 text-[13px] text-black/55">{p.id === "starter" ? "A deal or two" : p.id === "standard" ? "A busy month" : "Steady deal flow"}</p>
+                  <ul className="mt-3 space-y-1 text-[12px] text-black/55">
+                    {packageValueLines(p.credits).map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
                   <p className="mt-4 text-[13px] text-black/60">One-time top-up. No subscription.</p>
                   <Link href="/register" className="mt-5 flex w-full items-center justify-center rounded-full bg-[var(--burgundy)] px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90">
-                    Buy {p.name}
+                    Buy {p.credits} credits
                   </Link>
                 </div>
               ))}
             </div>
+            <p className="mt-4 text-center text-[12px] text-black/45">Prices in USD, plus tax at checkout. An account is required before purchase.</p>
             <div className="mx-auto mt-8 max-w-3xl rounded-[20px] border border-black/[0.06] bg-white p-6">
               <p className="text-[13px] font-semibold">Fixed prices per outcome</p>
               <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-[13px] text-black/60 sm:grid-cols-3">

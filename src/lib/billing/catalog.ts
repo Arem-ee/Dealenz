@@ -4,6 +4,12 @@
 // Credits are the monetization primitive; amount/credits are server-authoritative.
 // Prices are in minor units (cents/pence) per currency to avoid float.
 // This file is the single source for package identity; do not scatter prices in JSX.
+//
+// IMPORTANT: the Paddle prices behind PADDLE_PRICE_* must equal these
+// amounts. The webhook rejects any payment below catalog (400) and flags
+// drift — repricing here without updating Paddle breaks checkout.
+
+import { CREDIT_PRICE_BRIEF, DOCUMENT_CREDIT_COSTS, SIGNATURE_SEND_CREDITS } from "@/lib/credits/pricing"
 
 export type Currency = "USD" | "GBP" | "EUR"
 
@@ -23,21 +29,21 @@ export const CREDIT_PACKAGES: CreditPackage[] = [
   {
     id: "starter",
     credits: 50,
-    prices: { USD: 1900, GBP: 1500, EUR: 1800 },
+    prices: { USD: 999, GBP: 799, EUR: 949 },
     active: true,
     description: "50 credits, one-time top-up",
   },
   {
     id: "standard",
     credits: 150,
-    prices: { USD: 4900, GBP: 3900, EUR: 4900 },
+    prices: { USD: 2499, GBP: 1999, EUR: 2399 },
     active: true,
     description: "150 credits, one-time top-up",
   },
   {
     id: "pro",
     credits: 400,
-    prices: { USD: 9900, GBP: 7900, EUR: 9900 },
+    prices: { USD: 5999, GBP: 4799, EUR: 5699 },
     active: true,
     description: "400 credits, one-time top-up",
   },
@@ -65,8 +71,7 @@ export function formatPrice(amountMinor: number, currency: Currency): string {
 }
 
 // Server-side validation: never trust client amount/credits
-export function validatePurchaseInput(input: { packageId: unknown; currency: unknown }): { package: CreditPackage; currency: Currency } | { error: string } {
-  if (typeof input.packageId !== "string" || typeof input.currency !== "string") {
+export function validatePurchaseInput(input: { packageId: unknown; currency: unknown }): { package: CreditPackage; currency: Currency } | { error: string } {  if (typeof input.packageId !== "string" || typeof input.currency !== "string") {
     return { error: "Invalid package or currency" }
   }
   const pkg = getPackage(input.packageId)
@@ -76,4 +81,17 @@ export function validatePurchaseInput(input: { packageId: unknown; currency: unk
     return { error: "Unsupported currency" }
   }
   return { package: pkg, currency: input.currency as Currency }
+}
+
+// What a pack buys, derived from the live credit prices so listings can
+// never drift from the price list. "About" throughout: real mixes vary.
+const FULL_DEAL_COST = DOCUMENT_CREDIT_COSTS.proposal + SIGNATURE_SEND_CREDITS
+
+export function packageValueLines(credits: number): string[] {
+  const plural = (n: number, one: string, many: string) => `≈ ${n} ${n === 1 ? one : many}`
+  return [
+    plural(Math.floor(credits / FULL_DEAL_COST), "full deal loop", "full deal loops"),
+    plural(Math.floor(credits / DOCUMENT_CREDIT_COSTS.proposal), "proposal", "proposals"),
+    plural(Math.floor(credits / CREDIT_PRICE_BRIEF), "quick answer", "quick answers"),
+  ]
 }

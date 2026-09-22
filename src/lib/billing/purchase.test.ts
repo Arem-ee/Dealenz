@@ -159,7 +159,7 @@ describe("purchase idempotency + ledger (Paddle international)", () => {
 
   it("wrong amount is rejected (never trust client)", async () => {
     const pkg = getPackage("standard")!
-    const wrongAmount = 100 // instead of 4900
+    const wrongAmount = 100 // instead of 2499
     expect(wrongAmount).not.toBe(priceForPackage(pkg, "USD"))
     // Server would compare verified.amountMinor !== expected and reject
     const expected = priceForPackage(pkg, "USD")
@@ -242,7 +242,7 @@ describe("purchase idempotency + ledger (Paddle international)", () => {
     const pkg = getPackage("pro")!
     const clientAmount = 1 // client tries to cheat with $0.01
     const serverAmount = priceForPackage(pkg, "EUR")
-    expect(serverAmount).toBe(9900)
+    expect(serverAmount).toBe(5699)
     expect(clientAmount).not.toBe(serverAmount)
     expect(pkg.credits).toBe(400) // credits also server-derived, not client-provided
   })
