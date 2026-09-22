@@ -75,7 +75,11 @@ export function ChromeShell({
   }, [])
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    // Definite viewport height (not min-height): every flex-1 descendant
+    // resolves against exactly 100dvh, so scrollable regions (message
+    // lists, panels) scroll internally instead of growing the document.
+    // Taller pages overflow visibly and the document scrolls as normal.
+    <div className="flex h-dvh flex-col bg-background">
       {topbarVisible ? (
         <TopNavbar
           email={email}

@@ -35,6 +35,9 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
   const fileRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [pendingFile, setPendingFileLocal] = useState<File | null>(null)
+  // Compact chrome when empty: single-line box, slim paddings, hints
+  // hidden. Typing (or an attachment) restores full height and hints.
+  const isEmpty = value.trim().length === 0 && !pendingFile
   // Auto-grow the box with the text (capped), so the empty composer stays
   // one line tall and long pastes still fit without a page scroll.
   useEffect(() => {
@@ -375,7 +378,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
           if (f) handleFileDrop(f)
         }}
       >
-        <div className="p-3 sm:p-4">
+        <div className={isEmpty ? "px-3 pt-2" : "p-3 sm:p-4"}>
           {pendingFile && (
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border bg-muted px-3 py-1 text-xs">
               <span className="truncate max-w-[200px]">{pendingFile.name}</span>
@@ -399,10 +402,10 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             placeholder="Paste their contract or describe the deal…"
             rows={1}
             aria-label="Message Dealenz"
-            className="max-h-[160px] min-h-[40px] w-full resize-none overflow-y-auto bg-transparent text-sm leading-relaxed placeholder:text-muted-foreground/60 outline-none"
+            className="max-h-[160px] min-h-[28px] w-full resize-none overflow-y-auto bg-transparent text-sm leading-relaxed placeholder:text-muted-foreground/60 outline-none"
           />
         </div>
-        <div className="flex items-center gap-2 px-3 py-2.5 border-t border-border/60 bg-muted/20">
+        <div className={`flex items-center gap-2 border-t border-border/60 bg-muted/20 ${isEmpty ? "px-3 py-1.5" : "px-3 py-2.5"}`}>
           <input
             ref={fileRef}
             type="file"
@@ -423,7 +426,9 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             <FileUp className="h-3.5 w-3.5" />
             Add a document
           </button>
-          <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground/60">Enter to send · Shift+Enter for new line</span>
+          {!isEmpty && (
+            <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground/60">Enter to send · Shift+Enter for new line</span>
+          )}
           {estimate !== null && (
             <span className="hidden sm:inline text-xs text-muted-foreground/60">
               {estimate === 0 ? (
