@@ -35,6 +35,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
   const fileRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [pendingFile, setPendingFileLocal] = useState<File | null>(null)
+  const [attachOpen, setAttachOpen] = useState(false)
   // Compact chrome when empty: single-line box, slim paddings, hints
   // hidden. Typing (or an attachment) restores full height and hints.
   const isEmpty = value.trim().length === 0 && !pendingFile
@@ -370,7 +371,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
         </div>
       )}
       <div
-        className="rounded-2xl border border-border/60 bg-card shadow-raised overflow-hidden"
+        className="rounded-2xl border border-border/60 bg-card shadow-raised"
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault()
@@ -405,7 +406,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             className="max-h-[160px] min-h-[28px] w-full resize-none overflow-y-auto bg-transparent text-sm leading-relaxed placeholder:text-muted-foreground/60 outline-none"
           />
         </div>
-        <div className={`flex items-center gap-2 border-t border-border/60 bg-muted/20 ${isEmpty ? "px-3 py-1.5" : "px-3 py-2.5"}`}>
+        <div className={`flex items-center gap-2 border-t border-border/60 bg-muted/20 rounded-b-2xl ${isEmpty ? "px-3 py-1.5" : "px-3 py-2.5"}`}>
           <input
             ref={fileRef}
             type="file"
@@ -416,16 +417,55 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
               if (f) handleFileDrop(f)
             }}
           />
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            aria-label="Add a document"
-            title={`PDF, DOCX, or TXT — uploading a document costs ${UPLOAD_CREDITS} credits`}
-            className="inline-flex items-center gap-1.5 rounded-full border border-input bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-          >
-            <FileUp className="h-3.5 w-3.5" />
-            Add a document
-          </button>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setAttachOpen((v) => !v)}
+              aria-label="Attach a document"
+              title="Attach a document"
+              aria-haspopup="menu"
+              aria-expanded={attachOpen}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <FileUp className="h-4 w-4" />
+            </button>
+            {attachOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Close attach menu"
+                  className="fixed inset-0 z-40 cursor-default bg-transparent"
+                  onClick={() => setAttachOpen(false)}
+                />
+                <div
+                  role="menu"
+                  aria-label="Attach options"
+                  className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setAttachOpen(false)
+                  }}
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setAttachOpen(false)
+                      fileRef.current?.click()
+                    }}
+                    className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-muted/60"
+                  >
+                    <FileUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-medium">Upload a file</span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        PDF, DOCX, or TXT · {UPLOAD_CREDITS} credits
+                      </span>
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
           {!isEmpty && (
             <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground/60">Enter to send · Shift+Enter for new line</span>
           )}
