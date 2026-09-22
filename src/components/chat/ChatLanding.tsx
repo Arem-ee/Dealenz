@@ -277,9 +277,9 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                   })
                   const pill = riskPill(t.riskLevel)
                   return (
-                    <tr key={t.id} className="transition-colors hover:bg-black/[0.02]">
+                    <tr key={t.id} className="relative cursor-pointer transition-colors hover:bg-black/[0.02]">
                       <td className="max-w-0 px-5 py-3">
-                        <Link href={`/chat/${t.id}`} className="block truncate font-medium hover:underline">
+                        <Link href={`/chat/${t.id}`} className="block truncate font-medium hover:underline after:absolute after:inset-0" aria-label={`Open ${t.title || "Untitled deal"}`}>
                           {t.title || "Untitled"}
                         </Link>
                       </td>

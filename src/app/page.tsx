@@ -547,7 +547,7 @@ export default function Home() {
                   <p className="mt-1 text-[13px] text-black/55">{p.note}</p>
                   <p className="mt-4 text-[13px] text-black/60">One-time top-up. No subscription.</p>
                   <Link href="/register" className="mt-5 flex w-full items-center justify-center rounded-full bg-[var(--burgundy)] px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90">
-                    Get started free
+                    Buy {p.name}
                   </Link>
                 </div>
               ))}
@@ -564,7 +564,7 @@ export default function Home() {
                 <p>Checklist <span className="font-semibold text-black">20</span></p>
                 <p>Document upload <span className="font-semibold text-black">15</span></p>
                 <p>Signature send <span className="font-semibold text-black">25</span></p>
-                <p>Lawyer request <span className="font-semibold text-black">15</span></p>
+                <p>Lawyer request <span className="font-semibold text-black">15</span> <span className="text-black/45">· coming soon</span></p>
               </div>
               <p className="mt-3 text-[12px] text-black/45">A typical freelance loop — analysis on the free allowance, proposal, signature send — runs about 50 credits.</p>
             </div>
