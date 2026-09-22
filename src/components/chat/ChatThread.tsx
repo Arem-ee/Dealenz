@@ -80,6 +80,11 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   const [workSteps, setWorkSteps] = useState<PlanStepRow[]>([])
   const [workExecution, setWorkExecution] = useState<WorkExecutionRow | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
+  // Overview collapse: explicit user choice wins; otherwise the card stays
+  // open on a fresh deal and collapses to one line once messages exist, so
+  // the reply viewport gets the room.
+  const [overviewCollapsed, setOverviewCollapsed] = useState<boolean | null>(null)
+  const overviewIsCollapsed = overviewCollapsed ?? messages.length > 0
 
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
@@ -576,6 +581,8 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         const signingActive = signers.length > 0 && !executed
         return (
           <DealOverview
+            collapsed={overviewIsCollapsed}
+            onToggleCollapsed={() => setOverviewCollapsed(!overviewIsCollapsed)}
             input={{
               title: dealTitle,
               budget: dealFacts.budget,
