@@ -767,7 +767,8 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
           />
         </div>
       )}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      {/* Message list — flexes to fill remaining space */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
         <div className="mx-auto max-w-3xl">
           <MessageList
             messages={messages}
@@ -778,8 +779,10 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
           />
         </div>
       </div>
-      <div className="border-t border-border/60 bg-background p-4">
-        <div className="mx-auto max-w-3xl">
+
+      {/* Composer — sticky at bottom, shrinks on small viewports */}
+      <div className="shrink-0 border-t border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto max-w-3xl px-4 py-3">
           <Composer threadId={threadId} auditId={auditId} onMessageSent={handleSent} prefill={prefill} />
         </div>
       </div>
