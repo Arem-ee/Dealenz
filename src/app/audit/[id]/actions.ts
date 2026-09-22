@@ -271,9 +271,26 @@ export async function attachFileMetadata(
     uploadReservation = await reserveCredits(ledger, {
       operation: "document_analysis",
       amount: UPLOAD_CREDITS,
-      idempotencyKey: `upload:${auditId}:${safeName}:${fileData.size}:${crypto.randomUUID()}`,
+      // Never embed the user-controlled filename: reserve_credits rejects
+      // keys over 120 chars, and real filenames ("Isolex_openTILL_…")
+      // blow past that. Uniqueness comes from the UUID alone.
+      idempotencyKey: `upload:${auditId}:${fileData.size}:${crypto.randomUUID()}`,
     })
   } catch {
+    // The reservation RPC itself failed (as opposed to denying for low
+    // balance). Read the balance directly so a broke user hears
+    // "insufficient credits" instead of "try again"; only a second failure
+    // means the backend is genuinely unreachable.
+    try {
+      const { data: balData } = await supabase.rpc("credit_balance")
+      const row = (Array.isArray(balData) ? balData[0] : balData) as { balance?: unknown } | null
+      const balance = typeof row?.balance === "number" ? Math.floor(row.balance) : null
+      if (balance !== null && balance < UPLOAD_CREDITS) {
+        return { ok: false, error: `Insufficient credits for this operation. File upload costs ${UPLOAD_CREDITS} credits.` }
+      }
+    } catch {
+      // Balance unreadable too — fall through to the generic message.
+    }
     return { ok: false, error: "Could not verify credit balance. Please try again." }
   }
   if (!uploadReservation.allowed || !uploadReservation.reservationId) {

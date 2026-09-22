@@ -110,4 +110,37 @@ describe("attachFileMetadata credit gate (15 credits)", () => {
     expect(result.error).toMatch(/does not match/)
     expect(mockRpc).not.toHaveBeenCalled()
   })
+
+  it("survives real-world long filenames: the idempotency key stays within limits", async () => {
+    const longName = `Isolex_openTILL_Founding_Core_Team_Agreement_Final_Draft_v3_REVIEWED_${"x".repeat(40)}.pdf`
+    const seen: Array<{ fn: string; args: unknown }> = []
+    mockRpc.mockImplementation((fn: string, args: unknown) => {
+      seen.push({ fn, args })
+      if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: true, balance: 100, reservation_id: "res-1" }], error: null })
+      if (fn === "finalize_reservation") return Promise.resolve({ data: [{ balance: 85 }], error: null })
+      return Promise.resolve({ data: null, error: null })
+    })
+    const result = await attachFileMetadata(AUDIT_ID, {
+      ...fileData(),
+      name: longName,
+      path: `audit-files/${USER_ID}/${AUDIT_ID}/${longName}`,
+    })
+    expect(result.ok).toBe(true)
+    const reserve = seen.find((s) => s.fn === "reserve_credits")
+    const key = (reserve?.args as { p_idempotency_key?: unknown }).p_idempotency_key
+    expect(typeof key).toBe("string")
+    expect((key as string).length).toBeLessThanOrEqual(120)
+  })
+
+  it("reports insufficient credits (not a backend error) when the reservation RPC itself fails on a broke account", async () => {
+    mockRpc.mockImplementation((fn: string) => {
+      if (fn === "reserve_credits") return Promise.resolve({ data: null, error: { message: "boom" } })
+      if (fn === "credit_balance") return Promise.resolve({ data: [{ balance: 0 }], error: null })
+      return Promise.resolve({ data: null, error: null })
+    })
+    const result = await attachFileMetadata(AUDIT_ID, fileData())
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error("unreachable")
+    expect(result.error).toMatch(/Insufficient credits/)
+  })
 })
