@@ -8,6 +8,7 @@ import { RiskReportCard } from "./cards/RiskReportCard"
 import { ContextConfirmCard } from "./cards/ContextConfirmCard"
 import { DocumentDraftCard } from "./cards/DocumentDraftCard"
 import { LawyerRecommendationCard } from "./cards/LawyerRecommendationCard"
+import { Markdown } from "./Markdown"
 
 export function MessageList({
   messages,
@@ -96,7 +97,7 @@ export function MessageList({
                 m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
               )}
             >
-              <p className="whitespace-pre-wrap">{m.content}</p>
+              <Markdown text={m.content} />
               <p className="mt-1 text-[10px] opacity-60"><ClientTime iso={m.createdAt} kind="time" /></p>
             </div>
           </div>

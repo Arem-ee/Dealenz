@@ -4,6 +4,7 @@ import { EvidenceLine } from "@/components/evidence/evidence-line"
 import { Section } from "./Section"
 import { CounterpartyMemorySection } from "./counterparty-memory"
 import { OpenItemsList } from "./OpenItemsList"
+import { MarkdownInline } from "@/components/chat/Markdown"
 import type { WorkspaceData } from "./types"
 
 // Negotiation preparation: only what needs pushing back on, the prepared
@@ -61,7 +62,7 @@ export function NegotiationWorkspace({ data, auditId, onAskFinding }: {
         ) : (
           <ul className="list-disc space-y-1.5 pl-5  text-sm leading-relaxed">
             {data.negotiationPoints.map((p, i) => (
-              <li key={i}>{p}</li>
+              <li key={i}><MarkdownInline text={p} /></li>
             ))}
           </ul>
         )}

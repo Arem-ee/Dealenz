@@ -24,6 +24,7 @@ import type { Evidence } from "@/lib/evidence/schema"
 import { EvidenceLine } from "@/components/evidence/evidence-line"
 import { LegalCitationLine } from "@/components/evidence/legal-citation-line"
 import { DocumentViewerModal } from "@/components/evidence/document-viewer"
+import { Markdown } from "@/components/chat/Markdown"
 
 interface ChatMessage {
   id: string
@@ -339,7 +340,7 @@ export function AskClient({
                   m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted/70 text-foreground"
                 )}
               >
-                <p className="whitespace-pre-wrap">{m.text}</p>
+                <Markdown text={m.text} />
                 {m.findings && m.findings.length > 0 && (
                   <div className="mt-2 space-y-1.5 border-t border-border/60 pt-2">
                     {m.findings.map((f) => (

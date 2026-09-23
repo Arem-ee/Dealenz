@@ -13,6 +13,7 @@ import { UPLOAD_CREDITS } from "@/lib/credits/pricing"
 import { setPendingFile } from "@/lib/pending-file"
 import { askQuestionAction } from "@/app/ask/actions"
 import { AiConsentModal } from "@/components/ai-consent-modal"
+import { Markdown } from "./Markdown"
 import { findSensitiveSpans, applyRedactions } from "@/lib/privacy/redact"
 
 interface ComposerProps {
@@ -387,7 +388,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
                     : "max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm leading-relaxed"
                 }
               >
-                <p className="whitespace-pre-wrap">{m.content}</p>
+                <Markdown text={m.content} />
               </div>
             </div>
           ))}

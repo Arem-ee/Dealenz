@@ -39,6 +39,12 @@ describe("AI constitution", () => {
     expect(CONSTITUTION_TEXT).toMatch(/most important question first/i)
   })
 
+  it("caps a response at one question and one missing item", () => {
+    expect(CONSTITUTION_TEXT).toMatch(/at most one question per response/i)
+    expect(CONSTITUTION_TEXT).toMatch(/single most important missing item/i)
+    expect(CONSTITUTION_TEXT).toMatch(/never enumerate everything missing/i)
+  })
+
   it("encodes user-first non-sycophancy", () => {
     expect(CONSTITUTION_TEXT).toMatch(/disadvantage/i)
     expect(CONSTITUTION_TEXT).toMatch(/insufficient is always acceptable|insufficient/i)
@@ -75,6 +81,21 @@ describe("validateOutputContract", () => {
     expect(withDash.hasEmDash).toBe(true)
     expect(withDash.passed).toBe(false)
     expect(validateOutputContract("   ").passed).toBe(false)
+  })
+
+  it("counts questions without changing the pass contract", () => {
+    expect(validateOutputContract("Plain text, no issues.").questionCount).toBe(0)
+    expect(validateOutputContract("Is this right?").questionCount).toBe(1)
+    expect(validateOutputContract("Is this right?").asksTooManyQuestions).toBe(false)
+    // The screenshot offense: known/missing enumeration plus a question list.
+    const barrage = validateOutputContract(
+      "What is known: X. What is missing: Y. Who is the counterparty? What do they owe? When does it vest?"
+    )
+    expect(barrage.questionCount).toBe(3)
+    expect(barrage.asksTooManyQuestions).toBe(true)
+    // Detection only: the pass contract stays em dash plus empty so every
+    // existing prompt template keeps passing.
+    expect(barrage.passed).toBe(true)
   })
 
   it("holds across every exported prompt template", () => {

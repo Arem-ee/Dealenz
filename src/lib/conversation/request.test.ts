@@ -193,6 +193,78 @@ describe("answerQuestion", () => {
     expect(first.findingsUsed[0].severity).toBe("material")
   })
 
+  it("repairs a multi-question answer with exactly one retry", async () => {
+    const seen: string[] = []
+    const { ports } = fakePorts({
+      aiCaller: async (req) => {
+        seen.push(req.userContent)
+        if (seen.length === 1) {
+          return {
+            text: "Known: the CTO role. Missing: counterparty, pay, vesting. Who is the counterparty? What do they owe? When does it vest?",
+            usage: { inputTokens: 50, outputTokens: 40 },
+            provider: "anthropic",
+            model: "claude-sonnet-5",
+          }
+        }
+        return {
+          text: "Known: the CTO role. Who is the counterparty, exactly?",
+          usage: { inputTokens: 60, outputTokens: 12 },
+          provider: "anthropic",
+          model: "claude-sonnet-5",
+        }
+      },
+    })
+    const response = await answerQuestion({ text: "Is this offer legit?", auditId: "a1", userId: "u1", ports })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    expect(seen).toHaveLength(2)
+    expect(seen[1]).toMatch(/previous response asked 3 questions/i)
+    expect(response.text).toBe("Known: the CTO role. Who is the counterparty, exactly?")
+    expect(response.contractViolations).toContain("multi-question-repaired")
+  })
+
+  it("accepts the repair when it still asks too much, and records it", async () => {
+    let calls = 0
+    const { ports } = fakePorts({
+      aiCaller: async () => {
+        calls++
+        return {
+          text: "First? Second?",
+          usage: { inputTokens: 50, outputTokens: 10 },
+          provider: "anthropic",
+          model: "claude-sonnet-5",
+        }
+      },
+    })
+    const response = await answerQuestion({ text: "Is this offer legit?", auditId: "a1", userId: "u1", ports })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    // Exactly one repair attempt, then accept: never loop the meter.
+    expect(calls).toBe(2)
+    expect(response.text).toBe("First? Second?")
+    expect(response.contractViolations).toContain("multi-question-accepted")
+  })
+
+  it("makes no second call for a single-question answer", async () => {
+    let calls = 0
+    const { ports } = fakePorts({
+      aiCaller: async () => {
+        calls++
+        return {
+          text: "Short answer. Who is the counterparty?",
+          usage: { inputTokens: 50, outputTokens: 10 },
+          provider: "anthropic",
+          model: "claude-sonnet-5",
+        }
+      },
+    })
+    const response = await answerQuestion({ text: "Is this offer legit?", userId: "u1", ports })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    expect(calls).toBe(1)
+    expect(response.contractViolations).toEqual([])
+  })
+
   it("denies priced operations without sufficient credits before any AI call", async () => {
     const { ports, aiCalls } = fakePorts()
     ports.policy = PRICED

@@ -24,7 +24,7 @@ export const CONSTITUTION_FACTS_VS_ASSUMPTIONS = [
 
 export const CONSTITUTION_UNCERTAINTY = [
   "Preserve uncertainty from the underlying analysis. Unknown must never become false, and indeterminate must never become safe.",
-  "When an answer depends on missing or unconfirmed information, say which information is missing and why it matters.",
+  "When an answer depends on missing or unconfirmed information, name the single most important missing item and why it matters. Do not list every gap: the structured confirm card collects the rest.",
   "Low confidence is a reason to ask or to qualify, never a reason to guess quietly.",
 ].join(" ")
 
@@ -57,6 +57,12 @@ export const CONSTITUTION_ONE_QUESTION = [
   "Never bundle multiple questions into one response, and never restate the same question in different words to fill space.",
 ].join(" ")
 
+export const CONSTITUTION_RESPONSE_SHAPE = [
+  "Ask at most one question per response. A response with more than one question is a contract violation, even when several answers are missing.",
+  "When information is missing, name at most the single most important missing item in one sentence and explain why it matters. Never enumerate everything missing.",
+  "Default to a few sentences. Longer explanations are only for complex problems or explicit user requests for detail.",
+].join(" ")
+
 export const CONSTITUTION_PRINCIPLES = [
   CONSTITUTION_WORKS_FOR_USER,
   CONSTITUTION_FACTS_VS_ASSUMPTIONS,
@@ -66,6 +72,7 @@ export const CONSTITUTION_PRINCIPLES = [
   CONSTITUTION_NO_COMMERCIAL_BIAS,
   CONSTITUTION_CONCISENESS,
   CONSTITUTION_ONE_QUESTION,
+  CONSTITUTION_RESPONSE_SHAPE,
 ] as const
 
 export const CONSTITUTION_TEXT = CONSTITUTION_PRINCIPLES.join("\n\n")
@@ -88,6 +95,11 @@ export function applyConstitution(systemPrompt: string, operation: AIOperation):
 export interface OutputContractCheck {
   hasEmDash: boolean
   isEmpty: boolean
+  // Detection only, deliberately outside `passed`: question marks also appear
+  // in quoted text and URLs, so a count above one triggers a repair retry in
+  // the conversation path rather than failing the response outright.
+  questionCount: number
+  asksTooManyQuestions: boolean
   passed: boolean
 }
 
@@ -97,5 +109,7 @@ export interface OutputContractCheck {
 export function validateOutputContract(text: string): OutputContractCheck {
   const hasEmDash = text.includes("—")
   const isEmpty = text.trim().length === 0
-  return { hasEmDash, isEmpty, passed: !hasEmDash && !isEmpty }
+  const questionCount = (text.match(/\?/g) ?? []).length
+  const asksTooManyQuestions = questionCount > 1
+  return { hasEmDash, isEmpty, questionCount, asksTooManyQuestions, passed: !hasEmDash && !isEmpty }
 }

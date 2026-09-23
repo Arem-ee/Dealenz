@@ -420,7 +420,7 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
     history.length > 0
       ? `Recent conversation:\n${history.map((h) => `${h.role}: ${h.text}`).join("\n")}`
       : "No prior conversation in this thread.",
-    "Answer the user's question directly and concisely.",
+    "Answer the user's question directly and concisely. Ask at most one question. If information is missing, name only the single most important missing item.",
   ]
     .filter(Boolean)
     .join("\n\n")
@@ -437,19 +437,40 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
     const check = validateOutputContract(answer.text)
     if (check.hasEmDash) violations.push("em-dash")
     if (check.isEmpty) violations.push("empty")
+    // Multi-question answers are the top client complaint: bombardment. The
+    // prompt contract forbids them, but prompts are advisory, so a violation
+    // gets exactly one repair attempt with an explicit instruction, then the
+    // result ships with the violation recorded. Never loop the meter.
+    let deliveredText = answer.text
+    let deliveredUsage = answer.usage
+    if (check.asksTooManyQuestions) {
+      const repaired = await request.ports.aiCaller({
+        systemPrompt,
+        userContent: `${taskPrompt}\n\nRepair instruction: your previous response asked ${check.questionCount} questions, which violates the response contract. Send a replacement that asks only the single most important question, in at most two short sentences, with no other questions.`,
+        maxTokens,
+      })
+      const repairCheck = validateOutputContract(repaired.text)
+      if (!repairCheck.asksTooManyQuestions && !repairCheck.isEmpty) {
+        deliveredText = repaired.text
+        deliveredUsage = repaired.usage
+        violations.push("multi-question-repaired")
+      } else {
+        violations.push("multi-question-accepted")
+      }
+    }
     const completion = await completeOperation({
       ledger: request.ports.ledger,
       authorization,
       operation,
       provider: answer.provider,
       model: answer.model,
-      usage: answer.usage,
+      usage: deliveredUsage,
       status: "success",
       policy: request.ports.policy,
     })
     return {
       type: "answer",
-      text: answer.text,
+      text: deliveredText,
       operation,
       intent,
       findingsUsed,

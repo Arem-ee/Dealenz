@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/toast"
 import { vaultChatAction, type VaultMatch } from "@/app/vault/actions"
 import { InboxPanel } from "./inbox-panel"
 import { cn } from "@/lib/utils"
+import { Markdown } from "@/components/chat/Markdown"
 
 interface LibraryTurn {
   id: string
@@ -175,12 +176,12 @@ export function LibraryView({ userId }: { userId: string }) {
             <div key={t.id} className="space-y-3">
               <div className="flex justify-end">
                 <div className="max-w-[85%] rounded-2xl bg-primary px-4 py-3 text-sm leading-relaxed text-primary-foreground">
-                  <p className="whitespace-pre-wrap">{t.question}</p>
+                  <Markdown text={t.question} />
                 </div>
               </div>
               <div className="flex justify-start">
                 <div className="w-full max-w-[95%] rounded-2xl bg-muted px-4 py-3 text-sm leading-relaxed">
-                  <p className="whitespace-pre-wrap">{t.answer}</p>
+                  <Markdown text={t.answer} />
                 </div>
               </div>
               {/* Inline result cards: the mobile base. Hidden on desktop where the panel shows them. */}
