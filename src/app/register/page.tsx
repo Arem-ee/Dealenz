@@ -11,39 +11,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { logAuthFailure } from "@/app/login/actions"
 import { getPendingDeal } from "@/lib/pending-deal"
+import { FounderNote } from "@/components/auth/founder-note"
 import Link from "next/link"
-
-function ComicBlobs() {
-  return (
-    <div className="relative flex h-full w-full items-center justify-center bg-background p-8 lg:p-10 overflow-hidden">
-      <div className="absolute -top-24 -left-24 h-[380px] w-[380px] rounded-full bg-[#EDEBE7] blur-[60px] opacity-60" aria-hidden />
-      <div className="absolute -bottom-20 -right-20 h-[420px] w-[420px] rounded-full bg-[#EDEBE7] blur-[70px] opacity-50" aria-hidden />
-      <div className="relative w-full max-w-[420px]">
-        <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-foreground/30 mb-6">Dealenz</p>
-        <div className="space-y-4">
-          <div className="relative rounded-[20px] border border-border bg-card px-5 py-4 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.12)] rotate-[-0.6deg]">
-            <p className="text-[15px] font-medium leading-snug tracking-[-0.01em]">&ldquo;You don&apos;t need to know what to ask.&rdquo;</p>
-            <div className="absolute -bottom-2 left-8 h-4 w-4 rotate-45 border-b border-r border-border bg-card" aria-hidden />
-          </div>
-          <div className="relative ml-8 rounded-[20px] border border-border bg-primary px-5 py-4 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.18)] rotate-[0.7deg]">
-            <p className="text-[15px] font-medium leading-snug tracking-[-0.01em] text-primary-foreground">
-              &ldquo;Tell us what&apos;s happening. We&apos;ll ask what matters.&rdquo;
-            </p>
-            <div className="absolute -bottom-2 right-10 h-4 w-4 rotate-45 bg-primary" aria-hidden />
-          </div>
-          <div className="relative rounded-[20px] border border-border bg-card px-5 py-4 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.12)] rotate-[-0.4deg]">
-            <p className="text-[15px] font-medium leading-snug tracking-[-0.01em]">&ldquo;Know what you&apos;re dealing with — before you sign.&rdquo;</p>
-            <div className="absolute -bottom-2 left-10 h-4 w-4 rotate-45 border-b border-r border-border bg-card" aria-hidden />
-          </div>
-          <div className="relative ml-6 rounded-[20px] border border-[var(--burgundy)]/15 bg-[var(--burgundy)]/[0.06] px-5 py-4 rotate-[0.5deg]">
-            <p className="text-[15px] font-medium leading-snug tracking-[-0.01em] text-foreground">&ldquo;Your work stays yours.&rdquo;</p>
-          </div>
-        </div>
-        <p className="mt-8 text-[12px] leading-relaxed text-foreground/40 max-w-[32ch]">From first question to signed agreement — the work stays connected.</p>
-      </div>
-    </div>
-  )
-}
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -116,7 +85,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen w-full bg-background flex">
       <div className="hidden md:flex w-[46%] shrink-0 border-r border-border">
-        <ComicBlobs />
+        <FounderNote />
       </div>
 
       <div className="flex flex-1 flex-col justify-center px-6 py-10 sm:px-10 lg:px-16 bg-card">

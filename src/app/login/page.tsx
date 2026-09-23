@@ -11,111 +11,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { logAuthFailure } from "@/app/login/actions"
 import { resolveNextPath } from "@/lib/auth/link"
+import { FounderNote } from "@/components/auth/founder-note"
 import Link from "next/link"
 
 export const RESET_RESEND_COOLDOWN_MS = 60_000
-
-const QUOTES = [
-  "Nothing is as good or as bad as it seems.",
-  "The fine print isn't hiding. You just weren't looking.",
-  "Most bad deals aren't a trap. They're just unread.",
-  "A handshake is a feeling. A contract is a fact.",
-  "You can't negotiate what you haven't noticed.",
-  "The best time to ask a question is before you sign.",
-  "Trust the deal. Verify the paperwork.",
-  "Every clause was written by someone with a goal. What's theirs?",
-]
-
-function BubbleShape({ tone }: { tone: "light" | "dark" | "tint" }) {
-  const fill = tone === "dark" ? "#1C1917" : tone === "tint" ? "#F5EDED" : "#FFFFFF"
-  const stroke = tone === "tint" ? "rgba(90,20,30,0.18)" : "rgba(0,0,0,0.08)"
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 360 132"
-      preserveAspectRatio="none"
-      className="absolute inset-0 h-full w-full"
-    >
-      <rect x="2" y="2" width="356" height="110" rx="24" fill={fill} stroke={stroke} strokeWidth="2" />
-      <path d="M52 112 L40 130 L74 112 Z" fill={fill} stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
-      <rect x="2" y="2" width="356" height="110" rx="24" fill="none" stroke="#FFFFFF" strokeWidth="0" />
-    </svg>
-  )
-}
-
-function ComicBlobs() {
-  const [index, setIndex] = useState(0)
-  const [paused, setPaused] = useState(false)
-
-  useEffect(() => {
-    if (paused) return
-    const id = window.setInterval(() => {
-      setIndex((prev) => (prev + 1) % QUOTES.length)
-    }, 4200)
-    return () => window.clearInterval(id)
-  }, [paused])
-
-  const visible = [0, 1, 2].map((offset) => QUOTES[(index + offset) % QUOTES.length])
-  const tones: Array<"light" | "dark" | "tint"> = ["light", "dark", "tint"]
-  const tilts = ["rotate-[-0.6deg]", "rotate-[0.7deg]", "rotate-[-0.4deg]"]
-  const offsets = ["", "ml-8", "ml-4"]
-
-  return (
-      <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-background p-8 lg:p-10">
-      <div className="absolute -left-24 -top-24 h-[380px] w-[380px] rounded-full bg-[#EDEBE7] opacity-60 blur-[60px]" aria-hidden />
-      <div className="absolute -bottom-20 -right-20 h-[420px] w-[420px] rounded-full bg-[#EDEBE7] opacity-50 blur-[70px]" aria-hidden />
-
-      <div className="relative w-full max-w-[420px]">
-        <p className="mb-6 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/30">Dealenz</p>
-
-        <div
-          className="space-y-5"
-          aria-live="polite"
-          onMouseEnter={() => setPaused(true)}
-          onMouseLeave={() => setPaused(false)}
-        >
-          {visible.map((quote, i) => (
-            <div key={`${index}-${i}`} className={`relative ${offsets[i]} ${tilts[i]}`}>
-              <div className="relative px-6 pb-8 pt-5">
-                <BubbleShape tone={tones[i]} />
-                <p
-                  className={`relative text-[15px] font-medium leading-snug tracking-[-0.01em] ${
-                    tones[i] === "dark" ? "text-white" : "text-foreground"
-                  }`}
-                >
-                  &ldquo;{quote}&rdquo;
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 flex items-center gap-2" role="tablist" aria-label="Quote selector">
-          {QUOTES.map((quote, i) => (
-            <button
-              key={quote}
-              role="tab"
-              aria-selected={i === index}
-              aria-label={`Show quote ${i + 1}`}
-              onClick={() => {
-                setIndex(i)
-                setPaused(true)
-                window.setTimeout(() => setPaused(false), 8000)
-              }}
-              className={`h-2 w-2 rounded-full transition-colors ${
-                i === index ? "bg-primary" : "bg-foreground/15 hover:bg-foreground/25"
-              }`}
-            />
-          ))}
-        </div>
-
-        <p className="mt-6 max-w-[32ch] text-[12px] leading-relaxed text-foreground/40">
-          You do not need to know what to ask. Just explain what is happening.
-        </p>
-      </div>
-    </div>
-  )
-}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -192,7 +91,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen w-full bg-background flex">
       <div className="hidden md:flex w-[46%] shrink-0 border-r border-border">
-        <ComicBlobs />
+        <FounderNote />
       </div>
 
       <div className="flex flex-1 flex-col justify-center px-6 py-10 sm:px-10 lg:px-16 bg-card">
