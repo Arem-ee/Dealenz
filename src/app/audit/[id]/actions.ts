@@ -411,6 +411,89 @@ export async function removeFileMetadata(
   return filtered
 }
 
+/**
+ * Per-deal erasure: removes one deal and everything attached to it, for the
+ * owner only. Storage objects go first (retryable: a later attempt finds
+ * nothing and proceeds); then the rows the audit-row CASCADE does not
+ * cover — conversations (messages cascade from them) and work plans
+ * (steps/executions cascade from them) — then the audit row itself, whose
+ * ON DELETE CASCADE removes findings, versions, signers, shares,
+ * monitoring, checklist, activity, consultations, and review artifacts.
+ * Ledger rows are financial records and are never deleted here; ops-only
+ * system logs null out. Returns (never throws) so the client always shows
+ * the real outcome.
+ */
+export async function deleteDeal(auditId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user || !isValidUUID(user.id)) {
+    return { ok: false, error: "Unauthorized" }
+  }
+  if (!isValidUUID(auditId)) {
+    return { ok: false, error: "Invalid deal" }
+  }
+
+  const { data: audit } = await supabase
+    .from("audits")
+    .select("id")
+    .eq("id", auditId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+  if (!audit) {
+    return { ok: false, error: "Deal not found" }
+  }
+
+  // Files first: storage lives outside the FK graph, and a failed attempt
+  // leaves the audit in place for a clean retry.
+  try {
+    const { data: objects } = await supabase.storage
+      .from("audit-files")
+      .list(`${user.id}/${auditId}`, { limit: 100 })
+    const paths = ((objects ?? []) as Array<{ name?: unknown }>)
+      .map((o) => (typeof o.name === "string" ? `${user.id}/${auditId}/${o.name}` : null))
+      .filter((p): p is string => p !== null)
+    if (paths.length > 0) {
+      const { error: removeError } = await supabase.storage.from("audit-files").remove(paths)
+      if (removeError) {
+        return { ok: false, error: "We couldn't remove this deal's files. Please try again." }
+      }
+    }
+  } catch {
+    return { ok: false, error: "We couldn't remove this deal's files. Please try again." }
+  }
+
+  // Threads attached to the deal (their messages cascade). Work plans
+  // reference the deal with SET NULL, so they are removed explicitly
+  // (their steps, executions, and products cascade from them).
+  const { error: convError } = await supabase
+    .from("conversations")
+    .delete()
+    .eq("attached_audit_id", auditId)
+    .eq("user_id", user.id)
+  if (convError) {
+    return { ok: false, error: "We couldn't delete this deal. Please try again." }
+  }
+  const { error: planError } = await supabase
+    .from("work_plans")
+    .delete()
+    .eq("deal_id", auditId)
+    .eq("user_id", user.id)
+  if (planError) {
+    return { ok: false, error: "We couldn't delete this deal. Please try again." }
+  }
+
+  const { error: auditError } = await supabase
+    .from("audits")
+    .delete()
+    .eq("id", auditId)
+    .eq("user_id", user.id)
+  if (auditError) {
+    return { ok: false, error: "We couldn't delete this deal. Please try again." }
+  }
+  return { ok: true }
+}
+
 export async function analyzeDeal(
   auditId: string
 ): Promise<{ success: boolean; data?: ExtractedData; riskReport?: RiskReport | GenericRiskReport; error?: string; contextGate?: string; missingRequiredContext?: string[]; knowledgeCandidates?: KnowledgeCandidate[]; deterministicFindings?: RuleResult[]; findingDelta?: FindingDelta | null; riskDegraded?: boolean; rulesDegraded?: boolean }> {

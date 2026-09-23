@@ -2,11 +2,14 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, Plus } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { AlertTriangle, Plus, Trash2 } from "lucide-react"
 import { getPendingDeal } from "@/lib/pending-deal"
 import { dealMomentState, DEAL_MOMENT_LABEL } from "@/lib/deals/moment"
 import type { DayBucket } from "@/lib/activity/week"
 import { cn } from "@/lib/utils"
+import { deleteDeal } from "@/app/audit/[id]/actions"
+import { useToast } from "@/components/ui/toast"
 
 interface ThreadItem {
   id: string
@@ -53,6 +56,85 @@ function riskPill(level: string | null | undefined): string | null {
   if (l === "medium" || l === "material") return "border-amber-500/30 bg-amber-500/5 text-amber-700"
   if (l === "low") return "border-border bg-muted/50 text-muted-foreground"
   return null
+}
+
+// Per-deal erasure, two taps: arm, then confirm. Sits above the row's
+// stretched link (relative + z-10) with propagation stopped so deleting
+// never navigates. Refreshes server state on success; surfaces the real
+// failure message otherwise.
+function DeleteDealCell({ auditId, title }: { auditId: string; title: string }) {
+  const router = useRouter()
+  const { showError } = useToast()
+  const [armed, setArmed] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  async function confirm() {
+    setBusy(true)
+    setFailed(false)
+    try {
+      const res = await deleteDeal(auditId)
+      if (!res.ok) {
+        // Stay armed so the button becomes Retry; the toast carries why.
+        setFailed(true)
+        showError(res.error)
+        return
+      }
+      router.refresh()
+    } catch {
+      setFailed(true)
+      showError("We couldn't delete this deal. Please try again.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <td className="relative z-10 whitespace-nowrap px-2 py-3 text-right">
+      {!armed ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            setFailed(false)
+            setArmed(true)
+          }}
+          aria-label={`Delete ${title || "untitled deal"}`}
+          title="Delete this deal"
+          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      ) : (
+        <span className="inline-flex items-center gap-1">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={(e) => {
+              e.stopPropagation()
+              void confirm()
+            }}
+            aria-label={`Confirm deletion of ${title || "untitled deal"}`}
+            className="rounded-lg bg-destructive px-2 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {busy ? "…" : failed ? "Retry" : "Delete?"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={(e) => {
+              e.stopPropagation()
+              setArmed(false)
+            }}
+            aria-label="Cancel deletion"
+            className="rounded-lg px-1.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            Keep
+          </button>
+        </span>
+      )}
+    </td>
+  )
 }
 
 const LOOP_STEPS = [
@@ -260,6 +342,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                   <th scope="col" className="px-2 py-3 text-right font-semibold">Open</th>
                   <th scope="col" className="hidden px-2 py-3 font-semibold sm:table-cell">Risk</th>
                   <th scope="col" className="hidden px-5 py-3 text-right font-semibold md:table-cell">Updated</th>
+                  <th scope="col" className="w-10 px-2 py-3"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -299,6 +382,11 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                       <td className="hidden whitespace-nowrap px-5 py-3 text-right text-xs text-foreground/45 md:table-cell">
                         {formatDate(t.updatedAt)}
                       </td>
+                      {t.auditId ? (
+                        <DeleteDealCell auditId={t.auditId} title={t.title} />
+                      ) : (
+                        <td className="px-2 py-3" />
+                      )}
                     </tr>
                   )
                 })}

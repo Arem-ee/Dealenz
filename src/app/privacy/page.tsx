@@ -77,9 +77,11 @@ export default function PrivacyPage() {
           <p>
             We keep your account data for as long as your account exists. Delete your account at
             any time from Settings → Delete account and everything in it is erased from our live
-            systems immediately. Encrypted provider backups age out on the provider&apos;s own
-            schedule after that. We keep malfunction and billing records only as long as needed
-            for security, troubleshooting, and legal obligations.
+            systems immediately. Download a copy of everything first from Settings → Privacy, and
+            delete individual deals any time from your dashboard deals table — you never have to
+            erase everything to remove one sensitive deal. Encrypted provider backups age out on
+            the provider&apos;s own schedule after that. We keep malfunction and billing records
+            only as long as needed for security, troubleshooting, and legal obligations.
           </p>
 
           <H>Your rights</H>

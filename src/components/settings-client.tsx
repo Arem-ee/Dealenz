@@ -9,14 +9,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-import { Loader2, Check, AlertCircle, Sun, Moon, Monitor } from "lucide-react"
+import { Loader2, Check, AlertCircle, Sun, Moon, Monitor, Download } from "lucide-react"
 import { useTheme, type ThemeChoice } from "@/components/theme-provider"
+import { exportMyData } from "@/app/settings/actions"
 
-type Section = "account" | "appearance" | "billing" | "security"
+type Section = "account" | "appearance" | "privacy" | "billing" | "security"
 
 const sections: { key: Section; label: string }[] = [
   { key: "account", label: "Account" },
   { key: "appearance", label: "Appearance" },
+  { key: "privacy", label: "Privacy" },
   { key: "billing", label: "Billing" },
   { key: "security", label: "Security" },
 ]
@@ -123,6 +125,7 @@ export default function SettingsClient({ initialProfile, email, googleConnected,
           )}
           {activeSection === "account" && <DeleteAccountSection />}
           {activeSection === "appearance" && <AppearanceSection />}
+          {activeSection === "privacy" && <PrivacySection />}
           {activeSection === "billing" && <BillingSection />}
           {activeSection === "security" && <SecuritySection email={email} googleConnected={googleConnected} gmailConnected={gmailConnected} />}
         </div>
@@ -148,6 +151,62 @@ const THEME_OPTIONS: { key: ThemeChoice; label: string; hint: string; Icon: type
   { key: "dark", label: "Dark", hint: "Always dark", Icon: Moon },
   { key: "system", label: "System", hint: "Follows your device", Icon: Monitor },
 ]
+
+function PrivacySection() {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function download() {
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await exportMyData()
+      if (!res.ok) {
+        setError(res.error)
+        return
+      }
+      const blob = new Blob([JSON.stringify(res.export, null, 2)], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `dealenz-export-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError("We couldn't assemble your export. Please try again.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <SectionCard
+        title="Your data"
+        description="Deals, threads, documents, monitoring, billing history, and profile — one JSON file"
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          <Button size="sm" variant="outline" onClick={() => void download()} disabled={busy}>
+            {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
+            {busy ? "Assembling…" : "Download my data"}
+          </Button>
+        </div>
+        {error && (
+          <p role="alert" className="flex items-center gap-1.5 text-xs text-destructive">
+            <AlertCircle className="h-3.5 w-3.5" />
+            {error}
+          </p>
+        )}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          To remove a single deal instead of everything, delete it from your deals table on the
+          dashboard. To erase your entire account, use Delete account under the Account tab.
+        </p>
+      </SectionCard>
+    </div>
+  )
+}
 
 function AppearanceSection() {
   const { choice, setChoice } = useTheme()
