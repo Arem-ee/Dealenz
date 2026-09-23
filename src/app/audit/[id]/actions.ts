@@ -1792,6 +1792,75 @@ export async function getShareStatus(
   return { success: true, tokens: mapped }
 }
 
+export interface SharedLinkRow {
+  id: string
+  auditId: string
+  dealTitle: string
+  kind: string
+  token: string
+  createdAt: string
+  expiresAt: string
+  revokedAt: string | null
+}
+
+/**
+ * Cross-deal share inventory for the privacy center: every link the caller
+ * ever published (document views, finding reports), newest first, with the
+ * deal it opens. Owner-scoped twice — by the share_tokens policy and by an
+ * explicit audit-ownership filter, so a policy regression can only hide
+ * rows, never leak another user's links.
+ */
+export async function listShareTokens(): Promise<{ ok: true; links: SharedLinkRow[] } | { ok: false; error: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user || !isValidUUID(user.id)) {
+    return { ok: false, error: "Unauthorized" }
+  }
+
+  const { data: audits } = await supabase
+    .from("audits")
+    .select("id, title")
+    .eq("user_id", user.id)
+  const owned = new Map(
+    ((audits ?? []) as Array<{ id: unknown; title: unknown }>).map((a) => [
+      String(a.id),
+      typeof a.title === "string" && a.title ? a.title : "Untitled deal",
+    ])
+  )
+  if (owned.size === 0) {
+    return { ok: true, links: [] }
+  }
+
+  const { data: tokens, error } = await supabase
+    .from("share_tokens")
+    .select("id, audit_id, document_type, token, created_at, expires_at, revoked_at")
+    .in("audit_id", [...owned.keys()])
+    .order("created_at", { ascending: false })
+    .limit(200)
+  if (error) {
+    return { ok: false, error: "We couldn't load your shared links. Please try again." }
+  }
+
+  const links: SharedLinkRow[] = []
+  for (const t of (tokens ?? []) as Array<Record<string, unknown>>) {
+    const auditId = String(t.audit_id ?? "")
+    const title = owned.get(auditId)
+    if (!title) continue
+    links.push({
+      id: String(t.id ?? ""),
+      auditId,
+      dealTitle: title,
+      kind: typeof t.document_type === "string" ? t.document_type : "document",
+      token: typeof t.token === "string" ? t.token : "",
+      createdAt: typeof t.created_at === "string" ? t.created_at : "",
+      expiresAt: typeof t.expires_at === "string" ? t.expires_at : "",
+      revokedAt: typeof t.revoked_at === "string" ? t.revoked_at : null,
+    })
+  }
+  return { ok: true, links }
+}
+
 export async function getClientProfiles() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

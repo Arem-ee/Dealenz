@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import { Loader2, Check, AlertCircle, Sun, Moon, Monitor, Download } from "lucide-react"
 import { useTheme, type ThemeChoice } from "@/components/theme-provider"
 import { exportMyData } from "@/app/settings/actions"
+import { SharedLinksCard } from "@/components/settings/shared-links"
 
 type Section = "account" | "appearance" | "privacy" | "billing" | "security"
 
@@ -203,6 +204,12 @@ function PrivacySection() {
           To remove a single deal instead of everything, delete it from your deals table on the
           dashboard. To erase your entire account, use Delete account under the Account tab.
         </p>
+      </SectionCard>
+      <SectionCard
+        title="Shared links"
+        description="Everything you published a link for — revoke any of them here"
+      >
+        <SharedLinksCard />
       </SectionCard>
     </div>
   )

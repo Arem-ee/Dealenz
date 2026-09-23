@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowUp, FileUp, Loader2 } from "lucide-react"
+import { ArrowUp, FileUp, Loader2, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/toast"
 import { useAiConsent } from "@/hooks/use-ai-consent"
@@ -13,6 +13,7 @@ import { UPLOAD_CREDITS } from "@/lib/credits/pricing"
 import { setPendingFile } from "@/lib/pending-file"
 import { askQuestionAction } from "@/app/ask/actions"
 import { AiConsentModal } from "@/components/ai-consent-modal"
+import { findSensitiveSpans, applyRedactions } from "@/lib/privacy/redact"
 
 interface ComposerProps {
   threadId?: string | null
@@ -35,6 +36,23 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
   const fileRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [pendingFile, setPendingFileLocal] = useState<File | null>(null)
+  // Mask-sensitive-details panel: detection runs locally on the current
+  // draft; the user reviews every item before anything is replaced.
+  const [redactOpen, setRedactOpen] = useState(false)
+  const [customTerms, setCustomTerms] = useState<string[]>([])
+  const [customInput, setCustomInput] = useState("")
+  const [excluded, setExcluded] = useState<Set<string>>(new Set())
+  const detected = useMemo(() => findSensitiveSpans(value, customTerms), [value, customTerms])
+  const selectedCount = detected.filter((s) => !excluded.has(`${s.start}:${s.end}`)).length
+
+  function applySelectedRedactions() {
+    const selected = detected.filter((s) => !excluded.has(`${s.start}:${s.end}`))
+    const { text } = applyRedactions(value, selected)
+    setValue(text)
+    setRedactOpen(false)
+    setExcluded(new Set())
+  }
+
   // Compact chrome when empty: single-line box, slim paddings, hints
   // hidden. Typing (or an attachment) restores full height and hints.
   const isEmpty = value.trim().length === 0 && !pendingFile
@@ -393,6 +411,91 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             </div>
           )}
           <label htmlFor="composer-input" className="sr-only">Message Dealenz</label>
+          {redactOpen && (
+            <div className="mb-2 rounded-xl border border-border/60 bg-muted/30 p-3" role="dialog" aria-label="Mask sensitive details">
+              <p className="text-xs font-semibold">Mask sensitive details</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                Found locally in this draft — nothing leaves your browser until you apply.
+                Masked deals analyze less precisely. Names and amounts are never auto-detected.
+              </p>
+              {detected.length === 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">Nothing maskable found. Add a term below to mask it everywhere it appears.</p>
+              ) : (
+                <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto">
+                  {detected.map((s) => {
+                    const key = `${s.start}:${s.end}`
+                    const on = !excluded.has(key)
+                    return (
+                      <li key={key}>
+                        <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs hover:bg-muted/60">
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            onChange={() => setExcluded((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(key)) next.delete(key)
+                              else next.add(key)
+                              return next
+                            })}
+                            className="h-3.5 w-3.5 accent-current"
+                          />
+                          <span className="font-medium uppercase tracking-wide text-muted-foreground">{s.kind}</span>
+                          <span className="min-w-0 flex-1 truncate">{s.value}</span>
+                        </label>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              <div className="mt-2 flex gap-1.5">
+                <input
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && customInput.trim().length >= 2) {
+                      e.preventDefault()
+                      setCustomTerms((t) => [...t, customInput.trim()])
+                      setCustomInput("")
+                    }
+                  }}
+                  placeholder="Add a name or term to mask…"
+                  aria-label="Add a custom term to mask"
+                  className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-xs"
+                />
+                <button
+                  type="button"
+                  disabled={customInput.trim().length < 2}
+                  onClick={() => {
+                    setCustomTerms((t) => [...t, customInput.trim()])
+                    setCustomInput("")
+                  }}
+                  className="h-8 shrink-0 rounded-md border px-2.5 text-xs font-medium transition-colors hover:bg-muted/60 disabled:opacity-40"
+                >
+                  Add
+                </button>
+              </div>
+              <div className="mt-2.5 flex gap-2">
+                <button
+                  type="button"
+                  disabled={selectedCount === 0}
+                  onClick={applySelectedRedactions}
+                  className="h-8 rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+                >
+                  Mask {selectedCount > 0 ? `${selectedCount} item${selectedCount === 1 ? "" : "s"}` : ""}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRedactOpen(false)
+                    setExcluded(new Set())
+                  }}
+                  className="h-8 rounded-full px-3 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
           <textarea
             id="composer-input"
             ref={textareaRef}
@@ -416,6 +519,19 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
               if (f) handleFileDrop(f)
             }}
           />
+          <button
+            type="button"
+            onClick={() => {
+              setExcluded(new Set())
+              setRedactOpen((v) => !v)
+            }}
+            aria-label="Mask sensitive details"
+            title="Mask emails, phone numbers, and your own terms before sending"
+            aria-expanded={redactOpen}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ShieldCheck className="h-4 w-4" />
+          </button>
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
