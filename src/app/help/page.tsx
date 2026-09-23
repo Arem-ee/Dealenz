@@ -1,9 +1,14 @@
 import Link from "next/link"
+import { createClient } from "@/lib/supabase/server"
+import { AppShell } from "@/components/app-shell"
+import { Logo } from "@/components/logo"
 
 export const metadata = {
   title: "Get help — Dealenz",
   description: "How to use Dealenz and where to get support.",
 }
+
+export const dynamic = "force-dynamic"
 
 const FAQS = [
   {
@@ -32,7 +37,42 @@ const FAQS = [
   },
 ]
 
-export default function HelpPage() {
+export default async function HelpPage() {
+  // Dual audience: prospects arrive from the landing footer, customers from
+  // the account menu. Authenticated users get full shell navigation;
+  // everyone else gets a slim public header. Same content either way.
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    return (
+      <AppShell>
+        <HelpContent />
+      </AppShell>
+    )
+  }
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border/60">
+        <nav aria-label="Primary" className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
+          <Link href="/" aria-label="Dealenz home">
+            <Logo />
+          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/login" className="rounded-full px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground">
+              Sign in
+            </Link>
+            <Link href="/register" className="rounded-full bg-primary px-4 py-1.5 text-[13px] font-semibold text-primary-foreground transition-opacity hover:opacity-90">
+              Get started free
+            </Link>
+          </div>
+        </nav>
+      </header>
+      <HelpContent />
+    </div>
+  )
+}
+
+function HelpContent() {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8">
       <h1 className="text-xl font-semibold tracking-tight">Get help</h1>
