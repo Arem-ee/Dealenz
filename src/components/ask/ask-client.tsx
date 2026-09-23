@@ -7,6 +7,7 @@ import { AiWorking } from "@/components/ui/ai-working"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { sanitizeUserError } from "@/lib/errors/sanitize"
 import { AiConsentModal } from "@/components/ai-consent-modal"
 import { PushbackWords } from "@/components/findings/pushback-words"
 import { useAiConsent } from "@/hooks/use-ai-consent"
@@ -94,6 +95,10 @@ export function AskClient({
     getAskConversation(selectedId)
       .then((result) => {
         if (cancelled) return
+        if (!result.ok) {
+          setError(result.error)
+          return
+        }
         setAuditId(result.conversation.attachedAuditId ?? "")
         setMessages(
           result.messages.map((m) => ({
@@ -105,7 +110,9 @@ export function AskClient({
         )
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load conversation")
+        // Belt and suspenders: the action returns failures as data, but any
+        // unexpected throw still gets sanitized, never shown raw.
+        if (!cancelled) setError(sanitizeUserError(err instanceof Error ? err.message : "Failed to load conversation"))
       })
     return () => {
       cancelled = true
@@ -200,7 +207,7 @@ export function AskClient({
         if (typeof response.balance === "number") setBalance(response.balance)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.")
+      setError(sanitizeUserError(err instanceof Error ? err.message : "Something went wrong. Please try again."))
     } finally {
       const elapsed = Date.now() - startedAt
       if (elapsed < 900) await new Promise((r) => setTimeout(r, 900 - elapsed))

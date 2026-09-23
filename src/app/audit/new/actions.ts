@@ -6,12 +6,19 @@ import { normalizeDealType } from "@/lib/deal-type"
 
 export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership"
 
-export async function createAudit(dealTypeInput?: string) {
+export type CreateAuditResult =
+  | { ok: true; auditId: string; threadId: string }
+  | { ok: false; error: string }
+
+export async function createAudit(dealTypeInput?: string): Promise<CreateAuditResult> {
   const supabase = await createClient()
   const { data: { user }, error: userError } = await supabase.auth.getUser()
 
+  // Expected failures return as data: anything thrown across the action
+  // boundary reaches the browser as an opaque framework error, hiding the
+  // real reason (see lib/action-result.ts).
   if (userError || !user) {
-    throw new Error("Unauthorized – please sign in")
+    return { ok: false, error: "Unauthorized — please sign in" }
   }
 
   const dealType = normalizeDealType(dealTypeInput)
@@ -50,7 +57,7 @@ export async function createAudit(dealTypeInput?: string) {
   }
 
   if (error || !data) {
-    throw new Error(`Failed to create audit: ${error?.message ?? "unknown error"}`)
+    return { ok: false, error: "We couldn't create your deal. Please try again." }
   }
 
   // Chat-first: a new deal opens as a thread, not the old workspace view.
@@ -62,7 +69,7 @@ export async function createAudit(dealTypeInput?: string) {
     attachedAuditId: data.id,
   }).catch(() => null)
   if (!conv) {
-    throw new Error("Deal created, but we couldn't open its chat. Please try again from Home.")
+    return { ok: false, error: "Deal created, but we couldn't open its chat. Please try again from Home." }
   }
-  return { auditId: data.id, threadId: conv.id }
+  return { ok: true, auditId: data.id, threadId: conv.id }
 }

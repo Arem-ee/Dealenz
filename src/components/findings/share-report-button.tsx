@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { Check, Copy, Link2, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { sanitizeUserError } from "@/lib/errors/sanitize"
 import { createShareToken, getShareStatus, revokeShareToken } from "@/app/audit/[id]/actions"
 
 // Publish this deal's risk findings behind a revocable tokenized link.
@@ -55,7 +56,7 @@ export function ShareReportButton({ auditId }: { auditId: string }) {
       setLink(res.shareUrl)
       await loadExisting().catch(() => null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create the link. Please try again.")
+      setError(sanitizeUserError(e instanceof Error ? e.message : "Could not create the link. Please try again."))
     } finally {
       setBusy(false)
     }
@@ -82,7 +83,7 @@ export function ShareReportButton({ auditId }: { auditId: string }) {
       setLink(null)
       setTokenId(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not revoke the link. Please try again.")
+      setError(sanitizeUserError(e instanceof Error ? e.message : "Could not revoke the link. Please try again."))
     } finally {
       setBusy(false)
     }

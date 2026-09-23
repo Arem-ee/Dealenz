@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import { sanitizeUserError } from "@/lib/errors/sanitize"
 import { Loader2, Check, AlertCircle, Sun, Moon, Monitor, Download } from "lucide-react"
 import { useTheme, type ThemeChoice } from "@/components/theme-provider"
 import { exportMyData } from "@/app/settings/actions"
@@ -569,7 +570,7 @@ function DeleteAccountSection() {
       await supabase.auth.signOut()
       window.location.href = "/"
     } catch (e) {
-      setError(e instanceof Error ? e.message : "We couldn't delete your account. Please try again.")
+      setError(sanitizeUserError(e instanceof Error ? e.message : "We couldn't delete your account. Please try again."))
       setBusy(false)
     }
   }

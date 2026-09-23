@@ -372,15 +372,21 @@ export async function listAskConversations(): Promise<ConversationSummary[]> {
   }))
 }
 
-export async function getAskConversation(conversationId: string): Promise<{ conversation: ConversationSummary; messages: ConversationMessageView[] }> {
+export async function getAskConversation(conversationId: string): Promise<
+  | { ok: true; conversation: ConversationSummary; messages: ConversationMessageView[] }
+  | { ok: false; error: string }
+> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("You must be signed in.")
-  if (!user.email_confirmed_at) throw new Error("VERIFY_REQUIRED")
+  // Expected failures return as data: anything thrown across the action
+  // boundary reaches the browser as an opaque framework error instead.
+  if (!user) return { ok: false, error: "You must be signed in." }
+  if (!user.email_confirmed_at) return { ok: false, error: "VERIFY_REQUIRED" }
   const conversation = await getConversation(supabase as never, user.id, conversationId)
-  if (!conversation) throw new Error("Conversation not found.")
+  if (!conversation) return { ok: false, error: "Conversation not found." }
   const messages = await listMessages(supabase as never, user.id, conversation.id, 50)
   return {
+    ok: true,
     conversation: {
       id: conversation.id,
       title: conversation.title,

@@ -34,6 +34,11 @@ function NewAuditContent() {
       // system refines context from the deal itself. Never block entry on
       // taxonomy.
       const created = await createAudit(dealType ?? undefined)
+      if (!created.ok) {
+        setError(created.error)
+        setCreating(false)
+        return
+      }
       const staged = hasFileParam ? getPendingFile() : null
       if (staged) {
         // The staged file's bytes finally land: upload + credit-gated
