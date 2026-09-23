@@ -265,6 +265,47 @@ describe("answerQuestion", () => {
     expect(response.contractViolations).toEqual([])
   })
 
+  it("repairs a long setup ending in a single question", async () => {
+    const longSetup = `${"This deal has gaps around the counterparty. ".repeat(30)}Who is the counterparty?`
+    expect(longSetup.split(/\s+/).filter(Boolean).length).toBeGreaterThan(150)
+    const seen: string[] = []
+    const { ports } = fakePorts({
+      aiCaller: async (req) => {
+        seen.push(req.userContent)
+        return seen.length === 1
+          ? { text: longSetup, usage: { inputTokens: 50, outputTokens: 60 }, provider: "anthropic", model: "claude-sonnet-5" }
+          : { text: "Who is the counterparty, exactly?", usage: { inputTokens: 60, outputTokens: 12 }, provider: "anthropic", model: "claude-sonnet-5" }
+      },
+    })
+    const response = await answerQuestion({ text: "Is this offer legit?", userId: "u1", ports })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    expect(seen).toHaveLength(2)
+    expect(seen[1]).toMatch(/ran \d+ words before asking/i)
+    expect(response.text).toBe("Who is the counterparty, exactly?")
+    expect(response.contractViolations).toContain("verbose-question-repaired")
+  })
+
+  it("leaves long answers with no questions alone", async () => {
+    let calls = 0
+    const { ports } = fakePorts({
+      aiCaller: async () => {
+        calls++
+        return {
+          text: `${"Here is a thorough explanation of the tradeoff. ".repeat(30)}That is the full picture.`,
+          usage: { inputTokens: 50, outputTokens: 80 },
+          provider: "anthropic",
+          model: "claude-sonnet-5",
+        }
+      },
+    })
+    const response = await answerQuestion({ text: "Should I accept?", userId: "u1", ports })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    expect(calls).toBe(1)
+    expect(response.contractViolations).toEqual([])
+  })
+
   it("denies priced operations without sufficient credits before any AI call", async () => {
     const { ports, aiCalls } = fakePorts()
     ports.policy = PRICED

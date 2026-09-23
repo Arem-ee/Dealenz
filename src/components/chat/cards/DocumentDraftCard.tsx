@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { FileText, Loader2, CheckCircle2, HelpCircle, AlertCircle } from "lucide-react"
+import { FileText, Loader2, CheckCircle2, HelpCircle } from "lucide-react"
 
 interface ProvenanceInfo {
   source: "extracted" | "context" | "fact" | "inferred"
@@ -26,7 +26,7 @@ function ProvenanceBadge({ source, confidence }: { source: "extracted" | "contex
 
   const Icon = config.icon
   return (
-    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: config.color.replace("bg-", "bg-").replace("text-", "text-") }}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${config.color}`}>
       <Icon className="h-2.5 w-2.5" />
       <span className="capitalize">{config.label}</span>
       <span className="text-[9px] opacity-70">{(confidence * 100).toFixed(0)}%</span>

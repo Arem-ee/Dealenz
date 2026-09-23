@@ -441,21 +441,34 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
     // prompt contract forbids them, but prompts are advisory, so a violation
     // gets exactly one repair attempt with an explicit instruction, then the
     // result ships with the violation recorded. Never loop the meter.
+    // A long setup ending in questions bombards the same way, even with a
+    // single question mark, so it repairs on the same path. Long answers
+    // with no questions are explanations, not interrogations, and pass.
     let deliveredText = answer.text
     let deliveredUsage = answer.usage
-    if (check.asksTooManyQuestions) {
+    const wordCount = deliveredText.split(/\s+/).filter(Boolean).length
+    const verboseInterrogation = !check.asksTooManyQuestions && wordCount > 150 && check.questionCount >= 1
+    if (check.asksTooManyQuestions || verboseInterrogation) {
+      const reason = check.asksTooManyQuestions
+        ? `your previous response asked ${check.questionCount} questions`
+        : `your previous response ran ${wordCount} words before asking`
       const repaired = await request.ports.aiCaller({
         systemPrompt,
-        userContent: `${taskPrompt}\n\nRepair instruction: your previous response asked ${check.questionCount} questions, which violates the response contract. Send a replacement that asks only the single most important question, in at most two short sentences, with no other questions.`,
+        userContent: `${taskPrompt}\n\nRepair instruction: ${reason}, which violates the response contract. Send a replacement of at most three short sentences that asks only the single most important question, with no other questions.`,
         maxTokens,
       })
       const repairCheck = validateOutputContract(repaired.text)
-      if (!repairCheck.asksTooManyQuestions && !repairCheck.isEmpty) {
+      const repairWords = repaired.text.split(/\s+/).filter(Boolean).length
+      const repairClean =
+        !repairCheck.asksTooManyQuestions &&
+        !repairCheck.isEmpty &&
+        !(repairWords > 150 && repairCheck.questionCount >= 1)
+      if (repairClean) {
         deliveredText = repaired.text
         deliveredUsage = repaired.usage
-        violations.push("multi-question-repaired")
+        violations.push(check.asksTooManyQuestions ? "multi-question-repaired" : "verbose-question-repaired")
       } else {
-        violations.push("multi-question-accepted")
+        violations.push(check.asksTooManyQuestions ? "multi-question-accepted" : "verbose-question-accepted")
       }
     }
     const completion = await completeOperation({

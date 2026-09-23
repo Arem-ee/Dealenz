@@ -43,6 +43,7 @@ describe("AI constitution", () => {
     expect(CONSTITUTION_TEXT).toMatch(/at most one question per response/i)
     expect(CONSTITUTION_TEXT).toMatch(/single most important missing item/i)
     expect(CONSTITUTION_TEXT).toMatch(/never enumerate everything missing/i)
+    expect(CONSTITUTION_TEXT).toMatch(/at most three short sentences before the single question/i)
   })
 
   it("encodes user-first non-sycophancy", () => {

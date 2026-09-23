@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { ChevronDown, ChevronRight, ShieldCheck } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { EvidenceLine } from "@/components/evidence/evidence-line"
 import { PushbackWords } from "@/components/findings/pushback-words"
 import { ShareReportButton } from "@/components/findings/share-report-button"
@@ -13,13 +12,6 @@ const SEVERITY_LABEL: Record<string, string> = {
   material: "Should fix",
   attention: "Worth checking",
   informational: "For context",
-}
-
-const SEVERITY_STYLE: Record<string, string> = {
-  critical: "border-destructive/30 bg-destructive/5 text-destructive",
-  material: "border-amber-500/30 bg-amber-500/5 text-amber-700",
-  attention: "border-blue-500/30 bg-blue-500/5 text-blue-700",
-  informational: "border-border bg-muted/30 text-muted-foreground",
 }
 
 export function RiskReportCard({ payload, onAskFinding, auditId }: { payload: Record<string, unknown>; onAskFinding?: (question: string) => void; auditId?: string | null }) {
@@ -72,12 +64,9 @@ export function RiskReportCard({ payload, onAskFinding, auditId }: { payload: Re
 
   return (
     <div className="rounded-xl border bg-card overflow-hidden">
-      <div className="px-4 py-3 border-b bg-muted/30 flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold">How this deal looks</p>
-          <p className="text-xs text-muted-foreground">{typeof overallScore === "number" ? `Overall rating: ${overallScore}/100 · ${riskLevel}` : riskLevel}</p>
-        </div>
-        <span className={cn("rounded-full border px-2 py-1 text-xs font-medium", SEVERITY_STYLE[findings[0]?.severity ?? "informational"])}>{SEVERITY_LABEL[findings[0]?.severity ?? "informational"]}</span>
+      <div className="px-4 py-3 border-b border-border/60 flex items-baseline justify-between gap-2">
+        <p className="text-sm font-semibold">How this deal looks</p>
+        <p className="shrink-0 text-xs text-muted-foreground">{typeof overallScore === "number" ? `Overall rating: ${overallScore}/100 · ${riskLevel}` : riskLevel}</p>
       </div>
       {(riskDegraded || rulesDegraded) && (
         <div className="px-4 pt-3 space-y-2">
@@ -103,47 +92,36 @@ export function RiskReportCard({ payload, onAskFinding, auditId }: { payload: Re
                 {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
               </button>
               {isOpen && (
-                <div className="px-4 pb-3 space-y-3">
+                <div className="px-4 pb-4 pt-1 space-y-4">
                   {items.map(({ finding: f, num }, i) => (
-                    <div key={i} className="rounded-lg border p-3.5 bg-card">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                          {num} · {f.ruleKey ? f.ruleKey.replace(/-/g, " ") : label}
-                        </p>
-                        <span className={cn("rounded-full border px-1.5 py-px text-[10px] font-medium", SEVERITY_STYLE[f.severity] ?? SEVERITY_STYLE.informational)}>
-                          {f.severity}
-                        </span>
-                      </div>
-                      <p className="mt-1.5  text-[15px] font-medium leading-relaxed">{f.summary}</p>
+                    <div key={i}>
+                      <p className="text-sm">
+                        <span className="font-semibold tabular-nums text-muted-foreground">{num}</span>{" "}
+                        <span className="font-medium">{f.summary}</span>
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {f.ruleKey ? f.ruleKey.replace(/-/g, " ") : label} · {f.severity}
+                      </p>
                       {Array.isArray(f.evidence) && f.evidence.length > 0 && (
-                        <div className="mt-2.5">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Document</p>
-                          <div className="mt-1 space-y-1 border-l-2 border-border pl-2.5">
-                            {f.evidence.slice(0, 2).map((ev, j) => (
-                              <EvidenceLine key={j} evidence={ev} />
-                            ))}
-                          </div>
+                        <div className="mt-2 space-y-1 border-l-2 border-border pl-2.5">
+                          {f.evidence.slice(0, 2).map((ev, j) => (
+                            <EvidenceLine key={j} evidence={ev} />
+                          ))}
                         </div>
                       )}
                       {f.whyItMatters && (
-                        <div className="mt-2.5">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Dealenz</p>
-                          <p className="mt-1  text-xs leading-relaxed text-muted-foreground">{f.whyItMatters}</p>
-                        </div>
+                        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{f.whyItMatters}</p>
                       )}
                       {f.pushback && (
-                        <div className="mt-2.5">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Action</p>
-                          <div className="mt-1">
-                            <PushbackWords words={f.pushback} auditId={auditId} ruleKey={f.ruleKey ?? null} />
-                          </div>
+                        <div className="mt-2">
+                          <PushbackWords words={f.pushback} auditId={auditId} ruleKey={f.ruleKey ?? null} />
                         </div>
                       )}
                       {onAskFinding && (
                         <button
                           type="button"
                           onClick={() => onAskFinding(`Explain this finding: ${f.summary}`)}
-                          className="mt-2.5 text-xs font-medium text-primary hover:underline"
+                          className="mt-2 text-xs font-medium text-primary hover:underline"
                         >
                           Ask about this finding
                         </button>

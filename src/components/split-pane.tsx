@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
-const MIN_PANE_PX = 280
-const MIN_PANEL_PX = 320
+const MIN_PANE_PX = 400
+const MIN_PANEL_PX = 400
 
 /** True on desktop-width viewports. Split panes only render side-by-side here;
  * narrow viewports always get the stacked (mobile) layout. */
@@ -51,7 +51,7 @@ export function SplitPane({
   paneKey,
   primary,
   panel,
-  defaultSplit = 0.42,
+  defaultSplit = 0.5,
   stackPanelFirst = false,
   className,
 }: {
@@ -70,7 +70,21 @@ export function SplitPane({
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- persisted split must load after mount (localStorage is client-only); SSR renders the default
-    setFraction(readSplit(userId, paneKey) ?? defaultSplit)
+    const stored = readSplit(userId, paneKey) ?? defaultSplit
+    // Clamp extreme stored drags to the same floors the drag handle enforces,
+    // so neither pane can load starved. Below the desktop breakpoint the
+    // panes stack, where minimums do not apply.
+    const width = containerRef.current?.getBoundingClientRect().width ?? 0
+    if (width >= 1024) {
+      const minFrac = MIN_PANE_PX / width
+      const maxFrac = 1 - MIN_PANEL_PX / width
+      if (maxFrac > minFrac) {
+        setFraction(Math.min(maxFrac, Math.max(minFrac, stored)))
+        setHydrated(true)
+        return
+      }
+    }
+    setFraction(stored)
     setHydrated(true)
   }, [userId, paneKey, defaultSplit])
 
@@ -117,7 +131,7 @@ export function SplitPane({
   return (
     <div ref={containerRef} className={cn("flex min-h-0 flex-1 flex-col lg:flex-row", className)}>
       <div
-        className={cn("flex min-h-0 min-w-0 flex-1 flex-col", stackPanelFirst && "order-2 lg:order-1")}
+        className={cn("flex min-h-0 min-w-0 flex-1 flex-col lg:min-w-[400px]", stackPanelFirst && "order-2 lg:order-1")}
         style={hydrated ? { flexGrow: 0, flexShrink: 0, flexBasis: `${fraction * 100}%` } : undefined}
       >
         {primary}
@@ -132,7 +146,7 @@ export function SplitPane({
         <div className="w-px bg-border transition-colors hover:bg-primary/40" />
       </div>
       <div
-        className={cn("flex min-h-0 min-w-0 flex-1 flex-col border-t lg:border-l lg:border-t-0", stackPanelFirst && "order-1 lg:order-2")}
+        className={cn("flex min-h-0 min-w-0 flex-1 flex-col border-t lg:min-w-[400px] lg:border-l lg:border-t-0", stackPanelFirst && "order-1 lg:order-2")}
       >
         {panel}
       </div>

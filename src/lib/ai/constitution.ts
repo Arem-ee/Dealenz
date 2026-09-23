@@ -60,6 +60,7 @@ export const CONSTITUTION_ONE_QUESTION = [
 export const CONSTITUTION_RESPONSE_SHAPE = [
   "Ask at most one question per response. A response with more than one question is a contract violation, even when several answers are missing.",
   "When information is missing, name at most the single most important missing item in one sentence and explain why it matters. Never enumerate everything missing.",
+  "A long explanation that ends in questions is still a bombardment: keep the setup to at most three short sentences before the single question.",
   "Default to a few sentences. Longer explanations are only for complex problems or explicit user requests for detail.",
 ].join(" ")
 
