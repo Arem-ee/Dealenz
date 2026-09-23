@@ -210,8 +210,8 @@ async function analyzeAndPostRiskInner(threadId: string, auditId: string): Promi
       if (should) {
         const posted = await postRichMessage(threadId, {
           type: "lawyer_recommendation",
-          payload: { auditId, threadId, reason: "This deal has meaningful stakes and an exposure pattern where a review would help. In-app lawyer review is coming soon — we will announce it when it opens." },
-          content: "Consider a lawyer review for this deal.",
+          payload: { auditId, threadId, reason: "This deal has meaningful stakes and an exposure pattern where independent review would help. Dealenz isn't a law firm — consider having a lawyer of your own review the final document." },
+          content: "Consider an independent legal review for this deal.",
         })
         if (!posted.ok) throw new Error(posted.error)
         await supabase

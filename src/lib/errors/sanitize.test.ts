@@ -6,8 +6,8 @@ describe("sanitizeUserError", () => {
     expect(sanitizeUserError("Insufficient credits for this operation.")).toBe(
       "Insufficient credits for this operation."
     )
-    expect(sanitizeUserError("Lawyer review is coming soon — no credits were charged.")).toBe(
-      "Lawyer review is coming soon — no credits were charged."
+    expect(sanitizeUserError("Dealenz doesn't offer lawyer review. No credits were charged.")).toBe(
+      "Dealenz doesn't offer lawyer review. No credits were charged."
     )
   })
 

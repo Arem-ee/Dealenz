@@ -97,12 +97,12 @@ beforeEach(() => {
   })
 })
 
-describe("createConsultationRequest (coming soon gate)", () => {
+describe("createConsultationRequest (disabled gate)", () => {
   it("fails closed without touching the database or credits", async () => {
     const res = await createConsultationRequest(AUDIT_ID, "help")
     expect(res.success).toBe(false)
     if (res.success) throw new Error("unreachable")
-    expect(res.error).toMatch(/coming soon/i)
+    expect(res.error).toMatch(/doesn't offer lawyer review/i)
     expect(res.error).toMatch(/No credits were charged/)
     expect(mockRpc).not.toHaveBeenCalled()
   })

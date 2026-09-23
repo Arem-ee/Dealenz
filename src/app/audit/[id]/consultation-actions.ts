@@ -82,11 +82,11 @@ export async function createConsultationRequest(auditId: string, note: string, h
     return { success: false, error: "You must be signed in to request a consultation" }
   }
 
-  // Lawyer review is not open yet. Fail before any database touch or credit
-  // movement so nobody pays for a waitlist. Remove this gate at launch —
-  // the full request flow below is preserved as written.
+  // Lawyer review is not offered. Fail before any database touch or credit
+  // movement so nobody pays for a waitlist. The message points at
+  // independent counsel, never at an in-app review.
   if (!LAWYER_REVIEW_OPEN) {
-    return { success: false, error: "Lawyer review is coming soon — we will announce it in the app when it opens. No credits were charged." }
+    return { success: false, error: "Dealenz doesn't offer lawyer review. For high-stakes deals, take the final document to a lawyer of your own. No credits were charged." }
   }
 
   const { data: audit, error: auditError } = await supabase

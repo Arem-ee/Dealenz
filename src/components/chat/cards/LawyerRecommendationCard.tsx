@@ -12,14 +12,9 @@ export function LawyerRecommendationCard({ payload }: { payload: Record<string, 
       <div className="flex items-start gap-2">
         <Scale className="h-4 w-4 text-amber-700 mt-0.5" />
         <div className="flex-1">
-          <p className="text-sm font-medium text-amber-900">
-            Lawyer review is coming soon{" "}
-            <span className="ml-1 rounded-full bg-amber-200/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
-              Soon
-            </span>
-          </p>
+          <p className="text-sm font-medium text-amber-900">Worth a lawyer&apos;s eyes</p>
           <p className="mt-1 text-xs text-amber-800">{reason}</p>
-          <p className="mt-1 text-xs text-muted-foreground">In-app requests are paused until launch — nothing is charged. For high stakes, take the final document to a lawyer of your own.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Dealenz isn&apos;t a law firm and doesn&apos;t offer lawyer review. For stakes that are hard to undo, have a lawyer of your own review the final document.</p>
         </div>
       </div>
       <Button asChild size="sm" variant="outline" className="mt-3">
