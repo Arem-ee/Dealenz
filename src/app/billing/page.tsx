@@ -12,7 +12,6 @@ import {
   DOCUMENT_CREDIT_COSTS,
   UPLOAD_CREDITS,
   SIGNATURE_SEND_CREDITS,
-  LAWYER_REQUEST_CREDITS,
 } from "@/lib/credits/pricing"
 
 interface PurchaseRow {
@@ -76,7 +75,6 @@ const PRICE_ROWS: Array<[string, number]> = [
   ["Checklist", DOCUMENT_CREDIT_COSTS.checklist],
   ["Document upload", UPLOAD_CREDITS],
   ["Signature send", SIGNATURE_SEND_CREDITS],
-  ["Lawyer request — coming soon", LAWYER_REQUEST_CREDITS],
 ]
 
 export default async function BillingPage({

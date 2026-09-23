@@ -45,7 +45,7 @@ const faqs = [
   },
   {
     q: "Is this a replacement for a lawyer?",
-    a: "No. Dealenz helps you catch problems before they become legal problems. For high value contracts or anything complex, have a lawyer review the final document. In-app lawyer review is coming soon — until then, take the final document to a lawyer of your own for high-stakes deals.",
+    a: "No. Dealenz helps you catch problems before they become legal problems. For high value contracts or anything complex, have a lawyer review the final document.",
   },
   {
     q: "How does Dealenz check its own work?",
@@ -482,27 +482,13 @@ export default function Home() {
                     name: "Counterparty signing link",
                     body: "The other side signs through a secure link — no account needed on their end.",
                   },
-                  {
-                    icon: <Scale className="h-4 w-4 text-white" />,
-                    bg: "bg-[var(--burgundy)]",
-                    name: "Lawyer review",
-                    body: "In-app lawyer review is coming soon. For high stakes, have a lawyer bless the final document.",
-                    badge: "Coming soon",
-                  },
                 ].map((r) => (
                   <li key={r.name} className="flex items-start gap-3.5 rounded-2xl border border-border bg-card p-4">
                     <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${r.bg}`}>
                       {r.icon}
                     </span>
                     <div>
-                      <p className="text-[14px] font-semibold">
-                        {r.name}{" "}
-                        {"badge" in r && typeof r.badge === "string" ? (
-                          <span className="ml-1 rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground/55">
-                            {r.badge}
-                          </span>
-                        ) : null}
-                      </p>
+                      <p className="text-[14px] font-semibold">{r.name}</p>
                       <p className="mt-0.5 text-[13px] leading-relaxed text-foreground/55">{r.body}</p>
                     </div>
                   </li>
@@ -623,14 +609,12 @@ export default function Home() {
                 <li><Link href="/#features" className="text-white/70 transition-colors hover:text-white">Features</Link></li>
                 <li><Link href="/#pricing" className="text-white/70 transition-colors hover:text-white">Pricing</Link></li>
                 <li><Link href="/register" className="text-white/70 transition-colors hover:text-white">Analyze your deal</Link></li>
-                <li><span className="text-primary-foreground/40">Lawyer review · Coming soon</span></li>
               </ul>
             </nav>
             <nav aria-label="Company">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-foreground/40">Company</p>
               <ul className="mt-4 space-y-2.5 text-[13px]">
                 <li><a href="mailto:support@dealenz.com" className="text-white/70 transition-colors hover:text-white">Contact</a></li>
-                <li><Link href="/lawyer-application" className="text-white/70 transition-colors hover:text-white">Apply as a lawyer</Link></li>
               </ul>
             </nav>
             <nav aria-label="Resources">
@@ -657,12 +641,6 @@ export default function Home() {
             </p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-[12px] text-primary-foreground/40">© 2026 Dealenz</p>
-              <p className="text-[12px] text-primary-foreground/40">
-                Are you a lawyer?{" "}
-                <Link href="/lawyer-application" className="text-white/70 hover:text-white">
-                  Apply to join Dealenz
-                </Link>
-              </p>
             </div>
           </div>
         </div>

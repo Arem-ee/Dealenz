@@ -301,12 +301,6 @@ export default function LoginPage() {
               Create account
             </Link>
           </p>
-          <p className="mt-2 text-center text-[12px] text-foreground/40">
-            Applying as a lawyer?{" "}
-            <Link href="/lawyer-application" className="font-medium underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/40">
-              Apply to join Dealenz
-            </Link>
-          </p>
         </div>
       </div>
     </div>

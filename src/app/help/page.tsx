@@ -24,11 +24,11 @@ const FAQS = [
   },
   {
     q: "When should a lawyer review my deal?",
-    a: "In-app lawyer review is coming soon — Dealenz will announce it here when it opens. Until then: for high-stakes deals (meaningful value or a hard-to-reverse consequence like an ownership change, uncapped liability, a personal guarantee, unclear dispute terms, or cross-border enforcement risk), take the final document to a lawyer of your own.",
+    a: "For high-stakes deals (meaningful value or a hard-to-reverse consequence like an ownership change, uncapped liability, a personal guarantee, unclear dispute terms, or cross-border enforcement risk), take the final document to a lawyer of your own. Dealenz is not a law firm and does not provide legal advice.",
   },
   {
     q: "What do credits pay for?",
-    a: "Credits pay for deal outcomes: analyses (5 each), Ask answers (2/6/25 by size), documents (proposal 10, scope 15, contract 20, checklist 10), uploads (5), signature sends (10), and lawyer requests (10, coming soon — not currently charged) — never for a favorable answer. Greetings are always free, and your 10 signup credits cover your first two analyses.",
+    a: "Credits pay for deal outcomes: analyses (5 each), Ask answers (2/6/25 by size), documents (proposal 10, scope 15, contract 20, checklist 10), uploads (5), signature sends (10) — never for a favorable answer. Greetings are always free, and your 10 signup credits cover your first two analyses.",
   },
 ]
 

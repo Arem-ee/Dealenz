@@ -35,12 +35,6 @@ const slides = [
     headline: "Every deal leaves with a plan.",
     supporting: "Not just a warning — the documents you need next.",
   },
-  {
-    image: "/lawyer-review.jpg",
-    alt: "Lawyer reviewing a document with a client",
-    headline: "A real lawyer, when it's serious.",
-    supporting: "Add a person to review it — only if you want to.",
-  },
 ] satisfies Slide[]
 
 export function SlideshowPanel() {

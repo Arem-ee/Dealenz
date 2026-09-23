@@ -15,7 +15,8 @@ describe("sitemap", () => {
       expect(url).not.toContain("/dashboard")
     }
     expect(urls.some((u) => u.endsWith("/login"))).toBe(true)
-    expect(urls.some((u) => u.endsWith("/lawyer-application"))).toBe(true)
+    // The lawyer marketplace is disabled: no application route is advertised.
+    expect(urls.some((u) => u.includes("lawyer"))).toBe(false)
     expect(urls.some((u) => u.endsWith("/help"))).toBe(true)
     // Auth-gated status page must never be advertised to crawlers.
     expect(urls.some((u) => u.includes("/lawyer-application/status"))).toBe(false)

@@ -7,8 +7,12 @@ describe("resolveNextPath", () => {
     expect(resolveNextPath("/settings")).toBe("/settings")
     expect(resolveNextPath("/chat")).toBe("/chat")
     expect(resolveNextPath("/vault")).toBe("/vault")
-    expect(resolveNextPath("/lawyer-application")).toBe("/lawyer-application")
-    expect(resolveNextPath("/lawyer-application/status")).toBe("/lawyer-application/status")
+    expect(resolveNextPath("/billing")).toBe("/billing")
+  })
+
+  it("falls back for removed routes such as the disabled lawyer marketplace", () => {
+    expect(resolveNextPath("/lawyer-application")).toBe("/dashboard")
+    expect(resolveNextPath("/lawyer-application/status")).toBe("/dashboard")
   })
 
   it("rejects external origins", () => {

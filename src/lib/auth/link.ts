@@ -28,8 +28,6 @@ const ALLOWED_NEXT_PATHS = new Set([
   "/library",
   "/billing",
   "/audit/new",
-  "/lawyer-application",
-  "/lawyer-application/status",
 ])
 
 export function resolveNextPath(next: unknown): string {
