@@ -88,7 +88,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
           title="Credit balance — see Billing for what credits pay for"
           className="shrink-0 truncate text-sm tabular-nums text-muted-foreground transition-colors hover:text-foreground"
         >
-          {typeof creditBalance === "number" ? `${creditBalance} credits` : "credits unknown"}
+          {typeof creditBalance === "number" ? `${creditBalance} credit${creditBalance === 1 ? "" : "s"}` : "credits unknown"}
         </Link>
         <Link
           href="/dashboard/activity"

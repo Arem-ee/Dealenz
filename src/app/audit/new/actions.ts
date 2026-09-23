@@ -71,5 +71,16 @@ export async function createAudit(dealTypeInput?: string): Promise<CreateAuditRe
   if (!conv) {
     return { ok: false, error: "Deal created, but we couldn't open its chat. Please try again from Home." }
   }
+  try {
+    await supabase.from("activity_events").insert({
+      user_id: user.id,
+      audit_id: data.id,
+      event_type: "deal_created",
+      payload: { dealType },
+      created_at: new Date().toISOString(),
+    })
+  } catch {
+    // Activity is telemetry: never fail creation for it.
+  }
   return { ok: true, auditId: data.id, threadId: conv.id }
 }

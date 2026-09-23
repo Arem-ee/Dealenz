@@ -3,6 +3,7 @@ import { listThreads } from "@/lib/chat/actions"
 import { ChatLanding } from "@/components/chat/ChatLanding"
 import { selectDueEvents } from "@/lib/monitoring/reminders"
 import { bucketActivityByDay } from "@/lib/activity/week"
+import { summarizePortfolio } from "@/lib/dashboard/summary"
 
 export const dynamic = "force-dynamic"
 
@@ -37,34 +38,13 @@ export default async function DashboardPage() {
     loadError = err instanceof Error && err.message ? err.message : "Please refresh and try again."
   }
 
-  // Portfolio aggregates: everything below derives from the same thread
-  // rows plus bounded activity history. A failed query hides its block,
-  // never the page.
-  let portfolio: PortfolioSummary | null = null
+  // Portfolio aggregates derive purely from thread rows (infallible), so a
+  // failed activity query hides the week strip, never the tiles or table.
+  // Previously one try block covered both: a failed activity query nulled
+  // the portfolio and blanked the whole dashboard for users with deals.
+  const portfolio: PortfolioSummary = summarizePortfolio(threads)
   let weekBuckets: ReturnType<typeof bucketActivityByDay> = []
   try {
-    let totalOpen = 0
-    const openDeals = new Set<string>()
-    let scoreSum = 0
-    let ratedCount = 0
-    const catCounts = new Map<string, number>()
-    for (const t of threads) {
-      if (typeof t.openIssues === "number" && t.openIssues > 0) {
-        totalOpen += t.openIssues
-        if (t.auditId) openDeals.add(t.auditId)
-      }
-      if (typeof t.overallScore === "number") {
-        scoreSum += t.overallScore
-        ratedCount += 1
-      }
-      for (const c of t.topCategories ?? []) {
-        catCounts.set(c.label, (catCounts.get(c.label) ?? 0) + c.count)
-      }
-    }
-    const topCategories = [...catCounts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([label, count]) => ({ label, count }))
     const { data: activity } = await supabase
       .from("activity_events")
       .select("created_at")
@@ -73,15 +53,7 @@ export default async function DashboardPage() {
       .limit(500)
     const nowIso = new Date().toISOString()
     weekBuckets = bucketActivityByDay(((activity ?? []) as Array<{ created_at?: unknown }>) ?? [], nowIso)
-    portfolio = {
-      totalOpen,
-      openDeals: openDeals.size,
-      avgScore: ratedCount > 0 ? Math.round(scoreSum / ratedCount) : null,
-      ratedCount,
-      topCategories,
-    }
   } catch {
-    portfolio = null
     weekBuckets = []
   }
 

@@ -54,5 +54,16 @@ export async function createHomeDeal(text: string, jurisdiction?: string, dealTy
     }
   }
   if (error || !data) throw new Error("We couldn't start your deal. Please try again.")
+  try {
+    await supabase.from("activity_events").insert({
+      user_id: user.id,
+      audit_id: data.id,
+      event_type: "deal_created",
+      payload: { dealType },
+      created_at: new Date().toISOString(),
+    })
+  } catch {
+    // Activity is telemetry: never fail creation for it.
+  }
   return { id: data.id }
 }
