@@ -4,7 +4,6 @@ import { useState } from "react"
 import Link from "next/link"
 import { Archive, ArrowUp, FileText, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { SplitPane, useIsDesktop } from "@/components/split-pane"
 import { useToast } from "@/components/ui/toast"
 import { vaultChatAction, type VaultMatch } from "@/app/vault/actions"
 import { InboxPanel } from "./inbox-panel"
@@ -16,21 +15,6 @@ interface LibraryTurn {
   question: string
   answer: string
   matches: VaultMatch[]
-}
-
-const SEVERITY_STYLE: Record<string, string> = {
-  critical: "border-destructive/30 bg-destructive/5 text-destructive",
-  material: "border-amber-500/30 bg-amber-500/5 text-amber-700",
-  attention: "border-blue-500/30 bg-blue-500/5 text-blue-700",
-  informational: "border-border bg-muted/30 text-muted-foreground",
-  low: "border-border bg-muted/30 text-muted-foreground",
-  medium: "border-blue-500/30 bg-blue-500/5 text-blue-700",
-  high: "border-amber-500/30 bg-amber-500/5 text-amber-700",
-}
-
-function severityClass(severity: string | null): string {
-  if (!severity) return SEVERITY_STYLE.informational
-  return SEVERITY_STYLE[severity.toLowerCase()] ?? SEVERITY_STYLE.informational
 }
 
 function formatDate(iso: string): string {
@@ -63,7 +47,7 @@ function ResultCard({ match }: { match: VaultMatch }) {
           ) : null}
         </div>
         {match.riskLevel ? (
-          <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium", severityClass(match.riskLevel))}>
+          <span className="shrink-0 text-[11px] font-medium text-muted-foreground">
             {match.riskLevel}
           </span>
         ) : null}
@@ -72,39 +56,12 @@ function ResultCard({ match }: { match: VaultMatch }) {
   )
 }
 
-function ResultsPanel({ matches, emptyHint }: { matches: VaultMatch[]; emptyHint: string }) {
-  return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-border/60 px-4 py-3 sm:px-5">
-        <h2 className="text-sm font-semibold">Results</h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {matches.length === 0 ? "Ask about your deals to see matching results here." : `${matches.length} matching deal${matches.length === 1 ? "" : "s"}`}
-        </p>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
-        {matches.length === 0 ? (
-          <p className="rounded-xl border border-dashed px-4 py-8 text-center text-xs text-muted-foreground">{emptyHint}</p>
-        ) : (
-          <div className="space-y-2">
-            {matches.map((m) => (
-              <ResultCard key={m.id} match={m} />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-export function LibraryView({ userId }: { userId: string }) {
-  const isDesktop = useIsDesktop()
+export function LibraryView() {
   const { showError } = useToast()
   const [turns, setTurns] = useState<LibraryTurn[]>([])
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
   const [mode, setMode] = useState<"search" | "inbox">("search")
-
-  const latestMatches = turns.length > 0 ? turns[turns.length - 1].matches : []
 
   async function handleSend() {
     const text = input.trim()
@@ -184,8 +141,9 @@ export function LibraryView({ userId }: { userId: string }) {
                   <Markdown text={t.answer} />
                 </div>
               </div>
-              {/* Inline result cards: the mobile base. Hidden on desktop where the panel shows them. */}
-              {!isDesktop && t.matches.length > 0 && (
+              {/* Result cards always render inline under the answer: a second
+                  panel showing the same matches is dead space, not structure. */}
+              {t.matches.length > 0 && (
                 <div className="space-y-2">
                   {t.matches.map((m) => (
                     <ResultCard key={m.id} match={m} />
@@ -220,7 +178,7 @@ export function LibraryView({ userId }: { userId: string }) {
             rows={2}
             className="min-h-[52px] w-full resize-none rounded-xl border border-input bg-card px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/60"
           />
-          <Button size="icon" onClick={() => void handleSend()} disabled={sending || !input.trim()} aria-label={sending ? "Searching" : "Search"} className="h-9 w-9 shrink-0 rounded-full">
+          <Button size="icon" onClick={() => void handleSend()} disabled={sending || !input.trim()} aria-label={sending ? "Searching" : "Search"} className="h-11 w-11 shrink-0 rounded-full">
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
           </Button>
         </div>
@@ -229,17 +187,7 @@ export function LibraryView({ userId }: { userId: string }) {
     </div>
   )
 
-  // Mobile base: conversation with inline cards. Desktop layer: split conversation + results panel.
-  if (!isDesktop) {
-    return <div className="flex h-full min-h-0 flex-col">{conversation}</div>
-  }
-
-  return (
-    <SplitPane
-      userId={userId}
-      paneKey="library"
-      primary={conversation}
-      panel={<ResultsPanel matches={latestMatches} emptyHint="Search on the left — results from your latest search appear here as structured cards." />}
-    />
-  )
+  // Single column on every viewport: the conversation carries inline
+  // result cards, so there is nothing for a second panel to show.
+  return <div className="flex h-full min-h-0 flex-col">{conversation}</div>
 }

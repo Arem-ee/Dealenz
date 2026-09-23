@@ -12,7 +12,7 @@ export default async function LibraryPage() {
 
   return (
     <div className="flex h-[calc(100dvh-3rem)] flex-col bg-background">
-      <LibraryView userId={user.id} />
+      <LibraryView />
     </div>
   )
 }
