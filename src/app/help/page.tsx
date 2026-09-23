@@ -28,7 +28,7 @@ const FAQS = [
   },
   {
     q: "What do credits pay for?",
-    a: "Credits pay for deal outcomes: analyses (10 each), Ask answers (10/30/100 by size), documents (proposal 25, scope 35, contract 45, checklist 20), uploads (15), signature sends (25), and lawyer requests (15, coming soon — not currently charged) — never for a favorable answer. Greetings are always free, and your 10 signup credits cover your first analysis.",
+    a: "Credits pay for deal outcomes: analyses (5 each), Ask answers (2/6/25 by size), documents (proposal 10, scope 15, contract 20, checklist 10), uploads (5), signature sends (10), and lawyer requests (10, coming soon — not currently charged) — never for a favorable answer. Greetings are always free, and your 10 signup credits cover your first two analyses.",
   },
 ]
 

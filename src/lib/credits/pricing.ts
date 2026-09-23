@@ -14,13 +14,13 @@ import type { AIUsageRecord, CreditPolicy } from "@/lib/ai/usage"
 // Provisional tier prices in credits. Rationale: proportional to the output
 // budgets the tiers authorize (brief 1024, standard 2048, extended 8192),
 // scaled so simple questions stay cheap and deep analysis costs meaningfully
-// more. Rescaled 10/30/100 (was 1/3/8) to sit above per-document generation
-// costs: a deep analysis must cost more than any single document draft.
-// Greetings never reach pricing (deterministic fast-path, no computation,
-// no charge).
-export const CREDIT_PRICE_BRIEF = 10
-export const CREDIT_PRICE_STANDARD = 30
-export const CREDIT_PRICE_EXTENDED = 100
+// more. Rescaled 2/6/25 (was 10/30/100): a 10-credit signup grant buys five
+// back-and-forths, and a deep answer still costs more than any single
+// document draft. Greetings never reach pricing (deterministic fast-path, no
+// computation, no charge).
+export const CREDIT_PRICE_BRIEF = 2
+export const CREDIT_PRICE_STANDARD = 6
+export const CREDIT_PRICE_EXTENDED = 25
 
 export function priceForOperation(operation: AIOperation): number {
   const budget = resolveOperationProfile(operation).outputBudget
@@ -46,10 +46,10 @@ export const STANDARD_CREDIT_POLICY: CreditPolicy = {
 // families (e.g. protection_clause, outreach micro-drafts) costs 1 credit,
 // preserving the pre-recalibration micro-draft rate.
 export const DOCUMENT_CREDIT_COSTS = {
-  proposal: 25,
-  sow: 35,
-  contract: 45,
-  checklist: 20,
+  proposal: 10,
+  sow: 15,
+  contract: 20,
+  checklist: 10,
 } as const
 
 export function creditsForDocumentType(documentType: string | null | undefined): number {
@@ -61,17 +61,16 @@ export function creditsForDocumentType(documentType: string | null | undefined):
   return 1
 }
 
-// Deal analysis (extract + deterministic rules + risk report) costs 10
-// credits: exactly the signup grant, so a new account's first analysis is
-// free and every analysis after that draws from purchased credits. There is
-// no free daily allowance anymore — credits are the only gate.
-export const ANALYSIS_CREDITS = 10
+// Deal analysis (extract + deterministic rules + risk report) costs 5
+// credits: the signup grant covers the first two. There is no free daily
+// allowance anymore — credits are the only gate.
+export const ANALYSIS_CREDITS = 5
 
 // Gated product actions (credit-only access control — no plans, no flags).
-// Each deliberately exceeds the free-signup grant, so never-purchased
-// accounts cannot afford them while funded accounts pass the same balance
-// check used by every other billable operation.
+// Small operations deliberately sit at or below the free-signup grant so a
+// new account can genuinely try the product; larger ones require purchase.
+// Same balance check as every other billable operation.
 export const SIGNUP_GRANT_CREDITS = 10
-export const UPLOAD_CREDITS = 15
-export const SIGNATURE_SEND_CREDITS = 25
-export const LAWYER_REQUEST_CREDITS = 15
+export const UPLOAD_CREDITS = 5
+export const SIGNATURE_SEND_CREDITS = 10
+export const LAWYER_REQUEST_CREDITS = 10

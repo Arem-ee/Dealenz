@@ -720,7 +720,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
             )}
           </div>
         )}
-      {/* Work plan — approval-gated, 10 credits (mobile inline; desktop in work surface) */}
+      {/* Work plan — approval-gated, 5 credits (mobile inline; desktop in work surface) */}
       {!isDesktop && workPlan && (
         <div className="mx-auto w-full max-w-3xl px-4 pb-3">
           <PlanPreview plan={workPlan} steps={workSteps} onApprove={handlePlanApprove} onReject={handlePlanReject} onResume={handlePlanResume} />

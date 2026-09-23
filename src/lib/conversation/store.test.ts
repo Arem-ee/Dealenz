@@ -26,12 +26,12 @@ describe("estimateAskCredits", () => {
     const { classifyOperation, isGreeting } = await import("@/lib/conversation/request")
     const { priceForOperation } = await import("@/lib/credits/pricing")
     expect(isGreeting("Hello")).toBe(true)
-    // Tier rescale: brief 10, standard 30 (was 1/3).
-    expect(priceForOperation(classifyOperation("Hello", false))).toBe(10)
+    // Tier rescale: brief 2, standard 6 (was 10/30).
+    expect(priceForOperation(classifyOperation("Hello", false))).toBe(2)
     // estimateAskCredits itself wraps isGreeting check to return 0
     expect(await estimateAskCredits("Hello", false)).toBe(0)
-    expect(await estimateAskCredits("What does net 30 mean?", false)).toBe(10)
-    expect(await estimateAskCredits("Should I accept this freelance contract?", true)).toBe(30)
+    expect(await estimateAskCredits("What does net 30 mean?", false)).toBe(2)
+    expect(await estimateAskCredits("Should I accept this freelance contract?", true)).toBe(6)
   }, 20000)
 })
 

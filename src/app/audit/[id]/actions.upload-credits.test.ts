@@ -63,7 +63,7 @@ beforeEach(() => {
   mockDownload.mockResolvedValue({ data: { arrayBuffer: async () => Buffer.from("%PDF-1.4 test content") }, error: null })
 })
 
-describe("attachFileMetadata credit gate (15 credits)", () => {
+describe("attachFileMetadata credit gate (5 credits)", () => {
   it("denies never-purchased accounts without touching the database", async () => {
     mockRpc.mockImplementation((fn: string) => {
       if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: false, balance: 10, reservation_id: null }], error: null })
@@ -89,9 +89,9 @@ describe("attachFileMetadata credit gate (15 credits)", () => {
     if (!result.ok) throw new Error("unreachable")
     expect(result.files).toHaveLength(1)
     const reserve = seen.find((s) => s.fn === "reserve_credits")
-    expect((reserve?.args as { p_amount?: number }).p_amount).toBe(15)
+    expect((reserve?.args as { p_amount?: number }).p_amount).toBe(5)
     const fin = seen.find((s) => s.fn === "finalize_reservation")
-    expect((fin?.args as { p_consumption_amount?: number }).p_consumption_amount).toBe(15)
+    expect((fin?.args as { p_consumption_amount?: number }).p_consumption_amount).toBe(5)
   })
 
   it("validates input before touching credits", async () => {

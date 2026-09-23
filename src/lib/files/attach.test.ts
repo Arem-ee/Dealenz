@@ -60,7 +60,7 @@ describe("uploadAndAttachFile", () => {
   })
 
   it("removes the orphan and explains next actions when credits are insufficient", async () => {
-    mockAttach.mockResolvedValue({ ok: false, error: "Insufficient credits for this operation. File upload costs 15 credits." })
+    mockAttach.mockResolvedValue({ ok: false, error: "Insufficient credits for this operation. File upload costs 5 credits." })
     const res = await uploadAndAttachFile(AUDIT_ID, pdfFile())
     expect(res.ok).toBe(false)
     if (!res.ok) {

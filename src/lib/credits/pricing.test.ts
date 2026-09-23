@@ -43,40 +43,45 @@ describe("standard credit policy", () => {
   })
 
   it("rescales tiers above any single document cost", () => {
-    expect(CREDIT_PRICE_BRIEF).toBe(10)
-    expect(CREDIT_PRICE_STANDARD).toBe(30)
-    expect(CREDIT_PRICE_EXTENDED).toBe(100)
+    expect(CREDIT_PRICE_BRIEF).toBe(2)
+    expect(CREDIT_PRICE_STANDARD).toBe(6)
+    expect(CREDIT_PRICE_EXTENDED).toBe(25)
     const maxDoc = Math.max(...Object.values(DOCUMENT_CREDIT_COSTS))
     expect(CREDIT_PRICE_EXTENDED).toBeGreaterThan(maxDoc)
   })
 
   it("prices documents per family with a micro default", () => {
-    expect(creditsForDocumentType("proposal")).toBe(25)
-    expect(creditsForDocumentType("Proposal")).toBe(25)
-    expect(creditsForDocumentType("sow")).toBe(35)
-    expect(creditsForDocumentType("statement_of_work")).toBe(35)
-    expect(creditsForDocumentType("contract")).toBe(45)
-    expect(creditsForDocumentType("checklist")).toBe(20)
-    expect(DOCUMENT_CREDIT_COSTS).toEqual({ proposal: 25, sow: 35, contract: 45, checklist: 20 })
+    expect(creditsForDocumentType("proposal")).toBe(10)
+    expect(creditsForDocumentType("Proposal")).toBe(10)
+    expect(creditsForDocumentType("sow")).toBe(15)
+    expect(creditsForDocumentType("statement_of_work")).toBe(15)
+    expect(creditsForDocumentType("contract")).toBe(20)
+    expect(creditsForDocumentType("checklist")).toBe(10)
+    expect(DOCUMENT_CREDIT_COSTS).toEqual({ proposal: 10, sow: 15, contract: 20, checklist: 10 })
     // Unknown families (protection_clause, outreach micro-drafts) stay micro.
     expect(creditsForDocumentType("protection_clause")).toBe(1)
     expect(creditsForDocumentType(undefined)).toBe(1)
     expect(creditsForDocumentType("")).toBe(1)
   })
 
-  it("prices gated actions above the free-signup grant", () => {
+  it("prices small operations within the free-signup grant and large ones above it", () => {
     expect(SIGNUP_GRANT_CREDITS).toBe(10)
-    expect(UPLOAD_CREDITS).toBe(15)
-    expect(SIGNATURE_SEND_CREDITS).toBe(25)
-    expect(LAWYER_REQUEST_CREDITS).toBe(15)
-    // A never-purchased account (grant only) cannot afford any gated action.
-    for (const cost of [UPLOAD_CREDITS, SIGNATURE_SEND_CREDITS, LAWYER_REQUEST_CREDITS]) {
+    expect(UPLOAD_CREDITS).toBe(5)
+    expect(SIGNATURE_SEND_CREDITS).toBe(10)
+    expect(LAWYER_REQUEST_CREDITS).toBe(10)
+    // A never-purchased account can genuinely try the product: uploads,
+    // signatures, and small answers fit inside the grant.
+    for (const cost of [UPLOAD_CREDITS, SIGNATURE_SEND_CREDITS, LAWYER_REQUEST_CREDITS, CREDIT_PRICE_BRIEF, CREDIT_PRICE_STANDARD]) {
+      expect(cost).toBeLessThanOrEqual(SIGNUP_GRANT_CREDITS)
+    }
+    // Large operations still require purchase.
+    for (const cost of [DOCUMENT_CREDIT_COSTS.sow, DOCUMENT_CREDIT_COSTS.contract, CREDIT_PRICE_EXTENDED]) {
       expect(cost).toBeGreaterThan(SIGNUP_GRANT_CREDITS)
     }
   })
 
-  it("prices one analysis exactly at the signup grant: the first analysis is free", () => {
-    expect(ANALYSIS_CREDITS).toBe(10)
-    expect(ANALYSIS_CREDITS).toBe(SIGNUP_GRANT_CREDITS)
+  it("prices the signup grant at two full analyses", () => {
+    expect(ANALYSIS_CREDITS).toBe(5)
+    expect(SIGNUP_GRANT_CREDITS / ANALYSIS_CREDITS).toBe(2)
   })
 })

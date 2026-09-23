@@ -62,7 +62,7 @@ beforeEach(() => {
   mockFrom.mockImplementation(() => tableMock())
 })
 
-describe("invite signature-send credit gate (25 credits)", () => {
+describe("invite signature-send credit gate (10 credits)", () => {
   it("denies never-purchased accounts with 402 before creating anything", async () => {
     mockRpc.mockImplementation((fn: string) => {
       if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: false, balance: 10, reservation_id: null }], error: null })
@@ -73,7 +73,7 @@ describe("invite signature-send credit gate (25 credits)", () => {
     const body = (await res.json()) as { success: boolean; error?: string }
     expect(body.success).toBe(false)
     expect(body.error).toMatch(/Insufficient credits/)
-    expect(body.error).toMatch(/25 credits/)
+    expect(body.error).toMatch(/10 credits/)
     expect(inserts).toHaveLength(0)
   })
 
@@ -89,8 +89,8 @@ describe("invite signature-send credit gate (25 credits)", () => {
     expect(res.status).toBe(200)
     expect(((await res.json()) as { success: boolean }).success).toBe(true)
     const reserve = seen.find((s) => s.fn === "reserve_credits")
-    expect((reserve?.args as { p_amount?: number }).p_amount).toBe(25)
+    expect((reserve?.args as { p_amount?: number }).p_amount).toBe(10)
     const fin = seen.find((s) => s.fn === "finalize_reservation")
-    expect((fin?.args as { p_consumption_amount?: number }).p_consumption_amount).toBe(25)
+    expect((fin?.args as { p_consumption_amount?: number }).p_consumption_amount).toBe(10)
   })
 })

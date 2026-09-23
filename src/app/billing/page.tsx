@@ -128,7 +128,7 @@ export default async function BillingPage({
       </h1>
       <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted-foreground">
         Each deal analysis — extract, rules check, risk report — costs {ANALYSIS_CREDITS} credits.
-        Your 10 signup credits cover the first one. Credits pay for outcomes — never for a favorable answer.
+        Your 10 signup credits cover the first two. Credits pay for outcomes — never for a favorable answer.
       </p>
 
       {notice && (

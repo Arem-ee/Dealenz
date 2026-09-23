@@ -114,7 +114,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
           handleActionError(posted.error, text, hasDocument)
           return false
         }
-        // Work-first: create bounded analysis plan (10 credits) and request approval instead of direct analysis
+        // Work-first: create bounded analysis plan (5 credits) and request approval instead of direct analysis
         const { createDealAnalysisPlan, requestApproval } = await import("@/lib/work/actions")
         const created = await createDealAnalysisPlan({ conversationId: threadId, dealId: auditId })
         if (!created.ok) {

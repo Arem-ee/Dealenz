@@ -40,8 +40,8 @@ export default function TermsPage() {
 
           <H>Credits and payment</H>
           <p>
-            Dealenz is free to start: new accounts receive 10 credits, enough for a first
-            analysis. Further work — analyses (10 each), answers, drafts, uploads, signature
+            Dealenz is free to start: new accounts receive 10 credits, enough for two full
+            analyses. Further work — analyses (5 each), answers, drafts, uploads, signature
             sends, lawyer requests (coming soon; not currently charged) — consumes credits, which
             can be topped up in one-time credit packs inside the app. There are no subscriptions.
             Credits never expire. Failed operations do not consume credits. A purchase counts once
