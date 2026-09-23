@@ -46,6 +46,7 @@ Do not commit real values. All values below are names only.
 | `PADDLE_PRICE_STARTER` | Paddle Dashboard → Catalog → Product → Price ID | Server-only. Price for 50-credit Starter. |
 | `PADDLE_PRICE_STANDARD` | Paddle Dashboard → Catalog → Product → Price ID | Server-only. Price for 150-credit Standard. |
 | `PADDLE_PRICE_PRO` | Paddle Dashboard → Catalog → Product → Price ID | Server-only. Price for 400-credit Pro. |
+| `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` | Paddle Dashboard → Developer Tools → Authentication → client-side token (`live_…` or `test_…`) | Public. Powers the in-app Paddle.js overlay checkout (no page navigation). Environment is derived from the token prefix. If unset, Buy falls back to hosted-checkout redirect. |
 
 ### Cron
 
