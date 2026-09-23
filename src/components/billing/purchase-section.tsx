@@ -44,6 +44,20 @@ function loadPaddleJs(): Promise<PaddleJs | null> {
 
 let paddleInitialized = false
 
+// Paddle composes API-transaction checkout URLs as
+// <default-payment-link>/?ptxn=<txn-id>, which only works on a page that
+// includes Paddle.js. Ours don't — so a URL pointing at our own domain is
+// a dead end (renders the homepage), never a checkout. Only follow URLs
+// on Paddle's own checkout hosts.
+function isPaddleHostedCheckout(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase()
+    return host.endsWith("paddle.com") || host.endsWith("paddle.net")
+  } catch {
+    return false
+  }
+}
+
 function paddleEnvironment(): "sandbox" | "production" {
   // Client-side tokens are prefixed live_/test_ — derive the environment
   // from the token itself so no second env var can drift out of sync.
@@ -130,6 +144,12 @@ export function PurchaseSection() {
                 // Overlay already gone; fall through to confirmation.
               }
               pollForCredits(baseline)
+            } else if (name === "checkout.closed") {
+              // Closed early (or after Paddle's own success screen): refresh
+              // in case the webhook already settled credits.
+              router.refresh()
+            } else if (name === "checkout.error") {
+              setError("The payment page reported a problem — no credits were charged. Check Paddle dashboard configuration, then try again.")
             }
           },
         })
@@ -163,15 +183,22 @@ export function PurchaseSection() {
       if (!res.ok) throw new Error(data.error ?? "Checkout failed")
       if (!data.url) throw new Error("No checkout URL returned")
       // Prefer the in-app overlay (no navigation away); fall back to the
-      // hosted checkout URL when Paddle.js is unavailable or unconfigured.
-      if (data.checkoutId) {
+      // hosted checkout URL only when it actually points at Paddle.
+      // A same-domain ?ptxn= URL needs Paddle.js on that page (ours have
+      // none) and would strand the buyer on the homepage — surface an
+      // error instead of navigating to a dead end.
+      if (data.checkoutId && data.checkoutId.startsWith("txn_")) {
         const opened = await openOverlayCheckout(data.checkoutId, baseline)
         if (opened) {
           setLoading(null)
           return
         }
       }
-      window.location.assign(data.url)
+      if (isPaddleHostedCheckout(data.url)) {
+        window.location.assign(data.url)
+        return
+      }
+      throw new Error("Checkout is not available right now")
     } catch (e) {
       setError(e instanceof Error ? e.message : "Checkout failed")
       setLoading(null)
