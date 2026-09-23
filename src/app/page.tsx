@@ -5,12 +5,16 @@ import {
   ArrowRight,
   Bell,
   CircleAlert,
+  Download,
+  EyeOff,
   FileText,
   Mail,
   PenLine,
   Scale,
   Search,
   ShieldCheck,
+  Trash2,
+  Unlink,
   Upload,
 } from "lucide-react"
 
@@ -62,6 +66,10 @@ const faqs = [
   {
     q: "What happens after I sign?",
     a: "Dealenz can track what was agreed in monitoring: renewal dates, notice windows, payment obligations, and material deadlines — connect Gmail once and it emails you before they matter.",
+  },
+  {
+    q: "What happens to my contract data?",
+    a: "It stays yours. Mask emails, phone numbers, and your own terms before sending — detection runs in your browser and you review every item. Delete any single deal from your dashboard, download everything from Settings, and revoke any shared link at any time. Your database lives in the EU, there are no advertising trackers, and deleting your account erases everything.",
   },
   {
     q: "Is the free tier a trial?",
@@ -495,6 +503,58 @@ export default function Home() {
                 ))}
               </ul>
             </div>
+          </div>
+        </section>
+
+        {/* Private by design */}
+        <section id="privacy" className="border-t border-border bg-card">
+          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
+            <h2 className="mx-auto max-w-[24ch] text-center text-[28px] font-semibold leading-tight tracking-[-0.03em] sm:text-[36px]">
+              Sensitive paper deserves more than a promise
+            </h2>
+            <p className="mx-auto mt-3 max-w-[52ch] text-center text-[14px] leading-relaxed text-foreground/55">
+              Contracts carry other people&apos;s names, numbers, and money. Dealenz gives you
+              control over every copy — before, during, and after the work.
+            </p>
+            <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                {
+                  icon: <EyeOff className="h-4 w-4 text-[var(--burgundy)]" />,
+                  title: "Mask before sending",
+                  body: "Emails, phone numbers, and your own terms are found in your browser for your review — nothing is masked silently, and masked deals simply analyze less precisely.",
+                },
+                {
+                  icon: <Trash2 className="h-4 w-4 text-[var(--burgundy)]" />,
+                  title: "Delete any deal",
+                  body: "Remove a single sensitive deal — files, threads, documents, monitoring — from your dashboard, without touching the rest.",
+                },
+                {
+                  icon: <Download className="h-4 w-4 text-[var(--burgundy)]" />,
+                  title: "Take it all with you",
+                  body: "Download everything Dealenz holds about you as one file, any time, from Settings.",
+                },
+                {
+                  icon: <Unlink className="h-4 w-4 text-[var(--burgundy)]" />,
+                  title: "Revoke any link",
+                  body: "Every shared view and report link lives in one place with its expiry — kill any of them in one tap.",
+                },
+              ].map((f) => (
+                <div key={f.title} className="rounded-[20px] border border-border bg-background p-6">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/[0.04]">
+                    {f.icon}
+                  </span>
+                  <h3 className="mt-3 text-[16px] font-semibold tracking-[-0.01em]">{f.title}</h3>
+                  <p className="mt-2 text-[13px] leading-relaxed text-foreground/55">{f.body}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mx-auto mt-8 max-w-[62ch] text-center text-[13px] leading-relaxed text-foreground/55">
+              Your data lives in the EU, there are no advertising trackers, and deleting your
+              account erases everything.{" "}
+              <Link href="/privacy" className="font-medium text-foreground underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/40">
+                Read the privacy policy
+              </Link>
+            </p>
           </div>
         </section>
 
