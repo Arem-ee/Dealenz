@@ -312,6 +312,9 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
     try {
       const sent = await doSend(text, hasDocument, pendingFile)
       if (sent) {
+        // Success refreshes the thread from the server, which replaces the
+        // view: any stale inline notes must not linger above the composer.
+        setEphemeral([])
         setValue("")
         setPendingFileLocal(null)
         setPendingFile(null)
@@ -338,6 +341,9 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
       try {
         const sent = await doSend(text, hasDoc, pendingFile)
         if (sent) {
+          // Same as the main submit path: a successful send refreshes the
+          // thread, so stale inline notes must not linger above the composer.
+          setEphemeral([])
           setValue("")
           setPendingFileLocal(null)
           setPendingFile(null)

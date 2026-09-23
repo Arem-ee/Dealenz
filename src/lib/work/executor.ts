@@ -30,9 +30,10 @@ function getHandler(op: string): StepHandler | undefined {
 // Bounded deal-analysis handler — delegates to existing analyzeDeal pipeline.
 // Reuses every consent/context/usage/knowledge/rule/evidence/persistence boundary.
 // Do not copy analyzeDeal implementation; call it.
-registerStepHandler("document_analysis", async (step) => {
+registerStepHandler("document_analysis", async (step, ctx) => {
   const input = step.input_ref as { auditId?: unknown; threadId?: unknown; dealId?: unknown }
   const auditId = (typeof input.auditId === "string" ? input.auditId : typeof input.dealId === "string" ? input.dealId : "") ?? ""
+  const threadId = typeof input.threadId === "string" ? input.threadId : ""
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!auditId || !UUID_RE.test(auditId)) {
     return { error: "Missing or invalid auditId for analysis", creditsConsumed: 0, needsInput: true }
@@ -48,7 +49,11 @@ registerStepHandler("document_analysis", async (step) => {
       if (isRateLimited) {
         return { error: msg, creditsConsumed: 0, rateLimited: true, resultRef: { auditId, error: msg, rateLimited: true } }
       }
-      // Needs_input: explicit context/input requirement — do not fail silently, pause
+      // Needs_input: explicit context/input requirement — do not fail silently, pause.
+      // Unlike failures, this state also posts the confirm questions when they
+      // are not already the latest message: without that card the plan waits
+      // for answers the user was never asked (dead end). A re-run after skipped
+      // questions finds the identical card already latest and does not repost.
       const isNeedsInput =
         Boolean(result.contextGate) ||
         msg.includes("No content to analyze") ||
@@ -56,6 +61,63 @@ registerStepHandler("document_analysis", async (step) => {
         msg.includes("CONSENT_REQUIRED") ||
         msg.includes("Please verify your email")
       if (isNeedsInput) {
+        try {
+          const client = ctx.client as Client
+          const { buildConfirmFields } = await import("@/lib/context/confirm-fields")
+          const { data: auditRow } = await client
+            .from("audits")
+            .select("context_envelope, deal_type")
+            .eq("id", auditId)
+            .maybeSingle()
+          const fields = buildConfirmFields(
+            (auditRow as { context_envelope?: unknown } | null)?.context_envelope,
+            String((auditRow as { deal_type?: string } | null)?.deal_type ?? "generic")
+          )
+          if (fields && fields.length > 0 && threadId) {
+            const { data: latest } = await client
+              .from("conversation_messages")
+              .select("metadata")
+              .eq("conversation_id", threadId)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            const latestMeta = (latest as { metadata?: unknown } | null)?.metadata as
+              | { type?: unknown; payload?: { fields?: Array<{ key?: unknown }> } }
+              | null
+            const latestKeys =
+              latestMeta?.type === "context_confirm" && Array.isArray(latestMeta.payload?.fields)
+                ? latestMeta.payload.fields.map((f) => String(f.key))
+                : null
+            const sameKeys =
+              latestKeys !== null &&
+              latestKeys.length === fields.length &&
+              latestKeys.every((k, i) => k === fields[i].key)
+            if (!sameKeys) {
+              const { data: threadOwner } = await client
+                .from("conversations")
+                .select("user_id")
+                .eq("id", threadId)
+                .maybeSingle()
+              const ownerId = (threadOwner as { user_id?: string } | null)?.user_id
+              if (ownerId) {
+                await client.from("conversation_messages").insert({
+                  conversation_id: threadId,
+                  user_id: ownerId,
+                  role: "assistant",
+                  content: "Quick check — is this right?",
+                  operation: "document_analysis",
+                  intent: "review",
+                  objective: ctx.plan.objective_kind,
+                  message_type: "message",
+                  metadata: { type: "context_confirm", payload: { fields }, executionId: ctx.executionId, planId: ctx.plan.id },
+                })
+              }
+            }
+          }
+        } catch {
+          // Question posting is best-effort: the needs_input state below is
+          // the contract, the card is the convenience.
+        }
         return { error: msg, creditsConsumed: 0, needsInput: true, resultRef: { auditId, error: msg, contextGate: result.contextGate ?? null, missingRequiredContext: result.missingRequiredContext ?? [] } }
       }
       return { error: msg, creditsConsumed: 0, resultRef: { auditId, error: msg } }
