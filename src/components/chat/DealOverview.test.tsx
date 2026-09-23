@@ -36,4 +36,23 @@ describe("DealOverview actions dock", () => {
     expect(html).toContain("Revise input")
     expect(html).toContain("CTO offer")
   })
+
+  it("stays quiet while orienting instead of shouting UNKNOWN", () => {
+    const fresh = { ...INPUT, openIssues: null as number | null }
+    const collapsed = renderToStaticMarkup(
+      <DealOverview input={fresh} collapsed onToggleCollapsed={() => {}} />
+    )
+    expect(collapsed).toContain("Getting oriented")
+    expect(collapsed).not.toContain("UNKNOWN")
+    const expanded = renderToStaticMarkup(<DealOverview input={fresh} />)
+    expect(expanded).toContain("Getting oriented")
+    expect(expanded).not.toContain("UNKNOWN")
+  })
+
+  it("still states real moments plainly", () => {
+    const html = renderToStaticMarkup(
+      <DealOverview input={{ ...INPUT, openIssues: 2 }} />
+    )
+    expect(html).toContain("Needs action")
+  })
 })

@@ -62,17 +62,14 @@ export function ThreadPanel({ messages, auditId, onContextConfirm, onDocumentGen
           <FileText className="h-4 w-4 text-muted-foreground" />
           Deal document
         </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {latest ? "Latest structured output from this conversation." : "Structured output from this conversation appears here."}
-        </p>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
         <div className="mx-auto w-full max-w-2xl ">
           {latest ? (
             <PanelCard message={latest} onContextConfirm={onContextConfirm} onDocumentGenerate={onDocumentGenerate} onAskFinding={onAskFinding} />
           ) : (
-            <p className="rounded-xl border border-dashed px-4 py-8 text-center text-xs text-muted-foreground">
-              Nothing structured yet. Paste a deal or ask a question and the risk report or draft lands here.
+            <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+              Nothing structured yet.
             </p>
           )}
         </div>

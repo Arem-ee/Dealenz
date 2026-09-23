@@ -11,7 +11,7 @@ export interface MonitoringSummary {
 
 export function WorkspaceHeader({
   dealTitle,
-  jurisdiction,
+  jurisdiction: _jurisdiction,
   workspace,
   auditId,
   documentCount,
@@ -33,27 +33,21 @@ export function WorkspaceHeader({
       </p>
       <h2 className="mt-0.5 text-sm font-semibold">{workspace.title}</h2>
       <p className="mt-0.5 text-xs text-muted-foreground">{workspace.description}</p>
-      {/* Deal type lives in the overview card; repeating it here crowded
-          the narrow panel. Jurisdiction stays as compact context. */}
-      {jurisdiction && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <span className="inline-flex items-center rounded-full border bg-muted px-2 py-0.5 text-[11px]">
-            Jurisdiction: <span className="ml-1 font-medium">{jurisdiction}</span>
-          </span>
-        </div>
-      )}
-      <div className="mt-2 flex flex-wrap gap-1.5">
+      {/* Jurisdiction already shows in the overview meta; repeating it here
+          crowded the narrow panel. Documents and monitoring read as inline
+          text links, not pills: hierarchy from type, not chrome. */}
+      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
         {auditId && (documentCount ?? 0) > 0 && (
           <Link
             href={`/document/${auditId}`}
-            className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium hover:bg-muted/60"
+            className="inline-flex items-center gap-1 font-medium text-muted-foreground hover:text-foreground hover:underline"
           >
             <FileText className="h-3 w-3" />
             Documents{documentCount ? ` (${documentCount})` : ""}
           </Link>
         )}
         {monitoring && monitoring.total > 0 && (
-          <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium">
+          <span className="inline-flex items-center gap-1 font-medium text-muted-foreground">
             <Bell className="h-3 w-3" />
             Monitoring: {monitoring.unresolved > 0 ? `${monitoring.unresolved} need attention` : `${monitoring.total} watched`}
           </span>

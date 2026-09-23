@@ -67,6 +67,10 @@ export function DealOverview({ input, collapsed = false, onToggleCollapsed, acti
   else if (d.userRole) metaParts.push(`You: ${d.userRole}`)
   if (d.jurisdiction) metaParts.push(d.jurisdiction)
 
+  // A deal with no analysis yet has no status to shout about. "UNKNOWN" in
+  // caps reads as a system failure; quiet honesty reads as an invitation.
+  const orienting = moment === "unknown" || moment === "draft"
+
   if (collapsed && onToggleCollapsed) {
     return (
       <section aria-label="Deal overview" className="mx-auto w-full max-w-3xl shrink-0 px-4 pt-3 pb-2">
@@ -83,9 +87,9 @@ export function DealOverview({ input, collapsed = false, onToggleCollapsed, acti
               {metaParts.length > 0 && (
                 <span className="font-normal text-muted-foreground"> · {metaParts.join(" · ")}</span>
               )}
-              <span className={`ml-2 font-semibold uppercase tracking-[0.04em] ${MOMENT_TONE[moment]}`}>
-                {DEAL_MOMENT_LABEL[moment]}
-              </span>
+            <span className={orienting ? "ml-2 font-normal text-muted-foreground" : `ml-2 font-semibold uppercase tracking-[0.04em] ${MOMENT_TONE[moment]}`}>
+              {orienting ? "Getting oriented" : DEAL_MOMENT_LABEL[moment]}
+            </span>
             </span>
             <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </button>
@@ -125,13 +129,19 @@ export function DealOverview({ input, collapsed = false, onToggleCollapsed, acti
 
         <div className="mt-4 border-t border-border/60 pt-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Deal status</p>
-          <p className={`mt-1 text-[17px] font-semibold uppercase tracking-[0.04em] ${MOMENT_TONE[moment]}`}>
-            {moment === "needs-action" && d.openIssues !== null
-              ? `${DEAL_MOMENT_LABEL[moment]} — ${d.openIssues} issue${d.openIssues === 1 ? "" : "s"} worth pushing back on`
-              : DEAL_MOMENT_LABEL[moment]}
-          </p>
-          {d.signedLabel && (
-            <p className="mt-1 text-xs text-muted-foreground">{d.signedLabel}</p>
+          {orienting ? (
+            <p className="mt-1 text-sm text-muted-foreground">Getting oriented — share the deal to start the analysis.</p>
+          ) : (
+            <>
+              <p className={`mt-1 text-[17px] font-semibold uppercase tracking-[0.04em] ${MOMENT_TONE[moment]}`}>
+                {moment === "needs-action" && d.openIssues !== null
+                  ? `${DEAL_MOMENT_LABEL[moment]} — ${d.openIssues} issue${d.openIssues === 1 ? "" : "s"} worth pushing back on`
+                  : DEAL_MOMENT_LABEL[moment]}
+              </p>
+              {d.signedLabel && (
+                <p className="mt-1 text-xs text-muted-foreground">{d.signedLabel}</p>
+              )}
+            </>
           )}
         </div>
 
