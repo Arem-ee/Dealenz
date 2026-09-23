@@ -14,16 +14,33 @@ describe("ContextConfirmCard stepped flow", () => {
     )
     expect(html).toContain("Your role")
     expect(html).not.toContain("Jurisdiction")
-    expect(html).toContain("1 of 2")
+    expect(html).toContain("1 of 2 questions")
   })
 
-  it("renders native option buttons for closed-vocabulary fields", () => {
+  it("renders radio rows only when options exist, with select-then-submit", () => {
     const html = renderToStaticMarkup(
       <ContextConfirmCard payload={{ fields: FIELDS }} onConfirm={() => {}} />
     )
+    expect(html).toContain("Select one answer")
     expect(html).toContain("Freelancer")
     expect(html).toContain("Client")
-    expect(html).toContain("None of these")
+    expect(html).toContain("Type your own answer")
+    expect(html).toContain('role="radiogroup"')
+    // No selection yet: Submit is disabled, so a mis-tap cannot answer.
+    expect(html).toContain("disabled")
+    expect(html).toContain("Dismiss")
+  })
+
+  it("renders free text with no radio rows when options are absent", () => {
+    const html = renderToStaticMarkup(
+      <ContextConfirmCard
+        payload={{ fields: [{ key: "counterparty", label: "Counterparty", value: "", confidence: 0, options: null }] }}
+        onConfirm={() => {}}
+      />
+    )
+    expect(html).not.toContain('role="radiogroup"')
+    expect(html).not.toContain("Select one answer")
+    expect(html).toContain("Type your answer")
   })
 
   it("keeps the complete-context card untouched", () => {
@@ -41,6 +58,6 @@ describe("ContextConfirmCard stepped flow", () => {
         onConfirm={() => {}}
       />
     )
-    expect(html).toContain("We guessed: Texas")
+    expect(html).toContain("We guessed Texas")
   })
 })

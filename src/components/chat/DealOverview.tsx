@@ -1,5 +1,6 @@
 "use client"
 
+import type { ReactNode } from "react"
 import { ChevronsDownUp, ChevronsUpDown } from "lucide-react"
 import { dealMomentState, DEAL_MOMENT_LABEL, type DealMoment } from "@/lib/deals/moment"
 
@@ -25,7 +26,7 @@ const MOMENT_TONE: Record<DealMoment, string> = {
   unknown: "text-muted-foreground",
 }
 
-export function DealOverview({ input, collapsed = false, onToggleCollapsed }: {
+export function DealOverview({ input, collapsed = false, onToggleCollapsed, actions }: {
   input: {
     title: string | null
     budget: string | null
@@ -46,6 +47,9 @@ export function DealOverview({ input, collapsed = false, onToggleCollapsed }: {
   }
   collapsed?: boolean
   onToggleCollapsed?: () => void
+  // Inline affordances (e.g. the revise-input pill) dock into the overview
+  // header instead of stacking as their own block above it: one header, not two.
+  actions?: ReactNode
 }) {
   const d = input
   const moment = dealMomentState({
@@ -66,24 +70,27 @@ export function DealOverview({ input, collapsed = false, onToggleCollapsed }: {
   if (collapsed && onToggleCollapsed) {
     return (
       <section aria-label="Deal overview" className="mx-auto w-full max-w-3xl shrink-0 px-4 pt-3 pb-2">
-        <button
-          type="button"
-          onClick={onToggleCollapsed}
-          aria-expanded={false}
-          aria-label="Expand deal overview"
-          className="flex w-full items-center gap-2 rounded-xl border border-border/60 bg-card px-4 py-2.5 text-left transition-colors hover:bg-muted/40"
-        >
-          <span className="min-w-0 flex-1 truncate text-[13px]">
-            <span className="font-semibold">{d.title || "Untitled deal"}</span>
-            {metaParts.length > 0 && (
-              <span className="font-normal text-muted-foreground"> · {metaParts.join(" · ")}</span>
-            )}
-            <span className={`ml-2 font-semibold uppercase tracking-[0.04em] ${MOMENT_TONE[moment]}`}>
-              {DEAL_MOMENT_LABEL[moment]}
+        <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-card px-4 py-2.5">
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            aria-expanded={false}
+            aria-label="Expand deal overview"
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          >
+            <span className="min-w-0 flex-1 truncate text-[13px]">
+              <span className="font-semibold">{d.title || "Untitled deal"}</span>
+              {metaParts.length > 0 && (
+                <span className="font-normal text-muted-foreground"> · {metaParts.join(" · ")}</span>
+              )}
+              <span className={`ml-2 font-semibold uppercase tracking-[0.04em] ${MOMENT_TONE[moment]}`}>
+                {DEAL_MOMENT_LABEL[moment]}
+              </span>
             </span>
-          </span>
-          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        </button>
+            <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          </button>
+          {actions}
+        </div>
       </section>
     )
   }
@@ -107,6 +114,7 @@ export function DealOverview({ input, collapsed = false, onToggleCollapsed }: {
               <ChevronsDownUp className="h-4 w-4" />
             </button>
           )}
+          {actions}
         </div>
         <h2 className="mt-1  text-[22px] font-semibold leading-tight tracking-[-0.01em]">
           {d.title || "Untitled deal"}

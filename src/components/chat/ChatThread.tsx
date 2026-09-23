@@ -12,7 +12,7 @@ import type { ThreadMessage } from "@/lib/chat/types"
 import { getThreadMessages } from "@/lib/chat/actions"
 import { createClient } from "@/lib/supabase/client"
 import { getOpenItemsFromConversation } from "@/lib/open-items"
-import { AlertCircle, ChevronDown, ChevronUp } from "lucide-react"
+import { ChevronDown, ChevronUp } from "lucide-react"
 import { PushbackWords } from "@/components/findings/pushback-words"
 import { PlanPreview } from "@/components/work/PlanPreview"
 import { ExecutionProgress } from "@/components/work/ExecutionProgress"
@@ -556,26 +556,10 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
 
   const conversation = (
     <>
-      {/* Revise affordance only. Deal type and jurisdiction already show in
-          the overview card below and the workspace panel; repeating them here
-          crowded the reply viewport. */}
-      {auditId && dealInput !== null && (
-        <div className="mx-auto w-full max-w-3xl px-4 pt-2">
-          <ReviseDealInput
-            auditId={auditId}
-            threadId={threadId}
-            initialText={dealInput}
-            onPlanReady={() => {
-              void refreshWorkPlan()
-              handleSent()
-            }}
-            onError={fail}
-          />
-        </div>
-      )}
-
       {/* Deal overview: the deal is the centerpiece. Renders once the
-          thread is attached to an audit; absent otherwise. */}
+          thread is attached to an audit; absent otherwise. The revise-input
+          pill docks into the overview header (actions) instead of stacking
+          as its own block above it. */}
       {auditId && (() => {
         const executed = signers.length > 0 && signers.every((s) => s.status === "signed")
         const signingActive = signers.length > 0 && !executed
@@ -583,6 +567,20 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
           <DealOverview
             collapsed={overviewIsCollapsed}
             onToggleCollapsed={() => setOverviewCollapsed(!overviewIsCollapsed)}
+            actions={
+              auditId && dealInput !== null ? (
+                <ReviseDealInput
+                  auditId={auditId}
+                  threadId={threadId}
+                  initialText={dealInput}
+                  onPlanReady={() => {
+                    void refreshWorkPlan()
+                    handleSent()
+                  }}
+                  onError={fail}
+                />
+              ) : undefined
+            }
             input={{
               title: dealTitle,
               budget: dealFacts.budget,
@@ -612,62 +610,51 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         )
       })()}
 
-      {/* Open Items */}
-      {openItems.counts.total > 0 && (
-        <div className="mx-auto w-full max-w-3xl px-4 flex flex-wrap gap-2 border-t border-border/40">
-          <button
-            onClick={() => setOpenItemsExpanded(!openItemsExpanded)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl border bg-card hover:bg-muted/50 transition-colors"
-            aria-expanded={openItemsExpanded}
-          >
-            <AlertCircle className="h-4 w-4 text-[var(--risk-medium-foreground)]" />
-            <span className="text-sm font-medium">
-              {openItems.counts.total} open item{openItems.counts.total !== 1 ? "s" : ""}
-            </span>
-            <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-              {openItems.counts.critical > 0 && <span className="px-1.5 py-0.5 rounded bg-[var(--risk-critical)] text-[var(--risk-critical-foreground)]">{openItems.counts.critical}</span>}
-              {openItems.counts.material > 0 && <span className="px-1.5 py-0.5 rounded bg-[var(--risk-medium)] text-[var(--risk-medium-foreground)]">{openItems.counts.material}</span>}
-              {openItems.counts.attention > 0 && <span className="px-1.5 py-0.5 rounded bg-[var(--risk-low)] text-[var(--risk-low-foreground)]">{openItems.counts.attention}</span>}
-              {openItems.counts.informational > 0 && <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{openItems.counts.informational}</span>}
-            </span>
-            {openItemsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-        </div>
-      )}
+      {/* Open Items: one quiet feed row, details on tap. Severity counts
+          read as plain text, not pills: hierarchy from type, not chrome. */}
+      {openItems.counts.total > 0 && (() => {
+        const sevParts: string[] = []
+        if (openItems.counts.critical > 0) sevParts.push(`${openItems.counts.critical} critical`)
+        if (openItems.counts.material > 0) sevParts.push(`${openItems.counts.material} material`)
+        if (openItems.counts.attention > 0) sevParts.push(`${openItems.counts.attention} attention`)
+        if (openItems.counts.informational > 0) sevParts.push(`${openItems.counts.informational} informational`)
+        return (
+          <div className="mx-auto w-full max-w-3xl px-4">
+            <button
+              onClick={() => setOpenItemsExpanded(!openItemsExpanded)}
+              className="flex w-full items-center gap-2 py-2 text-left"
+              aria-expanded={openItemsExpanded}
+            >
+              {openItemsExpanded ? <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+              <span className="text-sm text-muted-foreground">
+                <span className="font-semibold tabular-nums text-foreground">{openItems.counts.total}</span>{" "}
+                open item{openItems.counts.total !== 1 ? "s" : ""}{sevParts.length > 0 ? ` · ${sevParts.join(" · ")}` : ""}
+              </span>
+            </button>
+          </div>
+        )
+      })()}
 
       {openItemsExpanded && openItems.items.length > 0 && (
-        <div className="mx-auto w-full max-w-3xl px-4 pb-3 border-b border-border/40">
-          <div className="space-y-2">
+        <div className="mx-auto w-full max-w-3xl px-4 pb-3">
+          <ul className="space-y-3">
             {openItems.items.map((item) => (
-              <div key={item.id} className="flex items-start gap-3 px-3 py-2 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{item.title}</span>
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded uppercase"
-                          style={{
-                            backgroundColor: item.severity === "critical" ? "var(--risk-critical)" :
-                                        item.severity === "material" ? "var(--risk-medium)" :
-                                        item.severity === "attention" ? "var(--risk-low)" : "var(--muted)",
-                            color: item.severity === "critical" ? "var(--risk-critical-foreground)" :
-                                      item.severity === "material" ? "var(--risk-medium-foreground)" :
-                                      item.severity === "attention" ? "var(--risk-low-foreground)" : "var(--muted-foreground)"
-                          }}>
-                      {item.severity}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">{item.category}</span>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{item.summary}</p>
-                  {item.guidance && <p className="mt-1 text-xs text-[var(--risk-low-foreground)]">{item.guidance}</p>}
-                  {item.pushback && <PushbackWords words={item.pushback} compact auditId={auditId} ruleKey={item.id} />}
-                </div>
-              </div>
+              <li key={item.id} className="min-w-0">
+                <p className="text-sm">
+                  <span className="font-medium">{item.title}</span>{" "}
+                  <span className="text-xs text-muted-foreground">· {item.severity} · {item.category}</span>
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground line-clamp-2">{item.summary}</p>
+                {item.guidance && <p className="mt-0.5 text-xs text-[var(--risk-low-foreground)]">{item.guidance}</p>}
+                {item.pushback && <PushbackWords words={item.pushback} compact auditId={auditId} ruleKey={item.id} />}
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
       {/* Redline re-check verdict — persisted by analyzeDeal on re-analysis,
-          rendered wherever the findings render (both layouts). The verdict
-          is the moment: enormous counts first, itemized change below. */}
+          rendered wherever the findings render (both layouts). One quiet row
+          with the counts; itemized change below on tap. */}
       {findingDelta &&
         (findingDelta.resolved.length > 0 ||
           findingDelta.stillOpen.length > 0 ||
@@ -675,13 +662,13 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
           <div className="mx-auto w-full max-w-3xl px-4 pb-3">
             <button
               onClick={() => setVerdictExpanded(!verdictExpanded)}
-              className="flex w-full flex-col items-center gap-1 rounded-2xl border bg-card px-4 py-5 text-center hover:bg-muted/30 transition-colors"
+              className="flex w-full flex-col gap-0.5 py-2 text-left"
               aria-expanded={verdictExpanded}
             >
-              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                 Re-check complete
               </span>
-              <span className=" text-[26px] font-semibold leading-tight tracking-[-0.01em]">
+              <span className="text-sm font-semibold tabular-nums">
                 {findingDelta.resolved.length} resolved · {findingDelta.stillOpen.length} still open ·{" "}
                 {findingDelta.newIssues.length} new
               </span>
@@ -691,7 +678,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
               </span>
             </button>
             {verdictExpanded && (
-              <div className="mt-2 space-y-2">
+              <div className="mt-1 space-y-3">
                 {(
                   [
                     ["Resolved", findingDelta.resolved, "text-emerald-700"],
@@ -701,8 +688,8 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
                 ).map(
                   ([label, items, tone]) =>
                     items.length > 0 && (
-                      <div key={label} className="rounded-xl bg-muted/30 px-3 py-2">
-                        <p className={`text-[11px] font-semibold uppercase tracking-wide ${tone}`}>
+                      <div key={label}>
+                        <p className={`text-xs font-semibold ${tone}`}>
                           {label === "Resolved" ? "✓" : label === "New" ? "!" : "→"} {label} ({items.length})
                         </p>
                         <ul className="mt-1 space-y-1">
