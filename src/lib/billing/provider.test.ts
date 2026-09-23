@@ -110,6 +110,16 @@ describe("billing provider adapter — Paddle", () => {
     expect(() => parsePaddleTransactionEvent(draft)).toThrow(/not in a fulfillable state/)
   })
 
+  it("maps provider refunds to the refunded status", () => {
+    const refunded = JSON.parse(
+      paddleBody({ event_type: "transaction.updated" })
+    ) as Record<string, unknown>
+    ;(refunded.data as Record<string, unknown>).status = "refunded"
+    const event = parsePaddleTransactionEvent(refunded)
+    expect(event.status).toBe("refunded")
+    expect(event.providerTransactionId).toMatch(/^txn_/)
+  })
+
   it("mock adapter stays Paddle-shaped and deterministic", async () => {
     const adapter = createMockAdapter()
     const pkg = getPackage("starter")!

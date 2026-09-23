@@ -128,7 +128,9 @@ export function parsePaddleTransactionEvent(parsed: unknown): Omit<VerifiedEvent
   const root = asRecord(parsed)
   if (!root) throw new Error("Invalid Paddle event: not an object")
   const eventType = typeof root.event_type === "string" ? root.event_type : ""
-  if (eventType !== "transaction.completed" && eventType !== "transaction.paid") {
+  // Refunds arrive as transaction.updated, not completed: accept the event
+  // type and let the status mapping decide (only "refunded" passes below).
+  if (eventType !== "transaction.completed" && eventType !== "transaction.paid" && eventType !== "transaction.updated") {
     throw new Error(`Unsupported Paddle event: ${eventType || "(missing)"}`)
   }
   const data = asRecord(root.data)
@@ -139,6 +141,7 @@ export function parsePaddleTransactionEvent(parsed: unknown): Omit<VerifiedEvent
   let status: VerifiedEvent["status"]
   if (statusRaw === "completed" || statusRaw === "paid") status = "succeeded"
   else if (statusRaw === "canceled") status = "canceled"
+  else if (statusRaw === "refunded") status = "refunded"
   else throw new Error(`Paddle transaction is not in a fulfillable state: ${statusRaw}`)
   const items = Array.isArray(data.items) ? data.items as unknown[] : []
   const firstItem = asRecord(items[0] as unknown)

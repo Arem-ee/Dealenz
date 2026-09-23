@@ -54,7 +54,8 @@ export default function TermsPage() {
           <p>
             Because credits are digital goods delivered instantly, contact support within 14 days
             of purchase for a refund of credits you have not used. Credits already consumed by
-            completed operations are not refundable.
+            completed operations are not refundable. Refunded credits are removed from your
+            balance when the refund settles.
           </p>
 
           <H>Your content, your responsibility</H>

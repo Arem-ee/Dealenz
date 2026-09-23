@@ -41,7 +41,49 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Invalid webhook signature" }, { status: 400 })
   }
 
-  if (event.status === "refunded" || event.type.startsWith("subscription_")) {
+  // Refunds: money returned means credits return too. Support refunds in
+  // the Paddle dashboard after verifying the pack is unused; this branch
+  // then revokes exactly what that purchase granted (from the purchase row,
+  // never the live catalog, which may have repriced since). Idempotent on
+  // `refund:<txn>` plus the refunded-status guard, so Paddle replays are
+  // safe. A negative balance simply blocks future reservations until the
+  // account is topped up again.
+  if (event.status === "refunded") {
+    const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (serviceUrl && serviceKey && event.providerTransactionId) {
+      try {
+        const service = createServiceClient(serviceUrl, serviceKey)
+        const { data: purchase } = await service
+          .from("credit_purchases")
+          .select("id, user_id, package_id, credits, status")
+          .eq("provider", "paddle")
+          .eq("provider_transaction_id", event.providerTransactionId)
+          .maybeSingle()
+        const row = purchase as { id: string; user_id: string; package_id: string; credits: number; status: string } | null
+        if (row && row.status === "refunded") {
+          return NextResponse.json({ received: true, idempotent: true }, { status: 200 })
+        }
+        if (row && typeof row.credits === "number" && row.credits > 0) {
+          const { error: revokeError } = await service.from("credit_ledger").insert({
+            user_id: row.user_id,
+            entry_type: "adjustment",
+            amount: -Math.floor(row.credits),
+            operation: null,
+            status: "finalized",
+            idempotency_key: `refund:${event.providerTransactionId}`,
+            metadata: { reason: "purchase_refund", packageId: row.package_id, provider: "paddle", providerTransactionId: event.providerTransactionId },
+          })
+          if (revokeError && !revokeError.message.toLowerCase().includes("duplicate") && !revokeError.message.toLowerCase().includes("unique")) {
+            return NextResponse.json({ error: "Refund revocation failed" }, { status: 500 })
+          }
+          await service.from("credit_purchases").update({ status: "refunded" }).eq("id", row.id)
+          return NextResponse.json({ received: true, refunded: true }, { status: 200 })
+        }
+      } catch {
+        return NextResponse.json({ error: "Refund revocation failed" }, { status: 500 })
+      }
+    }
     try {
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL
       const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -60,6 +102,12 @@ export async function POST(req: NextRequest) {
       }
     } catch {
     }
+    return NextResponse.json({ received: true, status: event.status }, { status: 200 })
+  }
+
+  // Dealenz sells one-time packs only: subscription events have no product
+  // meaning. Acknowledge without mutating anything (previous behavior).
+  if (event.type.startsWith("subscription_")) {
     return NextResponse.json({ received: true, status: event.status }, { status: 200 })
   }
 
