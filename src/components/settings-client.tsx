@@ -14,12 +14,15 @@ import { useTheme, type ThemeChoice } from "@/components/theme-provider"
 import { exportMyData } from "@/app/settings/actions"
 import { SharedLinksCard } from "@/components/settings/shared-links"
 
-type Section = "account" | "appearance" | "privacy" | "billing" | "security"
+import { ReferralSection } from "@/components/referral-section"
+
+type Section = "account" | "appearance" | "privacy" | "referrals" | "billing" | "security"
 
 const sections: { key: Section; label: string }[] = [
   { key: "account", label: "Account" },
   { key: "appearance", label: "Appearance" },
   { key: "privacy", label: "Privacy" },
+  { key: "referrals", label: "Referrals" },
   { key: "billing", label: "Billing" },
   { key: "security", label: "Security" },
 ]
@@ -127,6 +130,11 @@ export default function SettingsClient({ initialProfile, email, googleConnected,
           {activeSection === "account" && <DeleteAccountSection />}
           {activeSection === "appearance" && <AppearanceSection />}
           {activeSection === "privacy" && <PrivacySection />}
+          {activeSection === "referrals" && (
+            <div className="space-y-4">
+              <ReferralSection />
+            </div>
+          )}
           {activeSection === "billing" && <BillingSection />}
           {activeSection === "security" && <SecuritySection email={email} googleConnected={googleConnected} gmailConnected={gmailConnected} />}
         </div>
@@ -364,11 +372,11 @@ function BusinessProfileSection({
 
 function BillingSection() {
   return (
-    <SectionCard title="Billing" description="Credits, purchases, and usage live on the Billing page">
+      <SectionCard title="Billing" description="Credits, purchases, and history live on the Billing page">
       <div className="flex items-center justify-between rounded-lg border p-3">
         <div>
           <p className="text-sm font-medium">Credits & purchases</p>
-          <p className="text-xs text-muted-foreground">Deal analyses, Ask credit packs, and purchase history.</p>
+          <p className="text-xs text-muted-foreground">Deal analyses, Ask answers, uploads, signatures, and purchase history.</p>
         </div>
         <Button variant="outline" size="sm" asChild>
           <Link href="/billing">Open billing</Link>

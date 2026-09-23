@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
-import { ReferralSection } from "@/components/referral-section"
 import { PurchaseSection } from "@/components/billing/purchase-section"
 import { formatPrice, type Currency } from "@/lib/billing/catalog"
 import {
@@ -169,25 +168,6 @@ export default async function BillingPage({
           <PurchaseSection />
         </div>
 
-        <ReferralSection />
-
-        <details className="group rounded-xl border border-border/60 bg-card p-5 shadow-sm">
-          <summary className="cursor-pointer text-sm font-medium">
-            Full price list
-            <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
-              Every credit price, in one place. A full deal runs about {FULL_DEAL_CREDITS} credits.
-            </span>
-          </summary>
-          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 border-t border-border/60 pt-4 text-xs sm:grid-cols-3">
-            {PRICE_ROWS.map(([label, cost]) => (
-              <div key={label} className="flex items-baseline justify-between gap-2">
-                <dt className="text-muted-foreground">{label}</dt>
-                <dd className="font-medium tabular-nums" data-numeric>{cost}</dd>
-              </div>
-            ))}
-          </dl>
-        </details>
-
         <details className="group rounded-xl border border-border/60 bg-card p-5 shadow-sm">
           <summary className="cursor-pointer text-sm font-medium">
             Purchase history{purchases.length > 0 ? ` (${purchases.length})` : ""}
@@ -214,6 +194,23 @@ export default async function BillingPage({
               })}
             </ul>
           )}
+        </details>
+
+        <details className="group rounded-xl border border-border/60 bg-card p-5 shadow-sm">
+          <summary className="cursor-pointer text-sm font-medium">
+            Full price list
+            <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+              Every credit price, in one place. A full deal runs about {FULL_DEAL_CREDITS} credits.
+            </span>
+          </summary>
+          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 border-t border-border/60 pt-4 text-xs sm:grid-cols-3">
+            {PRICE_ROWS.map(([label, cost]) => (
+              <div key={label} className="flex items-baseline justify-between gap-2">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="font-medium tabular-nums" data-numeric>{cost}</dd>
+              </div>
+            ))}
+          </dl>
         </details>
       </div>
     </div>
