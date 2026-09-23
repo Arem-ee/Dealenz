@@ -31,7 +31,7 @@ export function BackBar() {
           onClick={goBack}
           aria-label="Back"
           title="Back"
-          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>

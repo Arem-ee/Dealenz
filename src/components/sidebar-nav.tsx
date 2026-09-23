@@ -22,7 +22,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, onCollapse, f
             onClick={onCollapse}
             aria-label="Collapse sidebar"
             title="Collapse sidebar for more room"
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
           >
             <PanelLeftClose className="h-4 w-4" />
           </button>

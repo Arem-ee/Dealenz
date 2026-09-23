@@ -113,7 +113,7 @@ export function DealOverview({ input, collapsed = false, onToggleCollapsed, acti
               aria-expanded={true}
               aria-label="Collapse deal overview"
               title="Collapse for more room"
-              className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
             >
               <ChevronsDownUp className="h-4 w-4" />
             </button>

@@ -26,10 +26,10 @@ function ProvenanceBadge({ source, confidence }: { source: "extracted" | "contex
 
   const Icon = config.icon
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${config.color}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${config.color}`}>
       <Icon className="h-2.5 w-2.5" />
       <span className="capitalize">{config.label}</span>
-      <span className="text-[9px] opacity-70">{(confidence * 100).toFixed(0)}%</span>
+      <span className="text-[10px] opacity-70">{(confidence * 100).toFixed(0)}%</span>
     </span>
   )
 }
@@ -85,7 +85,7 @@ function VariableInputRow({
         }`}
       />
       {prov?.observationKey && (
-        <p className="text-[10px] text-muted-foreground">From: {prov.observationKey}</p>
+        <p className="text-[11px] text-muted-foreground">From: {prov.observationKey}</p>
       )}
     </div>
   )

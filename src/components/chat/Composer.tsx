@@ -535,7 +535,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             aria-label="Mask sensitive details"
             title="Mask emails, phone numbers, and your own terms before sending"
             aria-expanded={redactOpen}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <ShieldCheck className="h-4 w-4" />
           </button>
@@ -544,7 +544,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             onClick={() => fileRef.current?.click()}
             aria-label="Add a document"
             title={`PDF, DOCX, or TXT — uploading a document costs ${UPLOAD_CREDITS} credits`}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-input bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border border-input bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           >
             <FileUp className="h-3.5 w-3.5" />
             Add a document
@@ -562,7 +562,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             </span>
           )}
           <div className="ml-auto flex items-center gap-2">
-            <Button size="icon" onClick={() => void handleSubmit()} disabled={!hasContent || sending} aria-label={sending ? "Sending" : "Send"} className="h-8 w-8 rounded-full">
+            <Button size="icon" onClick={() => void handleSubmit()} disabled={!hasContent || sending} aria-label={sending ? "Sending" : "Send"} className="h-11 w-11 rounded-full">
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
             </Button>
           </div>

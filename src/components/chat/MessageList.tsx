@@ -54,7 +54,7 @@ export function MessageList({
             <div key={m.id} className="flex justify-start">
               <div className="w-full max-w-[95%]">
                 <RiskReportCard payload={(m.payload as Record<string, unknown>) ?? {}} onAskFinding={onAskFinding} />
-                <p className="mt-1 text-[10px] text-muted-foreground"><ClientTime iso={m.createdAt} kind="time" /></p>
+                <p className="mt-1 text-[11px] text-muted-foreground"><ClientTime iso={m.createdAt} kind="time" /></p>
               </div>
             </div>
           )
@@ -64,7 +64,7 @@ export function MessageList({
             <div key={m.id} className="flex justify-start">
               <div className="w-full max-w-[95%]">
                 <ContextConfirmCard payload={(m.payload as Record<string, unknown>) ?? {}} onConfirm={(corrections) => onContextConfirm?.(m.id, corrections)} />
-                <p className="mt-1 text-[10px] text-muted-foreground"><ClientTime iso={m.createdAt} kind="time" /></p>
+                <p className="mt-1 text-[11px] text-muted-foreground"><ClientTime iso={m.createdAt} kind="time" /></p>
               </div>
             </div>
           )
@@ -74,7 +74,7 @@ export function MessageList({
             <div key={m.id} className="flex justify-start">
               <div className="w-full max-w-[95%]">
                 <DocumentDraftCard payload={(m.payload as Record<string, unknown>) ?? {}} onGenerate={onDocumentGenerate ? async (vars) => onDocumentGenerate(m.id, vars) : undefined} />
-                <p className="mt-1 text-[10px] text-muted-foreground"><ClientTime iso={m.createdAt} kind="time" /></p>
+                <p className="mt-1 text-[11px] text-muted-foreground"><ClientTime iso={m.createdAt} kind="time" /></p>
               </div>
             </div>
           )
@@ -84,7 +84,7 @@ export function MessageList({
             <div key={m.id} className="flex justify-start">
               <div className="w-full max-w-[95%]">
                 <LawyerRecommendationCard payload={(m.payload as Record<string, unknown>) ?? {}} />
-                <p className="mt-1 text-[10px] text-muted-foreground"><ClientTime iso={m.createdAt} kind="time" /></p>
+                <p className="mt-1 text-[11px] text-muted-foreground"><ClientTime iso={m.createdAt} kind="time" /></p>
               </div>
             </div>
           )
@@ -98,7 +98,7 @@ export function MessageList({
               )}
             >
               <Markdown text={m.content} />
-              <p className="mt-1 text-[10px] opacity-60"><ClientTime iso={m.createdAt} kind="time" /></p>
+              <p className="mt-1 text-[11px] opacity-60"><ClientTime iso={m.createdAt} kind="time" /></p>
             </div>
           </div>
         )

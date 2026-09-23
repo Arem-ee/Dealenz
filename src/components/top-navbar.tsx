@@ -64,7 +64,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
             onClick={onToggleSidebar}
             aria-label="Toggle navigation sidebar"
             title="Toggle sidebar"
-            className="hidden shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:inline-flex"
+            className="hidden min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:inline-flex"
           >
             <Menu className="h-4 w-4" />
           </button>
@@ -76,7 +76,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
           type="button"
           onClick={() => setSearchOpen(true)}
           aria-label="Search deals"
-          className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+          className="flex min-h-[44px] min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
         >
           <Search className="h-4 w-4 shrink-0" />
           <span className="hidden truncate lg:inline">Search deals</span>
@@ -93,7 +93,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
         <Link
           href="/dashboard/activity"
           aria-label="Notifications"
-          className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+            className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
         >
           <Bell className="h-4 w-4" />
         </Link>
@@ -101,7 +101,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
           <DropdownMenuTrigger asChild>
             <button
               aria-label="Account menu"
-              className="flex shrink-0 items-center rounded-lg p-1 transition-colors hover:bg-muted/80"
+              className="flex min-h-[44px] min-w-[44px] shrink-0 items-center rounded-lg p-1 transition-colors hover:bg-muted/80"
             >
               <Avatar className="h-7 w-7">
                 <AvatarFallback className="text-[11px] font-medium">{initials}</AvatarFallback>
@@ -144,7 +144,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
             onClick={onHideTopbar}
             aria-label="Hide header"
             title="Hide header for more room"
-            className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
           >
             <ChevronUp className="h-4 w-4" />
           </button>
@@ -220,7 +220,7 @@ function ThreadSearch({ threads, onClose }: { threads: SidebarThread[]; onClose:
                 onMouseEnter={() => setSelectedIndex(i)}
                 role="option"
                 aria-selected={i === selectedIndex}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition-colors ${
                   i === selectedIndex ? "bg-muted/80" : "hover:bg-muted/80"
                 }`}
               >

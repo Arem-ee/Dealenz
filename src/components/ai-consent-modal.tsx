@@ -23,7 +23,7 @@ export function AiConsentModal({ open, onConsent, onClose, consenting }: AiConse
         role="dialog"
         aria-modal="true"
         aria-labelledby="ai-consent-title"
-        className="relative w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-lg"
+        className="relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-lg"
       >
         <h2 id="ai-consent-title" className="text-base font-semibold">
           AI Analysis Consent

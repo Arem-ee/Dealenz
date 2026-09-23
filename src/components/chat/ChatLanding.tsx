@@ -101,7 +101,7 @@ function DeleteDealCell({ auditId, title }: { auditId: string; title: string }) 
           }}
           aria-label={`Delete ${title || "untitled deal"}`}
           title="Delete this deal"
-          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -324,7 +324,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                       className={cn("w-full rounded-sm", b.isToday ? "bg-burgundy" : "bg-primary-foreground/15")}
                       style={{ height: `${Math.max(5, Math.round((b.count / maxWeek) * 100))}%` }}
                     />
-                    <span className={cn("truncate text-[9px]", b.isToday ? "font-semibold text-primary-foreground" : "text-primary-foreground/50")}>
+                    <span className={cn("truncate text-[11px]", b.isToday ? "font-semibold text-primary-foreground" : "text-primary-foreground/50")}>
                       {b.isToday ? "Now" : b.label}
                     </span>
                   </div>
@@ -334,7 +334,8 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
           </section>
 
           <section aria-label="All deals" className="mt-3 shrink-0 overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
-            <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-left text-sm">
               <thead>
                 <tr className="border-b border-border text-[11px] uppercase tracking-[0.08em] text-foreground/45">
                   <th scope="col" className="px-5 py-3 font-semibold">Deal</th>
@@ -392,6 +393,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                 })}
               </tbody>
             </table>
+            </div>
           </section>
         </>
       )}
