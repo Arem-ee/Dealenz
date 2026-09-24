@@ -184,3 +184,31 @@ export function sumEstimatedCredits(steps: Array<{ estimatedCredits: number }>):
 export function isValidPayloadHash(v: unknown): boolean {
   return typeof v === "string" && v.length >= 10 && v.length <= MAX_PAYLOAD_HASH
 }
+
+// Batch analysis bounds: many contracts in, one multi-step plan out. The cap
+// keeps a single approval legible and the credit reservation bounded
+// (well under the 50-step plan limit).
+export const MAX_BATCH_DEALS = 10
+
+export interface BatchAnalysisItem {
+  auditId: string
+  threadId: string
+  // Final per-deal type after auto-sort + human override. Absent means "keep
+  // whatever the audit already has". autoDetected marks a machine guess so
+  // the server stores it as inferred (confirmable) rather than confirmed.
+  dealType?: string
+  autoDetected?: boolean
+}
+
+export function validateBatchItems(items: BatchAnalysisItem[]): string | null {
+  if (!Array.isArray(items) || items.length === 0) return "Add at least one deal to the batch"
+  if (items.length > MAX_BATCH_DEALS) return `A batch holds at most ${MAX_BATCH_DEALS} deals — split the rest into a second batch`
+  const seen = new Set<string>()
+  for (const item of items) {
+    if (!item || !isUUID(item.auditId)) return "Invalid deal in batch"
+    if (!isUUID(item.threadId)) return "Invalid thread in batch"
+    if (seen.has(item.auditId)) return "The same deal appears twice in the batch"
+    seen.add(item.auditId)
+  }
+  return null
+}
