@@ -2,33 +2,28 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { PanelLeftClose, Zap } from "lucide-react"
+import { Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { PRIMARY_NAV, SECONDARY_NAV, isActiveEntry } from "@/lib/nav"
+import { PRIMARY_NAV, SECONDARY_NAV, isActiveEntry, type SidebarThread } from "@/lib/nav"
 
-// Brand sidebar: light surface, burgundy marks the active destination,
-// the open-issue count, and the low-credit top-up. Navigation carries
-// live state; history lives in the main table, not here.
-export function SidebarNav({ openIssues = 0, creditBalance = null, onCollapse, flushTop = false }: { openIssues?: number; creditBalance?: number | null; onCollapse?: () => void; flushTop?: boolean }) {
+// Hover-expand brand sidebar: a slim icon rail at rest that widens on hover,
+// no manual collapse button — the standard auto-rail pattern. Labels and the
+// recent list fade in only when expanded; the collapsed rail keeps icons
+// (and the open-issue badge) glanceable. Desktop only; mobile navigates from
+// the top navbar drawer.
+export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [], flushTop = false }: {
+  openIssues?: number
+  creditBalance?: number | null
+  threads?: SidebarThread[]
+  flushTop?: boolean
+}) {
   const pathname = usePathname()
   const showTopUp = typeof creditBalance === "number" && creditBalance < 25
+  const recent = [...(threads ?? [])].slice(0, 5)
 
   return (
-    <aside className={`hidden md:flex md:flex-col w-60 shrink-0 border-r border-border/60 bg-background md:sticky ${flushTop ? "md:top-0 md:h-[100dvh]" : "md:top-14 md:h-[calc(100dvh-3.5rem)]"}`}>
-      {onCollapse && (
-        <div className="flex justify-end px-3 pt-2">
-          <button
-            type="button"
-            onClick={onCollapse}
-            aria-label="Collapse sidebar"
-            title="Collapse sidebar for more room"
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
-          >
-            <PanelLeftClose className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3" aria-label="Primary">
+    <aside className={`group/nav hidden md:flex md:flex-col shrink-0 border-r border-border/60 bg-background w-16 hover:w-60 transition-[width] duration-200 overflow-hidden ${flushTop ? "md:top-0 md:h-[100dvh]" : "md:top-14 md:h-[calc(100dvh-3.5rem)]"} md:sticky`}>
+      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-3" aria-label="Primary">
         <div className="shrink-0 space-y-0.5">
           {PRIMARY_NAV.map((item) => {
             const Icon = item.icon
@@ -39,6 +34,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, onCollapse, f
                 key={item.href}
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
+                title={item.label}
                 className={cn(
                   "flex items-center gap-3 rounded-full px-4 py-2.5 text-sm transition-colors",
                   isActive
@@ -46,10 +42,17 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, onCollapse, f
                     : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                 )}
               >
-                <Icon className="h-4 w-4" />
-                <span className="flex-1">{item.label}</span>
+                <span className="relative shrink-0">
+                  <Icon className="h-4 w-4" />
+                  {badge !== null && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-burgundy px-0.5 text-[9px] font-bold text-white group-hover/nav:hidden" aria-label={`${badge} open issues`}>
+                      {badge > 99 ? "99+" : badge}
+                    </span>
+                  )}
+                </span>
+                <span className="flex-1 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/nav:opacity-100">{item.label}</span>
                 {badge !== null && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-burgundy px-1.5 text-[10px] font-bold text-white" aria-label={`${badge} open issues`}>
+                  <span className="hidden h-5 min-w-5 items-center justify-center rounded-full bg-burgundy px-1.5 text-[10px] font-bold text-white group-hover/nav:flex" aria-hidden>
                     {badge > 99 ? "99+" : badge}
                   </span>
                 )}
@@ -58,7 +61,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, onCollapse, f
           })}
           {SECONDARY_NAV.length > 0 && (
             <>
-              <p className="px-4 pt-4 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+              <p className="whitespace-nowrap px-4 pt-4 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70 opacity-0 transition-opacity duration-150 group-hover/nav:opacity-100">
                 Workspace
               </p>
               {SECONDARY_NAV.map((item) => {
@@ -69,6 +72,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, onCollapse, f
                     key={item.href}
                     href={item.href}
                     aria-current={isActive ? "page" : undefined}
+                    title={item.label}
                     className={cn(
                       "flex items-center gap-3 rounded-full px-4 py-2.5 text-sm transition-colors",
                       isActive
@@ -76,17 +80,46 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, onCollapse, f
                         : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                     )}
                   >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/nav:opacity-100">{item.label}</span>
                   </Link>
                 )
               })}
             </>
           )}
         </div>
+        {recent.length > 0 && (
+          <div className="mt-4 hidden min-h-0 flex-1 flex-col group-hover/nav:flex">
+            <p className="shrink-0 whitespace-nowrap px-4 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+              Recent
+            </p>
+            <ul className="min-h-0 space-y-0.5 overflow-y-auto">
+              {recent.map((t) => {
+                const isActive = pathname === `/chat/${t.id}`
+                return (
+                  <li key={t.id}>
+                    <Link
+                      href={`/chat/${t.id}`}
+                      aria-current={isActive ? "page" : undefined}
+                      title={t.title || "Untitled"}
+                      className={cn(
+                        "block truncate rounded-lg px-4 py-2 text-[13px] transition-colors",
+                        isActive
+                          ? "bg-burgundy/10 font-semibold text-burgundy"
+                          : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                      )}
+                    >
+                      {t.title || "Untitled"}
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
         {showTopUp && (
-          <div className="mt-auto shrink-0 px-1 pb-1 pt-4">
-            <div className="rounded-2xl bg-burgundy p-4 text-white">
+          <div className="mt-auto hidden shrink-0 px-1 pb-1 pt-4 group-hover/nav:block">
+            <div className="whitespace-nowrap rounded-2xl bg-burgundy p-4 text-white">
               <p className="flex items-center gap-1.5 text-[13px] font-bold">
                 <Zap className="h-3.5 w-3.5" />
                 Low credits

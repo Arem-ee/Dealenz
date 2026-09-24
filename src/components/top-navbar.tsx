@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { Bell, ChevronUp, LogOut, Menu, Scale, Search } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { Bell, ChevronUp, LogOut, Menu, Plus, Scale, Search } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Logo } from "@/components/logo"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -14,7 +14,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ACCOUNT_NAV, filterThreads, threadDate, type SidebarThread } from "@/lib/nav"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { cn } from "@/lib/utils"
+import { ACCOUNT_NAV, PRIMARY_NAV, filterThreads, isActiveEntry, threadDate, type SidebarThread } from "@/lib/nav"
 
 interface TopNavbarProps {
   email: string
@@ -22,7 +24,6 @@ interface TopNavbarProps {
   isLawyer?: boolean
   creditBalance?: number | null
   threads?: SidebarThread[]
-  onToggleSidebar?: () => void
   onHideTopbar?: () => void
 }
 
@@ -31,12 +32,14 @@ interface TopNavbarProps {
  * balance (always visible, plain), notifications entry, and the single
  * account menu on the right. The sidebar carries no account row.
  */
-export function TopNavbar({ email, businessName, isLawyer = false, creditBalance = null, threads = [], onToggleSidebar, onHideTopbar }: TopNavbarProps) {
+export function TopNavbar({ email, businessName, isLawyer = false, creditBalance = null, threads = [], onHideTopbar }: TopNavbarProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const supabase = createClient()
   const displayName = businessName ?? email
   const initials = displayName.charAt(0).toUpperCase()
   const [searchOpen, setSearchOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -58,17 +61,56 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
   return (
     <header className="sticky top-0 z-40 h-14 shrink-0 border-b border-border/60 bg-background/90 backdrop-blur">
       <div className="flex h-full items-center gap-1.5 px-3 sm:gap-2 sm:px-4">
-        {onToggleSidebar && (
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            aria-label="Toggle navigation sidebar"
-            title="Toggle sidebar"
-            className="hidden min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:inline-flex"
-          >
-            <Menu className="h-4 w-4" />
-          </button>
-        )}
+        {/* Mobile web nav: top-anchored drawer, not a bottom app tab bar.
+            The sidebar toggle below stays desktop-only. */}
+        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              aria-label="Open navigation menu"
+              aria-expanded={menuOpen}
+              className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:hidden"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+          </SheetTrigger>
+          <SheetContent side="left" className="flex flex-col p-4" aria-label="Site navigation">
+            <div className="flex items-center px-2 pb-2 pt-1">
+              <Logo />
+            </div>
+            <nav className="mt-2 flex flex-col gap-1" aria-label="Primary">
+              {PRIMARY_NAV.map((item) => {
+                const Icon = item.icon
+                const isActive = isActiveEntry(pathname, item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMenuOpen(false)}
+                    aria-current={isActive ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors",
+                      isActive
+                        ? "bg-burgundy/10 font-semibold text-burgundy"
+                        : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })}
+            </nav>
+            <Link
+              href="/audit/new"
+              onClick={() => setMenuOpen(false)}
+              className="mt-4 inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-burgundy px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" />
+              New deal
+            </Link>
+          </SheetContent>
+        </Sheet>
         <Link href="/dashboard" aria-label="Home" className="shrink-0">
           <Logo />
         </Link>

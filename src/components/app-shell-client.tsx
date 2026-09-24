@@ -4,16 +4,15 @@ import { useCallback, useEffect, useState } from "react"
 import { Menu } from "lucide-react"
 import { SidebarNav } from "@/components/sidebar-nav"
 import { TopNavbar } from "@/components/top-navbar"
-import { MobileNav } from "@/components/mobile-nav"
 import { BackBar } from "@/components/back-bar"
 import { VerificationBanner } from "@/components/verification-banner"
 import type { SidebarThread } from "@/lib/nav"
 
-// Collapsible app chrome: the sidebar and the top bar each collapse to give
-// the deal workspace full width. State persists per browser in localStorage,
-// applied after mount so the first render always matches the server HTML
-// (reading storage during render would break hydration).
-const SIDEBAR_KEY = "dealenz.chrome.sidebar-open"
+// Collapsible top bar only: the sidebar is a hover-expand rail with no
+// manual hide (the standard auto-rail pattern), so its visibility is never
+// stored. Top-bar preference persists per browser in localStorage, applied
+// after mount so the first render always matches the server HTML (reading
+// storage during render would break hydration).
 const TOPBAR_KEY = "dealenz.chrome.topbar-visible"
 
 function readStored(key: string, fallback: boolean): boolean {
@@ -52,19 +51,15 @@ export function ChromeShell({
   threads?: SidebarThread[]
   openIssues?: number
 }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  // Post-mount chrome restore (not derived state): reading storage during
+  // render would break hydration, so the first render always matches the
+  // server HTML and stored prefs apply after mount.
   const [topbarVisible, setTopbarVisible] = useState(true)
 
   useEffect(() => {
-    setSidebarOpen(readStored(SIDEBAR_KEY, true))
+    /* eslint-disable react-hooks/set-state-in-effect */
     setTopbarVisible(readStored(TOPBAR_KEY, true))
-  }, [])
-
-  const toggleSidebar = useCallback(() => {
-    setSidebarOpen((prev) => {
-      store(SIDEBAR_KEY, !prev)
-      return !prev
-    })
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [])
 
   const toggleTopbar = useCallback(() => {
@@ -87,7 +82,6 @@ export function ChromeShell({
           isLawyer={isLawyer}
           creditBalance={creditBalance}
           threads={threads}
-          onToggleSidebar={toggleSidebar}
           onHideTopbar={toggleTopbar}
         />
       ) : (
@@ -102,15 +96,16 @@ export function ChromeShell({
         </button>
       )}
       <div className="flex flex-1 min-h-0">
-        {sidebarOpen && <SidebarNav openIssues={openIssues} creditBalance={creditBalance} onCollapse={toggleSidebar} flushTop={!topbarVisible} />}
+        <SidebarNav openIssues={openIssues} creditBalance={creditBalance} threads={threads} flushTop={!topbarVisible} />
         <div className="flex flex-1 flex-col min-w-0 bg-background">
-          <main className="flex flex-1 flex-col min-h-0 pb-16 md:pb-0 bg-background">
+          {/* No bottom tab bar: mobile nav lives in the top navbar drawer,
+              so no pb-16 compensation is needed and the composer pins cleanly. */}
+          <main className="flex flex-1 flex-col min-h-0 bg-background">
             <VerificationBanner />
             <BackBar />
             <div className="flex flex-1 flex-col min-h-0">{children}</div>
           </main>
         </div>
-        <MobileNav isLawyer={isLawyer} />
       </div>
     </div>
   )
