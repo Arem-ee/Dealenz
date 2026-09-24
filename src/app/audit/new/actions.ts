@@ -1,7 +1,6 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { seedEnvelopeForDealType } from "@/lib/context"
 import { normalizeDealType } from "@/lib/deal-type"
 
 export type DealType = "freelance" | "generic" | "lease" | "purchase_sale" | "employment" | "founder" | "partnership"
@@ -24,8 +23,11 @@ export async function createAudit(dealTypeInput?: string): Promise<CreateAuditRe
   const dealType = normalizeDealType(dealTypeInput)
 
   // The user explicitly picked this deal type in the UI, so the context
-  // envelope starts with dealType user_confirmed (Phase 5B).
-  const seeded = seedEnvelopeForDealType(dealType)
+  // envelope starts with dealType user_confirmed (Phase 5B). Jurisdiction
+  // and currency prefill from the business profile when the user set them,
+  // so the confirm card stops asking what was already told.
+  const { seedEnvelopeWithProfile } = await import("@/lib/standing/profile")
+  const seeded = await seedEnvelopeWithProfile(supabase as never, user.id, dealType)
 
   const payload: Record<string, unknown> = {
     user_id: user.id,

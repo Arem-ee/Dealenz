@@ -1,7 +1,6 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { seedEnvelopeForDealType } from "@/lib/context"
 import { applyUserConfirmation } from "@/lib/context/confirm"
 import { normalizeDealType } from "@/lib/deal-type"
 
@@ -22,9 +21,13 @@ export async function createHomeDeal(text: string, jurisdiction?: string, dealTy
   const hint = dealTypeHint ?? "generic"
   const dealType = normalizeDealType(hint)
   const chosen = (jurisdiction ?? "").trim()
+  // Profile prefill first (jurisdiction from country, currency from default):
+  // an explicit choice below still wins because user_confirmed overwrites.
+  const { seedEnvelopeWithProfile } = await import("@/lib/standing/profile")
+  const profileSeeded = await seedEnvelopeWithProfile(supabase as never, user.id, dealType)
   const seeded = chosen
-    ? applyUserConfirmation(seedEnvelopeForDealType(dealType), { jurisdiction: { value: chosen, confidence: 1 } })
-    : seedEnvelopeForDealType(dealType)
+    ? applyUserConfirmation(profileSeeded, { jurisdiction: { value: chosen, confidence: 1 } })
+    : profileSeeded
   const payload: Record<string, unknown> = {
     user_id: user.id,
     title: titleFromText(trimmed),

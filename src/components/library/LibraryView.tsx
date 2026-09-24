@@ -2,10 +2,17 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Archive, ArrowUp, FileText, Loader2 } from "lucide-react"
+import { Archive, ArrowUp, FileText, Loader2, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/toast"
 import { vaultChatAction, type VaultMatch } from "@/app/vault/actions"
+import {
+  listStandingRules,
+  addStandingRule,
+  deleteStandingRule,
+  type StandingRule,
+} from "@/app/library/actions"
+import { MAX_STANDING_RULES } from "@/lib/standing/rules"
 import { InboxPanel } from "./inbox-panel"
 import { cn } from "@/lib/utils"
 import { Markdown } from "@/components/chat/Markdown"
@@ -61,7 +68,12 @@ export function LibraryView() {
   const [turns, setTurns] = useState<LibraryTurn[]>([])
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
-  const [mode, setMode] = useState<"search" | "inbox">("search")
+  const [mode, setMode] = useState<"search" | "inbox" | "rules">("search")
+  const [rules, setRules] = useState<StandingRule[] | null>(null)
+  const [rulesLoading, setRulesLoading] = useState(false)
+  const [newRule, setNewRule] = useState("")
+  const [savingRule, setSavingRule] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   async function handleSend() {
     const text = input.trim()
@@ -82,22 +94,79 @@ export function LibraryView() {
     }
   }
 
+  async function refreshRules() {
+    setRulesLoading(true)
+    try {
+      const res = await listStandingRules()
+      if (!res.ok) {
+        showError(res.error, "Rules failed to load")
+        return
+      }
+      setRules(res.rules)
+    } catch {
+      showError("Rules failed to load")
+    } finally {
+      setRulesLoading(false)
+    }
+  }
+
+  function switchMode(m: "search" | "inbox" | "rules") {
+    setMode(m)
+    if (m === "rules" && rules === null && !rulesLoading) void refreshRules()
+  }
+
+  async function handleAddRule() {
+    const text = newRule.trim()
+    if (!text || savingRule) return
+    setSavingRule(true)
+    try {
+      const res = await addStandingRule(text)
+      if (!res.ok) {
+        showError(res.error, "Rule not saved")
+        return
+      }
+      setNewRule("")
+      setRules((prev) => (prev === null ? [res.rule] : [...prev, res.rule]))
+    } catch {
+      showError("Rule not saved")
+    } finally {
+      setSavingRule(false)
+    }
+  }
+
+  async function handleDeleteRule(id: string) {
+    if (deletingId) return
+    setDeletingId(id)
+    try {
+      const res = await deleteStandingRule(id)
+      if (!res.ok) {
+        showError(res.error, "Rule not deleted")
+        return
+      }
+      setRules((prev) => (prev ?? []).filter((r) => r.id !== id))
+    } catch {
+      showError("Rule not deleted")
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   const conversation = (
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 border-b border-border/60 px-4 py-2">
         <div className="mx-auto flex w-full max-w-2xl gap-1" role="tablist" aria-label="Library mode">
-          {(["search", "inbox"] as const).map((m) => (
+          {(["search", "inbox", "rules"] as const).map((m) => (
             <button
               key={m}
               role="tab"
               aria-selected={mode === m}
-              onClick={() => setMode(m)}
+              onClick={() => switchMode(m)}
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-medium transition-colors",
                 mode === m ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {m === "search" ? "Search deals" : "From inbox"}
+              {m === "search" ? "Search deals" : m === "inbox" ? "From inbox" : "Rules"}
             </button>
           ))}
         </div>
@@ -106,6 +175,77 @@ export function LibraryView() {
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
           <div className="mx-auto w-full max-w-2xl">
             <InboxPanel />
+          </div>
+        </div>
+      ) : mode === "rules" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
+          <div className="mx-auto w-full max-w-2xl space-y-3">
+            <div>
+              <p className="text-sm font-semibold">Standing rules</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Write once, applied to every deal. Dealenz weighs these in every answer and analysis.
+              </p>
+            </div>
+            {rulesLoading && rules === null ? (
+              <p className="py-6 text-center text-xs text-muted-foreground">Loading your rules…</p>
+            ) : (
+              <>
+                {(rules ?? []).length === 0 ? (
+                  <div className="rounded-xl border bg-card p-6 text-center">
+                    <p className="text-sm font-medium">No rules yet</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Try “I never accept net-60” or “Always flag uncapped liability”.
+                    </p>
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {(rules ?? []).map((r) => (
+                      <li key={r.id} className="flex items-start gap-2 rounded-xl border bg-card px-4 py-3">
+                        <p className="min-w-0 flex-1 text-sm leading-relaxed">{r.text}</p>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteRule(r.id)}
+                          disabled={deletingId === r.id}
+                          aria-label={`Delete rule: ${r.text.slice(0, 60)}`}
+                          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-[11px] tabular-nums text-muted-foreground" aria-live="polite">
+                  {(rules ?? []).length} of {MAX_STANDING_RULES} rules
+                </p>
+                <div className="flex items-end gap-2">
+                  <label htmlFor="library-rule-input" className="sr-only">New standing rule</label>
+                  <input
+                    id="library-rule-input"
+                    value={newRule}
+                    onChange={(e) => setNewRule(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        void handleAddRule()
+                      }
+                    }}
+                    placeholder="e.g. I never accept net-60"
+                    maxLength={300}
+                    className="h-11 w-full rounded-xl border border-input bg-card px-3.5 text-sm outline-none placeholder:text-muted-foreground/60"
+                  />
+                  <Button
+                    size="icon"
+                    onClick={() => void handleAddRule()}
+                    disabled={savingRule || !newRule.trim()}
+                    aria-label={savingRule ? "Saving rule" : "Add rule"}
+                    className="h-11 w-11 shrink-0 rounded-full"
+                  >
+                    {savingRule ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : (

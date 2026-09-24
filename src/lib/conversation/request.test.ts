@@ -193,6 +193,25 @@ describe("answerQuestion", () => {
     expect(first.findingsUsed[0].severity).toBe("material")
   })
 
+  it("injects standing client rules into the prompt when provided", async () => {
+    const { ports, aiCalls } = fakePorts({
+      standingRules: async () => ["I never accept net-60"],
+    })
+    const response = await answerQuestion({ text: "Is this offer legit?", userId: "u1", ports })
+    expect(response.type).toBe("answer")
+    expect(aiCalls[0].userContent).toContain("Standing client rules")
+    expect(aiCalls[0].userContent).toContain("I never accept net-60")
+  })
+
+  it("omits the standing block when no port or no rules", async () => {
+    const { ports, aiCalls } = fakePorts()
+    await answerQuestion({ text: "Is this offer legit?", userId: "u1", ports })
+    expect(aiCalls[0].userContent).not.toContain("Standing client rules")
+    const withEmpty = fakePorts({ standingRules: async () => [] })
+    await answerQuestion({ text: "Is this offer legit?", userId: "u1", ports: withEmpty.ports })
+    expect(withEmpty.aiCalls[0].userContent).not.toContain("Standing client rules")
+  })
+
   it("repairs a multi-question answer with exactly one retry", async () => {
     const seen: string[] = []
     const { ports } = fakePorts({

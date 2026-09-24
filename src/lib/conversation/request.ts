@@ -11,6 +11,7 @@
 // depends on credits, intent, or objective (asserted in tests).
 
 import { applyConstitution, validateOutputContract } from "@/lib/ai/constitution"
+import { formatStandingBlock } from "@/lib/standing/rules"
 import {
   maxTokensForOperation,
   resolveOperationProfile,
@@ -47,6 +48,10 @@ export interface ConversationPorts {
   loadContext(auditId: string): Promise<ContextEnvelope | null>
   loadFacts(auditId: string): Promise<{ extracted: ExtractedData; rawText: string } | null>
   loadKnowledge(envelope: ContextEnvelope | null): Promise<KnowledgeCandidate[]>
+  // Standing client rules (Library): oldest-first texts, applied to every
+  // deal. Optional so tests and non-authenticated callers omit it; absent
+  // means no standing block, never an error.
+  standingRules?(): Promise<string[]>
   aiCaller(request: {
     systemPrompt: string
     userContent: string
@@ -411,12 +416,22 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
   }
 
   const history = truncateHistory(request.history)
+  // Standing rules load best-effort alongside context: missing rules omit
+  // the block, never fail the answer.
+  let standingBlock: string | null = null
+  try {
+    const rules = request.ports.standingRules ? await request.ports.standingRules() : []
+    standingBlock = formatStandingBlock(rules ?? [])
+  } catch {
+    standingBlock = null
+  }
   const taskPrompt = [
     `User question: ${text}`,
     `Operation: ${operation}. Intent: ${intent}.${request.objective ? ` User objective: ${request.objective}.` : ""}`,
     `Deal context: ${summarizeContext(envelope)}`,
     findingsBlock,
     legalBlock,
+    standingBlock,
     history.length > 0
       ? `Recent conversation:\n${history.map((h) => `${h.role}: ${h.text}`).join("\n")}`
       : "No prior conversation in this thread.",

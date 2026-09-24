@@ -272,6 +272,10 @@ async function askQuestionInner(input: AskInput): Promise<ConversationResponse &
         const items = await fetchPublishedKnowledge(supabase as never)
         return resolveKnowledge(envelope, items, { asOf: new Date() })
       },
+      standingRules: async () => {
+        const { getStandingRuleTexts } = await import("@/app/library/actions")
+        return getStandingRuleTexts()
+      },
       aiCaller: async ({ systemPrompt, userContent, maxTokens }) => {
         try {
           const { text, meta } = await callAISurface("authenticated", { systemPrompt, userContent, temperature: 0.4, maxTokens })
