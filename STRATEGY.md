@@ -75,9 +75,13 @@ LTV is measured.
 - Keep: deterministic rules authority, evidence model, advisory-locked ledger,
   RLS discipline, approval gates, jurisdiction honesty, split-pane work
   surfaces, provider-agnostic AI layer.
-- Fix: extraction fidelity (conflicting terms collapse — top correctness risk),
-  4-sequential-AI-calls (queue/background), silent AI fallbacks (alert, don't
-  just log), dependency vulnerabilities.
+- Fix: silent AI fallbacks (alert, don't just log); route the inline 4-call
+  generation chain onto work plans now that plan-based generation is real
+  (single-document AI output, resumable, retryable — cron retry already
+  scheduled).
+  (Done: extraction fidelity — conflicting terms now preserved as separate
+  observations with conflict rules in every vertical. Verified 2026-09-24:
+  npm audit reports 0 high-severity vulnerabilities; lint is clean.)
 - Build: counter-language + redline re-check, notice-deadline extraction at
   signing, renewal/obligation guard UX, outcome-data collection
   (flag→action→accepted, lawyer overturns) as the only flywheel that matters.

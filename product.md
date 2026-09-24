@@ -801,9 +801,22 @@ Preserve existing security philosophy:
 
 Do not redesign security implementation in this phase.
 
-## Known Fidelity Gap
+## Extraction Fidelity (Resolved)
 
-Conflicting material terms can currently collapse into a single extracted string before the rules layer sees them. Example: "payment due 14 days after invoice" vs "30 days after receiving completed work" may be generalized away at extraction (`src/lib/ai/extract.ts` single-string `budget`/`timeline`), so deterministic rules never observe the conflict and payment risk can read low/clear over contradicted input. This is an unresolved authenticated extraction fidelity issue documented in Phase 22C. Do not let the new work-execution architecture obscure it. Fix belongs in a focused extraction-fidelity phase, not bundled with general agentic work.
+Conflicting material terms used to collapse into a single extracted string before the rules layer saw them (e.g. "payment due 14 days after invoice" vs "30 days after receiving completed work" generalized away at extraction). This is now handled structurally end to end:
+
+```text
+Prompt (`;`-separated competing terms, never generalize)
+  ↓
+splitTerms (src/lib/ai/extract.ts → budgetTerms/timelineTerms)
+  ↓
+Per-vertical conflictingPaymentTerms/conflictingTimelineTerms flags
+(freelance, generic, lease, purchase_sale, employment, founder, partnership)
+  ↓
+Consistency rules (e.g. freelance-conflicting-payment-terms) → findings with evidence
+```
+
+Residual limit (honest, not a gap): preservation depends on the model emitting `;`-separated terms per the prompt; `splitTerms` heuristics (`and`/`or`/comma/two-date patterns) catch the common failures. Truly adversarial phrasing can still merge — the rules layer surfaces what it can prove, never more.
 
 ## Current vs Target vs Staged vs Open/Unknown
 
