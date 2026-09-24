@@ -142,7 +142,7 @@ Write a professional proposal in markdown format with the following sections:
 3. Project Goals — list the goals as bullet points
 4. Deliverables — list deliverables as bullet points
 5. Timeline — mention the agreed timeline
-6. Investment — present a pricing structure placeholder
+6. Investment — present the pricing structure as a markdown pipe table (Item | Price), one row per deliverable or phase
 7. Next Steps — what happens after approval
 
 The tone should be professional, confident, and client-friendly. Do not mention risk scores in the proposal itself. Use proper markdown formatting.`
@@ -163,7 +163,7 @@ Write a Scope of Work in markdown with these sections:
 2. Deliverables — numbered list
 3. Assumptions — list assumptions about client responsibilities
 4. Exclusions — list what is explicitly not included
-5. Milestones — project phases with timeline reference
+5. Milestones — project phases as a markdown pipe table (Phase | Timeline), one row per phase
 6. Revision Limits — based on revision risk: High = 2 rounds, Medium = 3 rounds, Low = reasonable revisions
 7. Change Request Process — how scope changes are handled
 

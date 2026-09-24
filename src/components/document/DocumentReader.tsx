@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { FileText, ArrowLeft, Check, Clock, History, Send, Plus } from "lucide-react"
+import { FileText, ArrowLeft, Check, Clock, Download, History, Send, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -135,18 +135,27 @@ export function DocumentReader({
               <ArrowLeft className="h-4 w-4" /> Back to deals
             </Link>
           )}
-          <span className="ml-auto text-xs text-muted-foreground flex items-center gap-1.5">
+          <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
             <FileText className="h-3.5 w-3.5" /> {selected?.documentType ?? "document"} v{selected?.versionNumber ?? "-"}
-            {executed && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success"><Check className="h-3 w-3" /> Executed</span>}
-            {!executed && isFinal && <span className="ml-2 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700">Final — pending signatures</span>}
+            {executed && <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success"><Check className="h-3 w-3" /> Executed</span>}
+            {!executed && isFinal && <span className="ml-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700">Final — pending signatures</span>}
+            {selected && (
+              <a
+                href={`/api/document/${auditId}/pdf?versionId=${selected.id}`}
+                download
+                className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/60"
+              >
+                <Download className="h-3 w-3" /> PDF
+              </a>
+            )}
           </span>
         </div>
       </header>
 
       <div className="mx-auto max-w-6xl px-4 py-6 grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
-          <div className="rounded-xl border bg-card p-6 prose prose-sm max-w-none ">
-            {selected ? renderMarkdown(selected.content) : <p className="text-sm text-muted-foreground">No document versions yet. Generate a draft in chat first.</p>}
+          <div className="rounded-xl border bg-card p-6 sm:p-8 doc-artifact">
+            {selected ? renderMarkdown(selected.content) : <p className="font-sans text-sm text-muted-foreground">No document versions yet. Generate a draft in chat first.</p>}
           </div>
           {executed && (
             <div className="rounded-lg border border-success/20 bg-success/5 p-3 text-xs text-success flex items-center gap-2">

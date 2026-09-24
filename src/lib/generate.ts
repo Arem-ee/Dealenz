@@ -58,7 +58,7 @@ function ipClause(ipRisk: RiskCategory): string {
   return "Upon full payment, all rights to the final deliverables are transferred to the Client. The Contractor retains the right to display work in their portfolio."
 }
 
-function generateProposal(data: ExtractedData): string {
+export function generateProposal(data: ExtractedData): string {
   const lines: string[] = []
   lines.push("# Proposal")
   lines.push("")
@@ -103,7 +103,7 @@ function generateProposal(data: ExtractedData): string {
   return lines.join("\n")
 }
 
-function generateSow(data: ExtractedData, report: RiskReport): string {
+export function generateSow(data: ExtractedData, report: RiskReport): string {
   const lines: string[] = []
   lines.push("# Scope of Work")
   lines.push("")
@@ -150,7 +150,7 @@ function generateSow(data: ExtractedData, report: RiskReport): string {
   return lines.join("\n")
 }
 
-function generateContract(data: ExtractedData, report: RiskReport): string {
+export function generateContract(data: ExtractedData, report: RiskReport): string {
   const lines: string[] = []
   lines.push("# Professional Services Agreement")
   lines.push("")
@@ -186,7 +186,7 @@ function generateContract(data: ExtractedData, report: RiskReport): string {
   return lines.join("\n")
 }
 
-function generateChecklist(data: ExtractedData, report: RiskReport): string {
+export function generateChecklist(data: ExtractedData, report: RiskReport): string {
   const lines: string[] = []
   lines.push("# Deliverables Checklist")
   lines.push("")

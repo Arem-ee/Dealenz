@@ -169,14 +169,60 @@ registerStepHandler("generate_draft", async (step, ctx) => {
   const rowId = input.rowId as string | undefined
   const row = input.row as Record<string, string> | undefined
   if (!auditId) return { error: "Missing auditId for draft generation", creditsConsumed: 0, needsInput: true }
+  const requestedType = (input.requestedDocumentType ?? "protection_clause") as string
+  const client = ctx.client as Client
   try {
-    const content = `Draft for ${auditId}${rowId ? ` row ${rowId}` : ""}${row ? ` — ${JSON.stringify(row).slice(0, 80)}` : ""}`.trim()
+    // Real generation for the priced freelance families: one AI document per
+    // step (resumable, observable, retryable) via the shared single-document
+    // generator. Row-based outreach drafts and non-family types keep the
+    // legacy placeholder path below — out of scope for this upgrade.
+    let content: string
+    let method: "ai" | "template" = "ai"
+    const { isPlanGeneratableFamily } = await import("@/lib/documents/single")
+    if (!rowId && isPlanGeneratableFamily(requestedType)) {
+      const { data: consentRow } = await client
+        .from("user_ai_consents")
+        .select("has_consented_to_ai_analysis")
+        .eq("user_id", ctx.plan.user_id)
+        .maybeSingle()
+      if ((consentRow as { has_consented_to_ai_analysis?: boolean } | null)?.has_consented_to_ai_analysis !== true) {
+        return { error: "CONSENT_REQUIRED", creditsConsumed: 0, needsInput: true }
+      }
+      const { data: deal } = await client
+        .from("audits")
+        .select("id, user_id, deal_type, structured_data, risk_report")
+        .eq("id", auditId)
+        .eq("user_id", ctx.plan.user_id)
+        .maybeSingle()
+      if (!deal) return { error: "Audit not found", creditsConsumed: 0, needsInput: true }
+      if ((deal as { deal_type?: string }).deal_type !== "freelance") {
+        return { error: "Plan-based document generation is available for freelance deals. For this agreement, review the risk report and negotiation points.", creditsConsumed: 0, needsInput: true }
+      }
+      const structured = (deal as { structured_data?: Record<string, unknown> }).structured_data
+      const extractedData = (structured as Record<string, unknown> | undefined)?.extractedData as import("@/lib/ai/extract").ExtractedData | undefined
+      const riskReport = (deal as { risk_report?: unknown }).risk_report as import("@/lib/risk/engine").RiskReport | undefined
+      if (!extractedData || !riskReport) {
+        return { error: "Complete the audit analysis before generating documents.", creditsConsumed: 0, needsInput: true }
+      }
+      const { data: profile } = await client
+        .from("business_profiles")
+        .select("business_name, legal_entity, address, city, country, email, phone, website, default_currency, default_payment_terms, standard_rate, rate_unit")
+        .eq("user_id", ctx.plan.user_id)
+        .maybeSingle()
+      const { generateSingleDocument } = await import("@/lib/documents/single")
+      const generated = await generateSingleDocument({
+        requestedType,
+        extractedData,
+        riskReport,
+        businessProfile: (profile as import("@/lib/documents/business-profile").BusinessProfileForDocuments | null) ?? null,
+      })
+      content = generated.content
+      method = generated.method
+    } else {
+      content = `Draft for ${auditId}${rowId ? ` row ${rowId}` : ""}${row ? ` — ${JSON.stringify(row).slice(0, 80)}` : ""}`.trim()
+    }
     const { createHash } = await import("node:crypto")
     const contentHash = createHash("sha256").update(content, "utf8").digest("hex")
-    const requestedType = (input.requestedDocumentType ?? "protection_clause") as string
-    // Idempotent per plan+step+row: check existing version for this plan's execution
-    // Use contentHash and provenance to deduplicate
-    const client = ctx.client as Client
     // Determine audit ownership and next version_number
     const { data: audit } = await client.from("audits").select("id, user_id").eq("id", auditId).maybeSingle()
     if (!audit) return { error: "Audit not found", creditsConsumed: 0, needsInput: true }
@@ -192,7 +238,7 @@ registerStepHandler("generate_draft", async (step, ctx) => {
       .eq("content_hash", contentHash)
       .maybeSingle()
     if (existing) {
-      return { resultRef: { draftId: (existing as { id: string }).id, auditId, rowId: rowId ?? null, contentHash, contentPreview: content.slice(0, 120), findingIds: input.findingIds ?? [], requestedDocumentType: requestedType, reused: true }, creditsConsumed: 0 }
+      return { resultRef: { draftId: (existing as { id: string }).id, auditId, rowId: rowId ?? null, contentHash, contentPreview: content.slice(0, 120), findingIds: input.findingIds ?? [], requestedDocumentType: requestedType, generationMethod: method, reused: true }, creditsConsumed: 0 }
     }
     const { data: inserted, error } = await client
       .from("document_versions")
@@ -202,7 +248,7 @@ registerStepHandler("generate_draft", async (step, ctx) => {
         document_type: requestedType,
         version_number: nextVersion,
         content,
-        generation_method: "ai",
+        generation_method: method,
         content_hash: contentHash,
         provenance: {
           plan_id: ctx.plan.id,
@@ -219,7 +265,7 @@ registerStepHandler("generate_draft", async (step, ctx) => {
       .single()
     if (error || !inserted) return { error: error?.message ?? "Failed to persist document version", creditsConsumed: 0 }
     const { creditsForDocumentType } = await import("@/lib/credits/pricing")
-    return { resultRef: { draftId: (inserted as { id: string }).id, auditId, rowId: rowId ?? null, contentHash, contentPreview: content.slice(0, 120), findingIds: input.findingIds ?? [], requestedDocumentType: requestedType }, creditsConsumed: creditsForDocumentType(requestedType) }
+    return { resultRef: { draftId: (inserted as { id: string }).id, auditId, rowId: rowId ?? null, contentHash, contentPreview: content.slice(0, 120), findingIds: input.findingIds ?? [], requestedDocumentType: requestedType, generationMethod: method }, creditsConsumed: creditsForDocumentType(requestedType) }
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Draft generation failed", creditsConsumed: 0 }
   }
