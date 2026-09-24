@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest"
 import {
   ANALYSIS_CREDITS,
+  CLARIFICATION_CREDITS,
+  CLARIFICATION_MAX_CHARS,
+  COUNTERPARTY_RESOLVE_CREDITS,
   CREDIT_PRICE_BRIEF,
   CREDIT_PRICE_STANDARD,
   CREDIT_PRICE_EXTENDED,
@@ -11,6 +14,7 @@ import {
   STANDARD_CREDIT_POLICY,
   UPLOAD_CREDITS,
   creditsForDocumentType,
+  isClarificationTurn,
   priceForOperation,
 } from "./pricing"
 
@@ -83,5 +87,41 @@ describe("standard credit policy", () => {
   it("prices the signup grant at two full analyses", () => {
     expect(ANALYSIS_CREDITS).toBe(5)
     expect(SIGNUP_GRANT_CREDITS / ANALYSIS_CREDITS).toBe(2)
+  })
+
+  it("prices counterparty research at standard with a micro resolution floor", () => {
+    expect(priceForOperation("counterparty_research")).toBe(CREDIT_PRICE_STANDARD)
+    expect(COUNTERPARTY_RESOLVE_CREDITS).toBe(1)
+  })
+})
+
+describe("clarification rate", () => {
+  it("prices short answers to the system's own question at 1 credit", () => {
+    expect(CLARIFICATION_CREDITS).toBe(1)
+    expect(STANDARD_CREDIT_POLICY.estimateMaxCredits("conversation")).toBe(CREDIT_PRICE_BRIEF)
+  })
+
+  it("qualifies a short answer directly following a single question", () => {
+    const history = [
+      { role: "user", text: "Review my contract" },
+      { role: "assistant", text: "Where will the work be performed?" },
+    ]
+    expect(isClarificationTurn(history, "Lagos, Nigeria")).toBe(true)
+  })
+
+  it("rejects answers with their own question, long answers, and non-answers", () => {
+    const history = [{ role: "assistant", text: "Where will the work be performed?" }]
+    // A new question is not an answer.
+    expect(isClarificationTurn(history, "Lagos — but what does governing law mean?")).toBe(false)
+    // Essays are not clarifications.
+    expect(isClarificationTurn(history, "x".repeat(CLARIFICATION_MAX_CHARS + 1))).toBe(false)
+    expect(isClarificationTurn(history, "  ")).toBe(false)
+    // No preceding question: no discount.
+    expect(isClarificationTurn([], "Lagos, Nigeria")).toBe(false)
+    expect(isClarificationTurn([{ role: "user", text: "hello" }], "Lagos")).toBe(false)
+    // Statement, not a question: no discount.
+    expect(isClarificationTurn([{ role: "assistant", text: "Got it. Moving on." }], "Lagos")).toBe(false)
+    // Bombardment is not rewarded: multi-question turns pay full price.
+    expect(isClarificationTurn([{ role: "assistant", text: "Where? When? How much?" }], "Lagos")).toBe(false)
   })
 })

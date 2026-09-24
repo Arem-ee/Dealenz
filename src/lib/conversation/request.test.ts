@@ -8,6 +8,7 @@ import {
   type ConversationPorts,
 } from "./request"
 import { validateOutputContract } from "@/lib/ai/constitution"
+import { STANDARD_CREDIT_POLICY } from "@/lib/credits/pricing"
 import { applyUserConfirmation, emptyContextEnvelope, seedEnvelopeForDealType } from "@/lib/context"
 import type { CreditPolicy } from "@/lib/ai/usage"
 
@@ -337,6 +338,55 @@ describe("answerQuestion", () => {
     })
     expect(response.type).toBe("denied")
     expect(aiCalls).toHaveLength(0)
+  })
+
+  it("charges the clarification rate for a short answer to its own question", async () => {
+    const { ports, aiCalls } = fakePorts({ policy: STANDARD_CREDIT_POLICY })
+    const history = [
+      { role: "user" as const, text: "I have a contract to review" },
+      { role: "assistant" as const, text: "Where will the work be performed?" },
+    ]
+    const response = await answerQuestion({
+      text: "Lagos, Nigeria",
+      userId: "u1",
+      history,
+      idempotencyKey: "clar-1",
+      ports,
+    })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    expect(response.creditsConsumed).toBe(1)
+    expect(aiCalls).toHaveLength(1)
+    // Bounded computation for the bounded price.
+    expect(aiCalls[0].maxTokens).toBeLessThanOrEqual(1024)
+  })
+
+  it("charges the full brief price for the same text with no preceding question", async () => {
+    const { ports } = fakePorts({ policy: STANDARD_CREDIT_POLICY })
+    const response = await answerQuestion({
+      text: "Lagos, Nigeria",
+      userId: "u1",
+      idempotencyKey: "full-1",
+      ports,
+    })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    expect(response.creditsConsumed).toBe(2)
+  })
+
+  it("charges full price when the reply asks its own question", async () => {
+    const { ports } = fakePorts({ policy: STANDARD_CREDIT_POLICY })
+    const history = [{ role: "assistant" as const, text: "Where will the work be performed?" }]
+    const response = await answerQuestion({
+      text: "Lagos — but what does governing law mean?",
+      userId: "u1",
+      history,
+      idempotencyKey: "clar-2",
+      ports,
+    })
+    expect(response.type).toBe("answer")
+    if (response.type !== "answer") throw new Error("unreachable")
+    expect(response.creditsConsumed).toBeGreaterThan(1)
   })
 
   it("answers greetings deterministically with no AI call, no ledger, no charge", async () => {

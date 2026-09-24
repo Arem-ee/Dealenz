@@ -14,6 +14,7 @@ import { applyConstitution, validateOutputContract } from "@/lib/ai/constitution
 import { formatStandingBlock } from "@/lib/standing/rules"
 import {
   maxTokensForOperation,
+  OUTPUT_BUDGET_BRIEF,
   resolveOperationProfile,
   type AIOperation,
   type UserIntent,
@@ -33,6 +34,7 @@ import {
 import { verticalForDealType } from "@/lib/verticals"
 import { attachEvidence } from "@/lib/evidence"
 import { authorizeOperation, completeOperation, type Authorization } from "@/lib/credits/policy"
+import { CLARIFICATION_POLICY, CREDIT_PRICE_BRIEF, isClarificationTurn, priceForOperation } from "@/lib/credits/pricing"
 import type { LedgerClient } from "@/lib/credits/ledger"
 import { shouldInvokeResearch, performResearch, groundedAnswerFromResearch } from "@/lib/legal-research/research"
 import { getResearchAdapter } from "@/lib/legal-research/retrieval"
@@ -201,12 +203,23 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
     }
   }
 
+  // Clarification rate: a short factual answer to the system's own single
+  // question (the one-question contract working as designed) rides the
+  // 1-credit policy instead of the full brief tier — but only for brief-tier
+  // operations, so short answers can never discount deeper work. History is
+  // hoisted here because the authorization below prices the turn; the same
+  // truncated slice feeds the prompt later.
+  const history = truncateHistory(request.history)
+  const clarification =
+    isClarificationTurn(history, text) && priceForOperation(operation) === CREDIT_PRICE_BRIEF
+  const policy = clarification && request.ports.policy ? CLARIFICATION_POLICY : request.ports.policy
+
   const authorization: Authorization = await authorizeOperation({
     ledger: request.ports.ledger,
     userId: request.userId,
     operation,
     idempotencyKey: request.idempotencyKey,
-    policy: request.ports.policy,
+    policy,
   })
   if (!authorization.authorized) {
     return {
@@ -415,7 +428,7 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
     }
   }
 
-  const history = truncateHistory(request.history)
+  // History already truncated above for the clarification check; reused here.
   // Standing rules load best-effort alongside context: missing rules omit
   // the block, never fail the answer.
   let standingBlock: string | null = null
@@ -444,7 +457,9 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
     "You are Dealenz, a user-first deal intelligence assistant. Answer the user's deal question using the provided context and findings.",
     "conversation"
   )
-  const maxTokens = maxTokensForOperation(operation)
+  // Clarification turns run the brief output budget: the 1-credit price
+  // reflects genuinely bounded computation, not a loss-leader.
+  const maxTokens = clarification ? OUTPUT_BUDGET_BRIEF : maxTokensForOperation(operation)
 
   try {
     const answer = await request.ports.aiCaller({ systemPrompt, userContent: taskPrompt, maxTokens })
@@ -494,7 +509,7 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
       model: answer.model,
       usage: deliveredUsage,
       status: "success",
-      policy: request.ports.policy,
+      policy,
     })
     return {
       type: "answer",
@@ -519,7 +534,7 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
       authorization,
       operation,
       status: err instanceof Error && err.name === "AIProviderError" ? "provider_failure" : "pre_provider_failure",
-      policy: request.ports.policy,
+      policy,
     }).catch(() => undefined)
     throw err
   }
