@@ -86,6 +86,13 @@ function NewAuditContent() {
         )}
         <p className="text-xs text-muted-foreground">What kind of deal is this? Optional — Dealenz figures it out if you skip.</p>
         <DealTypeSelector value={dealType} onChange={setDealType} />
+        <p className="text-xs text-muted-foreground">
+          Deal already in your inbox?{" "}
+          <a href="/library?mode=inbox" className="font-medium text-primary underline underline-offset-2 hover:opacity-80">
+            Import a thread from Gmail
+          </a>{" "}
+          instead of pasting it here.
+        </p>
         {error && <p className="text-sm text-destructive">{error}</p>}
         {attachError && createdThreadId && (
           <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] leading-relaxed text-red-800">

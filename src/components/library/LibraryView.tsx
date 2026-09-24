@@ -68,7 +68,18 @@ export function LibraryView() {
   const [turns, setTurns] = useState<LibraryTurn[]>([])
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
-  const [mode, setMode] = useState<"search" | "inbox" | "rules">("search")
+  // Deep-linkable mode so entry points outside Library can land directly on
+  // the Gmail import tab (e.g. /library?mode=inbox). Client-only read keeps
+  // this SSR-safe without a Suspense boundary.
+  const [mode, setMode] = useState<"search" | "inbox" | "rules">(() => {
+    try {
+      const m = new URLSearchParams(window.location.search).get("mode")
+      if (m === "inbox" || m === "rules") return m
+    } catch {
+      // Non-browser render: fall through to default.
+    }
+    return "search"
+  })
   const [rules, setRules] = useState<StandingRule[] | null>(null)
   const [rulesLoading, setRulesLoading] = useState(false)
   const [newRule, setNewRule] = useState("")
@@ -151,26 +162,56 @@ export function LibraryView() {
     }
   }
 
+  const MODES = [
+    { key: "search" as const, label: "Search deals", desc: "Find any deal in plain words" },
+    { key: "inbox" as const, label: "From inbox", desc: "Import threads from Gmail" },
+    { key: "rules" as const, label: "Rules", desc: "Standing rules for every deal" },
+  ]
+
   const conversation = (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-border/60 px-4 py-2">
+    <div className="flex h-full min-h-0 flex-col md:flex-row">
+      {/* Mobile: compact top tabs. Desktop: the library reads as a library —
+          its own sub-sidebar, not pills floating over content. */}
+      <div className="shrink-0 border-b border-border/60 px-4 py-2 md:hidden">
         <div className="mx-auto flex w-full max-w-2xl gap-1" role="tablist" aria-label="Library mode">
-          {(["search", "inbox", "rules"] as const).map((m) => (
+          {MODES.map((m) => (
             <button
-              key={m}
+              key={m.key}
               role="tab"
-              aria-selected={mode === m}
-              onClick={() => switchMode(m)}
+              aria-selected={mode === m.key}
+              onClick={() => switchMode(m.key)}
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                mode === m ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
+                mode === m.key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {m === "search" ? "Search deals" : m === "inbox" ? "From inbox" : "Rules"}
+              {m.label}
             </button>
           ))}
         </div>
       </div>
+      <aside className="hidden w-60 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border/60 p-3 md:flex" aria-label="Library">
+        <p className="px-4 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+          Library
+        </p>
+        {MODES.map((m) => (
+          <button
+            key={m.key}
+            onClick={() => switchMode(m.key)}
+            aria-current={mode === m.key ? "page" : undefined}
+            className={cn(
+              "rounded-xl px-4 py-2.5 text-left transition-colors",
+              mode === m.key
+                ? "bg-burgundy/10 text-burgundy"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+            )}
+          >
+            <span className={cn("block text-sm", mode === m.key && "font-semibold")}>{m.label}</span>
+            <span className="mt-0.5 block text-[11px] opacity-70">{m.desc}</span>
+          </button>
+        ))}
+      </aside>
+      <div className="flex min-h-0 flex-1 flex-col">
       {mode === "inbox" ? (
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
           <div className="mx-auto w-full max-w-2xl">
@@ -324,6 +365,7 @@ export function LibraryView() {
         </div>
       </div>
       )}
+      </div>
     </div>
   )
 
