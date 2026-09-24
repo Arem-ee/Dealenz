@@ -10,6 +10,7 @@ import type { DayBucket } from "@/lib/activity/week"
 import { cn } from "@/lib/utils"
 import { deleteDeal } from "@/app/audit/[id]/actions"
 import { useToast } from "@/components/ui/toast"
+import { CapabilityStrip } from "@/components/home/CapabilityStrip"
 
 interface ThreadItem {
   id: string
@@ -157,7 +158,7 @@ function todayLabel(): string {
   return new Date().toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })
 }
 
-export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, signingAuditIds, monitoredAuditIds, portfolio, week }: {
+export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, signingAuditIds, monitoredAuditIds, portfolio, week, setupNeeded = false }: {
   threads: ThreadItem[]
   loadError?: string | null
   deadlines?: DeadlineItem[]
@@ -166,10 +167,20 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
   monitoredAuditIds?: string[]
   portfolio?: PortfolioSummary | null
   week?: DayBucket[]
+  setupNeeded?: boolean
 }) {
   // Anonymous landing input waits for its composer on /chat: surface a
   // resume banner here instead of a composer — this screen triages.
   const [hasPending] = useState(() => getPendingDeal() !== null)
+  // First-run setup nudge: dismissed per browser, and the product never
+  // blocks on it — the banner is an invitation, not a gate.
+  const [setupDismissed, setSetupDismissed] = useState(() => {
+    try {
+      return window.localStorage.getItem("dealenz.welcome.dismissed") === "1"
+    } catch {
+      return false
+    }
+  })
   const nextDeadline = (deadlines ?? [])[0] ?? null
   const topDeals = [...threads]
     .filter((t) => typeof t.openIssues === "number" && (t.openIssues ?? 0) > 0)
@@ -178,6 +189,47 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
   const maxCat = Math.max(1, ...(portfolio?.topCategories.map((c) => c.count) ?? [1]))
   const maxWeek = Math.max(1, ...(week ?? []).map((b) => b.count))
   const weekTotal = (week ?? []).reduce((s, b) => s + b.count, 0)
+
+  // Attention queues (DocuSign quick-views pattern): the same deal moments
+  // the table already shows, grouped by who owes what. Unknown moments stay
+  // visible under All only — never forced into a queue.
+  type QueueFilter = "all" | "needs-you" | "waiting" | "done"
+  const NEEDS_YOU = ["needs-action", "needs-attention", "draft"]
+  const WAITING = ["negotiating", "ready-to-sign"]
+  const DONE = ["signed", "guarded"]
+  const [queue, setQueue] = useState<QueueFilter>("all")
+  const momentRows = threads.map((t) => {
+    const executed = !!t.auditId && (executedAuditIds ?? []).includes(t.auditId)
+    const signingActive = !!t.auditId && (signingAuditIds ?? []).includes(t.auditId) && !executed
+    const hasMonitoring = !!t.auditId && (monitoredAuditIds ?? []).includes(t.auditId)
+    const moment = dealMomentState({
+      status: t.status,
+      openIssues: t.openIssues ?? null,
+      resolvedCount: t.resolvedCount ?? null,
+      executed,
+      signingActive,
+      hasMonitoring,
+    })
+    return { t, moment }
+  })
+  const queueCounts: Record<QueueFilter, number> = {
+    all: momentRows.length,
+    "needs-you": momentRows.filter((r) => NEEDS_YOU.includes(r.moment)).length,
+    waiting: momentRows.filter((r) => WAITING.includes(r.moment)).length,
+    done: momentRows.filter((r) => DONE.includes(r.moment)).length,
+  }
+  const visibleRows = momentRows.filter((r) => {
+    if (queue === "needs-you") return NEEDS_YOU.includes(r.moment)
+    if (queue === "waiting") return WAITING.includes(r.moment)
+    if (queue === "done") return DONE.includes(r.moment)
+    return true
+  })
+  const QUEUE_VIEWS: Array<{ key: QueueFilter; label: string; empty: string }> = [
+    { key: "all", label: "All deals", empty: "" },
+    { key: "needs-you", label: "Needs you", empty: "Nothing needs you — every deal is either moving or done." },
+    { key: "waiting", label: "Waiting on others", empty: "Nothing waiting — no deal is parked with someone else." },
+    { key: "done", label: "Signed & guarded", empty: "Nothing signed yet — completed deals land here." },
+  ]
 
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-y-auto px-4 pb-4 sm:px-6">
@@ -198,6 +250,10 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
         </div>
       </div>
 
+      <div className="shrink-0 pb-4">
+        <CapabilityStrip />
+      </div>
+
       {loadError && (
         <div role="alert" className="mb-3 flex shrink-0 items-start gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-xs text-destructive">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -213,6 +269,36 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
           <span className="font-semibold">Your deal text is waiting.</span>{" "}
           <span className="text-muted-foreground">Continue where you left off →</span>
         </Link>
+      )}
+
+      {setupNeeded && !setupDismissed && (
+        <div className="mb-3 flex shrink-0 items-center gap-3 rounded-2xl border border-burgundy/20 bg-burgundy/[0.04] px-4 py-3">
+          <p className="min-w-0 flex-1 text-xs leading-relaxed">
+            <span className="font-semibold">2 minutes, pays off in every deal.</span>{" "}
+            <span className="text-muted-foreground">Add your name and country once — documents carry them, questions drop.</span>
+          </p>
+          <Link
+            href="/welcome"
+            className="shrink-0 rounded-full bg-burgundy px-3.5 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+          >
+            Set up
+          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                window.localStorage.setItem("dealenz.welcome.dismissed", "1")
+              } catch {
+                // Preference simply does not persist.
+              }
+              setSetupDismissed(true)
+            }}
+            aria-label="Dismiss setup suggestion"
+            className="shrink-0 rounded-full px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            Later
+          </button>
+        </div>
       )}
 
       {threads.length > 0 && portfolio && (
@@ -334,6 +420,22 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
           </section>
 
           <section aria-label="All deals" className="mt-3 shrink-0 overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+            <div className="flex gap-1 overflow-x-auto border-b border-border/60 px-3 py-2" role="tablist" aria-label="Deal queues">
+              {QUEUE_VIEWS.map((v) => (
+                <button
+                  key={v.key}
+                  role="tab"
+                  aria-selected={queue === v.key}
+                  onClick={() => setQueue(v.key)}
+                  className={cn(
+                    "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                    queue === v.key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {v.label} · <span data-numeric>{queueCounts[v.key]}</span>
+                </button>
+              ))}
+            </div>
             <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] text-left text-sm">
               <thead>
@@ -347,18 +449,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {threads.map((t) => {
-                  const executed = !!t.auditId && (executedAuditIds ?? []).includes(t.auditId)
-                  const signingActive = !!t.auditId && (signingAuditIds ?? []).includes(t.auditId) && !executed
-                  const hasMonitoring = !!t.auditId && (monitoredAuditIds ?? []).includes(t.auditId)
-                  const moment = dealMomentState({
-                    status: t.status,
-                    openIssues: t.openIssues ?? null,
-                    resolvedCount: t.resolvedCount ?? null,
-                    executed,
-                    signingActive,
-                    hasMonitoring,
-                  })
+                {visibleRows.map(({ t, moment }) => {
                   const pill = riskPill(t.riskLevel)
                   return (
                     <tr key={t.id} className="relative cursor-pointer transition-colors hover:bg-foreground/[0.02]">
@@ -391,6 +482,13 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                     </tr>
                   )
                 })}
+                {visibleRows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-8 text-center text-xs text-muted-foreground">
+                      {QUEUE_VIEWS.find((v) => v.key === queue)?.empty}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
             </div>
@@ -411,13 +509,19 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
               </div>
             ))}
           </div>
-          <div className="mt-3 px-2">
+          <div className="mt-3 flex flex-wrap gap-2 px-2">
             <Link
               href="/audit/new"
               className="inline-flex h-10 items-center gap-2 rounded-full bg-burgundy px-5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
             >
               <Plus className="h-3.5 w-3.5" />
               New deal
+            </Link>
+            <Link
+              href="/library?mode=inbox"
+              className="inline-flex h-10 items-center gap-2 rounded-full border border-border bg-card px-5 text-xs font-semibold text-foreground transition-colors hover:bg-muted/60"
+            >
+              Import from Gmail
             </Link>
           </div>
         </div>

@@ -134,6 +134,21 @@ export default async function DashboardPage() {
     // Portfolio blocks stay hidden; the composer below always works.
   }
 
+  // First-run nudge: no business profile yet means documents render
+  // without a letterhead and jurisdiction gets re-asked per deal. Best
+  // effort — a failed check hides the banner, never the dashboard.
+  let setupNeeded = false
+  try {
+    const { data: profile } = await supabase
+      .from("business_profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    setupNeeded = !profile
+  } catch {
+    setupNeeded = false
+  }
+
   return (
     <div className="flex h-[calc(100dvh-7.5rem)] flex-col bg-background md:h-[calc(100dvh-3.5rem)]">
       <ChatLanding
@@ -145,6 +160,7 @@ export default async function DashboardPage() {
         monitoredAuditIds={monitoredAuditIds}
         portfolio={portfolio}
         week={weekBuckets}
+        setupNeeded={setupNeeded}
       />
     </div>
   )
