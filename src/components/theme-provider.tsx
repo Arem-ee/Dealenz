@@ -23,7 +23,7 @@ function readStored(): ThemeChoice {
   } catch {
     // Private mode: fall through to default.
   }
-  return "system"
+  return "light"
 }
 
 function applyTheme(resolved: ResolvedTheme) {
@@ -37,7 +37,7 @@ function applyTheme(resolved: ResolvedTheme) {
  * first paint already matches the stored choice (no light flash). Must stay
  * in sync with readStored/resolveTheme above.
  */
-export const THEME_BOOTSTRAP_SCRIPT = `(function(){try{var t=localStorage.getItem("${STORAGE_KEY}")||"system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d){document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark";}}catch(e){}})();`
+export const THEME_BOOTSTRAP_SCRIPT = `(function(){try{var t=localStorage.getItem("${STORAGE_KEY}")||"light";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d){document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark";}}catch(e){}})();`
 
 interface ThemeContextValue {
   choice: ThemeChoice
@@ -45,25 +45,31 @@ interface ThemeContextValue {
   setChoice: (choice: ThemeChoice) => void
 }
 
-const ThemeContext = createContext<ThemeContextValue>({ choice: "system", resolved: "light", setChoice: () => {} })
+const ThemeContext = createContext<ThemeContextValue>({ choice: "light", resolved: "light", setChoice: () => {} })
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [choice, setChoiceState] = useState<ThemeChoice>("system")
+  const [choice, setChoiceState] = useState<ThemeChoice>("light")
   const [resolved, setResolved] = useState<ResolvedTheme>("light")
 
   useEffect(() => {
+    // Intentional post-mount sync (not derived state): storage is unreadable
+    // during SSR, so the first render must match the server HTML and correct
+    // after mount. See the pre-paint bootstrap for first-paint correctness.
+    /* eslint-disable react-hooks/set-state-in-effect */
     const stored = readStored()
     setChoiceState(stored)
     setResolved(resolveTheme(stored))
+    /* eslint-enable react-hooks/set-state-in-effect */
     const media = window.matchMedia("(prefers-color-scheme: dark)")
     const onChange = () => {
-      // Only follow the OS when the user chose System.
+      // Only follow the OS when the user explicitly chose System.
+      // No stored choice means the light default: never go dark unasked.
       try {
-        if ((window.localStorage.getItem(STORAGE_KEY) ?? "system") === "system") {
+        if ((window.localStorage.getItem(STORAGE_KEY) ?? "light") === "system") {
           setResolved(media.matches ? "dark" : "light")
         }
       } catch {
-        setResolved(media.matches ? "dark" : "light")
+        setResolved("light")
       }
     }
     media.addEventListener("change", onChange)
