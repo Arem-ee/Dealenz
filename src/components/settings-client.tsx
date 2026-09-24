@@ -293,7 +293,15 @@ function BusinessProfileSection({
 }: BusinessFieldsProps) {
   return (
     <div className="space-y-4">
-      <SectionCard title="Business Information" description="Populates your documents and proposals">
+      <SectionCard title="Business Information" description="Tell Dealenz about your business once — it fills your documents and stops asking repeat questions">
+        <div className="rounded-xl border bg-muted/30 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+          <p className="font-semibold text-foreground">Why this is worth 2 minutes</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+            <li>Your name, address, and payment terms go straight into generated proposals and contracts — no retyping per deal.</li>
+            <li>Country and currency answer jurisdiction and money questions up front, so analyses ask less.</li>
+            </ul>
+          <p className="mt-1">Full document generation currently applies to freelance deals; every deal type benefits from fewer questions.</p>
+        </div>
         <div className="space-y-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="settings-business-name">Legal Business Name</Label>
