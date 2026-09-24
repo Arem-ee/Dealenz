@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { FileUp, Inbox, Files } from "lucide-react"
+import { FileUp, Inbox, Files, SearchCheck } from "lucide-react"
 
 // First-view capability map: one tap per thing Dealenz does. Entry points,
 // not explanations — no tours, no tooltips, no checklist. The single place
@@ -24,6 +24,12 @@ const CAPABILITIES = [
     label: "Batch analysis",
     hint: "Up to 10 contracts at once",
     Icon: Files,
+  },
+  {
+    href: "/counterparty/new",
+    label: "Research a counterparty",
+    hint: "Verify who you're signing with",
+    Icon: SearchCheck,
   },
 ]
 

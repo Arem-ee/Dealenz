@@ -20,6 +20,7 @@ export type AIOperation =
   | "explanation"
   | "decision_support"
   | "proposal"
+  | "counterparty_research"
 
 export const AI_OPERATIONS: readonly AIOperation[] = [
   "document_analysis",
@@ -31,6 +32,7 @@ export const AI_OPERATIONS: readonly AIOperation[] = [
   "explanation",
   "decision_support",
   "proposal",
+  "counterparty_research",
 ]
 
 // What the user is trying to accomplish. Deliberately small: intent refines
@@ -198,6 +200,18 @@ const OPERATION_PROFILES: Record<AIOperation, OperationProfile> = {
     defaultIntent: "propose",
     outputBudget: "extended",
     contextSelection: "expanded",
+  },
+  // Counterparty research is an explicit UI action, never classifier-routed:
+  // brief-tier resolution plus standard-tier research, both credit-gated at
+  // the server-action boundary rather than through the Ask pipeline.
+  counterparty_research: {
+    operation: "counterparty_research",
+    requiresDocument: false,
+    requiresContext: false,
+    usesRules: false,
+    defaultIntent: "explore",
+    outputBudget: "standard",
+    contextSelection: "minimal",
   },
 }
 

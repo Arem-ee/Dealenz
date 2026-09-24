@@ -22,6 +22,7 @@ export const TIER_1_DOMAINS = [
   "leginfo.legislature.ca.gov",
   "nysenate.gov",
   "law.cornell.edu", // US Code / CFR primary via Cornell LII
+  "sec.gov", // SEC EDGAR company filings (counterparty registry research)
   // United Kingdom Tier 1
   "legislation.gov.uk",
   "gov.uk",
