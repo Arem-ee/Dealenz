@@ -27,9 +27,17 @@ export default function TermsPage() {
 
           <H>Not legal advice</H>
           <p>
-            Dealenz does not provide legal advice, does not replace professional legal review, and
-            does not guarantee client payment, signature, or project outcome. For high-stakes
-            agreements, have a qualified professional review the final document.
+            Dealenz is not a law firm and does not provide legal advice; using it does not create
+            an attorney–client relationship with Dealenz or with any reviewing lawyer. Nothing here
+            replaces professional legal review, and nothing guarantees client payment, signature,
+            or project outcome. For high-stakes agreements, have a qualified professional review
+            the final document.
+          </p>
+          <p>
+            Dealenz uses AI models that can make mistakes, misread clauses, or state things
+            confidently that are wrong. Treat every finding, draft, and answer as a starting
+            point to verify — never as a settled fact — especially figures, dates, governing
+            law, and obligations.
           </p>
 
           <H>Who can use it</H>

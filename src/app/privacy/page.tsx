@@ -72,6 +72,14 @@ export default function PrivacyPage() {
             to provide its part of the service, under agreements that forbid any other use. We do
             not sell your data, and we do not use it for advertising.
           </p>
+          <p>
+            On AI retention and training: we send submitted content to AI providers only to
+            fulfil your request, and our provider terms prohibit any other use including model
+            training. Underlying model providers publish their own retention practices — check
+            OpenRouter&apos;s policy for current details. If those commitments change materially,
+            we will update this policy and, where the law requires it, seek fresh consent before
+            continuing to send content there.
+          </p>
 
           <H>How long we keep it</H>
           <p>

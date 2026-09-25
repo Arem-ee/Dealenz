@@ -10,6 +10,7 @@ import {
   FileText,
   Mail,
   PenLine,
+  RotateCcw,
   Scale,
   Search,
   ShieldCheck,
@@ -19,15 +20,15 @@ import {
 } from "lucide-react"
 
 export const metadata = {
-  title: "Dealenz: Know what you are signing before you sign it",
+  title: "Dealenz — AI contract review that tells you what to push back on",
   description:
-    "They sent the contract. Dealenz reads it, tells you where the risk is, gives you the words to push back, and guards what was agreed.",
+    "Upload their contract. See every risk with its clause, get the exact words to push back, sign, and stay guarded. Built for founders, freelancers, and anyone signing what they didn't write.",
 }
 
 const steps = [
   {
     n: "1",
-    title: "Send it",
+    title: "Upload it",
     body: "Drop in their contract or describe the situation in your own words. No questionnaire, no legal form, no account homework.",
   },
   {
@@ -69,11 +70,11 @@ const faqs = [
   },
   {
     q: "What happens to my contract data?",
-    a: "It stays yours. Mask emails, phone numbers, and your own terms before sending — detection runs in your browser and you review every item. Delete any single deal from your dashboard, download everything from Settings, and revoke any shared link at any time. Your database lives in the EU, there are no advertising trackers, and deleting your account erases everything.",
+    a: "It stays yours. Mask emails, phone numbers, and your own terms before sending — detection runs in your browser and you review every item. Delete any single deal from your dashboard, download everything from Settings, and revoke any shared link at any time. Your database lives in the EU, there are no advertising trackers, and deleting your account erases your deals, documents, and files — billing records and provider backups age out separately.",
   },
   {
     q: "Is the free tier a trial?",
-    a: "No. It is the product with no free tier beyond signup: 10 signup credits, enough for your first two analyses. No credit card required to start.",
+    a: "There is no trial because there is nothing to gate: 10 signup credits, enough for your first two analyses. No credit card required to start.",
   },
 ]
 
@@ -176,11 +177,11 @@ export default function Home() {
               </span>
             </div>
             <h1 className="mx-auto mt-5 max-w-[20ch] text-[40px] font-semibold leading-[1.04] tracking-[-0.04em] sm:text-[54px] lg:text-[64px]">
-              Know what you are signing before you sign it
+              Know the risk. Get the words to push back.
             </h1>
             <p className="mx-auto mt-5 max-w-[56ch] text-[15px] leading-relaxed text-foreground/60 lg:text-[16px]">
-              They sent the contract. Dealenz reads it, tells you where the risk
-              is, gives you the words to push back, and guards what was agreed.
+              Upload their contract. See every risk with its clause. Get the
+              exact words to push back. Sign and stay guarded.
             </p>
             <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link
@@ -311,34 +312,80 @@ export default function Home() {
         <section id="how-it-works" className="border-t border-border bg-muted/40">
           <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
             <h2 className="mx-auto max-w-[26ch] text-center text-[28px] font-semibold leading-tight tracking-[-0.03em] sm:text-[36px]">
-              Your all-in-one deal workspace
+              From their paper to your signature
             </h2>
             <p className="mx-auto mt-3 max-w-[54ch] text-center text-[14px] leading-relaxed text-foreground/55">
-              Send the contract, push back with the right words, sign, and stay
+              Upload the contract, push back with the right words, sign, and stay
               guarded — three steps, one place, nothing to learn.
             </p>
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
-              {steps.map((s, i) => (
-                <div
-                  key={s.n}
-                  className={`rounded-[20px] border p-6 ${
-                    i === 1
-                      ? "border-[var(--burgundy)]/25 bg-primary text-primary-foreground"
-                      : "border-border bg-card"
-                  }`}
-                >
-                  <span
-                    className={`flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-bold ${
-                      i === 1 ? "bg-[var(--burgundy)] text-white" : "bg-primary text-primary-foreground"
-                    }`}
-                  >
+            {/* Connected stepper: the process drawn as motion, not cards.
+                Desktop shows three nodes joined by arrows with a loop-back
+                for the re-check (push back → they revise → re-check is a real
+                cycle, and the differentiator). Mobile collapses to a vertical
+                timeline with the same spine — no fake geometry. */}
+            <div className="mt-10 hidden md:block" aria-label="How Dealenz works">
+              <ol className="grid grid-cols-3 items-stretch gap-0">
+                {steps.map((s, i) => (
+                  <li key={s.n} className="relative flex">
+                    <div className="flex-1 px-2 text-center">
+                      <span
+                        className={`mx-auto flex h-10 w-10 items-center justify-center rounded-full text-[15px] font-bold ${
+                          i === 1 ? "bg-[var(--burgundy)] text-white" : "border border-border bg-card text-foreground"
+                        }`}
+                      >
+                        {s.n}
+                      </span>
+                      <h3 className="mt-4 text-[17px] font-semibold tracking-[-0.01em]">{s.title}</h3>
+                      <p className="mx-auto mt-2 max-w-[32ch] text-[13px] leading-relaxed text-foreground/60">{s.body}</p>
+                    </div>
+                    {i < steps.length - 1 && (
+                      <ArrowRight aria-hidden className="absolute -right-3 top-4 h-5 w-5 text-foreground/30" />
+                    )}
+                  </li>
+                ))}
+              </ol>
+              <div className="relative mt-2 h-16" aria-hidden>
+                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 16" preserveAspectRatio="none">
+                  <defs>
+                    <marker id="recheck-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                      <path d="M0,0 L6,3 L0,6 Z" fill="var(--burgundy)" />
+                    </marker>
+                  </defs>
+                  <path
+                    d="M 50,1 C 42,15 24,15 17,2"
+                    fill="none"
+                    stroke="var(--burgundy)"
+                    strokeOpacity="0.55"
+                    strokeWidth="0.6"
+                    strokeDasharray="2 1.4"
+                    markerEnd="url(#recheck-arrow)"
+                  />
+                </svg>
+                <p className="absolute inset-x-0 top-9 text-center text-[11px] font-medium text-[var(--burgundy)]">
+                  They revise — re-check the redline before you sign
+                </p>
+              </div>
+            </div>
+            <ol className="mt-10 space-y-0 md:hidden" aria-label="How Dealenz works">
+              {steps.map((s) => (
+                <li key={s.n} className="relative flex gap-4 pb-8 pl-1 last:pb-0">
+                  <span aria-hidden className="absolute bottom-0 left-[15px] top-9 w-px bg-border last:hidden" />
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-bold text-primary-foreground">
                     {s.n}
                   </span>
-                  <h3 className="mt-4 text-[17px] font-semibold tracking-[-0.01em]">{s.title}</h3>
-                  <p className={`mt-2 text-[13px] leading-relaxed ${i === 1 ? "text-primary-foreground/65" : "text-foreground/60"}`}>{s.body}</p>
-                </div>
+                  <div className="min-w-0 pt-0.5">
+                    <h3 className="text-[16px] font-semibold tracking-[-0.01em]">{s.title}</h3>
+                    <p className="mt-1 text-[13px] leading-relaxed text-foreground/60">{s.body}</p>
+                    {s.n === "2" && (
+                      <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--burgundy)]/10 px-3 py-1 text-[11px] font-medium text-[var(--burgundy)]">
+                        <RotateCcw className="h-3 w-3" />
+                        They revise? Re-check before you sign
+                      </p>
+                    )}
+                  </div>
+                </li>
               ))}
-            </div>
+            </ol>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               <div className="rounded-[20px] border border-border bg-card p-5">
@@ -464,7 +511,7 @@ export default function Home() {
                   Plays well with how you already work
                 </h2>
                 <p className="mt-3 max-w-[46ch] text-[14px] leading-relaxed text-foreground/55">
-                  No new platform to live in. Dealenz meets the deal where it
+                  No new platform to live in. The tool meets the deal where it
                   already lives — your inbox, their signature, your lawyer.
                 </p>
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -550,7 +597,8 @@ export default function Home() {
             </div>
             <p className="mx-auto mt-8 max-w-[62ch] text-center text-[13px] leading-relaxed text-foreground/55">
               Your data lives in the EU, there are no advertising trackers, and deleting your
-              account erases everything.{" "}
+              account erases your deals, documents, and files (billing records and provider
+              backups age out separately).{" "}
               <Link href="/privacy" className="font-medium text-foreground underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/40">
                 Read the privacy policy
               </Link>
@@ -632,10 +680,10 @@ export default function Home() {
         <section className="bg-card px-6 pb-16 lg:px-8 lg:pb-24">
           <div className="mx-auto max-w-[1280px] rounded-[28px] bg-[var(--burgundy)] px-6 py-16 text-center text-white lg:py-20">
             <h2 className="mx-auto max-w-[20ch] text-[30px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-[42px]">
-              Bring us what you are dealing with.
+              Upload your next contract.
             </h2>
             <p className="mx-auto mt-3 max-w-[48ch] text-[15px] text-white/70">
-              You do not need to know where to start. Send the contract — leave with pushback words.
+              You do not need to know where to start. Upload the paper — leave with the pushback words.
             </p>
             <div className="mt-8">
               <Link
