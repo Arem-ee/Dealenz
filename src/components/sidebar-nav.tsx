@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { LOW_CREDIT_THRESHOLD } from "@/lib/credits/pricing"
 import { PRIMARY_NAV, SECONDARY_NAV, isActiveEntry, type SidebarThread } from "@/lib/nav"
 
 // Hover-expand brand sidebar: a slim icon rail at rest that widens on hover,
@@ -18,12 +19,12 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
   flushTop?: boolean
 }) {
   const pathname = usePathname()
-  const showTopUp = typeof creditBalance === "number" && creditBalance < 25
+  const showTopUp = typeof creditBalance === "number" && creditBalance < LOW_CREDIT_THRESHOLD
   const recent = [...(threads ?? [])].slice(0, 5)
 
   return (
     <aside className={`group/nav hidden md:flex md:flex-col shrink-0 border-r border-border/60 bg-background w-16 hover:w-60 transition-[width] duration-200 overflow-hidden ${flushTop ? "md:top-0 md:h-[100dvh]" : "md:top-14 md:h-[calc(100dvh-3.5rem)]"} md:sticky`}>
-      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-3" aria-label="Primary">
+      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-2.5" aria-label="Primary">
         <div className="shrink-0 space-y-0.5">
           {PRIMARY_NAV.map((item) => {
             const Icon = item.icon
@@ -36,7 +37,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
                 aria-current={isActive ? "page" : undefined}
                 title={item.label}
                 className={cn(
-                  "flex items-center gap-3 rounded-full px-4 py-2.5 text-sm transition-colors",
+                  "flex items-center gap-2.5 rounded-full px-4 py-2 text-[13px] transition-colors",
                   isActive
                     ? "bg-burgundy/10 font-semibold text-burgundy"
                     : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
@@ -74,7 +75,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
                     aria-current={isActive ? "page" : undefined}
                     title={item.label}
                     className={cn(
-                      "flex items-center gap-3 rounded-full px-4 py-2.5 text-sm transition-colors",
+                      "flex items-center gap-2.5 rounded-full px-4 py-2 text-[13px] transition-colors",
                       isActive
                         ? "bg-burgundy/10 font-semibold text-burgundy"
                         : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
@@ -96,6 +97,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
             <ul className="min-h-0 space-y-0.5 overflow-y-auto">
               {recent.map((t) => {
                 const isActive = pathname === `/chat/${t.id}`
+                const needsAttention = typeof t.riskLevel === "string" && /high|critical/i.test(t.riskLevel)
                 return (
                   <li key={t.id}>
                     <Link
@@ -103,13 +105,16 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
                       aria-current={isActive ? "page" : undefined}
                       title={t.title || "Untitled"}
                       className={cn(
-                        "block truncate rounded-lg px-4 py-2 text-[13px] transition-colors",
+                        "flex items-center gap-2 rounded-lg px-4 py-1.5 text-[13px] transition-colors",
                         isActive
                           ? "bg-burgundy/10 font-semibold text-burgundy"
                           : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                       )}
                     >
-                      {t.title || "Untitled"}
+                      {needsAttention && (
+                        <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-burgundy" />
+                      )}
+                      <span className="min-w-0 flex-1 truncate">{t.title || "Untitled"}</span>
                     </Link>
                   </li>
                 )

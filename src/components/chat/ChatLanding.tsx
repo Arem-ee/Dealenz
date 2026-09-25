@@ -189,6 +189,12 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
   const maxCat = Math.max(1, ...(portfolio?.topCategories.map((c) => c.count) ?? [1]))
   const maxWeek = Math.max(1, ...(week ?? []).map((b) => b.count))
   const weekTotal = (week ?? []).reduce((s, b) => s + b.count, 0)
+  // Progressive disclosure: zero-signal users get entry points, not empty
+  // dashboards. Portfolio tiles render only once there is something to
+  // show (rated deals, open issues, or activity) — "0 across 0 deals" in
+  // display type is cognitive load with zero information.
+  const hasPortfolioSignal =
+    (portfolio?.ratedCount ?? 0) > 0 || (portfolio?.totalOpen ?? 0) > 0 || weekTotal > 0
 
   // Attention queues (DocuSign quick-views pattern): the same deal moments
   // the table already shows, grouped by who owes what. Unknown moments stay
@@ -235,7 +241,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
     <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-y-auto px-4 pb-4 sm:px-6">
       <div className="flex shrink-0 items-end justify-between gap-3 pb-4 pt-4 sm:pt-5">
         <div>
-          <h1 className="text-[28px] font-bold tracking-tight text-foreground sm:text-[32px]">Deal Overview</h1>
+          <h1 className="text-[24px] font-bold tracking-tight text-foreground sm:text-[28px]">Deal Overview</h1>
           <p className="mt-0.5 text-[13px] text-foreground/50">Take control of your deals today.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -301,7 +307,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
         </div>
       )}
 
-      {threads.length > 0 && portfolio && (
+      {threads.length > 0 && portfolio && hasPortfolioSignal && (
         <>
           <section aria-label="Portfolio health" className="grid shrink-0 gap-3 lg:grid-cols-3">
             <div className="rounded-3xl border border-border bg-card p-5 shadow-sm lg:row-span-2">

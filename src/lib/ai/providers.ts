@@ -88,7 +88,18 @@ export function resolveSurfaceConfig(surface: AISurface): ResolvedSurfaceConfig 
     if (provider === "anthropic") {
       return { surface, provider, model: resolveAuthModel(), fallbackModel: resolveAuthFallbackModel() }
     }
-    return { surface, provider, model: process.env.AUTH_AI_MODEL }
+    const configured = process.env.AUTH_AI_MODEL
+    if (provider === "openai_compatible" && configured !== undefined && !/^[^/\s]+\/[^/\s]+$/.test(configured)) {
+      // Fail fast with a diagnosable message: a retired or bare model id
+      // 404s every authenticated call (invalid_request, no fallback on this
+      // path), which otherwise presents as a total product outage with a
+      // generic provider error. Only explicitly-set values are checked —
+      // unset falls through to existing adapter defaults.
+      throw new Error(
+        `AUTH_AI_MODEL must be an exact OpenRouter "provider/model" id (e.g. "anthropic/claude-sonnet-5"); got ${JSON.stringify(configured)}. Fix the environment variable — every authenticated AI call fails until then.`
+      )
+    }
+    return { surface, provider, model: configured }
   }
   // No other surface exists. Callers must use "authenticated".
   return { surface, provider: getActiveProviderName() }

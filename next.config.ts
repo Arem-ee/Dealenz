@@ -24,6 +24,9 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
     },
+    // Barrel-import pruning for the icon sets used across the shell: without
+    // this every page ships the whole library instead of the icons it names.
+    optimizePackageImports: ["lucide-react", "react-icons"],
   },
 }
 

@@ -104,6 +104,11 @@ export function creditsForDocumentType(documentType: string | null | undefined):
 // allowance anymore — credits are the only gate.
 export const ANALYSIS_CREDITS = 5
 
+// Top-up nudge threshold: below the signup grant means the account cannot
+// do meaningful work without topping up (a single analysis costs 5). Shown
+// only then — never as a standing upsell.
+export const LOW_CREDIT_THRESHOLD = 10
+
 // Counterparty research: entity resolution is brief-tier micro work (1
 // credit, the same floor as outreach micro-drafts); the research run itself
 // prices through the standard tier via priceForOperation("counterparty_research").

@@ -196,6 +196,22 @@ describe("provider selection", () => {
     expect(config.fallbackModel).toBeUndefined()
   })
 
+  it("rejects a bare OpenRouter model id with a diagnosable error", () => {
+    vi.stubEnv("AUTH_AI_PROVIDER", "openai_compatible")
+    vi.stubEnv("AUTH_AI_MODEL", "claude-sonnet-5")
+
+    expect(() => resolveSurfaceConfig("authenticated")).toThrow(/provider\/model/)
+  })
+
+  it("accepts an exact OpenRouter provider/model id", () => {
+    vi.stubEnv("AUTH_AI_PROVIDER", "openai_compatible")
+    vi.stubEnv("AUTH_AI_MODEL", "anthropic/claude-sonnet-5")
+
+    const config = resolveSurfaceConfig("authenticated")
+    expect(config.provider).toBe("openai_compatible")
+    expect(config.model).toBe("anthropic/claude-sonnet-5")
+  })
+
 })
 
 describe("secret redaction", () => {
