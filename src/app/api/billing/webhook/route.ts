@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { getPackage, priceForPackage } from "@/lib/billing/catalog"
-import { getProviderAdapter, packageIdForPrice } from "@/lib/billing/provider"
+import { getProviderAdapter, isPaddleConfigured, packageIdForPrice } from "@/lib/billing/provider"
 import type { Currency } from "@/lib/billing/catalog"
 import { reportError } from "@/lib/logger"
 
 export async function POST(req: NextRequest) {
+  // Fail closed when the provider is unconfigured — in ANY environment. The
+  // mock adapter exists for unit tests only; serving it here would mint
+  // credits from unsigned bodies on misconfigured deploys (including
+  // previews, where NODE_ENV is production but Vercel env metadata differs).
+  if (!isPaddleConfigured()) {
+    return NextResponse.json({ error: "Billing is not configured." }, { status: 503 })
+  }
   const body = await req.text()
   const signature = req.headers.get("paddle-signature") ?? req.headers.get("Paddle-Signature") ?? null
 
@@ -41,14 +48,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Invalid webhook signature" }, { status: 400 })
   }
 
-  // Refunds: money returned means credits return too. Support refunds in
-  // the Paddle dashboard after verifying the pack is unused; this branch
-  // then revokes exactly what that purchase granted (from the purchase row,
-  // never the live catalog, which may have repriced since). Idempotent on
-  // `refund:<txn>` plus the refunded-status guard, so Paddle replays are
+  // Refunds and disputes: money returned means credits return too. Support
+  // refunds in the Paddle dashboard after verifying the pack is unused; this
+  // branch then revokes exactly what that purchase granted (from the purchase
+  // row, never the live catalog, which may have repriced since). Disputes
+  // and chargebacks revoke through the same path: one revocation per
+  // transaction (shared idempotency key), never double. Idempotent on
+  // `refund:<txn>` plus the terminal-status guard, so Paddle replays are
   // safe. A negative balance simply blocks future reservations until the
   // account is topped up again.
-  if (event.status === "refunded") {
+  if (event.status === "refunded" || event.status === "disputed") {
+    const terminalStatus = event.status === "disputed" ? "disputed" : "refunded"
     const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (serviceUrl && serviceKey && event.providerTransactionId) {
@@ -61,7 +71,7 @@ export async function POST(req: NextRequest) {
           .eq("provider_transaction_id", event.providerTransactionId)
           .maybeSingle()
         const row = purchase as { id: string; user_id: string; package_id: string; credits: number; status: string } | null
-        if (row && row.status === "refunded") {
+        if (row && (row.status === "refunded" || row.status === "disputed")) {
           return NextResponse.json({ received: true, idempotent: true }, { status: 200 })
         }
         if (row && typeof row.credits === "number" && row.credits > 0) {
@@ -72,12 +82,12 @@ export async function POST(req: NextRequest) {
             operation: null,
             status: "finalized",
             idempotency_key: `refund:${event.providerTransactionId}`,
-            metadata: { reason: "purchase_refund", packageId: row.package_id, provider: "paddle", providerTransactionId: event.providerTransactionId },
+            metadata: { reason: event.status === "disputed" ? "purchase_dispute" : "purchase_refund", packageId: row.package_id, provider: "paddle", providerTransactionId: event.providerTransactionId },
           })
           if (revokeError && !revokeError.message.toLowerCase().includes("duplicate") && !revokeError.message.toLowerCase().includes("unique")) {
             return NextResponse.json({ error: "Refund revocation failed" }, { status: 500 })
           }
-          await service.from("credit_purchases").update({ status: "refunded" }).eq("id", row.id)
+          await service.from("credit_purchases").update({ status: terminalStatus }).eq("id", row.id)
           return NextResponse.json({ received: true, refunded: true }, { status: 200 })
         }
       } catch {

@@ -13,7 +13,8 @@ export const dynamic = "force-dynamic"
 function isAuthorized(req: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET
   const auth = req.headers.get("authorization")
-  if (!cronSecret) return true
+  // Default-deny when unset (see retry-executions): open only for local dev.
+  if (!cronSecret) return process.env.NODE_ENV !== "production"
   return auth === `Bearer ${cronSecret}`
 }
 

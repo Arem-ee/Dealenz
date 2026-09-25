@@ -13,7 +13,10 @@ describe("full-product acceptance", () => {
 
   it("deal intelligence: context -> knowledge -> findings -> evidence", async () => {
     const { validateCreatePlan } = await import("@/lib/work/schema")
-    expect(validateCreatePlan({ userId, objective: "Analyze deal", steps: [{ operation: "document_analysis", estimatedCredits: 0 }] })).toBeNull()
+    // AI steps carry floored estimates (document_analysis minimum 5) so no
+    // plan can execute AI work with an empty reservation.
+    expect(validateCreatePlan({ userId, objective: "Analyze deal", steps: [{ operation: "document_analysis", estimatedCredits: 5 }] })).toBeNull()
+    expect(validateCreatePlan({ userId, objective: "Analyze deal", steps: [{ operation: "document_analysis", estimatedCredits: 0 }] })).not.toBeNull()
   })
 
   it("work execution: plan -> cost -> approval -> execution -> WorkProduct", async () => {
@@ -50,9 +53,11 @@ describe("full-product acceptance", () => {
   it("payment: deterministic revenue accounting, webhook verification", () => {
     const { platformFeeMinor, lawyerPayoutMinor } = calculateRevenueShare(10000)
     expect(platformFeeMinor + lawyerPayoutMinor).toBe(10000)
+    // Real Stripe scheme: t=...,v1=HMAC(`${t}.${payload}`) within tolerance.
     const payload = JSON.stringify({ id: "evt_1" })
-    const sig = createHmac("sha256", "secret").update(payload).digest("hex")
-    expect(verifyStripeSignature(payload, sig, "secret")).toBe(true)
+    const nowS = Math.floor(Date.now() / 1000)
+    const sig = `t=${nowS},v1=${createHmac("sha256", "secret").update(`${nowS}.${payload}`).digest("hex")}`
+    expect(verifyStripeSignature(payload, sig, "secret", nowS)).toBe(true)
   })
 
   it("monitoring: signed-deal events -> evidence -> alert -> Gmail idempotent", () => {

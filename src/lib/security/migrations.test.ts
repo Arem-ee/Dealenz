@@ -581,3 +581,30 @@ describe("00079 audit hardening bundle (static)", () => {
     expect(mig).not.toMatch(/GRANT EXECUTE ON FUNCTION sign_document_as_counterparty\(UUID, TEXT\) TO anon/)
   })
 })
+
+describe("00082 counterparty briefs (static)", () => {
+  const mig = code(sql("00082_counterparty_briefs.sql"))
+
+  it("keeps briefs owner-scoped and immutable with idempotent persist", () => {
+    expect(mig).toMatch(/ENABLE ROW LEVEL SECURITY/)
+    expect(mig).toMatch(/auth\.uid\(\) = user_id/)
+    expect(mig).toMatch(/FOR SELECT/)
+    expect(mig).toMatch(/FOR INSERT/)
+    expect(mig).not.toMatch(/FOR UPDATE/)
+    expect(mig).not.toMatch(/FOR DELETE/)
+    expect(mig).toMatch(/idempotency_key TEXT NOT NULL UNIQUE/)
+    expect(mig).toMatch(/ON DELETE CASCADE/)
+    expect(mig).not.toMatch(/TO anon/)
+    expect(mig).not.toMatch(/TO public/)
+  })
+})
+
+describe("00083 credit purchase revocation statuses (static)", () => {
+  const mig = code(sql("00083_credit_purchase_status_revocations.sql"))
+
+  it("widens purchase status only to the two terminal revocation states", () => {
+    expect(mig).toMatch(/'refunded'/)
+    expect(mig).toMatch(/'disputed'/)
+    expect(mig).toMatch(/DROP CONSTRAINT IF EXISTS credit_purchases_status_check/)
+  })
+})

@@ -87,8 +87,16 @@ function qb(resolveTo: unknown = { data: null, error: null }) {
   return builder
 }
 
-// Default: usage RPC allows the call (mirrors increment_usage default-allow under limit)
-mockRpc.mockResolvedValue({ data: { allowed: true, current_count: 1 }, error: null })
+// Default: usage RPC allows the call (mirrors increment_usage default-allow under limit);
+// ledger RPCs allow and settle (mirrors a funded account) so billing-gated
+// paths exercise their success branches by default.
+mockRpc.mockImplementation((fn: string) => {
+  if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: true, balance: 100, reservation_id: "res-test" }], error: null })
+  if (fn === "finalize_reservation") return Promise.resolve({ data: [{ balance: 95 }], error: null })
+  if (fn === "void_reservation") return Promise.resolve({ data: null, error: null })
+  if (fn === "credit_balance") return Promise.resolve({ data: [{ balance: 100 }], error: null })
+  return Promise.resolve({ data: { allowed: true, current_count: 1 }, error: null })
+})
 
 // ── Stateful audits-table builder ──
 // The implementation hits from("audits") three times per flow:

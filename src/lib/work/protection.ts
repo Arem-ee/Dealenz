@@ -47,11 +47,15 @@ export async function createProtectionPlan(client: Client, userId: string, input
   // 1 credit for any other micro-draft type).
   const { creditsForDocumentType } = await import("@/lib/credits/pricing")
   const docCredits = input.requestedDocumentType ? creditsForDocumentType(input.requestedDocumentType) : 0
+  // Floor at the 1-credit micro rate: a zero estimate would fail plan
+  // validation (generate_draft always costs at least 1) and — worse — run
+  // unbilled under metering.
+  const stepCredits = Math.max(docCredits, 1)
   const steps: Array<{ operation: string; inputRef: Record<string, unknown>; estimatedCredits: number }> = [
-    { operation: "generate_draft", inputRef: { auditId: input.dealId, findingIds: input.findingIds, protectionObjective: objective, requestedDocumentType: input.requestedDocumentType ?? "protection_clause" }, estimatedCredits: docCredits },
+    { operation: "generate_draft", inputRef: { auditId: input.dealId, findingIds: input.findingIds, protectionObjective: objective, requestedDocumentType: input.requestedDocumentType ?? "protection_clause" }, estimatedCredits: stepCredits },
   ]
 
-  const estimated = docCredits
+  const estimated = stepCredits
   const { plan } = await createPlan(client as never, userId, {
     conversationId: input.conversationId,
     dealId: input.dealId,

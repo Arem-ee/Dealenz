@@ -90,7 +90,7 @@ function makeMock() {
 describe("createPlan", () => {
   it("creates plan and steps with ownership", async () => {
     const client = makeMock()
-    const res = await createPlan(client as never, "00000000-0000-0000-0000-000000000001", { objective: "Analyze this deal", steps: [{ operation: "document_analysis", estimatedCredits: 3 }] })
+    const res = await createPlan(client as never, "00000000-0000-0000-0000-000000000001", { objective: "Analyze this deal", steps: [{ operation: "document_analysis", estimatedCredits: 5 }] })
     expect(res.plan.id).toBe("00000000-0000-0000-0000-000000000001")
     expect(res.steps.length).toBe(1)
   })

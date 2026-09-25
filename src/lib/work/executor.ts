@@ -10,7 +10,6 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { isApprovalValidForPlan } from "./transitions"
 import type { PlanRow, PlanStepRow } from "./schema"
 import { getCreditBalance } from "@/lib/credits/ledger"
-import { ANALYSIS_CREDITS } from "@/lib/credits/pricing"
 
 type Client = SupabaseClient
 
@@ -122,10 +121,12 @@ registerStepHandler("document_analysis", async (step, ctx) => {
       }
       return { error: msg, creditsConsumed: 0, resultRef: { auditId, error: msg } }
     }
-    // Success — the analysis itself costs ANALYSIS_CREDITS, reported as
-    // measured consumption so the executor settles it against the plan
-    // reservation. Failures and needs-input report 0: nothing is charged
-    // for work that did not complete.
+    // Success — the 5-credit analysis charge settles INSIDE analyzeDeal
+    // (reserve → finalize), which bills exactly once no matter the caller.
+    // This handler reports 0 so the plan reservation is not charged a second
+    // time: the plan estimate (5) covers approval display, the inner ledger
+    // entry records the spend. Failures and needs-input report 0 with the
+    // inner hold voided: nothing is charged for work that did not complete.
     const riskReport = result.riskReport as { overallScore?: number; riskLevel?: string } | undefined
     const findings = (result.deterministicFindings ?? []) as Array<unknown>
     return {
@@ -139,7 +140,7 @@ registerStepHandler("document_analysis", async (step, ctx) => {
         // Snapshot of existing evidence/provenance is already persisted on audits.structured_data
         // Work product will link by auditId rather than duplicating the full report.
       },
-      creditsConsumed: ANALYSIS_CREDITS,
+      creditsConsumed: 0,
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Analysis failed"
@@ -370,14 +371,18 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
   if (planErr || !planRaw) throw new Error("Plan not found")
   const plan = planRaw as PlanRow
   if (!isApprovalValidForPlan(approval as never, plan)) throw new Error("Approval does not match current plan version/hash — plan changed after approval")
-  if (plan.status !== "approved") throw new Error(`Cannot execute from status ${plan.status}`)
 
   const { data: stepsRaw, error: stepsErr } = await client.from("work_plan_steps").select("*").eq("plan_id", planId).eq("user_id", userId).order("step_index", { ascending: true })
   if (stepsErr) throw new Error(stepsErr.message)
   const steps = (stepsRaw as PlanStepRow[]) ?? []
   if (steps.length === 0) throw new Error("Plan has no steps")
 
-  // Idempotency: if an active or completed execution already exists for this plan/version, reuse it
+  // Existing execution for this plan version, if any. Succeeded replays
+  // return immediately (idempotent); pending/running on an approved plan is
+  // a duplicate submit (return current state, no new work, no new charge);
+  // needs_input/rate_limited without a resume is returned as-is (caller
+  // must resume first); running on an executing plan is a RESUME — adopt
+  // it below, re-reserve the remaining estimates, and continue the loop.
   const { data: existingExec } = await client
     .from("work_executions")
     .select("*")
@@ -388,24 +393,62 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (existingExec) {
-    return { executionId: (existingExec as { id: string }).id, status: (existingExec as { status: string }).status }
+  const existing = (existingExec as { id: string; status: string; reservation_id?: string | null } | null) ?? null
+  if (existing && existing.status === "succeeded") {
+    return { executionId: existing.id, status: existing.status }
+  }
+  if (existing && (existing.status === "pending" || existing.status === "running") && plan.status === "approved") {
+    return { executionId: existing.id, status: existing.status }
+  }
+  if (existing && (existing.status === "needs_input" || existing.status === "rate_limited")) {
+    return { executionId: existing.id, status: existing.status }
   }
 
-  // Create execution row
-  const { data: execRaw, error: execErr } = await client
-    .from("work_executions")
-    .insert({ plan_id: planId, user_id: userId, plan_version: plan.version, status: "pending" })
-    .select("*")
-    .single()
-  if (execErr || !execRaw) throw new Error(execErr?.message ?? "Failed to create execution")
-  const executionId = (execRaw as { id: string }).id
+  let executionId: string
+  let reservationId: string | null = null
+  if (existing && existing.status === "running" && plan.status === "executing") {
+    // Resume adoption: resumePlan already flipped plan/steps back to
+    // executing/pending. Re-reserve the REMAINING estimates (the original
+    // hold was finalized or voided when the first pass ended) so resumed
+    // AI work is never free and never double-counted: previously succeeded
+    // steps are skipped by the loop below.
+    executionId = existing.id
+    const remaining = steps
+      .filter((s) => s.status !== "succeeded" && s.status !== "skipped")
+      .reduce((a, s) => a + s.estimated_credits, 0)
+    if (remaining > 0) {
+      if (!policy) throw new Error("Resumed execution needs a priced policy")
+      const ledger = client as unknown as import("@/lib/credits/ledger").LedgerClient
+      const { reserveCredits } = await import("@/lib/credits/ledger")
+      const res = await reserveCredits(ledger, {
+        operation: "document_analysis" as never,
+        amount: remaining,
+        idempotencyKey: `plan:${planId}:v${plan.version}:resume:${executionId}`,
+      })
+      if (!res.allowed || !res.reservationId) {
+        throw new Error("Insufficient credits to resume plan execution")
+      }
+      reservationId = res.reservationId
+      await client.from("work_executions").update({ reservation_id: reservationId, updated_at: new Date().toISOString() }).eq("id", executionId)
+    } else {
+      reservationId = existing.reservation_id ?? null
+    }
+  } else {
+    if (plan.status !== "approved") throw new Error(`Cannot execute from status ${plan.status}`)
+    // Create execution row
+    const { data: execRaw, error: execErr } = await client
+      .from("work_executions")
+      .insert({ plan_id: planId, user_id: userId, plan_version: plan.version, status: "pending" })
+      .select("*")
+      .single()
+    if (execErr || !execRaw) throw new Error(execErr?.message ?? "Failed to create execution")
+    executionId = (execRaw as { id: string }).id
+  }
 
   // Plan-level credit reservation (one reservation for estimated sum, idempotent on executionId)
   const idempotencyKey = `plan:${planId}:v${plan.version}:exec:${executionId}`
   const estimated = plan.estimated_credits
-  let reservationId: string | null = null
-  if (plan.estimated_credits > 0) {
+  if (plan.estimated_credits > 0 && !reservationId) {
     const ledger = client as unknown as import("@/lib/credits/ledger").LedgerClient
     // We need a CreditPolicy; if none provided, we run in metering mode (no reservation).
     if (policy) {
@@ -528,6 +571,12 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
   }
 
   while (pending.size > 0 && !failed && !needsInput && !rateLimited) {
+    // Already-finished steps (e.g. from the pre-resume pass) are settled:
+    // never re-run, never re-count. Only unfinished work consumes and bills.
+    for (const id of [...pending]) {
+      const st = statusMap.get(id)
+      if (st === "succeeded" || st === "skipped") pending.delete(id)
+    }
     // Find ready steps whose depends_on are all succeeded
     const ready: string[] = []
     for (const id of pending) {

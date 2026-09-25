@@ -44,10 +44,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid NEXT_PUBLIC_APP_URL" }, { status: 500 })
   }
 
-  // Fail closed on Vercel production only: never hand a real user a mock
-  // checkout URL when the provider is unconfigured. Development, preview,
-  // and tests keep the mock adapter for UI work.
-  if (process.env.VERCEL_ENV === "production" && !isPaddleConfigured()) {
+  // Fail closed whenever the provider is unconfigured — in ANY environment.
+  // The old VERCEL_ENV === "production" check left previews (where NODE_ENV
+  // is production) serving mock checkout sessions. Local development without
+  // keys gets the same honest 503; unit tests exercise the mock adapter
+  // directly, never this route.
+  if (!isPaddleConfigured()) {
     return NextResponse.json({ error: "Credit purchases are not available right now. Please try again later." }, { status: 503 })
   }
 

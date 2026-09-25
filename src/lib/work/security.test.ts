@@ -5,7 +5,7 @@ describe("work security", () => {
   const userA = "00000000-0000-0000-0000-000000000001"
   const userB = "00000000-0000-0000-0000-000000000002"
   it("plan ownership is enforced via user_id", () => {
-    expect(validateCreatePlan({ userId: userA, objective: "Analyze", steps: [{ operation: "document_analysis", estimatedCredits: 1 }] })).toBeNull()
+    expect(validateCreatePlan({ userId: userA, objective: "Analyze", steps: [{ operation: "document_analysis", estimatedCredits: 5 }] })).toBeNull()
     expect(validateCreatePlan({ userId: "invalid", objective: "Analyze", steps: [{ operation: "x", estimatedCredits: 1 }] })).not.toBeNull()
     // Cross-user plan access would be RLS-enforced (auth.uid()=user_id) — validated by 00056 policies
     expect(userA).not.toBe(userB)

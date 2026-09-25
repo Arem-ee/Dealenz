@@ -58,7 +58,7 @@ describe("work actions email verification (P0-3)", () => {
     mockGetUser.mockResolvedValue({ data: { user: verifiedUser }, error: null })
     const result = await createWorkPlan({
       objective: "Analyze deal",
-      steps: [{ operation: "document_analysis", estimatedCredits: 0 }],
+      steps: [{ operation: "document_analysis", estimatedCredits: 5 }],
     })
     // createPlan runs against the mock and fails there — what matters is the
     // verification gate did not reject first.

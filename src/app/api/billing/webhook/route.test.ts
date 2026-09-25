@@ -288,4 +288,37 @@ describe("billing webhook (Paddle) fulfillment", () => {
     expect(res.status).toBe(200)
     expect(inserts.some((i) => i.table === "credit_ledger")).toBe(false)
   })
+
+  it("revokes granted credits once when the provider reports a dispute", async () => {
+    existingPurchase.value = { id: "pur_1", user_id: USER_ID, package_id: "standard", credits: 150, status: "succeeded" }
+    const body = paddleBody({ event_type: "transaction.updated", data: { id: "txn_01test12345678901234567890ab", status: "disputed", customer_id: "ctm_01test", currency_code: "USD", custom_data: { user_id: USER_ID }, items: [{ price: { id: "pri_standard_222" } }], details: { totals: { total: "2499", currency_code: "USD" } } } })
+    const res = await POST(reqWithSig(body))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ received: true, refunded: true })
+    const revocations = inserts.filter((i) => i.table === "credit_ledger")
+    expect(revocations).toHaveLength(1)
+    expect(revocations[0].row.amount).toBe(-150)
+    expect(revocations[0].row.idempotency_key).toBe("refund:txn_01test12345678901234567890ab")
+    const purchaseUpdates = updates.filter((u) => u.table === "credit_purchases")
+    expect(purchaseUpdates).toHaveLength(1)
+    expect(purchaseUpdates[0].row.status).toBe("disputed")
+  })
+
+  it("treats a refund after a dispute as the same single revocation", async () => {
+    existingPurchase.value = { id: "pur_1", user_id: USER_ID, package_id: "standard", credits: 150, status: "disputed" }
+    const body = paddleBody({ event_type: "transaction.updated", data: { id: "txn_01test12345678901234567890ab", status: "refunded", customer_id: "ctm_01test", currency_code: "USD", custom_data: { user_id: USER_ID }, items: [{ price: { id: "pri_standard_222" } }], details: { totals: { total: "2499", currency_code: "USD" } } } })
+    const res = await POST(reqWithSig(body))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ received: true, idempotent: true })
+    expect(inserts.some((i) => i.table === "credit_ledger")).toBe(false)
+  })
+
+  it("rejects unconfigured deployments without touching credits", async () => {
+    delete process.env.PADDLE_WEBHOOK_SECRET
+    delete process.env.PADDLE_API_KEY
+    const body = paddleBody()
+    const res = await POST(reqWithSig(body))
+    expect(res.status).toBe(503)
+    expect(inserts.some((i) => i.table === "credit_ledger")).toBe(false)
+  })
 })

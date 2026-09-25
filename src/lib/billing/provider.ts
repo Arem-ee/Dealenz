@@ -44,7 +44,7 @@ export interface VerifiedEvent {
   currency: string
   /** Attributed user id from custom_data (validated as UUID downstream). */
   userId: string
-  status: "succeeded" | "failed" | "canceled" | "refunded"
+  status: "succeeded" | "failed" | "canceled" | "refunded" | "disputed"
   raw: unknown
 }
 
@@ -130,7 +130,12 @@ export function parsePaddleTransactionEvent(parsed: unknown): Omit<VerifiedEvent
   const eventType = typeof root.event_type === "string" ? root.event_type : ""
   // Refunds arrive as transaction.updated, not completed: accept the event
   // type and let the status mapping decide (only "refunded" passes below).
-  if (eventType !== "transaction.completed" && eventType !== "transaction.paid" && eventType !== "transaction.updated") {
+  // Disputes/chargebacks arrive as transaction.dispute.* or as updated
+  // transactions carrying a disputed-family status: accept both shapes and
+  // map them to "disputed" (revoked exactly like a refund — money back means
+  // credits back). Unknown money-back shapes stay rejected (fail closed).
+  const isDisputeEvent = eventType.startsWith("transaction.dispute")
+  if (eventType !== "transaction.completed" && eventType !== "transaction.paid" && eventType !== "transaction.updated" && !isDisputeEvent) {
     throw new Error(`Unsupported Paddle event: ${eventType || "(missing)"}`)
   }
   const data = asRecord(root.data)
@@ -142,6 +147,7 @@ export function parsePaddleTransactionEvent(parsed: unknown): Omit<VerifiedEvent
   if (statusRaw === "completed" || statusRaw === "paid") status = "succeeded"
   else if (statusRaw === "canceled") status = "canceled"
   else if (statusRaw === "refunded") status = "refunded"
+  else if (statusRaw === "disputed" || statusRaw === "chargeback" || statusRaw === "reversed" || isDisputeEvent) status = "disputed"
   else throw new Error(`Paddle transaction is not in a fulfillable state: ${statusRaw}`)
   const items = Array.isArray(data.items) ? data.items as unknown[] : []
   const firstItem = asRecord(items[0] as unknown)

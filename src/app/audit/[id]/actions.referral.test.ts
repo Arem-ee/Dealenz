@@ -166,6 +166,11 @@ const mockRiskReport = {
 function rpcImpl(fn: string) {
   if (fn === "attribute_referral") return Promise.resolve({ data: [{ attributed: true }], error: null })
   if (fn === "claim_referral_reward") return Promise.resolve({ data: [{ rewarded: true, amount: 5 }], error: null })
+  // Ledger RPCs: analysis billing reserves/finalizes through these.
+  if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: true, balance: 100, reservation_id: "res-test" }], error: null })
+  if (fn === "finalize_reservation") return Promise.resolve({ data: [{ balance: 95 }], error: null })
+  if (fn === "void_reservation") return Promise.resolve({ data: null, error: null })
+  if (fn === "credit_balance") return Promise.resolve({ data: [{ balance: 100 }], error: null })
   return Promise.resolve({ data: { allowed: true, current_count: 1 }, error: null })
 }
 

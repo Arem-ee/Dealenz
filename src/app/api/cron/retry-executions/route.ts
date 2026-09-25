@@ -12,8 +12,10 @@ export const dynamic = "force-dynamic"
 function isAuthorized(req: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET
   const auth = req.headers.get("authorization")
-  // Allow Vercel Cron (no secret) in development, require secret in production if set
-  if (!cronSecret) return true
+  // Default-deny: an unset secret fails closed everywhere except local
+  // development. Vercel previews run NODE_ENV=production, so gating on it
+  // would still leave preview deploys open to retry storms.
+  if (!cronSecret) return process.env.NODE_ENV !== "production"
   return auth === `Bearer ${cronSecret}`
 }
 

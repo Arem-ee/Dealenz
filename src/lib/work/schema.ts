@@ -153,6 +153,17 @@ const MAX_OPERATION = 40
 const MAX_PAYLOAD_HASH = 200
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+// Per-operation estimate floors: steps that run AI must estimate at least
+// their minimum real charge, or a zero-estimate plan executes AI work with
+// no reservation (metering mode). Deterministic steps (validate_rows,
+// setup_monitoring, …) legitimately estimate 0. The floor mirrors pricing
+// (ANALYSIS_CREDITS, micro-draft 1) without importing the pricing module —
+// validation stays dependency-free; drift is caught by the floor tests below.
+const ESTIMATE_FLOORS: Record<string, number> = {
+  document_analysis: 5,
+  generate_draft: 1,
+}
+
 function isUUID(v: unknown): boolean {
   return typeof v === "string" && UUID_RE.test(v)
 }
@@ -167,6 +178,8 @@ export function validateCreatePlan(input: CreatePlanInput): string | null {
     const s = input.steps[i]
     if (typeof s.operation !== "string" || s.operation.length === 0 || s.operation.length > MAX_OPERATION) return `Invalid operation at step ${i}`
     if (!Number.isInteger(s.estimatedCredits) || s.estimatedCredits < 0 || s.estimatedCredits > 1000) return `Invalid estimatedCredits at step ${i}`
+    const floor = ESTIMATE_FLOORS[s.operation] ?? 0
+    if (s.estimatedCredits < floor) return `Step ${i} (${s.operation}) estimates below its minimum ${floor} credits`
     if (s.dependsOn) {
       if (!Array.isArray(s.dependsOn)) return `Invalid dependsOn at step ${i}`
       for (const dep of s.dependsOn) if (typeof dep !== "string") return `Invalid dependsOn entry at step ${i}`

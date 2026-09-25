@@ -97,4 +97,81 @@ describe("executor", () => {
     void handler
     expect(true).toBe(true)
   })
+
+  it("resume adopts the running execution, re-reserves only the remainder, and skips succeeded steps", async () => {
+    const { STANDARD_CREDIT_POLICY } = await import("@/lib/credits/pricing")
+    const ran: string[] = []
+    registerStepHandler("validate_rows", async () => {
+      ran.push("validate_rows")
+      return { resultRef: { validated: [] }, creditsConsumed: 0 }
+    })
+    registerStepHandler("generate_draft", async () => {
+      ran.push("generate_draft")
+      return { resultRef: { draftId: "d2" }, creditsConsumed: 1 }
+    })
+    const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = []
+    const rpc = vi.fn((fn: string, args: Record<string, unknown> = {}) => {
+      rpcCalls.push({ fn, args })
+      if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: true, balance: 100, reservation_id: "res-new" }], error: null })
+      if (fn === "consume_reservation_step") return Promise.resolve({ data: [{ consumed_total: 1, remaining: 1 }], error: null })
+      if (fn === "finalize_reservation") return Promise.resolve({ data: [{ balance: 96 }], error: null })
+      if (fn === "credit_balance") return Promise.resolve({ data: [{ balance: 100 }], error: null })
+      return Promise.resolve({ data: null, error: null })
+    })
+    const userId = "00000000-0000-0000-0000-000000000001"
+    const planId = "00000000-0000-0000-0000-000000000001"
+    const plan = { id: planId, user_id: userId, version: 1, payload_hash: "ph_testhash", status: "executing", estimated_credits: 3, objective_kind: "deal_analysis", objective: "Test", deal_id: null, conversation_id: null }
+    const steps = [
+      { id: "00000000-0000-0000-0000-000000000011", plan_id: planId, user_id: userId, step_index: 0, operation: "validate_rows", input_ref: { rows: [] }, depends_on: [], estimated_credits: 1, status: "succeeded", result_ref: {}, credits_consumed: 0, error: null },
+      { id: "00000000-0000-0000-0000-000000000012", plan_id: planId, user_id: userId, step_index: 1, operation: "generate_draft", input_ref: {}, depends_on: [], estimated_credits: 2, status: "pending", result_ref: null, credits_consumed: null, error: null },
+    ]
+    const runningExec = { id: "00000000-0000-0000-0000-000000000009", plan_id: planId, user_id: userId, plan_version: 1, status: "running", reservation_id: "res-old" }
+    const chain = (): Record<string, unknown> => {
+      const self: Record<string, unknown> = {}
+      self.select = vi.fn(() => self)
+      self.eq = vi.fn(() => self)
+      self.order = vi.fn(() => self)
+      self.in = vi.fn(() => self)
+      self.limit = vi.fn(() => self)
+      self.update = vi.fn(() => self)
+      self.insert = vi.fn(() => self)
+      self.single = vi.fn(() => Promise.resolve({ data: { id: "row-1" }, error: null }))
+      self.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }))
+      return self
+    }
+    const client = {
+      from(table: string) {
+        const self = chain()
+        if (table === "work_plans") {
+          self.maybeSingle = vi.fn(() => Promise.resolve({ data: plan, error: null }))
+        }
+        if (table === "work_plan_steps") {
+          self.order = vi.fn(() => Promise.resolve({ data: steps, error: null }) as never)
+        }
+        if (table === "work_executions") {
+          self.maybeSingle = vi.fn(() => Promise.resolve({ data: runningExec, error: null }))
+        }
+        return self as never
+      },
+      rpc,
+    } as never
+
+    const res = await executePlan({
+      client,
+      userId,
+      planId,
+      approval: { plan_version: 1, approved_payload_hash: "ph_testhash", id: "appr-1" },
+      policy: STANDARD_CREDIT_POLICY,
+    })
+
+    // Adopted the resumed execution instead of creating a new one.
+    expect(res.executionId).toBe("00000000-0000-0000-0000-000000000009")
+    expect(res.status).toBe("succeeded")
+    // Finished work was not redone; only the pending step ran.
+    expect(ran).toEqual(["generate_draft"])
+    // Re-reserved the remainder (2), not the full estimate (3).
+    const reserve = rpcCalls.find((c) => c.fn === "reserve_credits")
+    expect(reserve).toBeDefined()
+    expect(((reserve as unknown) as { args: { p_amount: number } }).args.p_amount).toBe(2)
+  })
 })

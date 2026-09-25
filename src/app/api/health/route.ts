@@ -13,6 +13,7 @@ interface HealthBody {
     app: "ok"
     database: DependencyStatus
     ai: DependencyStatus
+    background: DependencyStatus
   }
 }
 
@@ -58,8 +59,28 @@ export async function GET() {
   const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k])
   if (missingEnv.length > 0) database = "unavailable"
 
-  const status = database === "unavailable" ? "down" : ai === "degraded" ? "degraded" : "ok"
-  const body: HealthBody = { status, checks: { app: "ok", database, ai } }
+  // Background jobs: executions stuck past their retry time mean the cron
+  // is not running — renewals and retries silently stop. Degraded (not
+  // down): the interactive product works, the safety net does not.
+  let background: DependencyStatus = "unknown"
+  if (serviceUrl && serviceKey) {
+    try {
+      const service = createServiceClient(serviceUrl, serviceKey)
+      const staleCutoff = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
+      const { count, error: staleError } = await service
+        .from("work_executions")
+        .select("id", { head: true, count: "exact" })
+        .in("status", ["failed", "rate_limited"])
+        .lt("next_retry_at", staleCutoff)
+      if (!staleError) background = (count ?? 0) > 0 ? "degraded" : "ok"
+    } catch {
+      background = "unknown"
+    }
+  }
+
+  const status =
+    database === "unavailable" ? "down" : ai === "degraded" || background === "degraded" ? "degraded" : "ok"
+  const body: HealthBody = { status, checks: { app: "ok", database, ai, background } }
   return NextResponse.json(body, {
     status: status === "down" ? 503 : 200,
     headers: { "cache-control": "no-store" },

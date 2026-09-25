@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 
 const mockGetUser = vi.hoisted(() => vi.fn())
 const mockFrom = vi.hoisted(() => vi.fn())
+const mockRpc = vi.hoisted(() => vi.fn())
 const mockCheckRateLimit = vi.hoisted(() => vi.fn(() => Promise.resolve({ allowed: true })))
 const mockGenerateDocuments = vi.hoisted(() => vi.fn())
 
@@ -9,7 +10,7 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },
     from: mockFrom,
-    rpc: vi.fn(),
+    rpc: (...args: unknown[]) => (mockRpc as (...a: unknown[]) => unknown)(...args),
     storage: { from: vi.fn(() => ({ download: vi.fn() })) },
   })),
 }))
@@ -61,6 +62,14 @@ import { generateProtectionPackage } from "./actions"
 beforeEach(() => {
   vi.clearAllMocks()
   mockCheckRateLimit.mockResolvedValue({ allowed: true })
+  // Ledger RPCs: package billing reserves/finalizes through these.
+  mockRpc.mockImplementation((fn: string) => {
+    if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: true, balance: 100, reservation_id: "res-test" }], error: null })
+    if (fn === "finalize_reservation") return Promise.resolve({ data: [{ balance: 45 }], error: null })
+    if (fn === "void_reservation") return Promise.resolve({ data: null, error: null })
+    if (fn === "credit_balance") return Promise.resolve({ data: [{ balance: 100 }], error: null })
+    return Promise.resolve({ data: null, error: null })
+  })
 })
 
 describe("generateProtectionPackage deal-type boundary (Phase 26)", () => {

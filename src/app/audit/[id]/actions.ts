@@ -263,6 +263,11 @@ export async function attachFileMetadata(
     return { ok: false, error: `Insufficient credits for this operation. File upload costs ${UPLOAD_CREDITS} credits.` }
   }
 
+  // Every non-success exit below releases the hold: a settled flag in a
+  // finally (not just the catch) covers the early returns for missing
+  // audits, file caps, and failed updates — otherwise those holds sit on
+  // the balance until hourly expiry.
+  let settled = false
   try {
     const { data: audit } = await supabase
       .from("audits")
@@ -302,6 +307,7 @@ export async function attachFileMetadata(
         consumptionAmount: UPLOAD_CREDITS,
         operation: "document_analysis",
       })
+      settled = true
     } catch {
       // The attach itself succeeded; a settlement-only failure is logged for
       // ops rather than rewriting success into failure.
@@ -324,8 +330,9 @@ export async function attachFileMetadata(
 
     return { ok: true, files }
   } catch (e) {
-    await voidReservation(ledger, uploadReservation.reservationId).catch(() => null)
     return { ok: false, error: publicErrorMessage(e, "We couldn't attach that file. Please try again.") }
+  } finally {
+    if (!settled) await voidReservation(ledger, uploadReservation.reservationId).catch(() => null)
   }
 }
 
@@ -517,10 +524,53 @@ export async function analyzeDeal(
     return { success: false, error: "This audit is currently being analyzed. Please wait." }
   }
 
-  // Credits are the only gate: the plan executor reserves ANALYSIS_CREDITS
-  // before running (approval shows the estimate), and the direct path in
-  // analyzeAndPostRisk reserves before calling. There is no free daily
-  // allowance — a free account's only funds are its 10 signup credits.
+  // Credit gate INSIDE the analysis (not just in callers): this is an
+  // exported server action, so any client can invoke it directly — caller-side
+  // reservations alone leave a free-analysis hole. Reserve here, void on
+  // every failure path, finalize only on a completed analysis. Callers that
+  // already reserved (direct chat path, plan executor) were simplified to
+  // rely on this single charge: exactly 5 credits per analysis, once.
+  const { ANALYSIS_CREDITS } = await import("@/lib/credits/pricing")
+  const { reserveCredits, finalizeReservation, voidReservation } = await import("@/lib/credits/ledger")
+  const ledger = {
+    rpc: async (functionName: string, args: Record<string, unknown> = {}) => {
+      const result = await (supabase.rpc as unknown as (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        functionName,
+        args
+      )
+      return { data: result.data, error: result.error }
+    },
+  }
+  let analysisReservationId: string | null = null
+  try {
+    const reservation = await reserveCredits(ledger, {
+      operation: "document_analysis",
+      amount: ANALYSIS_CREDITS,
+      idempotencyKey: `analysis:${auditId}:${crypto.randomUUID()}`,
+    })
+    if (!reservation.allowed || !reservation.reservationId) {
+      await supabase.from("audits").update({ locked_at: null, updated_at: new Date().toISOString() }).eq("id", auditId)
+      return { success: false, error: `This analysis needs ${ANALYSIS_CREDITS} credits — top up in Billing to continue.` }
+    }
+    analysisReservationId = reservation.reservationId
+  } catch {
+    await supabase.from("audits").update({ locked_at: null, updated_at: new Date().toISOString() }).eq("id", auditId)
+    return { success: false, error: "Could not verify credit balance. Please try again — nothing was charged." }
+  }
+  const voidAnalysisHold = async () => {
+    try {
+      if (analysisReservationId) await voidReservation(ledger, analysisReservationId)
+    } catch {
+      // Hold release is best-effort; stale holds expire within the hour.
+    }
+    analysisReservationId = null
+  }
+
+  // Credits are the only gate, enforced inside this function (see the
+  // reservation below): every analysis bills exactly ANALYSIS_CREDITS once,
+  // whether it arrives via the direct path, a work plan, or a direct client
+  // call. There is no free daily allowance — a free account's only funds are
+  // its 10 signup credits.
 
   // Phase 5B context gate: analysis must not silently treat unresolved
   // required context as confirmed. Legacy audits without an envelope are
@@ -533,6 +583,7 @@ export async function analyzeDeal(
       .eq("id", auditId)
       .eq("user_id", user.id)
     await logActivity(user.id, "analysis_blocked_context", { state: gateCheck.state }, auditId)
+    await voidAnalysisHold()
     return {
       success: false,
       error: gateCheck.message,
@@ -637,6 +688,7 @@ export async function analyzeDeal(
         error_message: "No content to analyze",
       })
       await logActivity(user.id, "analysis_failed", { reason: "No content to analyze" }, auditId)
+      await voidAnalysisHold()
       return { success: false, error: "No content to analyze. Add text or upload files first." }
     }
 
@@ -688,6 +740,7 @@ export async function analyzeDeal(
         error_message: `Insufficient input: ${validation.reason}`,
       })
       await logActivity(user.id, "analysis_failed", { reason: `Insufficient input: ${validation.reason}` }, auditId)
+      await voidAnalysisHold()
       return { success: false, error: "That doesn't look like a deal yet. Add more detail about the agreement — paste a client email, contract clause, lease terms, or describe the deal in your own words." }
     }
 
@@ -982,11 +1035,28 @@ export async function analyzeDeal(
       // Referral bookkeeping must never fail an analysis.
     }
 
+    // Settle the analysis charge: the report is complete and persisted, so
+    // the reserved credits are earned. Failures below void the hold instead.
+    try {
+      if (analysisReservationId) {
+        await finalizeReservation(ledger, {
+          reservationId: analysisReservationId,
+          consumptionAmount: ANALYSIS_CREDITS,
+          operation: "document_analysis",
+        })
+        analysisReservationId = null
+      }
+    } catch {
+      // Settlement-only failure after a completed analysis: the work is done
+      // and persisted; the hold releases via expiry rather than failing this.
+      analysisReservationId = null
+    }
+
     return { success: true, data: extracted, riskReport, knowledgeCandidates, deterministicFindings: ruleResults, findingDelta: (structuredUpdate.findingDelta as FindingDelta | null) ?? null, riskDegraded, rulesDegraded }
   } catch (err) {
+    await voidAnalysisHold()
     const errorMessage = err instanceof Error ? err.message : "Unknown error"
-    const errorType = err instanceof Error ? err.constructor.name : "UnknownError"
-    // Provider cause chain (category/status only — AIProviderError messages
+    const errorType = err instanceof Error ? err.constructor.name : "UnknownError"    // Provider cause chain (category/status only — AIProviderError messages
     // are constructed from fixed strings plus status codes, never keys,
     // prompts, or response bodies). Without this, a provider outage and a
     // malformed model response log identically.
@@ -1087,6 +1157,47 @@ export async function generateProtectionPackage(
     if (!rate.allowed) {
       return { success: false, error: rate.error ?? "Rate limit check failed. Please try again." }
     }
+  }
+
+  // Credit gate for the full 4-document chain (proposal 10 + sow 15 +
+  // contract 20 + checklist 10): reserve up front, finalize only when the
+  // versions persist, void on any failure. Previously this path charged
+  // nothing — the priced document costs applied only to plans no production
+  // caller used.
+  const { DOCUMENT_CREDIT_COSTS } = await import("@/lib/credits/pricing")
+  const PACKAGE_CREDITS =
+    DOCUMENT_CREDIT_COSTS.proposal + DOCUMENT_CREDIT_COSTS.sow + DOCUMENT_CREDIT_COSTS.contract + DOCUMENT_CREDIT_COSTS.checklist
+  const { reserveCredits, finalizeReservation, voidReservation } = await import("@/lib/credits/ledger")
+  const packageLedger = {
+    rpc: async (functionName: string, args: Record<string, unknown> = {}) => {
+      const result = await (supabase.rpc as unknown as (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        functionName,
+        args
+      )
+      return { data: result.data, error: result.error }
+    },
+  }
+  let packageReservationId: string | null = null
+  try {
+    const reservation = await reserveCredits(packageLedger, {
+      operation: "document_analysis",
+      amount: PACKAGE_CREDITS,
+      idempotencyKey: `package:${auditId}:${crypto.randomUUID()}`,
+    })
+    if (!reservation.allowed || !reservation.reservationId) {
+      return { success: false, error: `Insufficient credits for this operation. The full document package costs ${PACKAGE_CREDITS} credits.` }
+    }
+    packageReservationId = reservation.reservationId
+  } catch {
+    return { success: false, error: "Could not verify credit balance. Please try again — nothing was charged." }
+  }
+  const voidPackageHold = async () => {
+    try {
+      if (packageReservationId) await voidReservation(packageLedger, packageReservationId)
+    } catch {
+      // Hold release is best-effort; stale holds expire within the hour.
+    }
+    packageReservationId = null
   }
 
   await logEvent({
@@ -1222,8 +1333,25 @@ export async function generateProtectionPackage(
       }
     }
 
+    // Settle the package charge: all four versions persisted above.
+    try {
+      if (packageReservationId) {
+        await finalizeReservation(packageLedger, {
+          reservationId: packageReservationId,
+          consumptionAmount: PACKAGE_CREDITS,
+          operation: "document_analysis",
+        })
+        packageReservationId = null
+      }
+    } catch {
+      // Settlement-only failure after persisted versions: the work is done;
+      // the hold releases via expiry rather than failing a completed package.
+      packageReservationId = null
+    }
+
     return { success: true, documents }
   } catch (err) {
+    await voidPackageHold()
     await logEvent({
       audit_id: auditId,
       user_id: user.id,
@@ -1498,12 +1626,12 @@ export async function populateChecklistItems(
 
 export async function upsertBusinessProfile(
   data: Record<string, unknown>
-) {
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user || !isValidUUID(user.id)) {
-    throw new Error("Unauthorized")
+    return { ok: false, error: "Unauthorized — please sign in." }
   }
 
   const allowedBusinessFields = new Set([
@@ -1523,7 +1651,10 @@ export async function upsertBusinessProfile(
     .from("business_profiles")
     .upsert(payload, { onConflict: "user_id" })
 
-  if (error) throw new Error(error.message)
+  // Data return, never thrown: raw DB messages must not reach the browser
+  // as minified digests.
+  if (error) return { ok: false, error: "We couldn't save your business profile. Please try again." }
+  return { ok: true }
 }
 
 export async function createShareToken(

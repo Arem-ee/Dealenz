@@ -25,9 +25,9 @@ function makeSupabaseMock(planStatus: string = "draft") {
     objective: "Analyze deal: Test Deal",
     objective_kind: "deal_analysis",
     version: 1,
-    estimated_credits: 0,
+    estimated_credits: 5,
     status: currentStatus,
-    payload_hash: planPayloadHash({ objective: "Analyze deal: Test Deal", objectiveKind: "deal_analysis", estimatedCredits: 0, steps: [{ operation: "document_analysis", inputRef: { auditId, threadId }, dependsOn: [], estimatedCredits: 0 }] }),
+    payload_hash: planPayloadHash({ objective: "Analyze deal: Test Deal", objectiveKind: "deal_analysis", estimatedCredits: 5, steps: [{ operation: "document_analysis", inputRef: { auditId, threadId }, dependsOn: [], estimatedCredits: 5 }] }),
     approved_at: null,
     completed_at: null,
     created_at: new Date().toISOString(),
@@ -113,20 +113,31 @@ describe("deal_analysis proving workflow", () => {
     mockAnalyzeDeal.mockReset()
   })
 
-  it("creates plan with estimatedCredits 0 (generic zero-cost plan), approval hash matches, and step is document_analysis", async () => {
+  it("creates plan with estimatedCredits 5 (analysis floor), approval hash matches, and step is document_analysis", async () => {
     const { client, userId } = makeSupabaseMock()
     const res = await createPlan(client as never, userId, {
       objective: "Analyze deal: Test Deal",
       objectiveKind: "deal_analysis",
-      steps: [{ operation: "document_analysis", inputRef: { auditId: "00000000-0000-0000-0000-0000000000aa", threadId: "00000000-0000-0000-0000-0000000000bb" }, estimatedCredits: 0 }],
+      steps: [{ operation: "document_analysis", inputRef: { auditId: "00000000-0000-0000-0000-0000000000aa", threadId: "00000000-0000-0000-0000-0000000000bb" }, estimatedCredits: 5 }],
     })
-    expect(res.plan.estimated_credits).toBe(0)
+    expect(res.plan.estimated_credits).toBe(5)
     expect(res.plan.payload_hash).toMatch(/^ph_/)
     expect(res.steps[0].operation).toBe("document_analysis")
-    expect(res.steps[0].estimated_credits).toBe(0)
-    // Approval hash binding — zero-cost still hash-bound
-    const hash = planPayloadHash({ objective: "Analyze deal: Test Deal", objectiveKind: "deal_analysis", estimatedCredits: 0, steps: [{ operation: "document_analysis", inputRef: { auditId: "00000000-0000-0000-0000-0000000000aa", threadId: "00000000-0000-0000-0000-0000000000bb" }, dependsOn: [], estimatedCredits: 0 }] })
+    expect(res.steps[0].estimated_credits).toBe(5)
+    // Approval hash binding
+    const hash = planPayloadHash({ objective: "Analyze deal: Test Deal", objectiveKind: "deal_analysis", estimatedCredits: 5, steps: [{ operation: "document_analysis", inputRef: { auditId: "00000000-0000-0000-0000-0000000000aa", threadId: "00000000-0000-0000-0000-0000000000bb" }, dependsOn: [], estimatedCredits: 5 }] })
     expect(res.plan.payload_hash).toBe(hash)
+  })
+
+  it("rejects zero-estimate document_analysis: AI steps cannot run unbilled", async () => {
+    const { client, userId } = makeSupabaseMock()
+    await expect(
+      createPlan(client as never, userId, {
+        objective: "Analyze deal: Test Deal",
+        objectiveKind: "deal_analysis",
+        steps: [{ operation: "document_analysis", inputRef: { auditId: "00000000-0000-0000-0000-0000000000aa", threadId: "00000000-0000-0000-0000-0000000000bb" }, estimatedCredits: 0 }],
+      })
+    ).rejects.toThrow(/minimum 5 credits/)
   })
 
   it("approval bound to version+hash, stale plan invalidates", async () => {
@@ -179,12 +190,12 @@ describe("deal_analysis proving workflow", () => {
     // For zero-cost, the executor skips reserveCredits entirely (see executor.ts:76 if estimated_credits>0)
   })
 
-  it("zero-cost plan still requires approval and respects hash binding", async () => {
+  it("zero-cost deterministic plans still require approval and respect hash binding", async () => {
     const { client, userId } = makeSupabaseMock()
     const res = await createPlan(client as never, userId, {
-      objective: "Analyze deal: Zero cost",
-      objectiveKind: "deal_analysis",
-      steps: [{ operation: "document_analysis", inputRef: { auditId: "00000000-0000-0000-0000-0000000000aa", threadId: "00000000-0000-0000-0000-0000000000bb" }, estimatedCredits: 0 }],
+      objective: "Validate rows",
+      objectiveKind: "custom",
+      steps: [{ operation: "validate_rows", inputRef: { rows: [] }, estimatedCredits: 0 }],
     })
     expect(res.plan.estimated_credits).toBe(0)
     // Approval still required: draft cannot execute, must be awaiting_approval → approved
