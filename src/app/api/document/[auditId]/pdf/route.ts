@@ -17,6 +17,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ audi
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+  if (!user.email_confirmed_at) {
+    return NextResponse.json({ success: false, error: "Please verify your email address before using this feature." }, { status: 403 })
+  }
+
+  // Abuse-rate cap: server-side PDF rendering is CPU-heavy. Downloads remain
+  // free (generation already charged); this bounds funded hammering only.
+  const { checkRateLimit } = await import("@/lib/rate-limit")
+  const rate = await checkRateLimit("pdf_export")
+  if (!rate.allowed) {
+    return NextResponse.json({ success: false, error: rate.error ?? "Rate limit exceeded" }, { status: 429 })
+  }
 
   const versionId = new URL(req.url).searchParams.get("versionId")
 

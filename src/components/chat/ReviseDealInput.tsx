@@ -52,8 +52,10 @@ export function ReviseDealInput({ auditId, threadId, initialText, onPlanReady, o
       }
       setOpen(false)
       onPlanReady()
-    } catch (err) {
-      onError(err instanceof Error ? err.message : "We couldn't save the revised input. Please try again.")
+    } catch {
+      // Fixed friendly message: raw action errors cross the boundary as
+      // opaque digests, so the thrown text is never shown.
+      onError("We couldn't save the revised input. Please try again.")
     } finally {
       setSaving(false)
     }

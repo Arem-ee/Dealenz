@@ -1,18 +1,40 @@
 // Payment provider webhook verification (Phase 3) — Stripe/Paystack style
 // No secrets in code: reads from env STRIPE_WEBHOOK_SECRET / PAYSTACK_WEBHOOK_SECRET
-// HMAC SHA256 verification, timing-safe compare, replay protection via provider_webhook_events unique.
+// Stripe: real timestamped scheme (t=...,v1=HMAC(`${t}.${payload}`), 300s
+// tolerance) — plain raw-body HMAC is NOT Stripe and is rejected, otherwise
+// genuine Stripe events fail closed and forged simple-HMAC events pass.
+// Paystack: HMAC-SHA512 hex of the raw body. Replay protection via
+// provider_webhook_events unique.
 
 import { createHmac, timingSafeEqual } from "node:crypto"
 
-export function verifyStripeSignature(payload: string, signature: string, secret: string): boolean {
+export const WEBHOOK_TIMESTAMP_TOLERANCE_S = 300
+
+export function verifyStripeSignature(payload: string, signature: string, secret: string, nowS: number = Math.floor(Date.now() / 1000)): boolean {
   if (!signature || !secret) return false
-  // Stripe style: t=...,v1=...
-  // For Phase 3 we support simple HMAC of payload: hex digest in header x-stripe-signature or stripe-signature
   try {
-    const expected = createHmac("sha256", secret).update(payload, "utf8").digest("hex")
-    const sig = signature.includes("v1=") ? signature.split("v1=")[1].split(",")[0] : signature
-    if (sig.length !== expected.length) return false
-    return timingSafeEqual(Buffer.from(sig, "utf8"), Buffer.from(expected, "utf8"))
+    let ts: string | null = null
+    const v1s: string[] = []
+    for (const part of signature.split(",")) {
+      const eq = part.indexOf("=")
+      if (eq < 0) continue
+      const k = part.slice(0, eq).trim()
+      const v = part.slice(eq + 1).trim()
+      if (k === "t" && ts === null) ts = v
+      else if (k === "v1" && v) v1s.push(v)
+    }
+    if (!ts || v1s.length === 0) return false
+    const t = Number(ts)
+    if (!Number.isFinite(t) || Math.abs(nowS - t) > WEBHOOK_TIMESTAMP_TOLERANCE_S) return false
+    const expected = createHmac("sha256", secret).update(`${ts}.${payload}`, "utf8").digest("hex")
+    return v1s.some((sig) => {
+      if (sig.length !== expected.length) return false
+      try {
+        return timingSafeEqual(Buffer.from(sig, "utf8"), Buffer.from(expected, "utf8"))
+      } catch {
+        return false
+      }
+    })
   } catch {
     return false
   }

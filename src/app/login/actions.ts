@@ -37,6 +37,14 @@ export async function resendVerification() {
     return { success: false, error: "No authenticated user" }
   }
 
+  // Daily cap: verification emails cost provider sends; 5/day is generous
+  // for a legitimate user and stops automated re-send abuse.
+  const { checkRateLimit } = await import("@/lib/rate-limit")
+  const rate = await checkRateLimit("verification_resend")
+  if (!rate.allowed) {
+    return { success: false, error: rate.error ?? "Too many resends. Please try again tomorrow." }
+  }
+
   const { error } = await supabase.auth.resend({
     type: "signup",
     email: user.email!,

@@ -8,6 +8,7 @@ import { NegotiationWorkspace } from "./NegotiationWorkspace"
 import { ProtectionWorkspace } from "./ProtectionWorkspace"
 import { SigningWorkspace } from "./SigningWorkspace"
 import { MonitoringWorkspace } from "./MonitoringWorkspace"
+import { hasProtectionDraftSupport } from "@/lib/protection"
 
 // Objective workspaces: each mode renders a materially different surface
 // from the same verified bundle. Modes without a dedicated surface return
@@ -24,6 +25,11 @@ export function WorkspaceView({ mode, data, auditId, dealType, riskLevel, overal
   onGeneratePackage: () => void
   onChanged: () => void
 }) {
+  // Document-capable verticals get the generate action: freelance (full
+  // protection package) plus founder/partnership (family drafts). Other
+  // verticals keep findings + negotiation + lawyer paths — never a dead end
+  // with no next action.
+  const canDraft = !!dealType && (dealType === "freelance" || hasProtectionDraftSupport(dealType))
   switch (mode) {
     case "review":
       return (
@@ -34,7 +40,7 @@ export function WorkspaceView({ mode, data, auditId, dealType, riskLevel, overal
           overallScore={overallScore}
           auditId={auditId}
           onAskFinding={onAsk}
-          onGenerateProtection={dealType === "freelance" ? onGeneratePackage : undefined}
+          onGenerateProtection={canDraft ? onGeneratePackage : undefined}
         />
       )
     case "proposal":
@@ -50,7 +56,7 @@ export function WorkspaceView({ mode, data, auditId, dealType, riskLevel, overal
           focus={focus}
           auditId={auditId}
           dealType={dealType}
-          onGenerate={dealType === "freelance" ? onGeneratePackage : undefined}
+          onGenerate={canDraft ? onGeneratePackage : undefined}
         />
       )
     }
@@ -61,7 +67,7 @@ export function WorkspaceView({ mode, data, auditId, dealType, riskLevel, overal
         <ProtectionWorkspace
           data={data}
           dealType={dealType}
-          onGenerate={dealType === "freelance" ? onGeneratePackage : undefined}
+          onGenerate={canDraft ? onGeneratePackage : undefined}
         />
       )
     case "signing":

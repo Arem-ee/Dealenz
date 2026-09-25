@@ -29,7 +29,7 @@ export function ProposalWorkspace({ data, focus, auditId, dealType, onGenerate }
   const focused = data.versions.filter((v) => v.document_type === focus)
   const others = data.versions.filter((v) => v.document_type !== focus)
   const title = focus === "proposal" ? "Proposal" : "Statement of work"
-  const canGenerate = dealType === "freelance" && !!onGenerate
+  const canGenerate = !!onGenerate && (dealType === "freelance" || dealType === "founder" || dealType === "partnership")
   return (
     <div>
       <Section
@@ -86,7 +86,9 @@ export function ProposalWorkspace({ data, focus, auditId, dealType, onGenerate }
               onClick={onGenerate}
               className="rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
             >
-              Generate {focus === "proposal" ? "proposal" : "SOW"} ({creditsForDocumentType(focus)} credits)
+              {dealType === "freelance"
+                ? `Generate ${focus === "proposal" ? "proposal" : "SOW"} (${creditsForDocumentType(focus)} credits)`
+                : "Draft document"}
             </button>
           )}
           {auditId && focused.length > 0 && (

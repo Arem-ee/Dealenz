@@ -549,15 +549,12 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             <FileUp className="h-3.5 w-3.5" />
             Add a document
           </button>
-          {!isEmpty && (
-            <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground/60">Enter to send · Shift+Enter for new line</span>
-          )}
           {estimate !== null && (
-            <span className="hidden sm:inline text-xs text-muted-foreground/60">
+            <span className="text-[11px] text-muted-foreground/60 sm:text-xs">
               {estimate === 0 ? (
                 "Free to send"
               ) : (
-                <>Estimated cost: {estimate} credit{estimate === 1 ? "" : "s"} · <Link href="/billing" className="underline underline-offset-2 hover:text-foreground">Billing</Link></>
+                <>{estimate} credit{estimate === 1 ? "" : "s"} · <Link href="/billing" className="underline underline-offset-2 hover:text-foreground">Billing</Link></>
               )}
             </span>
           )}

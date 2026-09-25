@@ -15,8 +15,9 @@ export function InboxPanel() {
   const [status, setStatus] = useState<"loading" | "unconnected" | "ready" | "error">("loading")
   const [threads, setThreads] = useState<InboxThreadItem[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [importing, setImporting] = useState<string | null>(null)
+  const [importing, setImporting] = useState<Set<string>>(new Set())
   const [importError, setImportError] = useState<Record<string, string>>({})
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -51,11 +52,11 @@ export function InboxPanel() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reloadKey])
 
   async function handleImport(threadId: string) {
-    if (importing) return
-    setImporting(threadId)
+    if (importing.has(threadId)) return
+    setImporting((prev) => new Set(prev).add(threadId))
     setImportError((s) => {
       const next = { ...s }
       delete next[threadId]
@@ -71,7 +72,11 @@ export function InboxPanel() {
     } catch {
       setImportError((s) => ({ ...s, [threadId]: "Could not import that thread. Please try again." }))
     } finally {
-      setImporting(null)
+      setImporting((prev) => {
+        const next = new Set(prev)
+        next.delete(threadId)
+        return next
+      })
     }
   }
 
@@ -104,9 +109,12 @@ export function InboxPanel() {
 
   if (status === "error") {
     return (
-      <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-xs text-destructive">
-        {error ?? "Could not reach Gmail."}
-      </p>
+      <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
+        <p className="text-xs text-destructive">{error ?? "Could not reach Gmail."}</p>
+        <Button size="sm" variant="outline" className="mt-2" onClick={() => { setStatus("loading"); setError(null); setReloadKey((k) => k + 1) }}>
+          Retry
+        </Button>
+      </div>
     )
   }
 
@@ -132,9 +140,9 @@ export function InboxPanel() {
               {importError[t.threadId]}
             </p>
           )}
-          <Button size="sm" className="mt-3" disabled={importing !== null} onClick={() => void handleImport(t.threadId)}>
-            {importing === t.threadId ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-            {importing === t.threadId ? "Importing…" : "Import as new deal"}
+          <Button size="sm" className="mt-3" disabled={importing.has(t.threadId)} onClick={() => void handleImport(t.threadId)}>
+            {importing.has(t.threadId) ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+            {importing.has(t.threadId) ? "Importing…" : "Import as new deal"}
           </Button>
         </li>
       ))}

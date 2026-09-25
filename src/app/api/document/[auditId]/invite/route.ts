@@ -26,6 +26,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ success: false, error: "Enter valid email" }, { status: 400 })
   if (!user.email_confirmed_at) return NextResponse.json({ success: false, error: "Please verify your email address before inviting signers." }, { status: 403 })
 
+  // Abuse-rate cap on top of the credit charge: invites email real
+  // counterparties, so funded spam is a reputation risk, not just compute.
+  const { checkRateLimit } = await import("@/lib/rate-limit")
+  const rate = await checkRateLimit("document_invite")
+  if (!rate.allowed) {
+    return NextResponse.json({ success: false, error: rate.error ?? "Rate limit exceeded" }, { status: 429 })
+  }
+
   // Credit gate at the point of use (fail fast, before any reads/writes):
   // sending a signature request costs SIGNATURE_SEND_CREDITS. Same balance
   // check as every other billable operation — never-purchased accounts
@@ -93,7 +101,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
     })
     if (error) {
       await voidReservation(ledger, reservation.reservationId).catch(() => null)
-      return NextResponse.json({ success: false, error: error.message }, { status: 400 })
+      const { sanitizeUserError } = await import("@/lib/errors/sanitize")
+      return NextResponse.json({ success: false, error: sanitizeUserError(error.message) }, { status: 400 })
     }
 
     // Ensure owner signer exists for owner-first order

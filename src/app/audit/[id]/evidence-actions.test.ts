@@ -62,32 +62,46 @@ describe("evidence inspection security", () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
     mockFrom.mockImplementation(() => tableMock(auditRow()))
     const result = await inspectSourceEvidence(AUDIT_ID, JSON.parse(JSON.stringify(auditEvidence())) as unknown)
-    expect(result.status).toBe("APPROXIMATE")
-    expect(result.documentLabel).toBe("Pasted input")
-    expect(result.documentText).toContain("Unlimited revisions")
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("unreachable")
+    expect(result.inspected.status).toBe("APPROXIMATE")
+    expect(result.inspected.documentLabel).toBe("Pasted input")
+    expect(result.inspected.documentText).toContain("Unlimited revisions")
   })
 
   it("rejects non-owners (row invisible under ownership filter)", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
     mockFrom.mockImplementation(() => tableMock({ data: null, error: { message: "none" } }))
-    await expect(inspectSourceEvidence(AUDIT_ID, auditEvidence())).rejects.toThrow(/not found/i)
+    const result = await inspectSourceEvidence(AUDIT_ID, auditEvidence())
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error("unreachable")
+    expect(result.error).toMatch(/not found/i)
   })
 
   it("rejects unauthenticated users", async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null })
-    await expect(inspectSourceEvidence(AUDIT_ID, auditEvidence())).rejects.toThrow(/signed in/i)
+    const result = await inspectSourceEvidence(AUDIT_ID, auditEvidence())
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error("unreachable")
+    expect(result.error).toMatch(/signed in/i)
     expect(mockFrom).not.toHaveBeenCalled()
   })
 
   it("rejects malformed audit IDs without touching the database", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
-    await expect(inspectSourceEvidence("not-a-uuid", auditEvidence())).rejects.toThrow(/invalid audit/i)
+    const result = await inspectSourceEvidence("not-a-uuid", auditEvidence())
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error("unreachable")
+    expect(result.error).toMatch(/invalid audit/i)
     expect(mockFrom).not.toHaveBeenCalled()
   })
 
   it("rejects malformed evidence without touching the database", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
-    await expect(inspectSourceEvidence(AUDIT_ID, { bogus: true })).rejects.toThrow(/invalid evidence/i)
+    const result = await inspectSourceEvidence(AUDIT_ID, { bogus: true })
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error("unreachable")
+    expect(result.error).toMatch(/invalid evidence/i)
     expect(mockFrom).not.toHaveBeenCalled()
   })
 
@@ -104,7 +118,10 @@ describe("evidence inspection security", () => {
       inspectable: true,
       location: { kind: "approximate", section: "raw_input" },
     })
-    await expect(inspectSourceEvidence(AUDIT_ID, foreign)).rejects.toThrow(/does not belong/i)
+    const result = await inspectSourceEvidence(AUDIT_ID, foreign)
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error("unreachable")
+    expect(result.error).toMatch(/does not belong/i)
   })
 
   it("returns unavailable (not an error) for knowledge evidence", async () => {
@@ -122,8 +139,10 @@ describe("evidence inspection security", () => {
       location: { kind: "unavailable" },
     })
     const result = await inspectSourceEvidence(AUDIT_ID, knowledge)
-    expect(result.status).toBe("UNAVAILABLE")
-    expect(result.documentText).toBeNull()
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("unreachable")
+    expect(result.inspected.status).toBe("UNAVAILABLE")
+    expect(result.inspected.documentText).toBeNull()
   })
 
   it("reads uploaded file content through ownership-checked paths", async () => {
@@ -153,8 +172,10 @@ describe("evidence inspection security", () => {
       location: { kind: "approximate", section: "contract.pdf" },
     })
     const result = await inspectSourceEvidence(AUDIT_ID, fileEvidence)
-    expect(result.status).toBe("APPROXIMATE")
-    expect(result.documentLabel).toBe("contract.pdf")
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("unreachable")
+    expect(result.inspected.status).toBe("APPROXIMATE")
+    expect(result.inspected.documentLabel).toBe("contract.pdf")
     expect(mockDownload).toHaveBeenCalledTimes(1)
   })
 

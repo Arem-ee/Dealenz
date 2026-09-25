@@ -5,7 +5,13 @@ import { calculateRevenueShare } from "@/lib/payments/revenue"
 
 export async function POST(req: NextRequest) {
   const body = await req.text()
-  const provider = (req.headers.get("x-provider") ?? "stripe").toLowerCase() as "stripe" | "paystack"
+  const providerRaw = (req.headers.get("x-provider") ?? "stripe").toLowerCase()
+  // Strict provider allowlist: anything else previously fell through to the
+  // Paystack path, letting an attacker choose the weaker check per payload.
+  if (providerRaw !== "stripe" && providerRaw !== "paystack") {
+    return NextResponse.json({ error: "Unknown provider" }, { status: 400 })
+  }
+  const provider = providerRaw as "stripe" | "paystack"
   const signature = req.headers.get("x-signature") ?? req.headers.get("stripe-signature") ?? req.headers.get("x-paystack-signature") ?? ""
 
   const secret = provider === "stripe" ? process.env.STRIPE_WEBHOOK_SECRET ?? "" : process.env.PAYSTACK_WEBHOOK_SECRET ?? ""
@@ -44,10 +50,39 @@ export async function POST(req: NextRequest) {
   const meta = (payload.metadata as Record<string, unknown>) ?? (payload.data as Record<string, unknown>)?.metadata as Record<string, unknown> ?? {}
   const serviceOrderId = (meta.service_order_id as string) ?? (payload.service_order_id as string) ?? null
   const amountMinor = typeof (payload.amount as number) === "number" ? (payload.amount as number) : typeof (payload.data as Record<string, unknown>)?.amount === "number" ? ((payload.data as Record<string, unknown>).amount as number) : null
-  const currency = (payload.currency as string) ?? ((payload.data as Record<string, unknown>)?.currency as string) ?? "USD"
+  const currencyRaw = ((payload.currency as string) ?? ((payload.data as Record<string, unknown>)?.currency as string) ?? "USD").toUpperCase()
+  // Currency allowlist (mirrors the service_payments CHECK): never default
+  // silently, and never trust an exotic code — reject the event instead of
+  // recording paid money in a currency the ledger cannot mean.
+  if (currencyRaw !== "USD" && currencyRaw !== "GBP" && currencyRaw !== "EUR" && currencyRaw !== "NGN") {
+    await svc.from("provider_webhook_events").update({ status: "failed" }).eq("provider", provider).eq("provider_event_id", providerEventId)
+    return NextResponse.json({ error: "Unsupported currency" }, { status: 400 })
+  }
+  const currency = currencyRaw
+  if (!Number.isInteger(amountMinor) || (amountMinor as number) <= 0) {
+    await svc.from("provider_webhook_events").update({ status: "failed" }).eq("provider", provider).eq("provider_event_id", providerEventId)
+    return NextResponse.json({ error: "Invalid amount" }, { status: 400 })
+  }
 
   if (serviceOrderId && amountMinor) {
     try {
+      // Order-level idempotency + state guard: only a live order transitions
+      // to paid, and an already-paid order is never re-marked (replays and
+      // duplicate provider deliveries converge here, not in the ledger).
+      const { data: existing } = await svc
+        .from("service_orders")
+        .select("status")
+        .eq("id", serviceOrderId)
+        .maybeSingle()
+      const existingStatus = (existing as { status?: string } | null)?.status
+      if (!existing) {
+        await svc.from("provider_webhook_events").update({ status: "failed" }).eq("provider", provider).eq("provider_event_id", providerEventId)
+        return NextResponse.json({ error: "Unknown service order" }, { status: 400 })
+      }
+      if (existingStatus === "paid") {
+        await svc.from("provider_webhook_events").update({ status: "processed" }).eq("provider", provider).eq("provider_event_id", providerEventId)
+        return NextResponse.json({ ok: true, duplicate: true })
+      }
       const { platformFeeMinor, lawyerPayoutMinor } = calculateRevenueShare(amountMinor)
       // Update service_orders to paid (requires verified signature flag)
       await svc.from("service_orders").update({ status: "paid", provider, provider_reference: providerEventId, provider_event_id: providerEventId, provider_signature_verified: true, amount_minor: amountMinor, platform_fee_minor: platformFeeMinor, lawyer_payout_minor: lawyerPayoutMinor, status_updated_at: new Date().toISOString() }).eq("id", serviceOrderId)

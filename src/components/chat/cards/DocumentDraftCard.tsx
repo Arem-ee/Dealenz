@@ -57,7 +57,7 @@ function VariableInputRow({
           <ProvenanceBadge source="inferred" confidence={0} />
         </div>
         <input
-          value=""
+          value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={`Enter ${label.toLowerCase()}`}
           className="h-8 rounded-md border border-dashed bg-amber-50 px-2 text-sm text-amber-900 placeholder-amber-500"

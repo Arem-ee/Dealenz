@@ -60,11 +60,17 @@ beforeEach(() => {
   inserts.length = 0
   mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
   mockFrom.mockImplementation(() => tableMock())
-})
+  // Usage RPC allows by default; abuse-rate denial is covered by dedicated
+  // tests elsewhere. Per-test implementations below override as needed.
+  mockRpc.mockImplementation((fn: string) => {
+    if (fn === "increment_usage") return Promise.resolve({ data: [{ allowed: true, current_count: 1 }], error: null })
+    return Promise.resolve({ data: null, error: null })
+  })})
 
 describe("invite signature-send credit gate (10 credits)", () => {
   it("denies never-purchased accounts with 402 before creating anything", async () => {
     mockRpc.mockImplementation((fn: string) => {
+      if (fn === "increment_usage") return Promise.resolve({ data: [{ allowed: true, current_count: 1 }], error: null })
       if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: false, balance: 10, reservation_id: null }], error: null })
       return Promise.resolve({ data: null, error: null })
     })
@@ -81,6 +87,7 @@ describe("invite signature-send credit gate (10 credits)", () => {
     const seen: Array<{ fn: string; args: unknown }> = []
     mockRpc.mockImplementation((fn: string, args: unknown) => {
       seen.push({ fn, args })
+      if (fn === "increment_usage") return Promise.resolve({ data: [{ allowed: true, current_count: 1 }], error: null })
       if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: true, balance: 100, reservation_id: "res-1" }], error: null })
       if (fn === "finalize_reservation") return Promise.resolve({ data: [{ balance: 75 }], error: null })
       return Promise.resolve({ data: null, error: null })

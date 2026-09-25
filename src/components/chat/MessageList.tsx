@@ -17,6 +17,7 @@ export function MessageList({
   onDocumentGenerate,
   onAskFinding,
   richMode = "inline",
+  auditId,
 }: {
   messages: ThreadMessage[]
   isLoading?: boolean
@@ -26,6 +27,7 @@ export function MessageList({
   // "inline" renders rich cards in the scroll (mobile base). "hidden" skips
   // them because the desktop split-pane panel shows the same payload.
   richMode?: "inline" | "hidden"
+  auditId?: string | null
 }) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -53,7 +55,7 @@ export function MessageList({
           return (
             <div key={m.id} className="flex justify-start">
               <div className="w-full max-w-[95%]">
-                <RiskReportCard payload={(m.payload as Record<string, unknown>) ?? {}} onAskFinding={onAskFinding} />
+                <RiskReportCard payload={(m.payload as Record<string, unknown>) ?? {}} onAskFinding={onAskFinding} auditId={auditId} />
                 <p className="mt-1 text-[11px] text-muted-foreground"><ClientTime iso={m.createdAt} kind="time" /></p>
               </div>
             </div>

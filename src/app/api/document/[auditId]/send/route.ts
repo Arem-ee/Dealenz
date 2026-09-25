@@ -6,6 +6,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+  if (!user.email_confirmed_at) {
+    return NextResponse.json({ success: false, error: "Please verify your email address before sending documents." }, { status: 403 })
+  }
+  // Abuse-rate cap: sends email real counterparties and flips documents
+  // toward final — funded spam or state-churn stays bounded.
+  const { checkRateLimit } = await import("@/lib/rate-limit")
+  const rate = await checkRateLimit("document_send")
+  if (!rate.allowed) {
+    return NextResponse.json({ success: false, error: rate.error ?? "Rate limit exceeded" }, { status: 429 })
+  }
   const body = await req.json().catch(() => ({})) as { documentVersionId?: string }
   const versionId = typeof body.documentVersionId === "string" ? body.documentVersionId : null
   const { data: audit } = await supabase.from("audits").select("id").eq("id", auditId).eq("user_id", user.id).maybeSingle()

@@ -8,6 +8,8 @@ import { DealOverview } from "./DealOverview"
 import { ThreadPanel, latestRichMessage } from "./ThreadPanel"
 import { SplitPane, useIsDesktop } from "@/components/split-pane"
 import { useToast } from "@/components/ui/toast"
+import { useAiConsent } from "@/hooks/use-ai-consent"
+import { AiConsentModal } from "@/components/ai-consent-modal"
 import type { ThreadMessage } from "@/lib/chat/types"
 import { getThreadMessages } from "@/lib/chat/actions"
 import { createClient } from "@/lib/supabase/client"
@@ -80,6 +82,12 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   const [workSteps, setWorkSteps] = useState<PlanStepRow[]>([])
   const [workExecution, setWorkExecution] = useState<WorkExecutionRow | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
+  // Consent-gated execution: approving or resuming a plan without AI consent
+  // stashes the run here and opens the consent modal instead of stalling the
+  // plan in needs_input with no way forward. Granting resumes the run.
+  const [showConsentModal, setShowConsentModal] = useState(false)
+  const [pendingConsentRun, setPendingConsentRun] = useState<{ planId: string; approvalId: string } | null>(null)
+  const { consenting, grant: grantConsent } = useAiConsent()
   // Overview collapse: explicit user choice wins; otherwise the card stays
   // open on a fresh deal and collapses to one line once messages exist, so
   // the reply viewport gets the room.
@@ -165,89 +173,94 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
     let cancelled = false
     const load = async () => {
       const supabase = createClient()
-      try {
-        const { data: rows } = await supabase
-          .from("document_versions")
-          .select("id, document_type, version_number, content, generation_method, status, created_at")
-          .eq("audit_id", auditId)
-          .order("version_number", { ascending: false })
-          .limit(30)
-        if (!cancelled) {
-          const list = ((rows ?? []) as unknown[]).map((r) => {
-            const row = r as Record<string, unknown>
-            return {
-              id: String(row.id ?? ""),
-              document_type: String(row.document_type ?? ""),
-              version_number: typeof row.version_number === "number" ? row.version_number : 0,
-              content: typeof row.content === "string" ? row.content : null,
-              generation_method: typeof row.generation_method === "string" ? row.generation_method : null,
-              status: typeof row.status === "string" ? row.status : null,
-              created_at: typeof row.created_at === "string" ? row.created_at : null,
-            } as DocVersion
-          })
-          setVersions(list)
-          setDocumentCount(list.length)
-        }
-      } catch {
-        if (!cancelled) {
-          setVersions([])
-          setDocumentCount(0)
-        }
+      const [{ listMonitoringEvents }, { getGmailTokens }] = await Promise.all([
+        import("@/lib/monitoring/store"),
+        import("@/lib/gmail/tokens"),
+      ])
+      if (cancelled) return
+      // One parallel batch for the seven independent reads: previously seven
+      // serial roundtrips before the work surface could render. Each query
+      // degrades to its own empty default — a failed read hides its block,
+      // never the thread.
+      const settle = <T,>(p: PromiseLike<{ data: T | null; error: unknown }>): Promise<T | null> =>
+        Promise.resolve(p).then(
+          (r) => (r.error ? null : r.data),
+          () => null
+        )
+      const [versionRows, signerRows, eventRows, checkRows, monitoringRows, alertRows, gmailTokens] = await Promise.all([
+        settle(
+          supabase
+            .from("document_versions")
+            .select("id, document_type, version_number, content, generation_method, status, created_at")
+            .eq("audit_id", auditId)
+            .order("version_number", { ascending: false })
+            .limit(30)
+        ),
+        settle(
+          supabase.from("document_signers").select("id, name, email, party_label, status, signed_at").eq("audit_id", auditId).limit(30)
+        ),
+        settle(
+          supabase.from("signing_events").select("id, event_type, created_at").eq("audit_id", auditId).order("created_at", { ascending: true }).limit(50)
+        ),
+        settle(
+          supabase.from("checklist_items").select("id, label, status, sort_order").eq("audit_id", auditId).order("sort_order", { ascending: true }).limit(50)
+        ),
+        listMonitoringEvents(supabase, userId, auditId).then(
+          (events) => ({ data: events as unknown[], error: null }),
+          () => ({ data: null as unknown[] | null, error: true as unknown })
+        ),
+        settle(
+          supabase.from("monitoring_alerts").select("id, monitoring_event_id, destination, status, provider, sent_at").eq("audit_id", auditId).eq("user_id", userId).order("created_at", { ascending: false }).limit(50)
+        ),
+        getGmailTokens(supabase, userId).catch(() => null),
+      ])
+      if (cancelled) return
+      {
+        const list = ((versionRows ?? []) as unknown[]).map((r) => {
+          const row = r as Record<string, unknown>
+          return {
+            id: String(row.id ?? ""),
+            document_type: String(row.document_type ?? ""),
+            version_number: typeof row.version_number === "number" ? row.version_number : 0,
+            content: typeof row.content === "string" ? row.content : null,
+            generation_method: typeof row.generation_method === "string" ? row.generation_method : null,
+            status: typeof row.status === "string" ? row.status : null,
+            created_at: typeof row.created_at === "string" ? row.created_at : null,
+          } as DocVersion
+        })
+        setVersions(list)
+        setDocumentCount(list.length)
       }
-      try {
-        const { data: signerRows } = await supabase.from("document_signers").select("id, name, email, party_label, status, signed_at").eq("audit_id", auditId).limit(30)
-        if (!cancelled) {
-          setSigners(((signerRows ?? []) as unknown[]).map((r) => {
-            const row = r as Record<string, unknown>
-            return {
-              id: String(row.id ?? ""),
-              name: typeof row.name === "string" ? row.name : null,
-              email: typeof row.email === "string" ? row.email : null,
-              party_label: typeof row.party_label === "string" ? row.party_label : null,
-              status: typeof row.status === "string" ? row.status : null,
-              signed_at: typeof row.signed_at === "string" ? row.signed_at : null,
-            } as Signer
-          }))
-        }
-      } catch {
-        if (!cancelled) setSigners([])
-      }
-      try {
-        const { data: eventRows } = await supabase.from("signing_events").select("id, event_type, created_at").eq("audit_id", auditId).order("created_at", { ascending: true }).limit(50)
-        if (!cancelled) {
-          setSigningEvents(((eventRows ?? []) as unknown[]).map((r) => {
-            const row = r as Record<string, unknown>
-            return {
-              id: String(row.id ?? ""),
-              event_type: typeof row.event_type === "string" ? row.event_type : null,
-              created_at: typeof row.created_at === "string" ? row.created_at : null,
-            } as SigningEvent
-          }))
-        }
-      } catch {
-        if (!cancelled) setSigningEvents([])
-      }
-      try {
-        const { data: checkRows } = await supabase.from("checklist_items").select("id, label, status, sort_order").eq("audit_id", auditId).order("sort_order", { ascending: true }).limit(50)
-        if (!cancelled) {
-          setChecklist(((checkRows ?? []) as unknown[]).map((r) => {
-            const row = r as Record<string, unknown>
-            return {
-              id: String(row.id ?? ""),
-              label: String(row.label ?? ""),
-              status: typeof row.status === "string" ? row.status : null,
-              sort_order: typeof row.sort_order === "number" ? row.sort_order : null,
-            } as ChecklistItem
-          }))
-        }
-      } catch {
-        if (!cancelled) setChecklist([])
-      }
-      try {
-        const { listMonitoringEvents } = await import("@/lib/monitoring/store")
-        const events = await listMonitoringEvents(supabase, userId, auditId)
-        if (cancelled) return
-        const mapped = events.map((e) => {
+      setSigners(((signerRows ?? []) as unknown[]).map((r) => {
+        const row = r as Record<string, unknown>
+        return {
+          id: String(row.id ?? ""),
+          name: typeof row.name === "string" ? row.name : null,
+          email: typeof row.email === "string" ? row.email : null,
+          party_label: typeof row.party_label === "string" ? row.party_label : null,
+          status: typeof row.status === "string" ? row.status : null,
+          signed_at: typeof row.signed_at === "string" ? row.signed_at : null,
+        } as Signer
+      }))
+      setSigningEvents(((eventRows ?? []) as unknown[]).map((r) => {
+        const row = r as Record<string, unknown>
+        return {
+          id: String(row.id ?? ""),
+          event_type: typeof row.event_type === "string" ? row.event_type : null,
+          created_at: typeof row.created_at === "string" ? row.created_at : null,
+        } as SigningEvent
+      }))
+      setChecklist(((checkRows ?? []) as unknown[]).map((r) => {
+        const row = r as Record<string, unknown>
+        return {
+          id: String(row.id ?? ""),
+          label: String(row.label ?? ""),
+          status: typeof row.status === "string" ? row.status : null,
+          sort_order: typeof row.sort_order === "number" ? row.sort_order : null,
+        } as ChecklistItem
+      }))
+      {
+        const mapped = (((monitoringRows as { data?: unknown } | null)?.data ?? []) as unknown[]).map((e) => {
           const row = e as Record<string, unknown>
           return {
             id: String(row.id ?? ""),
@@ -265,37 +278,19 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
           const unresolved = mapped.filter((m) => (m.status ?? "active") === "active").length
           setMonitoring({ total: mapped.length, unresolved })
         }
-      } catch {
-        if (!cancelled) {
-          setMonitoringEvents([])
-          setMonitoring(null)
-        }
       }
-      try {
-        const { data: alertRows } = await supabase.from("monitoring_alerts").select("id, monitoring_event_id, destination, status, provider, sent_at").eq("audit_id", auditId).eq("user_id", userId).order("created_at", { ascending: false }).limit(50)
-        if (!cancelled) {
-          setMonitoringAlerts(((alertRows ?? []) as unknown[]).map((r) => {
-            const row = r as Record<string, unknown>
-            return {
-              id: String(row.id ?? ""),
-              monitoring_event_id: typeof row.monitoring_event_id === "string" ? row.monitoring_event_id : null,
-              destination: typeof row.destination === "string" ? row.destination : null,
-              status: typeof row.status === "string" ? row.status : null,
-              provider: typeof row.provider === "string" ? row.provider : null,
-              sent_at: typeof row.sent_at === "string" ? row.sent_at : null,
-            } as MonitoringAlert
-          }))
-        }
-      } catch {
-        if (!cancelled) setMonitoringAlerts([])
-      }
-      try {
-        const { getGmailTokens } = await import("@/lib/gmail/tokens")
-        const tokens = await getGmailTokens(supabase, userId).catch(() => null)
-        if (!cancelled) setGmailConnected(tokens !== null)
-      } catch {
-        if (!cancelled) setGmailConnected(false)
-      }
+      setMonitoringAlerts(((alertRows ?? []) as unknown[]).map((r) => {
+        const row = r as Record<string, unknown>
+        return {
+          id: String(row.id ?? ""),
+          monitoring_event_id: typeof row.monitoring_event_id === "string" ? row.monitoring_event_id : null,
+          destination: typeof row.destination === "string" ? row.destination : null,
+          status: typeof row.status === "string" ? row.status : null,
+          provider: typeof row.provider === "string" ? row.provider : null,
+          sent_at: typeof row.sent_at === "string" ? row.sent_at : null,
+        } as MonitoringAlert
+      }))
+      setGmailConnected(gmailTokens !== null)
     }
     void load()
     return () => {
@@ -337,7 +332,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
 
   const handlePlanApprove = async (planId: string) => {
     try {
-      const { approveWorkPlan, executeApprovedPlan } = await import("@/lib/work/actions")
+      const { approveWorkPlan } = await import("@/lib/work/actions")
       const idempotencyKey = crypto.randomUUID()
       const appr = await approveWorkPlan(planId, idempotencyKey)
       if (!appr.ok) {
@@ -352,19 +347,50 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         fail("Approval not found after approve")
         return
       }
-      const exec = await executeApprovedPlan(planId, (approval as { id: string }).id)
-      if (!exec.ok) {
-        fail(exec.error)
-        await refreshWorkPlan()
-        return
-      }
-      await refreshWorkPlan()
-      // Refresh conversation to show risk_report published by executor (one authoritative publication)
-      const msgs = await getThreadMessages(threadId)
-      if (msgs.ok) setMessages(msgs.messages)
+      await executeWithConsent(planId, (approval as { id: string }).id)
     } catch {
       fail("We couldn't approve and execute that plan. Please try again.")
     }
+  }
+
+  async function executeWithConsent(planId: string, approvalId: string): Promise<void> {
+    const { executeApprovedPlan } = await import("@/lib/work/actions")
+    const exec = await executeApprovedPlan(planId, approvalId)
+    if (!exec.ok && exec.error === "CONSENT_REQUIRED") {
+      setPendingConsentRun({ planId, approvalId })
+      setShowConsentModal(true)
+      return
+    }
+    if (!exec.ok) {
+      fail(exec.error)
+    }
+    await refreshWorkPlan()
+    const msgs = await getThreadMessages(threadId)
+    if (msgs.ok) setMessages(msgs.messages)
+  }
+
+  async function handleConsentConfirm() {
+    const ok = await grantConsent()
+    if (!ok) {
+      showError("Failed to save consent. Please try again — server did not confirm.")
+      return
+    }
+    setShowConsentModal(false)
+    const pending = pendingConsentRun
+    setPendingConsentRun(null)
+    if (pending) {
+      try {
+        await executeWithConsent(pending.planId, pending.approvalId)
+      } catch {
+        fail("We couldn't run that plan. Please try again.")
+      }
+    }
+  }
+
+  function handleConsentDismiss() {
+    if (consenting) return
+    setShowConsentModal(false)
+    setPendingConsentRun(null)
   }
 
   const handlePlanReject = async (planId: string) => {
@@ -391,9 +417,8 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
       const supabase = createClient()
       const { data: approval } = await supabase.from("work_approvals").select("id").eq("plan_id", planId).order("approved_at", { ascending: false }).limit(1).maybeSingle()
       if (approval) {
-        const { executeApprovedPlan } = await import("@/lib/work/actions")
-        const exec = await executeApprovedPlan(planId, (approval as { id: string }).id)
-        if (!exec.ok) fail(exec.error)
+        await executeWithConsent(planId, (approval as { id: string }).id)
+        return
       }
       await refreshWorkPlan()
       const msgs = await getThreadMessages(threadId)
@@ -442,9 +467,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
           const supabase = createClient()
           const { data: approval } = await supabase.from("work_approvals").select("id").eq("plan_id", workPlan.id).order("approved_at", { ascending: false }).limit(1).maybeSingle()
           if (approval) {
-            const { executeApprovedPlan } = await import("@/lib/work/actions")
-            const exec = await executeApprovedPlan(workPlan.id, (approval as { id: string }).id)
-            if (!exec.ok) fail(exec.error)
+            await executeWithConsent(workPlan.id, (approval as { id: string }).id)
           }
           await refreshWorkPlan()
           const msgs = await getThreadMessages(threadId)
@@ -753,6 +776,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
             onContextConfirm={handleContextConfirm}
             onDocumentGenerate={handleDocumentGenerate}
             onAskFinding={handleAskFinding}
+            auditId={auditId}
           />
         </div>
       </div>
@@ -763,6 +787,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
           <Composer threadId={threadId} auditId={auditId} onMessageSent={handleSent} prefill={prefill} />
         </div>
       </div>
+      <AiConsentModal open={showConsentModal} consenting={consenting} onConsent={() => void handleConsentConfirm()} onClose={handleConsentDismiss} />
     </>
   )
 
@@ -782,6 +807,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
       <SplitPane
         userId={userId}
         paneKey={`thread-${threadId}`}
+        defaultSplit={0.38}
         primary={<div className="flex h-full min-h-0 flex-col">{conversation}</div>}
         panel={
           <div className="flex h-full min-h-0 flex-col">

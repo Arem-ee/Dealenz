@@ -86,18 +86,25 @@ async function buildSnapshot(
   return documents
 }
 
-export async function inspectSourceEvidence(auditId: string, evidenceRaw: unknown): Promise<InspectedSource> {
-  if (!UUID_RE.test(auditId)) throw new Error("Invalid audit ID")
+export type InspectSourceResult =
+  | { ok: true; inspected: InspectedSource }
+  | { ok: false; error: string }
+
+// Failures return as data, never thrown: thrown server-action errors reach
+// the browser as opaque minified digests, and an evidence viewer showing
+// "Minified React error #441" is a trust violation for a trust product.
+export async function inspectSourceEvidence(auditId: string, evidenceRaw: unknown): Promise<InspectSourceResult> {
+  if (!UUID_RE.test(auditId)) return { ok: false, error: "Invalid audit ID." }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || !UUID_RE.test(user.id)) throw new Error("You must be signed in to inspect evidence.")
+  if (!user || !UUID_RE.test(user.id)) return { ok: false, error: "You must be signed in to inspect evidence." }
 
   let evidence: Evidence
   try {
     evidence = checkEvidence(evidenceRaw)
   } catch {
-    throw new Error("Invalid evidence reference.")
+    return { ok: false, error: "Invalid evidence reference." }
   }
 
   // The evidence must belong to this audit. Anything else — another audit's
@@ -107,34 +114,50 @@ export async function inspectSourceEvidence(auditId: string, evidenceRaw: unknow
     (evidence.sourceType === "audit_input" || evidence.sourceType === "extraction") &&
     evidence.sourceId !== auditId
   ) {
-    throw new Error("This evidence does not belong to the requested deal.")
+    return { ok: false, error: "This evidence does not belong to the requested deal." }
   }
   if (evidence.sourceType === "conversation_input" || evidence.sourceType === "knowledge") {
     return {
-      status: "UNAVAILABLE",
-      documentLabel: null,
-      documentText: null,
-      matchOffset: null,
-      quote: evidence.quote,
-      message:
-        evidence.sourceType === "knowledge"
-          ? "This observation references a curated knowledge source, shown with the answer. It has no document position to open."
-          : "This observation comes from conversation rather than an attached document, so there is no document to open.",
+      ok: true,
+      inspected: {
+        status: "UNAVAILABLE",
+        documentLabel: null,
+        documentText: null,
+        matchOffset: null,
+        quote: evidence.quote,
+        message:
+          evidence.sourceType === "knowledge"
+            ? "This observation references a curated knowledge source, shown with the answer. It has no document position to open."
+            : "This observation comes from conversation rather than an attached document, so there is no document to open.",
+      },
     }
   }
 
-  const documents = await buildSnapshot(supabase, user.id, auditId)
+  let documents: SourceDocument[]
+  try {
+    documents = await buildSnapshot(supabase, user.id, auditId)
+  } catch (e) {
+    // Ownership failures stay specific (row invisible under RLS reads as
+    // missing); anything else is a generic retrieval failure.
+    if (e instanceof Error && e.message === "Audit not found") {
+      return { ok: false, error: "Audit not found." }
+    }
+    return { ok: false, error: "We couldn't open that deal's documents. Please try again." }
+  }
   const result = inspectEvidence(evidence, { auditId, documents })
   const locatedText =
     result.matchOffset !== null && result.documentLabel !== null
       ? (documents.find((d) => d.label === result.documentLabel)?.text ?? null)
       : null
   return {
-    status: result.status,
-    documentLabel: result.documentLabel,
-    documentText: locatedText,
-    matchOffset: result.matchOffset,
-    quote: result.locatedQuote,
-    message: result.message,
+    ok: true,
+    inspected: {
+      status: result.status,
+      documentLabel: result.documentLabel,
+      documentText: locatedText,
+      matchOffset: result.matchOffset,
+      quote: result.locatedQuote,
+      message: result.message,
+    },
   }
 }

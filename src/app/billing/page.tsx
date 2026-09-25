@@ -116,6 +116,7 @@ export default async function BillingPage({
   const analysesCovered = creditBalance !== null ? Math.floor(creditBalance / ANALYSIS_CREDITS) : null
 
   return (
+    <div className="h-full min-h-0 overflow-y-auto bg-background">
     <div className="px-4 sm:px-6 py-5 sm:py-7 max-w-3xl mx-auto">
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-burgundy">
         Billing · No subscriptions
@@ -125,7 +126,8 @@ export default async function BillingPage({
       </h1>
       <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted-foreground">
         Each deal analysis — extract, rules check, risk report — costs {ANALYSIS_CREDITS} credits.
-        Your 10 signup credits cover the first two. Credits pay for outcomes — never for a favorable answer.
+        Your 10 signup credits cover the first two pasted analyses (an uploaded file costs {UPLOAD_CREDITS} to attach, so one upload + analysis uses the whole grant).
+        Credits pay for outcomes — never for a favorable answer.
       </p>
 
       {notice && (
@@ -213,6 +215,7 @@ export default async function BillingPage({
           </dl>
         </details>
       </div>
+    </div>
     </div>
   )
 }

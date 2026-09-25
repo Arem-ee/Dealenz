@@ -75,6 +75,11 @@ export async function resolveCounterpartyAction(input: {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "You must be signed in." }
     if (!user.email_confirmed_at) return { ok: false, error: VERIFY_REQUIRED_ERROR }
+    // Abuse-rate cap on top of the credit charge: resolution fans out to
+    // live registry search with network timeouts.
+    const { checkRateLimit } = await import("@/lib/rate-limit")
+    const rate = await checkRateLimit("counterparty_resolve")
+    if (!rate.allowed) return { ok: false, error: rate.error ?? "You've reached today's usage limit. Please try again tomorrow." }
 
     const ledger = ledgerFor(supabase)
     const reservation = await reserveCredits(ledger, {
@@ -149,6 +154,11 @@ export async function researchCounterpartyAction(input: {
         .maybeSingle()
       if (!owned) return { ok: false, error: "Deal not found." }
     }
+    // Abuse-rate cap on top of the credit charge: research fans out to live
+    // registry fetches with 8s timeouts per page.
+    const { checkRateLimit } = await import("@/lib/rate-limit")
+    const rate = await checkRateLimit("counterparty_research")
+    if (!rate.allowed) return { ok: false, error: rate.error ?? "You've reached today's usage limit. Please try again tomorrow." }
 
     const price = priceForOperation("counterparty_research")
     const ledger = ledgerFor(supabase)

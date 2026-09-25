@@ -57,7 +57,7 @@ export default function SettingsClient({ initialProfile, email, googleConnected,
     setSaving(true)
     setSaveState("saving")
     try {
-      await upsertBusinessProfile({
+      const res = await upsertBusinessProfile({
         business_name: businessName,
         legal_entity: legalEntity,
         address,
@@ -71,6 +71,10 @@ export default function SettingsClient({ initialProfile, email, googleConnected,
         standard_rate: standardRate ? parseFloat(standardRate) : null,
         rate_unit: rateUnit,
       })
+      if (!res.ok) {
+        setSaveState("error")
+        return
+      }
       setSaveState("saved")
       setTimeout(() => setSaveState("idle"), 2000)
     } catch {
@@ -588,7 +592,8 @@ function DeleteAccountSection() {
       <p className="text-sm font-semibold text-destructive">Delete account</p>
       <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
         Permanently deletes your account and everything in it — deals, documents,
-        threads, monitoring, credits, and files. This cannot be undone.
+        threads, monitoring, credits, and files. Billing records and provider
+        backups age out separately (see privacy policy). This cannot be undone.
       </p>
       {!confirming ? (
         <Button variant="outline" size="sm" className="mt-3 text-destructive" onClick={() => setConfirming(true)}>

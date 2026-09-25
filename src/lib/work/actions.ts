@@ -89,14 +89,26 @@ export async function executeApprovedPlan(planId: string, approvalId: string): P
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "You must be signed in." }
     if (!user.email_confirmed_at) return { ok: false, error: VERIFY_REQUIRED_ERROR }
+    // AI consent gate: plans execute AI work, so a missing consent fails
+    // closed HERE with a machine-readable code the thread turns into the
+    // consent modal — never as a needs_input stall the user cannot resolve.
+    const { data: consentRow } = await supabase
+      .from("user_ai_consents")
+      .select("has_consented_to_ai_analysis")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    if ((consentRow as { has_consented_to_ai_analysis?: boolean } | null)?.has_consented_to_ai_analysis !== true) {
+      return { ok: false, error: "CONSENT_REQUIRED" }
+    }
     // Load approval to validate hash/version
     const { data: approval } = await supabase.from("work_approvals").select("*").eq("id", approvalId).eq("plan_id", planId).eq("user_id", user.id).maybeSingle()
     if (!approval) return { ok: false, error: "Approval not found." }
-    const { data: planCheck } = await supabase.from("work_plans").select("estimated_credits").eq("id", planId).eq("user_id", user.id).maybeSingle()
-    const estimated = (planCheck as { estimated_credits?: number } | null)?.estimated_credits ?? 0
+    // Always a priced policy on this authenticated path: estimate floors
+    // (schema.ts) guarantee AI steps carry estimates, so metering mode must
+    // never silently make execution free. Deterministic-only plans estimate
+    // 0 and simply reserve nothing below.
     const { STANDARD_CREDIT_POLICY } = await import("@/lib/credits/pricing")
-    const policy = estimated > 0 ? STANDARD_CREDIT_POLICY : null
-    const res = await executePlan({ client: supabase as never, userId: user.id, planId, approval: approval as never, policy })
+    const res = await executePlan({ client: supabase as never, userId: user.id, planId, approval: approval as never, policy: STANDARD_CREDIT_POLICY })
     return { ok: true, executionId: res.executionId, status: res.status }
   } catch (e) {
     return toActionFailure(e, "Execution failed.") as never

@@ -167,8 +167,7 @@ export function ContextConfirmCard({ payload, onConfirm }: { payload: Record<str
           <div className="mt-4 flex items-center gap-2">
             <Button size="sm" variant="ghost" onClick={dismiss}>
               Dismiss
-            </Button>
-            {safeStep > 0 && (
+            </Button>            {safeStep > 0 && (
               <Button size="sm" variant="ghost" onClick={back} className="text-muted-foreground">
                 Back
               </Button>
@@ -181,6 +180,9 @@ export function ContextConfirmCard({ payload, onConfirm }: { payload: Record<str
               {isLast ? "Submit" : "Continue"}
             </Button>
           </div>
+          {options && !canSubmit && (
+            <p className="mt-2 text-[11px] text-muted-foreground">Select one answer above, type your own — or Skip.</p>
+          )}
         </div>
       )}
     </div>

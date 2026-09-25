@@ -17,8 +17,9 @@ export function latestRichMessage(messages: ThreadMessage[]): ThreadMessage | nu
   return null
 }
 
-function PanelCard({ message, onContextConfirm, onDocumentGenerate, onAskFinding }: {
+function PanelCard({ message, auditId, onContextConfirm, onDocumentGenerate, onAskFinding }: {
   message: ThreadMessage
+  auditId?: string | null
   onContextConfirm?: (messageId: string, corrections: Record<string, string>) => void
   onDocumentGenerate?: (messageId: string, vars: Record<string, string>) => void
   onAskFinding?: (question: string) => void
@@ -26,7 +27,7 @@ function PanelCard({ message, onContextConfirm, onDocumentGenerate, onAskFinding
   const payload = (message.payload as Record<string, unknown>) ?? {}
   switch (message.type) {
     case "risk_report":
-      return <RiskReportCard payload={payload} onAskFinding={onAskFinding} />
+      return <RiskReportCard payload={payload} onAskFinding={onAskFinding} auditId={auditId} />
     case "document_draft":
     case "document_draft_turn":
       return <DocumentDraftCard payload={payload} onGenerate={onDocumentGenerate ? async (vars) => onDocumentGenerate(message.id, vars) : undefined} />
@@ -53,7 +54,6 @@ export function ThreadPanel({ messages, auditId, onContextConfirm, onDocumentGen
   onAskFinding?: (question: string) => void
 }) {
   const latest = latestRichMessage(messages)
-  void auditId
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -66,7 +66,7 @@ export function ThreadPanel({ messages, auditId, onContextConfirm, onDocumentGen
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
         <div className="mx-auto w-full max-w-2xl ">
           {latest ? (
-            <PanelCard message={latest} onContextConfirm={onContextConfirm} onDocumentGenerate={onDocumentGenerate} onAskFinding={onAskFinding} />
+            <PanelCard message={latest} auditId={auditId} onContextConfirm={onContextConfirm} onDocumentGenerate={onDocumentGenerate} onAskFinding={onAskFinding} />
           ) : (
             <p className="px-4 py-8 text-center text-xs text-muted-foreground">
               Nothing structured yet.

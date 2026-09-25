@@ -53,8 +53,22 @@ export function ReviewWorkspace({ data, dealType, riskLevel, overallScore, audit
               Create protection
             </button>
           )}
+          {(dealType === "founder" || dealType === "partnership") && onGenerateProtection && (
+            <button
+              type="button"
+              onClick={onGenerateProtection}
+              className="rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+            >
+              Draft document
+            </button>
+          )}
           <p className="w-full text-xs text-muted-foreground">
-            Ask about any finding above, or continue in the conversation. Protection documents generate from these findings.
+            Ask about any finding above, or continue in the conversation.{" "}
+            {dealType === "freelance"
+              ? "Protection documents generate from these findings."
+              : dealType === "founder" || dealType === "partnership"
+                ? "Agreement drafts generate from these findings."
+                : "Negotiation points and lawyer review are available for this deal type in the conversation."}
           </p>
         </div>
       </Section>

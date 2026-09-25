@@ -18,7 +18,7 @@ export function ProtectionWorkspace({ data, dealType, onGenerate }: {
   const protectionDocs = data.versions.filter((v) =>
     ["contract", "checklist", "protection_clause"].includes(v.document_type) || v.document_type.endsWith("-agreement") || v.document_type.includes("schedule") || v.document_type.includes("terms")
   )
-  const canGenerate = dealType === "freelance" && !!onGenerate
+  const canGenerate = !!onGenerate && (dealType === "freelance" || dealType === "founder" || dealType === "partnership")
 
   const toggle = async (id: string, current: string | null) => {
     const next = current === "completed" ? "in_scope" : "completed"
@@ -68,7 +68,11 @@ export function ProtectionWorkspace({ data, dealType, onGenerate }: {
           <DocVersionList versions={protectionDocs} />
         ) : (
           <div className="rounded-xl border border-dashed p-4 text-xs text-muted-foreground">
-            {canGenerate ? "Nothing generated yet. Create the protection package to produce it." : "Nothing generated yet — document generation covers freelance deals today."}
+            {canGenerate
+              ? dealType === "freelance"
+                ? "Nothing generated yet. Create the protection package to produce it."
+                : "Nothing generated yet. Draft the agreement from these findings."
+              : "Nothing generated yet — document drafts cover freelance, founder, and partnership deals today. Negotiation points and lawyer review are available for every deal type."}
           </div>
         )}
       </Section>
@@ -79,7 +83,7 @@ export function ProtectionWorkspace({ data, dealType, onGenerate }: {
             onClick={onGenerate}
             className="rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
           >
-            Generate protection package
+            {dealType === "freelance" ? "Generate protection package" : "Draft document"}
           </button>
         </Section>
       )}

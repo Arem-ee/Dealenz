@@ -45,12 +45,19 @@ export function DocumentViewerModal({
   useEffect(() => {
     let cancelled = false
     inspectSourceEvidence(auditId, evidence)
-      .then((inspected) => {
-        if (!cancelled) setState({ key: requestKey, result: inspected, error: null })
+      .then((res) => {
+        if (cancelled) return
+        if (!res.ok) {
+          setState({ key: requestKey, result: null, error: res.error })
+          return
+        }
+        setState({ key: requestKey, result: res.inspected, error: null })
       })
-      .catch((err: unknown) => {
+      .catch(() => {
+        // Transport-level failure only (the action itself returns errors as
+        // data): never surface framework digests.
         if (!cancelled)
-          setState({ key: requestKey, result: null, error: err instanceof Error ? err.message : "Could not open the source." })
+          setState({ key: requestKey, result: null, error: "Could not open the source. Please try again." })
       })
     return () => {
       cancelled = true

@@ -197,12 +197,19 @@ export function AskClient({
       } else if (response.type === "needs_document") {
         setMessages((prev) => [...prev, { id: newId(), role: "assistant", text: response.message }])
       } else {
+        // Denied for credits: keep the question in the box (nothing the user
+        // typed is lost), state the balance, and link the way forward.
+        const balanceLine =
+          typeof response.balance === "number"
+            ? ` Balance: ${response.balance} credit${response.balance === 1 ? "" : "s"}.`
+            : ""
+        setInput(question)
         setMessages((prev) => [
           ...prev,
           {
             id: newId(),
             role: "assistant",
-            text: `I cannot run that right now: ${response.denialReason}. Credits pay for computation, and this one needs more than is available.`,
+            text: `I cannot run that right now: ${response.denialReason}.${balanceLine} Credits pay for computation, and this one needs more than is available — top up in Billing (account menu, top right), then send again. Your question is still in the box above.`,
           },
         ])
         if (typeof response.balance === "number") setBalance(response.balance)
@@ -263,7 +270,7 @@ export function AskClient({
   const estimate = estimatedCost(input, Boolean(auditId))
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-3.5rem)] max-w-5xl gap-4 px-4 py-4 sm:px-6">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl gap-4 px-4 py-4 sm:px-6">
       <aside className="hidden w-56 shrink-0 flex-col rounded-xl border border-border/60 bg-card p-3 shadow-sm md:flex">
         <Button
           variant="outline"

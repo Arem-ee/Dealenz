@@ -1,6 +1,17 @@
 import { createClient } from "@/lib/supabase/server"
 
-export type RateLimitedAction = "generateProtectionPackage" | "submitLawyerApplication" | "createCheckout" | "consultant_free_turn" | "gmail_send"
+export type RateLimitedAction =
+  | "generateProtectionPackage"
+  | "submitLawyerApplication"
+  | "createCheckout"
+  | "consultant_free_turn"
+  | "gmail_send"
+  | "counterparty_resolve"
+  | "counterparty_research"
+  | "pdf_export"
+  | "document_invite"
+  | "document_send"
+  | "verification_resend"
 
 const LIMITS: Record<RateLimitedAction, number> = {
   generateProtectionPackage: 10,
@@ -8,6 +19,14 @@ const LIMITS: Record<RateLimitedAction, number> = {
   createCheckout: 10,
   consultant_free_turn: 3,
   gmail_send: 20,
+  // Abuse-rate caps on top of credit gates: credits stop broke attackers,
+  // these stop funded ones (registry egress, PDF CPU, invite/send spam).
+  counterparty_resolve: 20,
+  counterparty_research: 10,
+  pdf_export: 20,
+  document_invite: 20,
+  document_send: 10,
+  verification_resend: 5,
 }
 
 /** Single source for daily usage limits shown in the UI. Analyses are not
