@@ -43,18 +43,37 @@ export default async function DashboardPage() {
   // Previously one try block covered both: a failed activity query nulled
   // the portfolio and blanked the whole dashboard for users with deals.
   const portfolio: PortfolioSummary = summarizePortfolio(threads)
-  let weekBuckets: ReturnType<typeof bucketActivityByDay> = []
-  try {
-    const { data: activity } = await supabase
+  const threadAuditIds = [...new Set(threads.map((t) => t.auditId).filter((id): id is string => !!id))]
+
+  // One parallel batch for the four independent reads (activity, monitoring
+  // events, signer posture, profile): previously five serial roundtrips.
+  // allSettled keeps the per-block failure isolation — each failure hides
+  // its own block, never the dashboard.
+  const [activitySettled, eventsSettled, signersSettled, profileSettled] = await Promise.allSettled([
+    supabase
       .from("activity_events")
       .select("created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(500)
-    const nowIso = new Date().toISOString()
-    weekBuckets = bucketActivityByDay(((activity ?? []) as Array<{ created_at?: unknown }>) ?? [], nowIso)
-  } catch {
-    weekBuckets = []
+      .limit(500),
+    supabase
+      .from("monitoring_events")
+      .select("id, audit_id, title, due_date, status")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .not("due_date", "is", null)
+      .order("due_date", { ascending: true })
+      .limit(200),
+    threadAuditIds.length > 0
+      ? supabase.from("document_signers").select("audit_id, status").in("audit_id", threadAuditIds).limit(200)
+      : Promise.resolve({ data: [] as Array<{ audit_id: string; status: string }> }),
+    supabase.from("business_profiles").select("id").eq("user_id", user.id).maybeSingle(),
+  ])
+
+  let weekBuckets: ReturnType<typeof bucketActivityByDay> = []
+  if (activitySettled.status === "fulfilled") {
+    const activity = (activitySettled.value as { data?: Array<{ created_at?: unknown }> | null }).data
+    weekBuckets = bucketActivityByDay((activity ?? []) ?? [], new Date().toISOString())
   }
 
   // Portfolio strip: real counts plus due-soon deadlines. Each query is
@@ -64,18 +83,9 @@ export default async function DashboardPage() {
   const executedAuditIds: string[] = []
   const signingAuditIds: string[] = []
   let monitoredAuditIds: string[] = []
-  try {
-    const [events] = await Promise.all([
-      supabase
-        .from("monitoring_events")
-        .select("id, audit_id, title, due_date, status")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .not("due_date", "is", null)
-        .order("due_date", { ascending: true })
-        .limit(200),
-    ])
-    const rows = ((events.data ?? []) as Array<{ id: string; audit_id: string; title: string; due_date: string | null; status: string }>).map((e) => ({
+  if (eventsSettled.status === "fulfilled") {
+    const eventsData = (eventsSettled.value as { data?: Array<{ id: string; audit_id: string; title: string; due_date: string | null; status: string }> | null }).data
+    const rows = ((eventsData ?? []) as Array<{ id: string; audit_id: string; title: string; due_date: string | null; status: string }>).map((e) => ({
       id: String(e.id),
       user_id: user.id,
       audit_id: String(e.audit_id),
@@ -106,51 +116,33 @@ export default async function DashboardPage() {
         href: threadByAudit.has(d.audit_id) ? `/chat/${threadByAudit.get(d.audit_id)}` : `/document/${d.audit_id}`,
       }))
     }
-    // Signing posture per audit for deal-moment derivation (one query for
-    // the visible threads; best-effort like everything else here).
-    try {
-      const threadAuditIds = [...new Set(threads.map((t) => t.auditId).filter((id): id is string => !!id))]
-      if (threadAuditIds.length > 0) {
-        const { data: signerRows } = await supabase
-          .from("document_signers")
-          .select("audit_id, status")
-          .in("audit_id", threadAuditIds)
-          .limit(200)
-        const byAudit = new Map<string, string[]>()
-        for (const s of ((signerRows ?? []) as Array<{ audit_id: string; status: string }>)) {
-          const list = byAudit.get(String(s.audit_id)) ?? []
-          list.push(String(s.status))
-          byAudit.set(String(s.audit_id), list)
-        }
-        for (const [auditId, statuses] of byAudit) {
-          if (statuses.length > 0) signingAuditIds.push(auditId)
-          if (statuses.length > 0 && statuses.every((s) => s === "signed")) executedAuditIds.push(auditId)
-        }
+    // Signing posture per audit for deal-moment derivation (best-effort like
+    // everything else here).
+    if (signersSettled.status === "fulfilled") {
+      const signerRows = (signersSettled.value as { data?: Array<{ audit_id: string; status: string }> | null }).data
+      const byAudit = new Map<string, string[]>()
+      for (const s of ((signerRows ?? []) as Array<{ audit_id: string; status: string }>)) {
+        const list = byAudit.get(String(s.audit_id)) ?? []
+        list.push(String(s.status))
+        byAudit.set(String(s.audit_id), list)
       }
-    } catch {
-      // Deal moments fall back to analysis-derived states.
+      for (const [auditId, statuses] of byAudit) {
+        if (statuses.length > 0) signingAuditIds.push(auditId)
+        if (statuses.length > 0 && statuses.every((s) => s === "signed")) executedAuditIds.push(auditId)
+      }
     }
-  } catch {
-    // Portfolio blocks stay hidden; the composer below always works.
   }
 
   // First-run nudge: no business profile yet means documents render
   // without a letterhead and jurisdiction gets re-asked per deal. Best
   // effort — a failed check hides the banner, never the dashboard.
-  let setupNeeded = false
-  try {
-    const { data: profile } = await supabase
-      .from("business_profiles")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle()
-    setupNeeded = !profile
-  } catch {
-    setupNeeded = false
-  }
+  const setupNeeded =
+    profileSettled.status === "fulfilled"
+      ? !(profileSettled.value as { data?: { id?: string } | null }).data
+      : false
 
   return (
-    <div className="flex h-[calc(100dvh-7.5rem)] flex-col bg-background md:h-[calc(100dvh-3.5rem)]">
+    <div className="flex flex-1 min-h-0 flex-col bg-background">
       <ChatLanding
         threads={threads}
         loadError={loadError}

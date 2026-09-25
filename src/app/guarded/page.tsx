@@ -95,6 +95,7 @@ export default async function GuardedPage() {
   }
 
   return (
+    <div className="h-full min-h-0 overflow-y-auto bg-background">
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:py-8">
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--burgundy)]">After signing</p>
       <h1 className="mt-1.5  text-[28px] font-semibold leading-tight tracking-[-0.01em]">Guarded</h1>
@@ -149,6 +150,7 @@ export default async function GuardedPage() {
           </ul>
         </div>
       )}
+    </div>
     </div>
   )
 }

@@ -11,7 +11,7 @@ export default async function LibraryPage() {
   if (!user.email_confirmed_at) redirect("/dashboard")
 
   return (
-    <div className="flex h-[calc(100dvh-3rem)] flex-col bg-background">
+    <div className="flex flex-1 min-h-0 flex-col bg-background">
       <LibraryView />
     </div>
   )

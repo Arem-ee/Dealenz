@@ -4,8 +4,8 @@ import { MailQuestion, LogOut } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { ResendVerificationButton } from "@/components/resend-verification-button"
 import { getCreditBalanceForHome } from "@/app/dashboard/actions"
-import { resendVerification } from "@/app/login/actions"
 import { VerificationBanner } from "@/components/verification-banner"
 import { listThreads } from "@/lib/chat/actions"
 import { ChromeShell } from "@/components/app-shell-client"
@@ -64,7 +64,7 @@ function ShellSkeleton() {
       <div className="flex flex-1 min-h-0">
         <aside className="hidden md:flex md:flex-col w-60 shrink-0 border-r border-border/60 bg-background md:sticky md:top-14 md:h-[calc(100dvh-3.5rem)]" />
         <div className="flex flex-1 flex-col min-w-0 bg-background">
-          <main className="flex flex-1 flex-col min-h-0 pb-16 md:pb-0 bg-background">
+          <main className="flex flex-1 flex-col min-h-0 overflow-hidden bg-background">
             <div className="h-4 w-full animate-pulse bg-muted/60" />
             <div className="h-4 w-full animate-pulse bg-muted/60" />
             <div className="flex-1" />
@@ -81,7 +81,7 @@ function ShellSkeleton() {
  * (no client JS for the shell frame) while the interactive layer hydrates
  * with collapse/persist logic.
  */
-export async function AppShell({ children }: { children: React.ReactNode }) {
+export async function AppShell({ children, bare = false }: { children: React.ReactNode; bare?: boolean }) {
   const shellData = await getShellData()
 
   if (!shellData.emailConfirmed) {
@@ -100,18 +100,10 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
               verification link to activate your account.
             </p>
             <p className="text-xs text-muted-foreground">
-              Didn&apos;t receive the email? Check your spam folder or try again below.
+              Didn&apos;t receive the email? Check your spam folder — new-account mail often lands in
+              Promotions — then resend below. Links expire after 24 hours.
             </p>
-            <form
-              action={async () => {
-                "use server"
-                await resendVerification()
-              }}
-            >
-              <Button type="submit" variant="outline" size="sm" className="w-full">
-                Resend verification email
-              </Button>
-            </form>
+            <ResendVerificationButton />
             <form
               action={async () => {
                 "use server"
@@ -140,6 +132,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         creditBalance={shellData.creditBalance}
         threads={shellData.threads}
         openIssues={shellData.openIssues}
+        bare={bare}
       >
         {children}
       </ChromeShell>

@@ -54,6 +54,8 @@ export default function BatchNewPage() {
   const [busy, setBusy] = useState(false)
   const [phase, setPhase] = useState<string | null>(null)
   const [failed, setFailed] = useState<Record<string, string>>({})
+  const [failedAudits, setFailedAudits] = useState<Record<string, string>>({})
+  const [cleaning, setCleaning] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const reviewing = rows.length > 0
@@ -107,8 +109,10 @@ export default function BatchNewPage() {
     setBusy(true)
     setError(null)
     setFailed({})
+    setFailedAudits({})
     const prepared: BatchRow[] = []
     const fails: Record<string, string> = {}
+    const orphans: Record<string, string> = {}
     let done = 0
     for (const f of files) {
       done += 1
@@ -121,6 +125,9 @@ export default function BatchNewPage() {
       const attached = await uploadAndAttachFile(created.auditId, f)
       if (!attached.ok) {
         fails[f.name] = attached.error
+        // The audit row already exists while its file did not land: track
+        // it for one-tap cleanup instead of orphaning a dead draft.
+        orphans[f.name] = created.auditId
         continue
       }
       prepared.push({
@@ -137,6 +144,7 @@ export default function BatchNewPage() {
     }
     if (prepared.length === 0) {
       setFailed(fails)
+      setFailedAudits(orphans)
       setError("None of the files could be prepared. Fix the issues below and try again.")
       setBusy(false)
       setPhase(null)
@@ -162,9 +170,34 @@ export default function BatchNewPage() {
       // the user can still correct each one below.
     }
     setFailed(fails)
+    setFailedAudits(orphans)
     setRows(prepared)
     setBusy(false)
     setPhase(null)
+  }
+
+  async function handleCleanupFailed() {
+    const entries = Object.entries(failedAudits)
+    if (entries.length === 0 || cleaning) return
+    setCleaning(true)
+    try {
+      const { deleteDeal } = await import("@/app/audit/[id]/actions")
+      const remaining: Record<string, string> = {}
+      for (const [name, auditId] of entries) {
+        try {
+          const res = await deleteDeal(auditId)
+          if (!res.ok) remaining[name] = auditId
+        } catch {
+          remaining[name] = auditId
+        }
+      }
+      setFailedAudits(remaining)
+      if (Object.keys(remaining).length > 0) {
+        setError("Some failed drafts could not be removed. They remain as draft deals you can delete from Home.")
+      }
+    } finally {
+      setCleaning(false)
+    }
   }
 
   async function handleCreatePlan() {
@@ -194,12 +227,14 @@ export default function BatchNewPage() {
     setRows([])
     setFiles([])
     setFailed({})
+    setFailedAudits({})
     setError(null)
   }
 
   return (
-    <div className="flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-xl space-y-6">
+    <div className="h-full min-h-0 overflow-y-auto">
+    <div className="flex min-h-full items-center justify-center px-4 py-10">
+      <div className="w-full max-w-xl space-y-6 my-auto">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-semibold">
             <Files className="h-5 w-5" />
@@ -322,6 +357,16 @@ export default function BatchNewPage() {
                 <span className="font-semibold">{name}:</span> {msg}
               </p>
             ))}
+            {Object.keys(failedAudits).length > 0 && (
+              <button
+                type="button"
+                disabled={cleaning || busy}
+                onClick={() => void handleCleanupFailed()}
+                className="mt-2 rounded-full border border-destructive/40 px-3 py-1.5 font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+              >
+                {cleaning ? "Removing…" : `Remove ${Object.keys(failedAudits).length} failed draft${Object.keys(failedAudits).length === 1 ? "" : "s"}`}
+              </button>
+            )}
           </div>
         )}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
@@ -346,6 +391,7 @@ export default function BatchNewPage() {
           )}
         </div>
       </div>
+    </div>
     </div>
   )
 }

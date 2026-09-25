@@ -64,7 +64,8 @@ function NewAuditContent() {
   }
 
   return (
-    <div className="flex items-center justify-center px-4 py-10">
+    <div className="h-full min-h-0 overflow-y-auto">
+    <div className="flex min-h-full items-center justify-center px-4 py-10">
       <div className="w-full max-w-xl space-y-6">
         {pendingFileName && (
           <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm">
@@ -118,7 +119,8 @@ function NewAuditContent() {
         </div>
       </div>
     </div>
-  )
+    </div>
+  );
 }
 
 export default function NewAuditPage() {

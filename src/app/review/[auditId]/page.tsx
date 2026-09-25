@@ -23,7 +23,7 @@ export default async function LawyerReviewPage({ params, searchParams }: { param
   const handoff = request?.handoff_snapshot as Record<string, unknown> | null
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-full min-h-0 overflow-y-auto bg-background">
       <header className="sticky top-0 z-10 border-b bg-card">
         <div className="mx-auto max-w-5xl px-4 py-3 flex items-center gap-3">
           {threadId ? (
@@ -31,8 +31,8 @@ export default async function LawyerReviewPage({ params, searchParams }: { param
               <ArrowLeft className="h-4 w-4" /> Back to thread
             </Link>
           ) : (
-            <Link href={`/chat/${auditId}`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" /> Back to thread
+            <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" /> Back to deals
             </Link>
           )}
           <span className="ml-auto text-xs text-muted-foreground">Case file</span>

@@ -33,21 +33,27 @@ export default function WelcomePage() {
     setSaving(true)
     setError(null)
     try {
-      await upsertBusinessProfile({
+      const res = await upsertBusinessProfile({
         ...(name.trim() ? { business_name: name.trim() } : {}),
         ...(country.trim() ? { country: country.trim() } : {}),
         ...(email.trim() ? { email: email.trim() } : {}),
       })
+      if (!res.ok) {
+        setError(res.error)
+        setSaving(false)
+        return
+      }
       dismiss()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "We couldn't save that. Please try again.")
+    } catch {
+      setError("We couldn't save that. Please try again.")
       setSaving(false)
     }
   }
 
   return (
-    <div className="flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-xl space-y-6">
+    <div className="h-full min-h-0 overflow-y-auto">
+    <div className="flex min-h-full items-center justify-center px-4 py-10">
+      <div className="w-full max-w-xl space-y-6 my-auto">
         <div>
           <h1 className="text-lg font-semibold">Two minutes that pays off in every deal</h1>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -105,6 +111,7 @@ export default function WelcomePage() {
           </Button>
         </div>
       </div>
+    </div>
     </div>
   )
 }

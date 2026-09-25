@@ -19,5 +19,9 @@ export default async function SettingsPage() {
   } catch {
     gmailConnected = false
   }
-  return <SettingsClient initialProfile={initialProfile} email={email} googleConnected={googleConnected} gmailConnected={gmailConnected} />
+  return (
+    <div className="h-full min-h-0 overflow-y-auto bg-background">
+      <SettingsClient initialProfile={initialProfile} email={email} googleConnected={googleConnected} gmailConnected={gmailConnected} />
+    </div>
+  )
 }

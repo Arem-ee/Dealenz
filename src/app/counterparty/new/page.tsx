@@ -55,6 +55,7 @@ export default function CounterpartyNewPage() {
     if (!name.trim() || !country || busy) return
     setBusy(true)
     setError(null)
+    setBrief(null)
     const res = await resolveCounterpartyAction({
       name: name.trim(),
       country,
@@ -65,6 +66,10 @@ export default function CounterpartyNewPage() {
     setBusy(false)
     if (!res.ok) {
       setError(res.error)
+      return
+    }
+    if (res.candidates.length === 0) {
+      setError("No registry candidates found for that name — check the spelling or add a registration number.")
       return
     }
     setCandidates(res.candidates)
@@ -106,8 +111,9 @@ export default function CounterpartyNewPage() {
   }
 
   return (
-    <div className="flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-xl space-y-6">
+    <div className="h-full min-h-0 overflow-y-auto">
+    <div className="flex min-h-full items-center justify-center px-4 py-10">
+      <div className="w-full max-w-xl space-y-6 my-auto">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-semibold">
             <SearchCheck className="h-5 w-5" />
@@ -219,6 +225,7 @@ export default function CounterpartyNewPage() {
           )}
         </div>
       </div>
+    </div>
     </div>
   )
 }

@@ -123,7 +123,7 @@ export function DocumentReader({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-full min-h-0 overflow-y-auto bg-background">
       <header className="sticky top-0 z-10 border-b bg-card">
         <div className="mx-auto max-w-6xl px-4 py-3 flex items-center gap-3">
           {threadId ? (

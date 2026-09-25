@@ -51,7 +51,7 @@ export default async function HelpPage() {
     )
   }
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-full min-h-0 overflow-y-auto bg-background">
       <header className="border-b border-border/60">
         <nav aria-label="Primary" className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
           <Link href="/" aria-label="Dealenz home">

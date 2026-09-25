@@ -8,5 +8,5 @@ export default async function SettingsLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <AppShell>{children}</AppShell>
+  return <AppShell bare>{children}</AppShell>
 }

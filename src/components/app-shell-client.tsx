@@ -42,6 +42,7 @@ export function ChromeShell({
   creditBalance,
   threads,
   openIssues,
+  bare = false,
 }: {
   children: React.ReactNode
   email: string
@@ -50,6 +51,12 @@ export function ChromeShell({
   creditBalance?: number | null
   threads?: SidebarThread[]
   openIssues?: number
+  /**
+   * Bare pages own the full width (no primary sidebar): routes with their
+   * own internal navigation or a focused single task (settings, billing).
+   * The top navbar stays — wayfinding home must never disappear.
+   */
+  bare?: boolean
 }) {
   // Post-mount chrome restore (not derived state): reading storage during
   // render would break hydration, so the first render always matches the
@@ -96,11 +103,12 @@ export function ChromeShell({
         </button>
       )}
       <div className="flex flex-1 min-h-0">
-        <SidebarNav openIssues={openIssues} creditBalance={creditBalance} threads={threads} flushTop={!topbarVisible} />
+        {!bare && <SidebarNav openIssues={openIssues} creditBalance={creditBalance} threads={threads} flushTop={!topbarVisible} />}
         <div className="flex flex-1 flex-col min-w-0 bg-background">
-          {/* No bottom tab bar: mobile nav lives in the top navbar drawer,
-              so no pb-16 compensation is needed and the composer pins cleanly. */}
-          <main className="flex flex-1 flex-col min-h-0 bg-background">
+          {/* Single scroll authority: the shell frame never scrolls the
+              document — every page owns exactly one internal scroll region,
+              so nested double scrollbars cannot form. */}
+          <main className="flex flex-1 flex-col min-h-0 overflow-hidden bg-background">
             <VerificationBanner />
             <BackBar />
             <div className="flex flex-1 flex-col min-h-0">{children}</div>
