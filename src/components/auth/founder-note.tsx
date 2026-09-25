@@ -16,17 +16,18 @@ export function FounderNote() {
 
         <blockquote className="space-y-4 text-[17px] font-medium leading-relaxed tracking-[-0.01em]">
           <p>
-            Most people sign paper they didn&apos;t write and can&apos;t fully read. The other
-            side has lawyers; you have a deadline.
+            Someone sends you a contract on a Tuesday. Fourteen pages, due Friday, written by
+            their lawyer — not yours. You have read enough of these to know the danger is never
+            in the parts you understand.
           </p>
           <p>
-            I built Dealenz to close that gap for the person receiving the paper — machine
-            thoroughness, checks that overrule the AI when they disagree, and words you can
-            actually send back.
+            I built Dealenz for exactly that moment. It reads every clause, flags what can hurt
+            you with the evidence attached, overrules its own AI with deterministic checks when
+            the two disagree, and hands you the exact words to send back.
           </p>
           <p>
-            It works for you, never for the close. If a deal is bad for you, it will say so
-            plainly.
+            It works for you — never for the close. If the deal is bad, it says so plainly,
+            even if that means telling you to walk away.
           </p>
         </blockquote>
 
