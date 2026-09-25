@@ -16,6 +16,10 @@ describe("security headers", () => {
     expect(csp).toContain("frame-ancestors 'none'")
     // AI calls are server-side; browsers only need Supabase + self.
     expect(csp).toContain("connect-src 'self' https://*.supabase.co")
+    // Paddle.js overlay checkout loads from the CDN and talks to Paddle
+    // APIs/frames: blocking any of the three silently kills in-app checkout.
+    expect(csp).toContain("https://cdn.paddle.com")
+    expect(csp).toContain("https://*.paddle.com")
 
     expect(headers.get("Strict-Transport-Security")).toMatch(/max-age=\d+/)
     expect(headers.get("Permissions-Policy")).toContain("camera=()")
