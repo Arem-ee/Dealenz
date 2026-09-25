@@ -40,7 +40,7 @@ export function CapabilityStrip() {
         <Link
           key={href}
           href={href}
-          className="group flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 shadow-sm transition-colors hover:bg-muted/40"
+          className="group flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 transition-colors hover:bg-muted/40"
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-burgundy/10 text-burgundy transition-colors group-hover:bg-burgundy/15">
             <Icon className="h-4 w-4" />

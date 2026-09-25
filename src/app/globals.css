@@ -370,13 +370,15 @@ body {
   color: var(--text-muted);
 }
 
-/* Controlled depth: three elevation levels, nothing else. */
+/* Controlled depth: three elevation levels, nothing else. Surfaces default
+ * to flat bordered cards; shadow is reserved for floating chrome (composer,
+ * overlays) and hovers — never for static content tiles. */
 @utility shadow-surface {
-  box-shadow: 0 1px 2px oklch(0 0 0 / 0.05);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.04);
 }
 
 @utility shadow-raised {
-  box-shadow: 0 1px 3px oklch(0 0 0 / 0.06), 0 4px 12px -4px oklch(0 0 0 / 0.08);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.05), 0 4px 12px -6px oklch(0 0 0 / 0.06);
 }
 
 @utility shadow-overlay {

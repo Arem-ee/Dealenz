@@ -190,11 +190,12 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
   const maxWeek = Math.max(1, ...(week ?? []).map((b) => b.count))
   const weekTotal = (week ?? []).reduce((s, b) => s + b.count, 0)
   // Progressive disclosure: zero-signal users get entry points, not empty
-  // dashboards. Portfolio tiles render only once there is something to
-  // show (rated deals, open issues, or activity) — "0 across 0 deals" in
-  // display type is cognitive load with zero information.
+  // dashboards. Portfolio tiles render only once analysis has produced
+  // something to show (rated deals or open issues) — raw activity like a
+  // single deal creation is not signal, and "0 across 0 deals" in display
+  // type is cognitive load with zero information.
   const hasPortfolioSignal =
-    (portfolio?.ratedCount ?? 0) > 0 || (portfolio?.totalOpen ?? 0) > 0 || weekTotal > 0
+    (portfolio?.ratedCount ?? 0) > 0 || (portfolio?.totalOpen ?? 0) > 0
 
   // Attention queues (DocuSign quick-views pattern): the same deal moments
   // the table already shows, grouped by who owes what. Unknown moments stay
@@ -270,7 +271,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
       {hasPending && (
         <Link
           href="/chat"
-          className="mb-3 block shrink-0 rounded-2xl border border-border bg-card px-4 py-3 text-xs shadow-sm transition-shadow hover:shadow-md"
+          className="mb-3 block shrink-0 rounded-2xl border border-border bg-card px-4 py-3 text-xs transition-colors hover:bg-muted/40"
         >
           <span className="font-semibold">Your deal text is waiting.</span>{" "}
           <span className="text-muted-foreground">Continue where you left off →</span>
@@ -310,11 +311,11 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
       {threads.length > 0 && portfolio && hasPortfolioSignal && (
         <>
           <section aria-label="Portfolio health" className="grid shrink-0 gap-3 lg:grid-cols-3">
-            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm lg:row-span-2">
+            <div className="rounded-2xl border border-border bg-card p-5 lg:row-span-2">
               <div className="flex items-start justify-between">
                 <p className="text-[13px] font-semibold">Open Issues</p>
               </div>
-              <p className="mt-2 text-[44px] font-semibold leading-none tracking-tight" data-numeric>
+              <p className="mt-2 text-[30px] font-semibold leading-none tracking-tight" data-numeric>
                 {portfolio.totalOpen}
                 <span className="ml-1 align-middle text-[13px] font-normal text-foreground/45">across {portfolio.openDeals} deal{portfolio.openDeals === 1 ? "" : "s"}</span>
               </p>
@@ -325,7 +326,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                       key={t.id}
                       title={`${t.title || "Untitled"} — ${t.openIssues} open`}
                       className={cn(
-                        "flex h-16 w-16 items-center justify-center rounded-full text-base font-bold ring-4 ring-white",
+                        "flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold ring-4 ring-white",
                         BUBBLE_STYLES[i % BUBBLE_STYLES.length],
                         i > 0 && "-ml-4"
                       )}
@@ -349,7 +350,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                     return (
                       <div key={c.label}>
                         <div className="flex items-baseline justify-between gap-2">
-                          <p className="text-[22px] font-semibold tracking-tight" data-numeric>
+                          <p className="text-[18px] font-semibold tracking-tight" data-numeric>
                             {pct}<span className="text-[13px] font-normal text-foreground/45"> %</span>
                           </p>
                           <p className="truncate text-[11px] text-foreground/50">{c.label} <span aria-hidden className={cn("ml-1 inline-block h-1.5 w-1.5 rounded-full align-middle", DOT_COLORS[i % DOT_COLORS.length])} /></p>
@@ -364,11 +365,11 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
               )}
             </div>
 
-            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+            <div className="rounded-2xl border border-border bg-card p-5">
               <p className="text-[13px] font-semibold">Avg Risk</p>
               {portfolio.avgScore !== null ? (
                 <>
-                  <p className="mt-2 text-[34px] font-semibold leading-none tracking-tight" data-numeric>
+                  <p className="mt-2 text-[26px] font-semibold leading-none tracking-tight" data-numeric>
                     {portfolio.avgScore}<span className="text-[13px] font-normal text-foreground/45"> /100</span>
                   </p>
                   <p className="mt-1 text-[11px] text-foreground/50">Avg across {portfolio.ratedCount} rated deal{portfolio.ratedCount === 1 ? "" : "s"}</p>
@@ -378,7 +379,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
               )}
             </div>
 
-            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+            <div className="rounded-2xl border border-border bg-card p-5">
               <p className="text-[13px] font-semibold">Next Deadline</p>
               {nextDeadline ? (
                 <Link href={nextDeadline.href} className="group mt-2 block">
@@ -392,31 +393,31 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
               )}
             </div>
 
-            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+            <div className="rounded-2xl border border-border bg-card p-5">
               <p className="text-[13px] font-semibold">Resolved</p>
-              <p className="mt-2 text-[34px] font-semibold leading-none tracking-tight" data-numeric>
+              <p className="mt-2 text-[26px] font-semibold leading-none tracking-tight" data-numeric>
                 {threads.reduce((s, t) => s + (typeof t.resolvedCount === "number" ? t.resolvedCount : 0), 0)}
               </p>
               <p className="mt-1 text-[11px] text-foreground/50">pushbacks landed via re-check</p>
             </div>
 
-            <div className="rounded-3xl bg-primary p-5 text-primary-foreground shadow-sm">
+            <div className="rounded-2xl border border-border bg-card p-5">
               <div className="flex items-center justify-between">
                 <p className="text-[13px] font-semibold">This Week</p>
-                <p className="text-[11px] text-primary-foreground/60">Last 7 days</p>
+                <p className="text-[11px] text-foreground/50">Last 7 days</p>
               </div>
-              <p className="mt-2 text-[34px] font-semibold leading-none tracking-tight" data-numeric>
+              <p className="mt-2 text-[26px] font-semibold leading-none tracking-tight" data-numeric>
                 {weekTotal}
-                <span className="ml-1 align-middle text-[11px] font-normal text-primary-foreground/60">deal events</span>
+                <span className="ml-1 align-middle text-[11px] font-normal text-foreground/50">deal events</span>
               </p>
               <div className="mt-3 flex h-20 items-end gap-1.5">
                 {(week ?? []).map((b) => (
                   <div key={b.key} className="flex min-w-0 flex-1 flex-col items-center gap-1" title={`${b.label}: ${b.count}`}>
                     <span
-                      className={cn("w-full rounded-sm", b.isToday ? "bg-burgundy" : "bg-primary-foreground/15")}
+                      className={cn("w-full rounded-sm", b.isToday ? "bg-burgundy" : "bg-foreground/[0.08]")}
                       style={{ height: `${Math.max(5, Math.round((b.count / maxWeek) * 100))}%` }}
                     />
-                    <span className={cn("truncate text-[11px]", b.isToday ? "font-semibold text-primary-foreground" : "text-primary-foreground/50")}>
+                    <span className={cn("truncate text-[11px]", b.isToday ? "font-semibold text-foreground" : "text-foreground/50")}>
                       {b.isToday ? "Now" : b.label}
                     </span>
                   </div>
@@ -425,7 +426,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
             </div>
           </section>
 
-          <section aria-label="All deals" className="mt-3 shrink-0 overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+          <section aria-label="All deals" className="mt-3 shrink-0 overflow-hidden rounded-2xl border border-border bg-card">
             <div className="flex gap-1 overflow-x-auto border-b border-border/60 px-3 py-2" role="tablist" aria-label="Deal queues">
               {QUEUE_VIEWS.map((v) => (
                 <button
