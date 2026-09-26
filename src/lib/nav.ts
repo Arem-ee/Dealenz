@@ -1,5 +1,5 @@
 import type { ComponentType } from "react"
-import { LayoutDashboard, Library, ShieldCheck, Settings, ReceiptText, LifeBuoy } from "lucide-react"
+import { FileText, Inbox, LayoutDashboard, Library, PenLine, ShieldCheck, Settings, ReceiptText, LifeBuoy } from "lucide-react"
 
 export interface NavEntry {
   label: string
@@ -9,14 +9,19 @@ export interface NavEntry {
 
 /**
  * Single customer information architecture — deal control room.
- * Deals is the deal inbox (composer, portfolio, deadlines). Guarded is
- * everything after signing that requires watching. Library holds search
- * and inbox import. The account menu lives solely in the top navbar. Ask
- * is just the composer (classifier), not a destination.
+ * Deal analysis is the deal inbox (composer, portfolio, deadlines). Inbox is
+ * Gmail intake (read threads, import deals). Drafts holds every generated
+ * document across deals. Signing tracks signature ceremonies in flight.
+ * Tracker is everything after signing that requires watching. Library holds
+ * search and standing rules. The account menu lives solely in the top
+ * navbar. Ask is just the composer (classifier), not a destination.
  */
 export const PRIMARY_NAV: NavEntry[] = [
-  { label: "Deals", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Guarded", href: "/guarded", icon: ShieldCheck },
+  { label: "Deal analysis", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Inbox", href: "/inbox", icon: Inbox },
+  { label: "Drafts", href: "/drafts", icon: FileText },
+  { label: "Signing", href: "/signing", icon: PenLine },
+  { label: "Tracker", href: "/guarded", icon: ShieldCheck },
   { label: "Library", href: "/library", icon: Library },
 ]
 
@@ -71,7 +76,7 @@ export function backTargetFor(pathname: string): string | null {
 
 /** Human title for any customer route, used by the top bar. */
 export function titleFor(pathname: string): string {
-  if (pathname === "/dashboard" || pathname.startsWith("/dashboard")) return "Deals"
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard")) return "Deal analysis"
   if (pathname.startsWith("/chat")) return "Chat"
   if (pathname.startsWith("/document")) return "Document"
   if (pathname.startsWith("/review")) return "Review"
@@ -80,7 +85,10 @@ export function titleFor(pathname: string): string {
   // separate destination. No /clients surface exists (the product has no CRM).
   if (pathname.startsWith("/deals")) return "Home"
   if (pathname.startsWith("/library") || pathname.startsWith("/vault")) return "Library"
-  if (pathname.startsWith("/guarded")) return "Guarded"
+  if (pathname.startsWith("/inbox")) return "Inbox"
+  if (pathname.startsWith("/drafts")) return "Drafts"
+  if (pathname.startsWith("/signing")) return "Signing"
+  if (pathname.startsWith("/guarded")) return "Tracker"
   if (pathname.startsWith("/settings")) return "Settings"
   if (pathname.startsWith("/billing")) return "Billing"
   if (pathname === "/help") return "Get help"

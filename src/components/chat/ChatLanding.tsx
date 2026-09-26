@@ -142,7 +142,7 @@ const LOOP_STEPS = [
   { n: "1", title: "Describe", body: "Drop in their contract or explain the situation." },
   { n: "2", title: "Understand", body: "See where the risk sits, with the clause it came from." },
   { n: "3", title: "Push back", body: "Get the exact words to send back." },
-  { n: "4", title: "Sign & stay guarded", body: "Both sides sign here; deadlines stay tracked." },
+  { n: "4", title: "Sign & stay covered", body: "Both sides sign here; deadlines stay tracked." },
 ]
 
 const BUBBLE_STYLES = [
@@ -235,14 +235,14 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
     { key: "all", label: "All deals", empty: "" },
     { key: "needs-you", label: "Needs you", empty: "Nothing needs you — every deal is either moving or done." },
     { key: "waiting", label: "Waiting on others", empty: "Nothing waiting — no deal is parked with someone else." },
-    { key: "done", label: "Signed & guarded", empty: "Nothing signed yet — completed deals land here." },
+    { key: "done", label: "Signed & tracked", empty: "Nothing signed yet — completed deals land here." },
   ]
 
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-y-auto px-4 pb-4 sm:px-6">
       <div className="flex shrink-0 items-end justify-between gap-3 pb-4 pt-4 sm:pt-5">
         <div>
-          <h1 className="text-[24px] font-bold tracking-tight text-foreground sm:text-[28px]">Deal Overview</h1>
+          <h1 className="text-[24px] font-bold tracking-tight text-foreground sm:text-[28px]">Deal analysis</h1>
           <p className="mt-0.5 text-[13px] text-foreground/50">Take control of your deals today.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -525,7 +525,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
               New deal
             </Link>
             <Link
-              href="/library?mode=inbox"
+              href="/inbox"
               className="inline-flex h-10 items-center gap-2 rounded-full border border-border bg-card px-5 text-xs font-semibold text-foreground transition-colors hover:bg-muted/60"
             >
               Import from Gmail

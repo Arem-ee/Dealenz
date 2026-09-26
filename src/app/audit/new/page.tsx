@@ -89,7 +89,7 @@ function NewAuditContent() {
         <DealTypeSelector value={dealType} onChange={setDealType} />
         <p className="text-xs text-muted-foreground">
           Deal already in your inbox?{" "}
-          <a href="/library?mode=inbox" className="font-medium text-primary underline underline-offset-2 hover:opacity-80">
+          <a href="/inbox" className="font-medium text-primary underline underline-offset-2 hover:opacity-80">
             Import a thread from Gmail
           </a>{" "}
           instead of pasting it here.

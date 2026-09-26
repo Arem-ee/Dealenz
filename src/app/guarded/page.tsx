@@ -14,7 +14,7 @@ interface GuardedDeal {
   threadId: string | null
 }
 
-// Guarded: everything after signing that requires watching. Signed audits
+// Tracker: everything after signing that requires watching. Signed audits
 // with their next deadline each, newest-signing first. Deals with nothing
 // dated say so honestly instead of inventing urgency.
 export default async function GuardedPage() {
@@ -98,11 +98,11 @@ export default async function GuardedPage() {
     <div className="h-full min-h-0 overflow-y-auto bg-background">
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:py-8">
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--burgundy)]">After signing</p>
-      <h1 className="mt-1.5  text-[28px] font-semibold leading-tight tracking-[-0.01em]">Guarded</h1>
+      <h1 className="mt-1.5  text-[28px] font-semibold leading-tight tracking-[-0.01em]">Tracker</h1>
 
       {deals.length === 0 ? (
         <div className="mt-6 rounded-xl border border-dashed p-6 text-center">
-          <p className="text-sm font-medium">Nothing guarded yet</p>
+          <p className="text-sm font-medium">Nothing tracked yet</p>
           <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
             Signed deals land here with their next deadlines. Review a deal, push back, and sign — this page fills itself.
           </p>

@@ -21,6 +21,13 @@ export interface InboxThreadItem {
   snippet: string | null
 }
 
+export interface InboxMessageItem {
+  subject: string | null
+  from: string | null
+  date: string | null
+  bodyText: string | null
+}
+
 function isUUID(v: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 }
@@ -75,8 +82,43 @@ export async function listInboxThreads(): Promise<
   }
 }
 
-function formatImportedThread(messages: Array<{ subject: string | null; from: string | null; date: string | null; bodyText: string | null }>): string {
-  return messages
+// Thread preview for the Inbox view: the messages behind a row, so the user
+// can read before importing. Bodies are capped per message; the full text
+// travels only on explicit import.
+export async function getInboxThreadDetail(
+  threadId: string
+): Promise<{ ok: true; messages: InboxMessageItem[] } | { ok: false; error: string }> {
+  try {
+    const ctx = await requireUser()
+    if (!ctx) return { ok: false as const, error: "You must be signed in." }
+    if (typeof threadId !== "string" || threadId.length === 0 || threadId.length > 128) {
+      return { ok: false as const, error: "Invalid thread." }
+    }
+    const tokens = await getValidGmailTokens(ctx.supabase as never, ctx.user.id).catch(() => null)
+    if (!tokens) return { ok: false as const, error: "Connect Gmail first." }
+    const thread = await getGmailThread(tokens.access_token, threadId)
+    const messages: InboxMessageItem[] = []
+    for (const mid of thread.messageIds.slice(0, 5)) {
+      try {
+        const m = await getGmailMessage(tokens.access_token, mid)
+        messages.push({
+          subject: m.subject,
+          from: m.from,
+          date: m.date,
+          bodyText: (m.bodyText ?? "").slice(0, 2000) || null,
+        })
+      } catch {
+        // One unreadable message must not block the rest.
+      }
+    }
+    if (messages.length === 0) return { ok: false as const, error: "Could not read that thread." }
+    return { ok: true as const, messages }
+  } catch (e) {
+    return toActionFailure(e, "Could not read that thread.") as never
+  }
+}
+
+function formatImportedThread(messages: Array<{ subject: string | null; from: string | null; date: string | null; bodyText: string | null }>): string {  return messages
     .map((m) =>
       [
         m.subject ? `Subject: ${m.subject}` : null,

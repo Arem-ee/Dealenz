@@ -14,7 +14,7 @@ const CAPABILITIES = [
     Icon: FileUp,
   },
   {
-    href: "/library?mode=inbox",
+    href: "/inbox",
     label: "Import from Gmail",
     hint: "Pull a deal thread in",
     Icon: Inbox,

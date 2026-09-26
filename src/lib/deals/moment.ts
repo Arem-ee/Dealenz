@@ -1,7 +1,7 @@
 // Deal moment states: the user's mental model, not pipeline internals.
 // Every screen answers "what state is this deal in?" in this language:
 // NEEDS ACTION (open issues), NEGOTIATING (movement via re-checks),
-// READY TO SIGN (signing ceremony), SIGNED (history), GUARDED (watched
+// READY TO SIGN (signing ceremony), SIGNED (history), TRACKED (watched
 // obligations), NEEDS ATTENTION (failed/degraded), DRAFT/UNKNOWN otherwise.
 // Pure and defensive: unknown inputs never produce a confident state.
 
@@ -30,7 +30,7 @@ export const DEAL_MOMENT_LABEL: Record<DealMoment, string> = {
   negotiating: "Negotiating",
   "ready-to-sign": "Ready to sign",
   signed: "Signed",
-  guarded: "Guarded",
+  guarded: "Tracked",
   "needs-attention": "Needs attention",
   draft: "Draft",
   unknown: "Unknown",

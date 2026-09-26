@@ -13,7 +13,6 @@ import {
   type StandingRule,
 } from "@/app/library/actions"
 import { MAX_STANDING_RULES } from "@/lib/standing/rules"
-import { InboxPanel } from "./inbox-panel"
 import { cn } from "@/lib/utils"
 import { Markdown } from "@/components/chat/Markdown"
 
@@ -68,13 +67,12 @@ export function LibraryView() {
   const [turns, setTurns] = useState<LibraryTurn[]>([])
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
-  // Deep-linkable mode so entry points outside Library can land directly on
-  // the Gmail import tab (e.g. /library?mode=inbox). Client-only read keeps
-  // this SSR-safe without a Suspense boundary.
-  const [mode, setMode] = useState<"search" | "inbox" | "rules">(() => {
+  // Deep-linkable mode (?mode=rules). Client-only read keeps this SSR-safe
+  // without a Suspense boundary. Gmail import lives at /inbox now, not here.
+  const [mode, setMode] = useState<"search" | "rules">(() => {
     try {
       const m = new URLSearchParams(window.location.search).get("mode")
-      if (m === "inbox" || m === "rules") return m
+      if (m === "rules") return m
     } catch {
       // Non-browser render: fall through to default.
     }
@@ -121,7 +119,7 @@ export function LibraryView() {
     }
   }
 
-  function switchMode(m: "search" | "inbox" | "rules") {
+  function switchMode(m: "search" | "rules") {
     setMode(m)
     if (m === "rules" && rules === null && !rulesLoading) void refreshRules()
   }
@@ -164,7 +162,6 @@ export function LibraryView() {
 
   const MODES = [
     { key: "search" as const, label: "Search deals", desc: "Find any deal in plain words" },
-    { key: "inbox" as const, label: "From inbox", desc: "Import threads from Gmail" },
     { key: "rules" as const, label: "Rules", desc: "Standing rules for every deal" },
   ]
 
@@ -212,13 +209,7 @@ export function LibraryView() {
         ))}
       </aside>
       <div className="flex min-h-0 flex-1 flex-col">
-      {mode === "inbox" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
-          <div className="mx-auto w-full max-w-2xl">
-            <InboxPanel />
-          </div>
-        </div>
-      ) : mode === "rules" ? (
+      {mode === "rules" ? (
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
           <div className="mx-auto w-full max-w-2xl space-y-3">
             <div>

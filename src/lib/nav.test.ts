@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest"
 import { PRIMARY_NAV, SECONDARY_NAV, ACCOUNT_NAV, isActiveEntry, titleFor, backTargetFor, filterThreads } from "./nav"
 
 describe("customer navigation IA (single source)", () => {
-  it("keeps the deal control room IA: Deals, Guarded, Library", () => {
-    expect(PRIMARY_NAV.map((n) => n.label)).toEqual(["Deals", "Guarded", "Library"])
-    expect(PRIMARY_NAV.map((n) => n.href)).toEqual(["/dashboard", "/guarded", "/library"])
+  it("keeps the deal control room IA: analysis, inbox, drafts, signing, tracker, library", () => {
+    expect(PRIMARY_NAV.map((n) => n.label)).toEqual(["Deal analysis", "Inbox", "Drafts", "Signing", "Tracker", "Library"])
+    expect(PRIMARY_NAV.map((n) => n.href)).toEqual(["/dashboard", "/inbox", "/drafts", "/signing", "/guarded", "/library"])
   })
 
   it("keeps secondary destinations out of primary navigation", () => {
@@ -28,12 +28,15 @@ describe("customer navigation IA (single source)", () => {
   })
 
   it("titles every role surface without exposing internals", () => {
-    expect(titleFor("/dashboard")).toBe("Deals")
-    expect(titleFor("/guarded")).toBe("Guarded")
+    expect(titleFor("/dashboard")).toBe("Deal analysis")
+    expect(titleFor("/guarded")).toBe("Tracker")
+    expect(titleFor("/drafts")).toBe("Drafts")
+    expect(titleFor("/signing")).toBe("Signing")
     expect(titleFor("/audit/abc")).toBe("Deal")
     expect(titleFor("/chat/abc")).toBe("Chat")
     expect(titleFor("/vault")).toBe("Library")
     expect(titleFor("/library")).toBe("Library")
+    expect(titleFor("/inbox")).toBe("Inbox")
     expect(titleFor("/settings")).toBe("Settings")
     expect(titleFor("/billing")).toBe("Billing")
     expect(titleFor("/help")).toBe("Get help")
