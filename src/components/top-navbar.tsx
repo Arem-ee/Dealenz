@@ -78,6 +78,29 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
             <div className="flex items-center px-2 pb-2 pt-1">
               <Logo />
             </div>
+            {/* Slim-screen overflow: search and notifications collapse into
+                the drawer on mobile; the topbar keeps menu, credits, avatar. */}
+            <div className="mt-2 flex flex-col gap-1 md:hidden" aria-label="Quick actions">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false)
+                  setSearchOpen(true)
+                }}
+                className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+              >
+                <Search className="h-4 w-4" />
+                <span>Search deals</span>
+              </button>
+              <Link
+                href="/dashboard/activity"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+              >
+                <Bell className="h-4 w-4" />
+                <span>Notifications</span>
+              </Link>
+            </div>
             <nav className="mt-2 flex flex-col gap-1" aria-label="Primary">
               {PRIMARY_NAV.map((item) => {
                 const Icon = item.icon
@@ -118,7 +141,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
           type="button"
           onClick={() => setSearchOpen(true)}
           aria-label="Search deals"
-          className="flex min-h-[44px] min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+          className="hidden min-h-[44px] min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:flex"
         >
           <Search className="h-4 w-4 shrink-0" />
           <span className="hidden truncate lg:inline">Search deals</span>
@@ -135,7 +158,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
         <Link
           href="/dashboard/activity"
           aria-label="Notifications"
-            className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+            className="hidden min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:flex"
         >
           <Bell className="h-4 w-4" />
         </Link>
@@ -186,7 +209,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
             onClick={onHideTopbar}
             aria-label="Hide header"
             title="Hide header for more room"
-          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+          className="hidden min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:flex"
           >
             <ChevronUp className="h-4 w-4" />
           </button>

@@ -54,20 +54,51 @@ const PRICE_ENV: Record<string, string> = {
   pro: "PADDLE_PRICE_PRO",
 }
 
-export function priceIdForPackage(packageId: string): string | null {
+const PRICE_CURRENCIES = ["USD", "GBP", "EUR"] as const
+
+/**
+ * Resolve the Paddle price id for a package in a buyer currency.
+ *
+ * Paddle one-time prices are single-currency entities, so each package
+ * needs one price per currency it sells in (`PADDLE_PRICE_STANDARD_GBP`,
+ * …). The legacy bare variable (`PADDLE_PRICE_STANDARD`) is USD-denominated
+ * and resolves for USD only — it must never silently charge a GBP/EUR buyer
+ * a USD price while the UI shows them £/€. A currency with no price for any
+ * active package resolves null and the checkout route fails closed for it.
+ */
+export function priceIdForPackage(packageId: string, currency?: string): string | null {
   const envVar = PRICE_ENV[packageId]
   if (!envVar) return null
-  const value = (process.env[envVar] ?? "").trim()
-  return value.length > 0 ? value : null
+  if (currency && currency !== "USD") {
+    const specific = (process.env[`${envVar}_${currency}`] ?? "").trim()
+    return specific.length > 0 ? specific : null
+  }
+  const legacy = (process.env[envVar] ?? "").trim()
+  if (legacy.length > 0) return legacy
+  if (currency === "USD") {
+    const specific = (process.env[`${envVar}_USD`] ?? "").trim()
+    return specific.length > 0 ? specific : null
+  }
+  return legacy.length > 0 ? legacy : null
 }
 
 export function packageIdForPrice(priceId: string): string | null {
+  if (!priceId) return null
   for (const [packageId, envVar] of Object.entries(PRICE_ENV)) {
-    if ((process.env[envVar] ?? "").trim() === priceId && priceId.length > 0) {
-      return packageId
+    for (const suffix of ["", "_USD", "_GBP", "_EUR"]) {
+      if ((process.env[`${envVar}${suffix}`] ?? "").trim() === priceId) {
+        return packageId
+      }
     }
   }
   return null
+}
+
+/** Buyer currencies where every active package has a resolvable price. */
+export function enabledCurrencies(activePackageIds: string[]): string[] {
+  return PRICE_CURRENCIES.filter((currency) =>
+    activePackageIds.every((id) => priceIdForPackage(id, currency) !== null)
+  )
 }
 
 export function paddleApiKey(): string | null {
@@ -103,25 +134,29 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 export function verifyPaddleSignature(rawBody: string, signatureHeader: string | null, secret: string): boolean {
   if (!signatureHeader || !secret) return false
-  const parts = signatureHeader.split(";")
+  // Paddle sends at least one h1 and adds more during secret rotation, so
+  // every presented signature is a candidate — accepting only the first
+  // would reject genuine webhooks mid-rotation.
+  const h1Candidates: string[] = []
   let ts: string | null = null
-  let h1: string | null = null
-  for (const part of parts) {
+  for (const part of signatureHeader.split(";")) {
     const [k, v] = part.split("=")
-    if (k === "ts") ts = v ?? null
-    if (k === "h1") h1 = v ?? null
+    if (k === "ts" && ts === null) ts = v ?? null
+    if (k === "h1" && v) h1Candidates.push(v)
   }
-  if (!ts || !h1) return false
+  if (!ts || h1Candidates.length === 0) return false
   const age = Math.floor(Date.now() / 1000) - Number(ts)
   if (!Number.isFinite(age) || Math.abs(age) > 300) return false
   const signedPayload = `${ts}:${rawBody}`
   const expected = createHmac("sha256", secret).update(signedPayload, "utf8").digest("hex")
-  if (h1.length !== expected.length) return false
-  try {
-    return timingSafeEqual(Buffer.from(h1, "utf8"), Buffer.from(expected, "utf8"))
-  } catch {
-    return false
-  }
+  return h1Candidates.some((h1) => {
+    if (h1.length !== expected.length) return false
+    try {
+      return timingSafeEqual(Buffer.from(h1, "utf8"), Buffer.from(expected, "utf8"))
+    } catch {
+      return false
+    }
+  })
 }
 
 export function parsePaddleTransactionEvent(parsed: unknown): Omit<VerifiedEvent, "raw"> {
@@ -180,17 +215,26 @@ export function createPaddleAdapter(): ProviderAdapter {
   return {
     async createCheckoutSession(input) {
       const apiKey = paddleApiKey()
-      const priceId = priceIdForPackage(input.package.id)
+      // Currency-scoped: a GBP buyer must resolve a GBP price, never fall
+      // back to a USD price id while the UI shows £ amounts.
+      const priceId = priceIdForPackage(input.package.id, input.currency)
       if (!apiKey || !priceId) {
-        throw new Error("Paddle is not configured (API key or price ids missing)")
+        throw new Error(
+          priceId
+            ? "Paddle is not configured (API key missing)"
+            : `This package is not available in ${input.currency} yet — switch currency or try again later`
+        )
       }
       const environment = paddleEnvironment()
       const paddle = new Paddle(apiKey, { environment })
+      // NOTE: POST /transactions accepts customer_id only — there is no
+      // `customer: { email }` field, so buyer email is prefilled client-side
+      // via Paddle.Checkout.open({ customer }) instead (see purchase-section).
       const transaction = await paddle.transactions.create({
         items: [{ priceId, quantity: 1 }],
+        currencyCode: input.currency,
         customData: { user_id: input.userId, package_id: input.package.id },
-        ...(input.userEmail ? { customer: { email: input.userEmail } } as unknown as Record<string, unknown> : {}),
-      } as unknown as Parameters<typeof paddle.transactions.create>[0])
+      })
       const data = transaction as unknown as Record<string, unknown>
       const checkout = asRecord(data.checkout)
       const url = typeof checkout?.url === "string" ? checkout.url : ""

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
+import { LandingMobileNav } from "./landing-mobile-nav"
 import { CREDIT_PACKAGES, formatPrice, packageValueLines } from "@/lib/billing/catalog"
 import {
   ArrowDown,
@@ -123,7 +124,7 @@ function OrbitChip({ className, label, children }: { className?: string; label: 
     <div
       title={label}
       aria-hidden
-      className={`absolute flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card shadow-[0_12px_28px_-12px_rgba(28,25,23,0.25)] ${className ?? ""}`}
+      className={`absolute flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card shadow-[0_12px_28px_-12px_rgba(28,25,23,0.25)] sm:h-14 sm:w-14 lg:h-16 lg:w-16 [&_svg]:h-5 [&_svg]:w-5 sm:[&_svg]:h-6 sm:[&_svg]:w-6 ${className ?? ""}`}
     >
       {children}
     </div>
@@ -155,7 +156,8 @@ export default function Home() {
               FAQ
             </Link>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-3">
+            <LandingMobileNav />
             <Link href="/login" className="hidden text-[13px] font-medium text-foreground/70 transition-colors hover:text-foreground sm:inline">
               Sign in
             </Link>
@@ -173,6 +175,8 @@ export default function Home() {
         {/* Hero */}
         <section className="relative overflow-hidden bg-card">
           <div className="relative mx-auto max-w-[1280px] px-6 pt-12 text-center lg:px-8 lg:pt-16">
+            {/* Headline layer paints above the orbit field pulled up behind it. */}
+            <div className="relative z-10">
             <div className="flex items-center justify-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-medium text-foreground/60">
                 <ShieldCheck className="h-3 w-3 text-[var(--burgundy)]" />
@@ -205,48 +209,51 @@ export default function Home() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
+            </div>
 
-            {/* Orbit visual */}
-            <div className="relative mx-auto mt-6 h-[440px] max-w-[760px] sm:h-[480px]" aria-hidden>
-              <div className="absolute left-1/2 top-1/2 h-[280px] w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-border sm:h-[320px] sm:w-[320px]" />
-              <div className="absolute left-1/2 top-1/2 h-[440px] w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-border sm:h-[500px] sm:w-[500px]" />
-              <div className="absolute left-1/2 top-1/2 hidden h-[680px] w-[680px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-border md:block" />
-              <OrbitChip label="Contract" className="left-[8%] top-[16%]">
+            {/* Orbit visual — the field sits behind the headline (pulled up
+                under the nav) so the icons orbit the message, not the cards.
+                Rings center ~1/3 down; the exhibit stack rests ~3/4 down. */}
+            <div className="relative mx-auto -mt-[400px] h-[780px] max-w-[1080px] sm:-mt-[440px] sm:h-[860px]" aria-hidden>
+              <div className="absolute left-1/2 top-[34%] h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-border sm:h-[620px] sm:w-[620px]" />
+              <div className="absolute left-1/2 top-[34%] h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-border sm:h-[880px] sm:w-[880px]" />
+              <div className="absolute left-1/2 top-[34%] hidden h-[1180px] w-[1180px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-border md:block" />
+              <OrbitChip label="Contract" className="left-[6%] top-[6%]">
                 <FileText className="h-4 w-4 text-[var(--burgundy)]" />
               </OrbitChip>
-              <OrbitChip label="Signed" className="left-[15%] top-[34%] hidden sm:flex">
+              <OrbitChip label="Signed" className="left-[12%] top-[22%] hidden sm:flex">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               </OrbitChip>
-              <OrbitChip label="Review" className="right-[10%] top-[12%]">
+              <OrbitChip label="Review" className="right-[6%] top-[5%]">
                 <Search className="h-4 w-4 text-amber-600" />
               </OrbitChip>
-              <OrbitChip label="Deadlines" className="right-[17%] top-[32%] hidden sm:flex">
+              <OrbitChip label="Deadlines" className="right-[13%] top-[21%] hidden sm:flex">
                 <Clock className="h-4 w-4 text-sky-600" />
               </OrbitChip>
-              <OrbitChip label="Fair terms" className="left-[2%] top-[52%]">
+              <OrbitChip label="Fair terms" className="left-[1%] top-[44%]">
                 <Scale className="h-4 w-4 text-emerald-600" />
               </OrbitChip>
-              <OrbitChip label="Verified" className="left-[6%] top-[70%] hidden sm:flex">
+              <OrbitChip label="Verified" className="left-[5%] top-[62%] hidden sm:flex">
                 <ShieldCheck className="h-4 w-4 text-[var(--burgundy)]" />
               </OrbitChip>
-              <OrbitChip label="Alerts" className="right-[3%] top-[48%]">
+              <OrbitChip label="Alerts" className="right-[1%] top-[42%]">
                 <Bell className="h-4 w-4 text-sky-600" />
               </OrbitChip>
-              <OrbitChip label="Protected" className="right-[9%] top-[68%] hidden sm:flex">
+              <OrbitChip label="Protected" className="right-[6%] top-[60%] hidden sm:flex">
                 <FileCheck className="h-4 w-4 text-violet-600" />
               </OrbitChip>
-              <OrbitChip label="Upload" className="bottom-[10%] left-[16%]">
+              <OrbitChip label="Upload" className="left-[18%] top-[80%]">
                 <Upload className="h-4 w-4 text-violet-600" />
               </OrbitChip>
-              <OrbitChip label="Signature" className="bottom-[12%] right-[16%]">
+              <OrbitChip label="Signature" className="right-[18%] top-[78%]">
                 <PenLine className="h-4 w-4 text-rose-600" />
               </OrbitChip>
-              <OrbitChip label="Monitoring" className="bottom-[2%] left-1/2 hidden -translate-x-1/2 sm:flex">
+              <OrbitChip label="Monitoring" className="left-1/2 top-[91%] hidden -translate-x-1/2 sm:flex">
                 <Mail className="h-4 w-4 text-orange-500" />
               </OrbitChip>
 
               {/* Center notification stack — overlapping like handled paper */}
-              <div className="absolute left-1/2 top-1/2 w-[300px] -translate-x-1/2 -translate-y-1/2 -space-y-4 text-left sm:w-[330px]">
+              <div className="absolute left-1/2 top-[72%] w-[300px] -translate-x-1/2 -translate-y-1/2 -space-y-4 text-left sm:w-[330px]">
                 <div className="rounded-2xl border border-border bg-card p-3.5 shadow-[0_20px_48px_-16px_rgba(0,0,0,0.25)]">
                   <div className="flex items-center gap-2.5">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[11px] font-bold text-amber-800">F1</span>

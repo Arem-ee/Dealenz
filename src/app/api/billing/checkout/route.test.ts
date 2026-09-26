@@ -18,6 +18,7 @@ vi.mock("@/lib/rate-limit", () => ({
 vi.mock("@/lib/billing/provider", () => ({
   getProviderAdapter: vi.fn(() => ({ createCheckoutSession: mockCreateSession })),
   isPaddleConfigured: vi.fn(() => true),
+  priceIdForPackage: vi.fn(() => "pri_test_123"),
 }))
 
 import { POST } from "./route"
@@ -69,10 +70,21 @@ describe("POST /api/billing/checkout", () => {
     expect(mockCreateSession).not.toHaveBeenCalled()
   })
 
-  it("returns 500 when provider fails to create session", async () => {
-    mockCreateSession.mockRejectedValue(new Error("Paddle API down"))
+  it("returns 500 without leaking provider internals when creation fails", async () => {
+    mockCreateSession.mockRejectedValue(new Error("Paddle API down: invalid api key pdl_live_abc"))
     const res = await POST(req({ packageId: "starter", currency: "USD" }))
     expect(res.status).toBe(500)
+    const body = (await res.json()) as { error: string }
+    expect(body.error).not.toContain("pdl_live_abc")
+    expect(body.error).toBe("Checkout is not available right now")
+  })
+
+  it("fails a buyer currency with no price id before touching the provider", async () => {
+    const { priceIdForPackage } = await import("@/lib/billing/provider")
+    vi.mocked(priceIdForPackage).mockReturnValueOnce(null)
+    const res = await POST(req({ packageId: "starter", currency: "EUR" }))
+    expect(res.status).toBe(400)
+    expect(mockCreateSession).not.toHaveBeenCalled()
   })
 
   it("fails closed with 503 on Vercel production when Paddle is unconfigured", async () => {

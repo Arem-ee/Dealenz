@@ -3,6 +3,7 @@ import { createHmac } from "node:crypto"
 import {
   createMockAdapter,
   createPaddleAdapter,
+  enabledCurrencies,
   parsePaddleTransactionEvent,
   priceIdForPackage,
   packageIdForPrice,
@@ -65,6 +66,32 @@ describe("billing provider adapter — Paddle", () => {
     expect(packageIdForPrice("pri_unknown")).toBeNull()
     delete process.env.PADDLE_PRICE_PRO
     expect(isPaddleConfigured()).toBe(false)
+  })
+
+  it("resolves prices per buyer currency and never falls back across currencies", () => {
+    // Legacy bare variables are USD-denominated: USD resolves, GBP does not.
+    expect(priceIdForPackage("standard", "USD")).toBe("pri_standard_222")
+    expect(priceIdForPackage("standard", "GBP")).toBeNull()
+    process.env.PADDLE_PRICE_STANDARD_GBP = "pri_standard_gbp"
+    expect(priceIdForPackage("standard", "GBP")).toBe("pri_standard_gbp")
+    expect(packageIdForPrice("pri_standard_gbp")).toBe("standard")
+    // A GBP buyer is offered nothing until every package has a GBP price.
+    expect(enabledCurrencies(["starter", "standard", "pro"])).toEqual(["USD"])
+    process.env.PADDLE_PRICE_STARTER_GBP = "pri_starter_gbp"
+    process.env.PADDLE_PRICE_PRO_GBP = "pri_pro_gbp"
+    expect(enabledCurrencies(["starter", "standard", "pro"])).toEqual(["USD", "GBP"])
+  })
+
+  it("accepts any presented h1 during secret rotation", () => {
+    const body = paddleBody()
+    const secret = "pdl_ntfset_test_secret_1234567890abcdef"
+    const ts = Math.floor(Date.now() / 1000).toString()
+    const good = createHmac("sha256", secret).update(`${ts}:${body}`, "utf8").digest("hex")
+    const stale = createHmac("sha256", "old-secret").update(`${ts}:${body}`, "utf8").digest("hex")
+    // Valid signature first or second — both genuine rotation shapes pass.
+    expect(verifyPaddleSignature(body, `ts=${ts};h1=${good};h1=${stale}`, secret)).toBe(true)
+    expect(verifyPaddleSignature(body, `ts=${ts};h1=${stale};h1=${good}`, secret)).toBe(true)
+    expect(verifyPaddleSignature(body, `ts=${ts};h1=${stale}`, secret)).toBe(false)
   })
 
   it("verifies Paddle HMAC signatures and rejects tampering", async () => {

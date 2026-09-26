@@ -42,13 +42,11 @@ function loadPaddleJs(): Promise<PaddleJs | null> {
   return paddleScriptPromise
 }
 
-let paddleInitialized = false
-
 // Paddle composes API-transaction checkout URLs as
-// <default-payment-link>/?ptxn=<txn-id>, which only works on a page that
-// includes Paddle.js. Ours don't — so a URL pointing at our own domain is
-// a dead end (renders the homepage), never a checkout. Only follow URLs
-// on Paddle's own checkout hosts.
+// <default-payment-link>/?_ptxn=<txn-id> (see "Pass a transaction to a
+// checkout" in the Paddle docs). A URL pointing at our own domain would be a
+// dead end (renders the homepage), never a checkout — only follow URLs on
+// Paddle's own checkout hosts.
 function isPaddleHostedCheckout(url: string): boolean {
   try {
     const host = new URL(url).hostname.toLowerCase()
@@ -81,14 +79,21 @@ async function readBalance(): Promise<number | null> {
   }
 }
 
-export function PurchaseSection() {
+const ALL_CURRENCIES: Currency[] = ["USD", "GBP", "EUR"]
+
+export function PurchaseSection({ enabledCurrencies }: { enabledCurrencies?: Currency[] }) {
   const router = useRouter()
-  const [currency, setCurrency] = useState<Currency>("USD")
+  const offered = enabledCurrencies && enabledCurrencies.length > 0 ? enabledCurrencies : ALL_CURRENCIES
+  const [currency, setCurrency] = useState<Currency>(offered[0])
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Paddle.Initialize may run once per page (Paddle.js throws on repeat
+  // calls). A ref keeps this per mounted instance instead of a reassigned
+  // module variable, which render-purity rules forbid.
+  const paddleInitRef = useRef(false)
 
   useEffect(() => {
     return () => {
@@ -106,8 +111,12 @@ export function PurchaseSection() {
       return
     }
     setConfirming(true)
-    const deadline = Date.now() + 90000
+    // 18 ticks × 5s ≈ 90s. A tick counter (not Date.now, which render-scope
+    // purity rules forbid here) bounds the poll; this only ever runs from
+    // event handlers, never during render.
+    let ticks = 0
     pollTimer.current = setInterval(async () => {
+      ticks += 1
       const now = await readBalance()
       if (now !== null && now > baseline) {
         if (pollTimer.current) clearInterval(pollTimer.current)
@@ -116,7 +125,7 @@ export function PurchaseSection() {
         router.refresh()
         return
       }
-      if (Date.now() > deadline) {
+      if (ticks >= 18) {
         if (pollTimer.current) clearInterval(pollTimer.current)
         setConfirming(false)
         setSuccess("Payment received — credits land within a minute. Check purchase history below.")
@@ -125,13 +134,13 @@ export function PurchaseSection() {
     }, 5000)
   }
 
-  async function openOverlayCheckout(transactionId: string, baseline: number | null): Promise<boolean> {
+  async function openOverlayCheckout(transactionId: string, baseline: number | null, email: string | null): Promise<boolean> {
     const token = (process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? "").trim()
     if (!token) return false
     const paddle = await loadPaddleJs()
     if (!paddle) return false
     try {
-      if (!paddleInitialized) {
+      if (!paddleInitRef.current) {
         paddle.Initialize({
           token,
           environment: paddleEnvironment(),
@@ -153,10 +162,13 @@ export function PurchaseSection() {
             }
           },
         })
-        paddleInitialized = true
+        paddleInitRef.current = true
       }
       paddle.Checkout.open({
         transactionId,
+        // Buyer email prefill lives here: POST /transactions has no customer
+        // email field (customer_id only), so the server cannot set it.
+        ...(email ? { customer: { email } } : {}),
         settings: {
           displayMode: "overlay",
           theme: typeof document !== "undefined" && document.documentElement.classList.contains("dark") ? "dark" : "light",
@@ -174,6 +186,7 @@ export function PurchaseSection() {
     setSuccess(null)
     try {
       const baseline = await readBalance()
+      const { data: { user } } = await createClient().auth.getUser()
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -188,7 +201,7 @@ export function PurchaseSection() {
       // none) and would strand the buyer on the homepage — surface an
       // error instead of navigating to a dead end.
       if (data.checkoutId && data.checkoutId.startsWith("txn_")) {
-        const opened = await openOverlayCheckout(data.checkoutId, baseline)
+        const opened = await openOverlayCheckout(data.checkoutId, baseline, user?.email ?? null)
         if (opened) {
           setLoading(null)
           return
@@ -210,9 +223,9 @@ export function PurchaseSection() {
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">Buy credits</h2>
         <select value={currency} onChange={(e) => setCurrency(e.target.value as Currency)} className="h-8 rounded-md border border-input bg-background px-2 text-xs" aria-label="Currency">
-          <option value="USD">USD $</option>
-          <option value="GBP">GBP £</option>
-          <option value="EUR">EUR €</option>
+          {offered.includes("USD") && <option value="USD">USD $</option>}
+          {offered.includes("GBP") && <option value="GBP">GBP £</option>}
+          {offered.includes("EUR") && <option value="EUR">EUR €</option>}
         </select>
       </div>
       <p className="text-xs text-muted-foreground">Credits work for all deal types — founder, partnership, and freelance. No subscriptions. Secure checkout with international cards and tax handled at checkout.</p>

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { validatePurchaseInput, priceForPackage } from "@/lib/billing/catalog"
-import { getProviderAdapter, isPaddleConfigured } from "@/lib/billing/provider"
+import { getProviderAdapter, isPaddleConfigured, priceIdForPackage } from "@/lib/billing/provider"
 import { checkRateLimit } from "@/lib/rate-limit"
+import { reportError } from "@/lib/logger"
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -53,6 +54,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Credit purchases are not available right now. Please try again later." }, { status: 503 })
   }
 
+  // Currency-scoped availability: Paddle prices are single-currency, so a
+  // buyer currency with no price id must fail here with a clear message —
+  // never charge a USD price while the UI shows £/€ amounts.
+  if (!priceIdForPackage(pkg.id, currency)) {
+    return NextResponse.json({ error: `The ${pkg.id} package is not available in ${currency} yet — switch to USD or try again later.` }, { status: 400 })
+  }
+
   // Abuse bound: checkout sessions cost provider API calls and each click
   // mints a pending purchase row. Authenticated users only, 10/day.
   const rate = await checkRateLimit("createCheckout")
@@ -79,7 +87,24 @@ export async function POST(req: NextRequest) {
     })
     checkoutId = session.id
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Failed to create checkout" }, { status: 500 })
+    // Never surface provider internals (invalid keys, price ids, API
+    // outages) to buyers: log server-side, show the same honest generic the
+    // client already renders for every other checkout failure.
+    try {
+      const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (serviceUrl && serviceKey) {
+        await reportError(createServiceClient(serviceUrl, serviceKey), {
+          phase: "billing_checkout",
+          error: e instanceof Error ? e.message : "Failed to create checkout",
+          details: { provider: "paddle", packageId: pkg.id, currency },
+          severity: "critical",
+        })
+      }
+    } catch {
+      // Reporting must never break the error response itself.
+    }
+    return NextResponse.json({ error: "Checkout is not available right now" }, { status: 500 })
   }
 
   // Record pending purchase for webhook correlation (service role, bypass RLS)

@@ -2,7 +2,8 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 import { PurchaseSection } from "@/components/billing/purchase-section"
-import { formatPrice, type Currency } from "@/lib/billing/catalog"
+import { enabledCurrencies } from "@/lib/billing/provider"
+import { CREDIT_PACKAGES, formatPrice, type Currency } from "@/lib/billing/catalog"
 import {
   ANALYSIS_CREDITS,
   CREDIT_PRICE_BRIEF,
@@ -167,7 +168,7 @@ export default async function BillingPage({
 
       <div className="mt-7 space-y-4">
         <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm" id="buy-credits">
-          <PurchaseSection />
+          <PurchaseSection enabledCurrencies={enabledCurrencies(CREDIT_PACKAGES.filter((p) => p.active).map((p) => p.id)) as Currency[]} />
         </div>
 
         <details className="group rounded-xl border border-border/60 bg-card p-5 shadow-sm">
