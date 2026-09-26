@@ -24,9 +24,9 @@ import {
 } from "lucide-react"
 
 export const metadata = {
-  title: "Dealenz — AI contract review that tells you what to push back on",
+  title: "Dealenz — Contract analysis, drafting, signing, and tracking",
   description:
-    "Upload their contract. See every risk with its clause, get the exact words to push back, sign, and stay guarded. Built for founders, freelancers, and anyone signing what they didn't write.",
+    "Upload their contract. See every risk with its clause. Draft documents, sign, and stay covered.",
 }
 
 const steps = [
@@ -38,13 +38,13 @@ const steps = [
   },
   {
     n: "2",
-    title: "Push back",
-    tag: "Every risk, quoted",
-    body: "For each real risk, get the exact words to send back — staged payments, clearer scope, a revised clause. Re-check the redline before you sign.",
+    title: "Respond",
+    tag: "Drafted replies",
+    body: "For each real risk, get a drafted response — staged payments, clearer scope, a revised clause. Re-check the redline before you sign.",
   },
   {
     n: "3",
-    title: "Sign guarded",
+    title: "Sign covered",
     tag: "Sign tracked",
     body: "Both sides sign in the same workspace. Renewals, notice windows, and obligations stay tracked, with email alerts before they matter.",
   },
@@ -65,7 +65,7 @@ const faqs = [
   },
   {
     q: "What do I leave with?",
-    a: "More than a report. Every freelance analysis can produce the documents you need: a proposal, a scope of work, a contract, or a deliverables checklist — plus the exact words to push back on unfair terms.",
+    a: "More than a report. Every freelance analysis can produce the documents you need: a proposal, a scope of work, a contract, or a deliverables checklist — plus negotiation drafts for unfair terms.",
   },
   {
     q: "Can the other side sign here too?",
@@ -123,7 +123,7 @@ function OrbitChip({ className, label, children }: { className?: string; label: 
     <div
       title={label}
       aria-hidden
-      className={`absolute flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-card shadow-[0_12px_32px_-12px_rgba(0,0,0,0.25)] ${className ?? ""}`}
+      className={`absolute flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card shadow-[0_12px_28px_-12px_rgba(28,25,23,0.25)] ${className ?? ""}`}
     >
       {children}
     </div>
@@ -184,11 +184,10 @@ export default function Home() {
               </span>
             </div>
             <h1 className="mx-auto mt-5 max-w-[20ch] text-[40px] font-semibold leading-[1.04] tracking-[-0.04em] sm:text-[48px] lg:text-[56px]">
-              Know the risk. Get the words to push back.
+              Know what&apos;s in your contracts.
             </h1>
             <p className="mx-auto mt-5 max-w-[56ch] text-[15px] leading-relaxed text-foreground/60 lg:text-[16px]">
-              Upload their contract. See every risk with its clause. Get the
-              exact words to push back. Sign and stay guarded.
+              Upload their contract. See every risk with its clause. Draft, sign, and stay covered.
             </p>
             <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link
@@ -200,9 +199,10 @@ export default function Home() {
               </Link>
               <Link
                 href="/#how-it-works"
-                className="inline-flex h-11 items-center rounded-full border border-border bg-card px-7 text-[14px] font-medium transition-colors hover:bg-foreground/[0.03]"
+                className="inline-flex h-11 items-center gap-1.5 px-2 text-[14px] font-medium text-foreground/70 transition-colors hover:text-foreground"
               >
                 See how it works
+                <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
 
@@ -245,8 +245,8 @@ export default function Home() {
                 <Mail className="h-4 w-4 text-orange-500" />
               </OrbitChip>
 
-              {/* Center notification stack */}
-              <div className="absolute left-1/2 top-1/2 w-[300px] -translate-x-1/2 -translate-y-1/2 space-y-2.5 text-left sm:w-[330px]">
+              {/* Center notification stack — overlapping like handled paper */}
+              <div className="absolute left-1/2 top-1/2 w-[300px] -translate-x-1/2 -translate-y-1/2 -space-y-4 text-left sm:w-[330px]">
                 <div className="rounded-2xl border border-border bg-card p-3.5 shadow-[0_20px_48px_-16px_rgba(0,0,0,0.25)]">
                   <div className="flex items-center gap-2.5">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[11px] font-bold text-amber-800">F1</span>
@@ -257,7 +257,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="ml-6 rounded-2xl border border-border bg-card p-3.5 shadow-[0_20px_48px_-16px_rgba(0,0,0,0.25)]">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground/40">Words to send</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground/40">Suggested response</p>
                   <p className="mt-1 text-[12px] leading-relaxed">&ldquo;Please cap revisions at two rounds. Extra rounds will be billed at my standard rate.&rdquo;</p>
                 </div>
                 <div className="ml-12 flex items-center gap-2 rounded-2xl border border-border bg-card px-3.5 py-2.5 shadow-[0_20px_48px_-16px_rgba(0,0,0,0.25)]">
@@ -301,8 +301,8 @@ export default function Home() {
                 },
                 {
                   icon: <PenLine className="h-4 w-4 text-[var(--burgundy)]" />,
-                  title: "Words you can actually send",
-                  body: "Every real risk comes with sendable language — staged payments, capped revisions, a revised clause. Copy it straight from the report.",
+                  title: "Negotiation drafts",
+                  body: "Every real risk comes with a drafted response — staged payments, capped revisions, a revised clause. Copy it straight from the report.",
                 },
                 {
                   icon: <ShieldCheck className="h-4 w-4 text-[var(--burgundy)]" />,
@@ -334,11 +334,11 @@ export default function Home() {
               From their paper to your signature
             </h2>
             <p className="mx-auto mt-3 max-w-[54ch] text-center text-[14px] leading-relaxed text-foreground/55">
-              Upload the contract, push back with the right words, sign, and stay
-              guarded — three steps, one place, nothing to learn.
+              Upload the contract, draft your response, sign, and stay
+              covered — three steps, one place, nothing to learn.
             </p>
             {/* Arrow process: stacked stage cards joined by connectors, not a
-                card grid. The active stage (push back) carries the accent;
+                card grid. The active stage (respond) carries the accent;
                 the re-check pill names the real loop (they revise, you
                 re-check). Text column carries the headline so the visual
                 never floats unexplained. */}
@@ -415,7 +415,7 @@ export default function Home() {
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               <div className="rounded-[20px] border border-border bg-card p-5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground/40">Words to send</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground/40">Suggested response</p>
                 <p className="mt-2 text-[15px] leading-relaxed">&ldquo;Please cap revisions at two rounds. Extra rounds will be billed at my standard rate.&rdquo;</p>
                 <p className="mt-2 text-[11px] text-foreground/40">Illustrated example · from an unlimited-revisions finding</p>
               </div>
@@ -437,7 +437,7 @@ export default function Home() {
             <div className="grid items-center gap-10 lg:grid-cols-2">
               <div>
                 <div className="flex gap-2">
-                  {["Flagged", "Pushback", "Guarded"].map((t, i) => (
+                  {["Flagged", "Response", "Tracked"].map((t, i) => (
                     <span
                       key={t}
                       className={`rounded-full px-4 py-1.5 text-[12px] font-medium ${
@@ -709,7 +709,7 @@ export default function Home() {
               Upload your next contract.
             </h2>
             <p className="mx-auto mt-3 max-w-[48ch] text-[15px] text-white/70">
-              You do not need to know where to start. Upload the paper — leave with the pushback words.
+              You do not need to know where to start. Upload the paper — leave with total clarity.
             </p>
             <div className="mt-8">
               <Link
@@ -732,8 +732,7 @@ export default function Home() {
             <div>
               <LogoMark dark />
               <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-white/60">
-                The counterparty-side loop for people who receive paper: what to
-                push back on, in your words. Sign here. Stay guarded.
+                Contract analysis, drafting, and signing for people who receive paper.
               </p>
             </div>
             <nav aria-label="Product">

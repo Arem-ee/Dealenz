@@ -127,23 +127,23 @@ export function DocumentReader({
       <header className="sticky top-0 z-10 border-b bg-card">
         <div className="mx-auto max-w-6xl px-4 py-3 flex items-center gap-3">
           {threadId ? (
-            <Link href={`/chat/${threadId}`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" /> Back to thread
+            <Link href={`/chat/${threadId}`} className="inline-flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" /> <span className="hidden min-[420px]:inline">Back to thread</span><span className="min-[420px]:hidden">Back</span>
             </Link>
           ) : (
-            <Link href="/chat" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" /> Back to deals
+            <Link href="/chat" className="inline-flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" /> <span className="hidden min-[420px]:inline">Back to deals</span><span className="min-[420px]:hidden">Back</span>
             </Link>
           )}
-          <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-            <FileText className="h-3.5 w-3.5" /> {selected?.documentType ?? "document"} v{selected?.versionNumber ?? "-"}
-            {executed && <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success"><Check className="h-3 w-3" /> Executed</span>}
-            {!executed && isFinal && <span className="ml-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700">Final — pending signatures</span>}
+          <span className="ml-auto flex min-w-0 items-center gap-2 truncate text-xs text-muted-foreground">
+            <FileText className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{selected?.documentType ?? "document"} v{selected?.versionNumber ?? "-"}</span>
+            {executed && <span className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success"><Check className="h-3 w-3" /> Executed</span>}
+            {!executed && isFinal && <span className="ml-1 shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700">Final — pending signatures</span>}
             {selected && (
               <a
                 href={`/api/document/${auditId}/pdf?versionId=${selected.id}`}
                 download
-                className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/60"
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/60"
               >
                 <Download className="h-3 w-3" /> PDF
               </a>

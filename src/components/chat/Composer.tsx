@@ -547,10 +547,10 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border border-input bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           >
             <FileUp className="h-3.5 w-3.5" />
-            Add a document
+            <span className="hidden min-[420px]:inline">Add a document</span>
           </button>
           {estimate !== null && (
-            <span className="text-[11px] text-muted-foreground/60 sm:text-xs">
+            <span className="min-w-0 truncate text-[11px] text-muted-foreground/60 sm:text-xs">
               {estimate === 0 ? (
                 "Free to send"
               ) : (

@@ -111,7 +111,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
             </Link>
           </SheetContent>
         </Sheet>
-        <Link href="/dashboard" aria-label="Home" className="shrink-0">
+        <Link href="/dashboard" aria-label="Home" className="hidden shrink-0 min-[420px]:block">
           <Logo />
         </Link>
         <button
@@ -128,7 +128,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
         <Link
           href="/billing"
           title="Credit balance — see Billing for what credits pay for"
-          className="shrink-0 truncate text-sm tabular-nums text-muted-foreground transition-colors hover:text-foreground"
+          className="max-w-[110px] min-w-0 shrink truncate text-sm tabular-nums text-muted-foreground transition-colors hover:text-foreground sm:max-w-none"
         >
           {typeof creditBalance === "number" ? `${creditBalance} credit${creditBalance === 1 ? "" : "s"}` : "credits unknown"}
         </Link>
@@ -247,6 +247,8 @@ function ThreadSearch({ threads, onClose }: { threads: SidebarThread[]; onClose:
           onKeyDown={handleKeyDown}
           placeholder="Search deals…"
           aria-label="Search deals"
+          role="combobox"
+          aria-autocomplete="list"
           aria-activedescendant={selectedIndex >= 0 ? `search-result-${selectedIndex}` : undefined}
           aria-controls="search-results"
           aria-expanded={results.length > 0}
