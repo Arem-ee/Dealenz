@@ -12,10 +12,11 @@ const nextConfig: NextConfig = {
         // but drops 'unsafe-eval': no client dependency evaluates code.
         // AI provider calls run server-side, so connect-src stays narrow.
         // cdn.paddle.com serves Paddle.js (in-app overlay checkout, loaded
-        // dynamically by purchase-section.tsx); *.paddle.com covers its API
-        // calls and checkout frames. Without these the overlay silently
-        // never loads and checkout falls back to hosted redirect.
-        { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.paddle.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://*.paddle.com; frame-src 'self' https://*.paddle.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" },
+        // dynamically by purchase-section.tsx) including its injected
+        // stylesheet; *.paddle.com covers its API calls and checkout frames.
+        // Without these the overlay silently never loads and checkout falls
+        // back to hosted redirect.
+        { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.paddle.com; style-src 'self' 'unsafe-inline' https://cdn.paddle.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://*.paddle.com; frame-src 'self' https://*.paddle.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" },
         { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
         { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         // allow-popups (not same-origin): OAuth/checkout use top-level
