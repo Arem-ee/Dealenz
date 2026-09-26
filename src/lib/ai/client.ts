@@ -1,4 +1,4 @@
-import { callAI as callAIImpl, callAIForSurface, getActiveProviderName } from "./providers"
+import { callAI as callAIImpl, callAIForSurface, callAISurfaceStream, getActiveProviderName } from "./providers"
 import type { AISurface, SurfaceCallMeta } from "./providers"
 
 export type { AISurface, SurfaceCallMeta }
@@ -34,6 +34,26 @@ export async function callAISurface(
     temperature: params.temperature,
     maxTokens: params.maxTokens,
   })
+}
+
+// Streaming variant: emits provider tokens via onToken when the resolved
+// surface provider supports it, otherwise serves buffered with zero tokens.
+// Identical output contract to callAISurface plus a streamed flag.
+export async function callAISurfaceStreaming(
+  surface: AISurface,
+  params: CallAIOptions,
+  onToken: (delta: string) => void
+): Promise<{ text: string; meta: SurfaceCallMeta; streamed: boolean }> {
+  return callAISurfaceStream(
+    surface,
+    {
+      systemPrompt: params.systemPrompt,
+      userContent: params.userContent,
+      temperature: params.temperature,
+      maxTokens: params.maxTokens,
+    },
+    onToken
+  )
 }
 
 export function getActiveProvider(): string {

@@ -54,6 +54,56 @@ function buildUrl(baseUrl: string): string {
   return `${baseUrl}/chat/completions`
 }
 
+export interface OpenAIResolvedRequest {
+  url: string
+  headers: Record<string, string>
+  body: Record<string, unknown>
+  model: string
+  systemPromptLength: number
+  userContentLength: number
+}
+
+// Single place that builds the chat-completions request (buffered and
+// streaming share it, so the two paths can never drift apart on model,
+// attribution headers, or temperature).
+export function resolveOpenAIRequest(params: OpenAICompatibleCallParams): OpenAIResolvedRequest {
+  const { systemPrompt, userContent, temperature, maxTokens, model: modelOverride } = params
+  const apiKey = resolveKey()
+  const baseUrl = resolveBaseUrl()
+  const onOpenRouter = isOpenRouterHost(baseUrl)
+  const model = onOpenRouter ? resolveOpenRouterModel(modelOverride) : resolveModel(modelOverride)
+  const url = buildUrl(baseUrl)
+
+  // OpenRouter attribution headers (recommended by OpenRouter; sent only to
+  // their host, never to other endpoints). Absent app URL simply omits Referer.
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${apiKey}`,
+  }
+  if (onOpenRouter) {
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").trim()
+    if (appUrl) headers["HTTP-Referer"] = appUrl
+    headers["X-Title"] = "Dealenz"
+  }
+
+  return {
+    url,
+    headers,
+    body: {
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+      temperature: temperature ?? 0.4,
+      max_tokens: maxTokens ?? 8192,
+    },
+    model,
+    systemPromptLength: systemPrompt.length,
+    userContentLength: userContent.length,
+  }
+}
+
 // Best-effort usage mapping (usage.prompt_tokens / completion_tokens).
 // Absent or malformed usage yields undefined, never fabricated zeros.
 function extractUsage(result: unknown): TokenUsage | undefined {
@@ -78,24 +128,7 @@ function categoryForStatus(status: number): FailureCategory {
 }
 
 export async function callOpenAICompatible(params: OpenAICompatibleCallParams): Promise<ProviderResult> {
-  const { systemPrompt, userContent, temperature, maxTokens, model: modelOverride } = params
-  const apiKey = resolveKey()
-  const baseUrl = resolveBaseUrl()
-  const onOpenRouter = isOpenRouterHost(baseUrl)
-  const model = onOpenRouter ? resolveOpenRouterModel(modelOverride) : resolveModel(modelOverride)
-  const url = buildUrl(baseUrl)
-
-  // OpenRouter attribution headers (recommended by OpenRouter; sent only to
-  // their host, never to other endpoints). Absent app URL simply omits Referer.
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${apiKey}`,
-  }
-  if (onOpenRouter) {
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").trim()
-    if (appUrl) headers["HTTP-Referer"] = appUrl
-    headers["X-Title"] = "Dealenz"
-  }
+  const { url, headers, body, model, systemPromptLength, userContentLength } = resolveOpenAIRequest(params)
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 30_000)
@@ -105,15 +138,7 @@ export async function callOpenAICompatible(params: OpenAICompatibleCallParams): 
       method: "POST",
       headers,
       signal: controller.signal,
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-        temperature: temperature ?? 0.4,
-        max_tokens: maxTokens ?? 8192,
-      }),
+      body: JSON.stringify(body),
     })
 
     if (!response.ok) {
@@ -127,8 +152,8 @@ export async function callOpenAICompatible(params: OpenAICompatibleCallParams): 
         model,
         status: response.status,
         failureCategory: categoryForStatus(response.status),
-        systemPromptLength: systemPrompt.length,
-        userContentLength: userContent.length,
+        systemPromptLength,
+        userContentLength,
         errorBody: errorBody.slice(0, 500),
       }))
       const category = categoryForStatus(response.status)

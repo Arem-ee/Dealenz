@@ -25,16 +25,24 @@ export interface PortfolioSummary {
 
 export default async function DashboardPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // Auth and threads resolve concurrently: listThreads re-validates the
+  // session internally, so the page never waits auth-then-threads serially.
+  // An absent user still renders nothing; failed threads surface as loadError.
+  const [userSettled, threadsSettled] = await Promise.allSettled([
+    supabase.auth.getUser(),
+    listThreads(),
+  ])
+  const user = userSettled.status === "fulfilled" ? userSettled.value.data.user : null
   if (!user) return <div />
 
   // Surface load failures honestly in the landing instead of pretending the
   // user has no threads.
   let threads: Awaited<ReturnType<typeof listThreads>> = []
   let loadError: string | null = null
-  try {
-    threads = await listThreads()
-  } catch (err) {
+  if (threadsSettled.status === "fulfilled") {
+    threads = threadsSettled.value
+  } else {
+    const err = threadsSettled.reason
     loadError = err instanceof Error && err.message ? err.message : "Please refresh and try again."
   }
 
@@ -96,16 +104,14 @@ export default async function DashboardPage() {
     monitoredAuditIds = [...new Set(rows.map((r) => r.audit_id))]
     const due = selectDueEvents(rows, new Date().toISOString()).slice(0, 5)
     if (due.length > 0 || monitoredAuditIds.length > 0) {
-      const { data: convs } = await supabase
-        .from("conversations")
-        .select("id, attached_audit_id")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(100)
+      // Thread links derive from the already-loaded thread rows (threads ARE
+      // conversations): no second conversations query. Orphan audits without
+      // a thread fall through to the document reader, as before — as do deals
+      // outside the 30-thread window, whose deadlines still render.
       const threadByAudit = new Map<string, string>()
-      for (const c of ((convs ?? []) as Array<{ id: string; attached_audit_id: string | null }>)) {
-        if (c.attached_audit_id && !threadByAudit.has(c.attached_audit_id)) {
-          threadByAudit.set(c.attached_audit_id, c.id)
+      for (const t of threads) {
+        if (t.auditId && !threadByAudit.has(t.auditId)) {
+          threadByAudit.set(t.auditId, t.id)
         }
       }
       deadlines = due.map((d) => ({

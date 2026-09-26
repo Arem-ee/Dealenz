@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ResendVerificationButton } from "@/components/resend-verification-button"
 import { getCreditBalanceForHome } from "@/app/dashboard/actions"
-import { VerificationBanner } from "@/components/verification-banner"
 import { listThreads } from "@/lib/chat/actions"
 import { ChromeShell } from "@/components/app-shell-client"
 import type { SidebarThread } from "@/lib/nav"
@@ -25,32 +24,28 @@ async function getShellData() {
 
   const email = user.email ?? ""
 
-  const { data: businessProfile } = await supabase
-    .from("business_profiles")
-    .select("business_name")
-    .eq("user_id", user.id)
-    .maybeSingle()
+  // One parallel batch for the four independent reads (profile, lawyer
+  // posture, balance, threads): previously four serial roundtrips. Each
+  // failure isolates to its own default — threads failing yields an empty
+  // sidebar, never a blank shell.
+  const [profileSettled, lawyerSettled, balanceSettled, threadsSettled] = await Promise.allSettled([
+    supabase.from("business_profiles").select("business_name").eq("user_id", user.id).maybeSingle(),
+    supabase.from("lawyers").select("id").eq("user_id", user.id).eq("verification_status", "verified").maybeSingle(),
+    getCreditBalanceForHome(),
+    listThreads(),
+  ])
 
-  const businessName = (businessProfile as { business_name: string | null } | null)?.business_name ?? null
-
-  const { data: lawyerRow } = await supabase
-    .from("lawyers")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("verification_status", "verified")
-    .maybeSingle()
-  const isLawyer = lawyerRow !== null
-
-  const creditBalance = await getCreditBalanceForHome()
+  const businessProfile = profileSettled.status === "fulfilled" ? (profileSettled.value as { data?: unknown }).data as { business_name: string | null } | null : null
+  const businessName = businessProfile?.business_name ?? null
+  const isLawyer = lawyerSettled.status === "fulfilled" && (lawyerSettled.value as { data?: unknown }).data !== null
+  const creditBalance = balanceSettled.status === "fulfilled" ? (balanceSettled.value as number | null) : null
 
   let threads: SidebarThread[] = []
   let openIssues = 0
-  try {
-    const rows = await listThreads()
+  if (threadsSettled.status === "fulfilled") {
+    const rows = threadsSettled.value
     threads = rows.map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, status: t.status ?? null, riskLevel: t.riskLevel ?? null }))
     openIssues = rows.reduce((s, t) => s + (typeof t.openIssues === "number" ? t.openIssues : 0), 0)
-  } catch {
-    threads = []
   }
 
   return { user, emailConfirmed: true, email, businessName, isLawyer, creditBalance, threads, openIssues }

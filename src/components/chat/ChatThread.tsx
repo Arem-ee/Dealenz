@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { MessageList } from "./MessageList"
 import { Composer } from "./Composer"
 import { ReviseDealInput } from "./ReviseDealInput"
@@ -17,7 +17,9 @@ import { getOpenItemsFromConversation } from "@/lib/open-items"
 import { ChevronDown, ChevronUp } from "lucide-react"
 import { PushbackWords } from "@/components/findings/pushback-words"
 import { PlanPreview } from "@/components/work/PlanPreview"
-import { ExecutionProgress } from "@/components/work/ExecutionProgress"
+import { ExecutionProgress, AnalysisStagesList } from "@/components/work/ExecutionProgress"
+import { useAnalysisStages } from "@/components/work/use-analysis-stages"
+import { hasStageSignal } from "@/lib/analysis/stages"
 import { WorkspaceHeader, type MonitoringSummary } from "./WorkspaceHeader"
 import { WorkspaceView } from "@/components/work/workspaces/WorkspaceView"
 import type { ChecklistItem, DocVersion, Signer, SigningEvent, MonitoringAlert, MonitoringEvent, WorkspaceFinding } from "@/components/work/workspaces/types"
@@ -62,6 +64,15 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   const [documentCount, setDocumentCount] = useState<number>(0)
   const [monitoring, setMonitoring] = useState<MonitoringSummary | null>(null)
   const [prefill, setPrefill] = useState<{ text: string; key: number } | null>(null)
+  // Direct (non-plan) analysis run state: the context-confirm fallback awaits
+  // analyzeAndPostRisk with no execution row, so this flag drives the same
+  // live stage feed the plan flow gets from its running step.
+  const [directAnalyzing, setDirectAnalyzing] = useState(false)
+  const directStages = useAnalysisStages(auditId, directAnalyzing)
+  // Monotonic composer-remount key for finding questions. A ref mutated in
+  // the event handler (never during render) replaces Date.now, which
+  // render-purity rules forbid lexically even inside handlers.
+  const prefillKey = useRef(0)
   const [versions, setVersions] = useState<DocVersion[]>([])
   const [signers, setSigners] = useState<Signer[]>([])
   const [signingEvents, setSigningEvents] = useState<SigningEvent[]>([])
@@ -476,10 +487,15 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         }
         // Fallback: direct analysis for non-plan path (preserves existing callers)
         const { analyzeAndPostRisk } = await import("@/lib/chat/actions")
-        const result = await analyzeAndPostRisk(threadId, auditId)
-        if (!result.ok) {
-          fail(result.error)
-          return
+        setDirectAnalyzing(true)
+        try {
+          const result = await analyzeAndPostRisk(threadId, auditId)
+          if (!result.ok) {
+            fail(result.error)
+            return
+          }
+        } finally {
+          setDirectAnalyzing(false)
         }
         const msgs = await getThreadMessages(threadId)
         if (msgs.ok) setMessages(msgs.messages)
@@ -566,7 +582,8 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   const coveredMode = ["review", "proposal", "negotiation", "draft", "protection", "signing", "monitoring"].includes(workspace.mode)
 
   const handleAskFinding = (question: string) => {
-    setPrefill({ text: question, key: Date.now() })
+    prefillKey.current += 1
+    setPrefill({ text: question, key: prefillKey.current })
   }
 
   const handleWorkspaceChanged = () => {
@@ -736,7 +753,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
           <PlanPreview plan={workPlan} steps={workSteps} onApprove={handlePlanApprove} onReject={handlePlanReject} onResume={handlePlanResume} />
           {workExecution && workPlan.status !== "awaiting_approval" && (
             <div className="mt-3">
-              <ExecutionProgress execution={workExecution} steps={workSteps} />
+              <ExecutionProgress execution={workExecution} steps={workSteps} auditId={auditId} />
             </div>
           )}
         </div>
@@ -781,6 +798,17 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         </div>
       </div>
 
+      {/* Direct-analysis progress: the non-plan path has no execution row,
+          so its stage feed renders as a slim card above the composer. Only
+          appears once stages carry signal; otherwise this is today's UI. */}
+      {directAnalyzing && directStages && hasStageSignal(directStages) && (
+        <div className="shrink-0 px-4 pb-2">
+          <div className="mx-auto max-w-3xl rounded-2xl border border-border/60 bg-card px-4 py-3 shadow-sm">
+            <AnalysisStagesList stages={directStages} title="Analyzing your deal" />
+          </div>
+        </div>
+      )}
+
       {/* Composer — floats above the thread, not cemented to a bar. */}
       <div className="shrink-0 bg-transparent px-4 pb-4 pt-1">
         <div className="mx-auto max-w-3xl rounded-2xl shadow-[0_16px_48px_-16px_rgba(0,0,0,0.3)] dark:shadow-[0_16px_48px_-16px_rgba(0,0,0,0.8)]">
@@ -824,7 +852,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
                 <PlanPreview plan={workPlan} steps={workSteps} onApprove={handlePlanApprove} onReject={handlePlanReject} onResume={handlePlanResume} />
                 {workExecution && workPlan.status !== "awaiting_approval" && (
                   <div className="mt-3">
-                    <ExecutionProgress execution={workExecution} steps={workSteps} />
+                    <ExecutionProgress execution={workExecution} steps={workSteps} auditId={auditId} />
                   </div>
                 )}
               </div>

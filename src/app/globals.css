@@ -232,6 +232,17 @@ body {
   overflow-x: clip;
 }
 
+/* Anchor jumps (landing "See how it works", footer links) glide instead of
+   snapping — a snap reads as "the button did nothing". App surfaces keep
+   instant positioning; only in-page anchors are affected. */
+html:has(.landing-anchor-scroll) {
+  scroll-behavior: smooth;
+}
+
+.landing-anchor-scroll section[id] {
+  scroll-margin-top: 1rem;
+}
+
 @utility glass-extreme {
   background-color: rgba(255, 255, 255, 0.4);
   backdrop-filter: blur(40px) saturate(1.5);

@@ -31,6 +31,10 @@ interface ChatMessage {
   role: "user" | "assistant"
   text: string
   auditId?: string | null
+  // Progressive rendering: a streaming bubble accumulates tokens until the
+  // done event swaps in the final message (citations, usage line, findings).
+  streaming?: boolean
+  stage?: string | null
   findings?: Array<{ ruleKey: string; summary: string; severity: string; guidance?: string; pushback?: string; evidence?: Evidence[] }>
   sources?: Array<{ itemKey: string; title: string; authority: string; sourceName: string; sourceReference: string; jurisdiction: string; effectiveFrom: string }>
   legalCitations?: Array<{ title: string; section: string; url: string | null; passage: string; jurisdiction: string; authorityTier: number; retrievedAt: string; effectiveStatus: string }>
@@ -158,21 +162,177 @@ export function AskClient({
   async function doSend(question: string) {
     setError(null)
     const userMessage: ChatMessage = { id: newId(), role: "user", text: question }
-    const nextMessages = [...messages, userMessage]
+    const placeholderId = newId()
+    const nextMessages = [...messages, userMessage, { id: placeholderId, role: "assistant", text: "", streaming: true, stage: "Thinking…" } as ChatMessage]
     setMessages(nextMessages)
     setInput("")
     setSending(true)
     // Same intentional pacing as deal analysis: never flash working→done.
     const startedAt = Date.now()
+    let streamed = false
+    try {
+      streamed = await doSendStreamed(question, userMessage, placeholderId)
+      if (!streamed) {
+        // Transport failed before the pipeline produced anything: the
+        // placeholder never received a byte, so the buffered action is a
+        // safe retry (same idempotency key either way — never double bills).
+        setMessages((prev) => prev.filter((m) => m.id !== placeholderId))
+        await doSendBuffered(question, userMessage, nextMessages.slice(0, -1))
+      }
+    } catch (err) {
+      setMessages((prev) => prev.filter((m) => m.id !== placeholderId))
+      setError(sanitizeUserError(err instanceof Error ? err.message : "Something went wrong. Please try again."))
+    } finally {
+      // Streamed answers paced themselves token by token; only the buffered
+      // path needs the minimum working time.
+      if (!streamed) {
+        const elapsed = Date.now() - startedAt
+        if (elapsed < 900) await new Promise((r) => setTimeout(r, 900 - elapsed))
+      }
+      setSending(false)
+    }
+  }
+
+  /**
+   * Stream-first send. Returns true when the stream produced anything at all
+   * (tokens, stages, done, or a terminal error event): from that point the
+   * pipeline owns the turn and the buffered action must NOT run — retrying
+   * it would execute and bill the pipeline a second time. Returns false only
+   * when transport failed before a single event arrived.
+   */
+  async function doSendStreamed(question: string, userMessage: ChatMessage, placeholderId: string): Promise<boolean> {
+    const patchPlaceholder = (patch: Partial<ChatMessage>) =>
+      setMessages((prev) => prev.map((m) => (m.id === placeholderId ? { ...m, ...patch } : m)))
+    let res: Response
+    try {
+      res = await fetch("/api/ask/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: question,
+          auditId: auditId || undefined,
+          conversationId: selectedId ?? undefined,
+          history: toHistory(messages),
+          idempotencyKey: userMessage.id,
+        }),
+      })
+    } catch {
+      return false
+    }
+    if (!res.ok || !res.body || !(res.headers.get("Content-Type") ?? "").includes("text/event-stream")) {
+      return false
+    }
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+    let sawEvent = false
+    const applyDone = (response: ConversationResponse & { conversationId?: string }) => {
+      applyResponse(response, question, placeholderId)
+    }
+    try {
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const blocks = buffer.split("\n\n")
+        buffer = blocks.pop() ?? ""
+        for (const block of blocks) {
+          const line = block.split("\n").find((l) => l.startsWith("data:"))
+          if (!line) continue
+          let payload: { type: string; label?: string; delta?: string; response?: ConversationResponse & { conversationId?: string }; conversationId?: string; replaced?: boolean; error?: string }
+          try {
+            payload = JSON.parse(line.slice(5).trim())
+          } catch {
+            continue
+          }
+          sawEvent = true
+          if (payload.type === "stage") {
+            patchPlaceholder({ stage: payload.label ?? "Thinking…" })
+          } else if (payload.type === "token") {
+            const delta = payload.delta ?? ""
+            setMessages((prev) => prev.map((m) => (m.id === placeholderId ? { ...m, text: m.text + delta } : m)))
+          } else if (payload.type === "done" && payload.response) {
+            applyDone(payload.response)
+          } else if (payload.type === "error") {
+            if (payload.error === "CONSENT_REQUIRED") {
+              setMessages((prev) => prev.filter((m) => m.id !== placeholderId))
+              setPendingQuestion(question)
+              setShowConsentModal(true)
+            } else {
+              // Partial streamed text stays visible; the error explains the
+              // attempt failed and nothing was charged for it.
+              patchPlaceholder({ streaming: false, stage: null })
+              setError(payload.error ?? "Something went wrong. Please try again.")
+            }
+          }
+        }
+      }
+    } catch {
+      // Mid-stream transport cut: the pipeline owns the turn (it may still
+      // complete server-side), so never fall back to buffered here. Partial
+      // text stays with an honest error beside it.
+      patchPlaceholder({ streaming: false, stage: null })
+      setError("The answer stopped arriving — check the thread; nothing was charged for this attempt.")
+    }
+    return sawEvent
+  }
+
+  function applyResponse(response: ConversationResponse & { conversationId?: string }, question: string, placeholderId: string) {
+    if ((response as { type: string }).type === "error") {
+      setMessages((prev) => prev.filter((m) => m.id !== placeholderId))
+      setError((response as unknown as { error: string }).error)
+      return
+    }
+    const newConversationId = response.conversationId
+    if (newConversationId && newConversationId !== selectedId) {
+      setSelectedId(newConversationId)
+      setConversations((prev) => {
+        if (prev.some((c) => c.id === newConversationId)) return prev
+        const title = question.slice(0, 60)
+        return [{ id: newConversationId, title, attachedAuditId: auditId || null, updatedAt: new Date().toISOString(), createdAt: new Date().toISOString() }, ...prev]
+      })
+    }
+    const swapPlaceholder = (msg: ChatMessage) =>
+      setMessages((prev) => prev.map((m) => (m.id === placeholderId ? { ...msg, id: placeholderId } : m)))
+    if (response.type === "answer") {
+      const assistant = assistantMessage(response, auditId || null)
+      swapPlaceholder({ ...assistant, streaming: false, stage: null })
+      if (typeof response.balance === "number") setBalance(response.balance)
+    } else if (response.type === "needs_document") {
+      swapPlaceholder({ id: placeholderId, role: "assistant", text: response.message, streaming: false })
+    } else {
+      // Denied for credits: keep the question in the box (nothing the user
+      // typed is lost), state the balance, and link the way forward.
+      const balanceLine =
+        typeof response.balance === "number"
+          ? ` Balance: ${response.balance} credit${response.balance === 1 ? "" : "s"}.`
+          : ""
+      setInput(question)
+      swapPlaceholder({
+        id: placeholderId,
+        role: "assistant",
+        text: `I cannot run that right now: ${response.denialReason}.${balanceLine} Credits pay for computation, and this one needs more than is available — top up in Billing (account menu, top right), then send again. Your question is still in the box above.`,
+        streaming: false,
+      })
+      if (typeof response.balance === "number") setBalance(response.balance)
+    }
+  }
+
+  async function doSendBuffered(question: string, userMessage: ChatMessage, baseMessages: ChatMessage[]) {
+    // Buffered fallback: appends a working placeholder and reuses the same
+    // swap-in logic as the stream path, so both land identical messages.
+    const fallbackId = newId()
+    setMessages((prev) => [...prev, { id: fallbackId, role: "assistant", text: "", streaming: true, stage: "Thinking…" } as ChatMessage])
     try {
       const response = await askQuestionAction({
         text: question,
         auditId: auditId || undefined,
         conversationId: selectedId ?? undefined,
-        history: toHistory(nextMessages.slice(0, -1)),
+        history: toHistory(baseMessages.slice(0, -1)),
         idempotencyKey: userMessage.id,
       })
       if (response.type === "error") {
+        setMessages((prev) => prev.filter((m) => m.id !== fallbackId))
         if (response.error === "CONSENT_REQUIRED") {
           setPendingQuestion(question)
           setShowConsentModal(true)
@@ -181,45 +341,10 @@ export function AskClient({
         setError(response.error)
         return
       }
-      const newConversationId = response.conversationId as string | undefined
-      if (newConversationId && newConversationId !== selectedId) {
-        setSelectedId(newConversationId)
-        setConversations((prev) => {
-          if (prev.some((c) => c.id === newConversationId)) return prev
-          const title = question.slice(0, 60)
-          return [{ id: newConversationId, title, attachedAuditId: auditId || null, updatedAt: new Date().toISOString(), createdAt: new Date().toISOString() }, ...prev]
-        })
-      }
-      if (response.type === "answer") {
-        const assistant = assistantMessage(response, auditId || null)
-        setMessages((prev) => [...prev, assistant])
-        if (typeof response.balance === "number") setBalance(response.balance)
-      } else if (response.type === "needs_document") {
-        setMessages((prev) => [...prev, { id: newId(), role: "assistant", text: response.message }])
-      } else {
-        // Denied for credits: keep the question in the box (nothing the user
-        // typed is lost), state the balance, and link the way forward.
-        const balanceLine =
-          typeof response.balance === "number"
-            ? ` Balance: ${response.balance} credit${response.balance === 1 ? "" : "s"}.`
-            : ""
-        setInput(question)
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: newId(),
-            role: "assistant",
-            text: `I cannot run that right now: ${response.denialReason}.${balanceLine} Credits pay for computation, and this one needs more than is available — top up in Billing (account menu, top right), then send again. Your question is still in the box above.`,
-          },
-        ])
-        if (typeof response.balance === "number") setBalance(response.balance)
-      }
+      applyResponse(response, question, fallbackId)
     } catch (err) {
+      setMessages((prev) => prev.filter((m) => m.id !== fallbackId))
       setError(sanitizeUserError(err instanceof Error ? err.message : "Something went wrong. Please try again."))
-    } finally {
-      const elapsed = Date.now() - startedAt
-      if (elapsed < 900) await new Promise((r) => setTimeout(r, 900 - elapsed))
-      setSending(false)
     }
   }
 
@@ -348,6 +473,12 @@ export function AskClient({
                 )}
               >
                 <Markdown text={m.text} />
+                {m.streaming && (
+                  <p className="mt-1 text-[11px] text-muted-foreground" role="status">
+                    {m.stage ?? "Thinking…"}
+                    <span className="animate-pulse"> ▍</span>
+                  </p>
+                )}
                 {m.findings && m.findings.length > 0 && (
                   <div className="mt-2 space-y-1.5 border-t border-border/60 pt-2">
                     {m.findings.map((f) => (
@@ -408,7 +539,7 @@ export function AskClient({
               </div>
             </div>
           ))}
-          {sending && (
+          {sending && !messages.some((m) => m.streaming) && (
             <div className="flex justify-start">
               <div className="rounded-xl bg-muted/70 px-3.5 py-2.5">
                 <AiWorking label="Thinking it through" />

@@ -18,6 +18,7 @@ import {
   classifyOperation,
   DETERMINISTIC_GREETING,
   isGreeting,
+  type ConversationPorts,
   type ConversationResponse,
   type HistoryTurn,
 } from "@/lib/conversation/request"
@@ -25,7 +26,7 @@ import { getCreditBalance, type LedgerClient } from "@/lib/credits/ledger"
 import { priceForOperation, STANDARD_CREDIT_POLICY } from "@/lib/credits/pricing"
 import { fetchPublishedKnowledge, resolveKnowledge } from "@/lib/knowledge"
 import { parseContextEnvelope } from "@/lib/context/schema"
-import { callAISurface } from "@/lib/ai/client"
+import { callAISurface, callAISurfaceStreaming } from "@/lib/ai/client"
 import { AIProviderError } from "@/lib/ai/errors"
 import { reportError } from "@/lib/logger"
 import { publicErrorMessage } from "@/lib/safe-error"
@@ -130,7 +131,26 @@ export async function askQuestionAction(input: AskInput): Promise<AskActionResul
   }
 }
 
-async function askQuestionInner(input: AskInput): Promise<ConversationResponse & { conversationId?: string }> {
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
+
+export interface PreparedAskTurn {
+  supabase: SupabaseServerClient
+  user: { id: string }
+  conversation: ConversationRow
+  ledger: LedgerClient
+  serverHistory: Array<{ role: "user" | "assistant"; text: string }>
+}
+
+/**
+ * Shared turn setup for the buffered server action and the streaming route.
+ * Runs every gate in the same order (auth, verify, text, audit ownership,
+ * conversation, consent), persists the user turn, and returns either an
+ * early deterministic answer (greetings: no thread ceremony at all) or the
+ * context the pipeline needs. Either caller gets identical gating or nothing.
+ */
+export async function prepareAskTurn(
+  input: AskInput
+): Promise<{ early: ConversationResponse & { conversationId?: string } } | { ready: PreparedAskTurn }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("You must be signed in to ask Dealenz.")
@@ -140,21 +160,23 @@ async function askQuestionInner(input: AskInput): Promise<ConversationResponse &
   // conversation row, no persisted turns, no credits, no consent prompt.
   if (isGreeting(input.text)) {
     return {
-      type: "answer",
-      text: DETERMINISTIC_GREETING,
-      operation: "conversation",
-      intent: "explore",
-      findingsUsed: [],
-      knowledgeSources: [],
-      legalCitations: [],
-      researchState: null,
-      legalLimitations: null,
-      requiresLawyerReview: false,
-      deterministic: true,
-      usageRecord: null,
-      creditsConsumed: null,
-      balance: null,
-      contractViolations: [],
+      early: {
+        type: "answer",
+        text: DETERMINISTIC_GREETING,
+        operation: "conversation",
+        intent: "explore",
+        findingsUsed: [],
+        knowledgeSources: [],
+        legalCitations: [],
+        researchState: null,
+        legalLimitations: null,
+        requiresLawyerReview: false,
+        deterministic: true,
+        usageRecord: null,
+        creditsConsumed: null,
+        balance: null,
+        contractViolations: [],
+      },
     }
   }
   // Ownership gate for attached documents: a row the user cannot see through
@@ -229,15 +251,19 @@ async function askQuestionInner(input: AskInput): Promise<ConversationResponse &
     content: input.text,
   })
 
-  let response: Awaited<ReturnType<typeof answerQuestion>>
-  try {
-    response = await answerQuestion({
-      text: input.text,
-      auditId: conversation.attached_audit_id ?? input.auditId,
-      userId: user.id,
-      history: serverHistory,
-      idempotencyKey: input.idempotencyKey,
-    ports: {
+  return { ready: { supabase, user: { id: user.id }, conversation, ledger, serverHistory } }
+}
+
+/**
+ * Real pipeline ports both callers share: RLS-governed reads, authenticated
+ * AI surface (streaming when onToken is passed), ledger RPCs, priced policy.
+ */
+export function buildAskPorts(
+  supabase: SupabaseServerClient,
+  user: { id: string },
+  ledger: LedgerClient
+): ConversationPorts {
+  return {
       loadContext: async (auditId: string) => {
         const { data } = await supabase
           .from("audits")
@@ -276,9 +302,13 @@ async function askQuestionInner(input: AskInput): Promise<ConversationResponse &
         const { getStandingRuleTexts } = await import("@/app/library/actions")
         return getStandingRuleTexts()
       },
-      aiCaller: async ({ systemPrompt, userContent, maxTokens }) => {
+      aiCaller: async ({ systemPrompt, userContent, maxTokens, onToken }) => {
         try {
-          const { text, meta } = await callAISurface("authenticated", { systemPrompt, userContent, temperature: 0.4, maxTokens })
+          // Streaming when the caller passes a sink (stream route), buffered
+          // otherwise (server action): one wrapper, identical ledger mapping.
+          const { text, meta } = onToken
+            ? await callAISurfaceStreaming("authenticated", { systemPrompt, userContent, temperature: 0.4, maxTokens }, onToken)
+            : await callAISurface("authenticated", { systemPrompt, userContent, temperature: 0.4, maxTokens })
           return { text, usage: meta.usage, provider: meta.primary.provider, model: meta.primary.model }
         } catch (err) {
           // Durable provider-failure record; the pipeline still owns the
@@ -297,7 +327,22 @@ async function askQuestionInner(input: AskInput): Promise<ConversationResponse &
       },
       ledger,
       policy: STANDARD_CREDIT_POLICY,
-    },
+  }
+}
+
+async function askQuestionInner(input: AskInput): Promise<ConversationResponse & { conversationId?: string }> {
+  const prepared = await prepareAskTurn(input)
+  if ("early" in prepared) return prepared.early
+  const { supabase, user, conversation, ledger, serverHistory } = prepared.ready
+  let response: Awaited<ReturnType<typeof answerQuestion>>
+  try {
+    response = await answerQuestion({
+      text: input.text,
+      auditId: conversation.attached_audit_id ?? input.auditId,
+      userId: user.id,
+      history: serverHistory,
+      idempotencyKey: input.idempotencyKey,
+      ports: buildAskPorts(supabase, user, ledger),
     })
   } catch (err) {
     // Provider/infrastructure details never reach the client. The pipeline
@@ -307,14 +352,26 @@ async function askQuestionInner(input: AskInput): Promise<ConversationResponse &
     )
   }
 
-  // Persist the assistant turn and touch the conversation for ordering.
-  // The persisted copy includes the pipeline's operation/intent/objective
-  // where available, so history reloads are self-describing, but the live
-  // path never trusts a client replay of those fields.
+  await persistAskAssistant(supabase, user.id, conversation.id, response)
+
+  return { ...response, conversationId: conversation.id } as ConversationResponse & { conversationId: string }
+}
+
+/**
+ * Assistant-turn persistence both callers share: the persisted copy carries
+ * the pipeline's operation/intent metadata so history reloads stay
+ * self-describing, and the conversation is touched for ordering.
+ */
+export async function persistAskAssistant(
+  supabase: SupabaseServerClient,
+  userId: string,
+  conversationId: string,
+  response: Awaited<ReturnType<typeof answerQuestion>>
+): Promise<void> {
   if (response.type === "answer") {
     await addMessage(supabase as never, {
-      conversationId: conversation.id,
-      userId: user.id,
+      conversationId,
+      userId,
       role: "assistant",
       content: response.text,
       operation: response.operation,
@@ -335,8 +392,8 @@ async function askQuestionInner(input: AskInput): Promise<ConversationResponse &
     })
   } else if (response.type === "needs_document") {
     await addMessage(supabase as never, {
-      conversationId: conversation.id,
-      userId: user.id,
+      conversationId,
+      userId,
       role: "assistant",
       content: response.message,
       operation: response.operation,
@@ -344,17 +401,15 @@ async function askQuestionInner(input: AskInput): Promise<ConversationResponse &
     })
   } else if (response.type === "denied") {
     await addMessage(supabase as never, {
-      conversationId: conversation.id,
-      userId: user.id,
+      conversationId,
+      userId,
       role: "assistant",
       content: `I cannot run that right now: ${response.denialReason}. Credits pay for computation, and this one needs more than is available.`,
       operation: response.operation,
       intent: response.intent,
     })
   }
-  await touchConversation(supabase as never, user.id, conversation.id)
-
-  return { ...response, conversationId: conversation.id } as ConversationResponse & { conversationId: string }
+  await touchConversation(supabase as never, userId, conversationId)
 }
 
 export async function estimateAskCredits(text: string, hasDocument: boolean): Promise<number> {

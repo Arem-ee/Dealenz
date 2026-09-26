@@ -86,6 +86,7 @@ export function PurchaseSection({ enabledCurrencies }: { enabledCurrencies?: Cur
   const offered = enabledCurrencies && enabledCurrencies.length > 0 ? enabledCurrencies : ALL_CURRENCIES
   const [currency, setCurrency] = useState<Currency>(offered[0])
   const [loading, setLoading] = useState<string | null>(null)
+  const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -94,11 +95,38 @@ export function PurchaseSection({ enabledCurrencies }: { enabledCurrencies?: Cur
   // calls). A ref keeps this per mounted instance instead of a reassigned
   // module variable, which render-purity rules forbid.
   const paddleInitRef = useRef(false)
+  // Warm baseline so the click path skips straight to the server call.
+  const baselineRef = useRef<number | null>(null)
 
   useEffect(() => {
     return () => {
       if (pollTimer.current) clearInterval(pollTimer.current)
     }
+  }, [])
+
+  // Preload on mount, not on click: Paddle.js (~cdn.paddle.com) plus
+  // Initialize plus the balance baseline all resolve while the buyer is
+  // still reading — the click then pays only the transaction-create call.
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const [paddle, baseline] = await Promise.all([loadPaddleJs(), readBalance()])
+      if (cancelled) return
+      baselineRef.current = baseline
+      const token = (process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? "").trim()
+      if (paddle && token && !paddleInitRef.current) {
+        try {
+          paddle.Initialize({ token, environment: paddleEnvironment(), eventCallback: handleCheckoutEvent })
+          paddleInitRef.current = true
+        } catch {
+          // Initialize stays lazy at open time.
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only warmup
   }, [])
 
   // After Paddle confirms payment, the webhook still needs a moment to
@@ -134,7 +162,26 @@ export function PurchaseSection({ enabledCurrencies }: { enabledCurrencies?: Cur
     }, 5000)
   }
 
-  async function openOverlayCheckout(transactionId: string, baseline: number | null, email: string | null): Promise<boolean> {
+  // Shared Paddle.js event handling for mount-time and click-time init.
+  function handleCheckoutEvent(data: unknown) {
+    const name = (data as { name?: unknown } | null)?.name
+    if (name === "checkout.completed") {
+      try {
+        window.Paddle?.Checkout.close()
+      } catch {
+        // Overlay already gone; fall through to confirmation.
+      }
+      pollForCredits(baselineRef.current)
+    } else if (name === "checkout.closed") {
+      // Closed early (or after Paddle's own success screen): refresh
+      // in case the webhook already settled credits.
+      router.refresh()
+    } else if (name === "checkout.error") {
+      setError("The payment page reported a problem — no credits were charged. Check Paddle dashboard configuration, then try again.")
+    }
+  }
+
+  async function openOverlayCheckout(transactionId: string, email: string | null): Promise<boolean> {
     const token = (process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? "").trim()
     if (!token) return false
     const paddle = await loadPaddleJs()
@@ -144,23 +191,7 @@ export function PurchaseSection({ enabledCurrencies }: { enabledCurrencies?: Cur
         paddle.Initialize({
           token,
           environment: paddleEnvironment(),
-          eventCallback: (data: unknown) => {
-            const name = (data as { name?: unknown } | null)?.name
-            if (name === "checkout.completed") {
-              try {
-                paddle.Checkout.close()
-              } catch {
-                // Overlay already gone; fall through to confirmation.
-              }
-              pollForCredits(baseline)
-            } else if (name === "checkout.closed") {
-              // Closed early (or after Paddle's own success screen): refresh
-              // in case the webhook already settled credits.
-              router.refresh()
-            } else if (name === "checkout.error") {
-              setError("The payment page reported a problem — no credits were charged. Check Paddle dashboard configuration, then try again.")
-            }
-          },
+          eventCallback: handleCheckoutEvent,
         })
         paddleInitRef.current = true
       }
@@ -182,28 +213,35 @@ export function PurchaseSection({ enabledCurrencies }: { enabledCurrencies?: Cur
 
   async function handleBuy(packageId: string) {
     setLoading(packageId)
+    setStatus("Creating secure checkout…")
     setError(null)
     setSuccess(null)
     try {
-      const baseline = await readBalance()
-      const { data: { user } } = await createClient().auth.getUser()
-      const res = await fetch("/api/billing/checkout", {
+      // The server transaction-create is the only irreducible network cost
+      // (Paddle API); everything else rides alongside it, never before it.
+      const checkoutRequest = fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ packageId, currency }),
       })
+      const sessionRequest = createClient().auth.getSession()
+      const baselineRequest =
+        baselineRef.current !== null ? Promise.resolve(baselineRef.current) : readBalance()
+      const [res, session, baseline] = await Promise.all([checkoutRequest, sessionRequest, baselineRequest])
+      baselineRef.current = baseline
+      const email = session.data.session?.user?.email ?? null
       const data = (await res.json()) as { url?: string; checkoutId?: string; error?: string }
       if (!res.ok) throw new Error(data.error ?? "Checkout failed")
       if (!data.url) throw new Error("No checkout URL returned")
       // Prefer the in-app overlay (no navigation away); fall back to the
       // hosted checkout URL only when it actually points at Paddle.
-      // A same-domain ?ptxn= URL needs Paddle.js on that page (ours have
-      // none) and would strand the buyer on the homepage — surface an
-      // error instead of navigating to a dead end.
+      // A same-domain ?_ptxn= URL would strand the buyer on the homepage —
+      // surface an error instead of navigating to a dead end.
       if (data.checkoutId && data.checkoutId.startsWith("txn_")) {
-        const opened = await openOverlayCheckout(data.checkoutId, baseline, user?.email ?? null)
+        const opened = await openOverlayCheckout(data.checkoutId, email)
         if (opened) {
           setLoading(null)
+          setStatus(null)
           return
         }
       }
@@ -215,6 +253,7 @@ export function PurchaseSection({ enabledCurrencies }: { enabledCurrencies?: Cur
     } catch (e) {
       setError(e instanceof Error ? e.message : "Checkout failed")
       setLoading(null)
+      setStatus(null)
     }
   }
 
@@ -249,6 +288,9 @@ export function PurchaseSection({ enabledCurrencies }: { enabledCurrencies?: Cur
           </div>
         ))}
       </div>
+      {loading && status && (
+        <p className="text-xs text-muted-foreground" role="status">{status}</p>
+      )}
       {error && (
         <div className="rounded-md bg-destructive/10 p-3 text-xs text-destructive">
           {error} — no credits were charged. Try again or pick a different package.

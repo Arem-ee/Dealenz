@@ -58,6 +58,10 @@ export interface ConversationPorts {
     systemPrompt: string
     userContent: string
     maxTokens: number
+    // Optional token sink for streaming surfaces. Present only on the main
+    // answer call; the repair call stays buffered so a replacement arrives
+    // whole and the route can emit it as a single swap.
+    onToken?: (delta: string) => void
   }): Promise<{ text: string; usage?: TokenUsage; provider: string; model: string }>
   ledger: LedgerClient
   policy: CreditPolicy | null
@@ -70,6 +74,9 @@ export interface ConversationRequest {
   objective?: UserObjective
   history?: HistoryTurn[]
   idempotencyKey?: string
+  // Optional token sink for streaming callers. Threaded to the main answer
+  // call only; absent means fully buffered (all existing callers unchanged).
+  onToken?: (delta: string) => void
   ports: ConversationPorts
 }
 
@@ -462,7 +469,7 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
   const maxTokens = clarification ? OUTPUT_BUDGET_BRIEF : maxTokensForOperation(operation)
 
   try {
-    const answer = await request.ports.aiCaller({ systemPrompt, userContent: taskPrompt, maxTokens })
+    const answer = await request.ports.aiCaller({ systemPrompt, userContent: taskPrompt, maxTokens, onToken: request.onToken })
     const violations: string[] = []
     const check = validateOutputContract(answer.text)
     if (check.hasEmDash) violations.push("em-dash")

@@ -1,6 +1,7 @@
 import { callGeminiProvider } from "./providers/gemini"
-import { callOpenAICompatible } from "./providers/openai-compatible"
+import { callOpenAICompatible, resolveOpenAIRequest } from "./providers/openai-compatible"
 import { callAnthropicProvider } from "./providers/anthropic"
+import { streamChatContent } from "./stream"
 import {
   AIProviderError,
   isFallbackableCategory,
@@ -219,6 +220,53 @@ export async function callAIForSurface(
       servedByFallback: false,
       usage: result.usage,
     },
+  }
+}
+
+// Streaming entry point. Streams the primary call when the resolved surface
+// provider speaks OpenAI-compatible SSE (the production default via
+// OpenRouter); every other provider serves buffered with zero tokens emitted,
+// so callers keep one code path and never branch on provider.
+//
+// Pre-first-token stream failure falls back to the buffered surface call
+// (identical output, just late). Post-first-token failure throws: tokens
+// already shown cannot be unsent, and the pipeline's catch path voids the
+// reservation exactly like a buffered provider failure.
+export async function callAISurfaceStream(
+  surface: AISurface,
+  params: CallAIParams,
+  onToken: (delta: string) => void
+): Promise<{ text: string; meta: SurfaceCallMeta; streamed: boolean }> {
+  const config = resolveSurfaceConfig(surface)
+  if (surface !== "authenticated" || config.provider !== "openai_compatible") {
+    const buffered = await callAIForSurface(surface, params)
+    return { ...buffered, streamed: false }
+  }
+  const { url, headers, body, model } = resolveOpenAIRequest(params)
+  const primary = { provider: "openai_compatible", model }
+  let sawToken = false
+  try {
+    const result = await streamChatContent(
+      {
+        url,
+        headers,
+        body: { ...body, stream: true, stream_options: { include_usage: true } },
+        provider: "openai_compatible",
+      },
+      (delta) => {
+        sawToken = true
+        onToken(delta)
+      }
+    )
+    return {
+      text: result.text,
+      meta: { surface, primary, fallbackAttempted: false, servedByFallback: false, usage: result.usage },
+      streamed: true,
+    }
+  } catch (err) {
+    if (sawToken) throw toProviderError(err, "openai_compatible")
+    const buffered = await callAIForSurface(surface, params)
+    return { ...buffered, streamed: false }
   }
 }
 

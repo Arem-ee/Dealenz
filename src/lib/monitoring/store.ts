@@ -49,7 +49,10 @@ export async function createMonitoringEvent(client: Client, userId: string, inpu
 
 export async function listMonitoringEvents(client: Client, userId: string, auditId: string): Promise<Array<Record<string, unknown>>> {
   if (!isUUID(auditId)) throw new Error("Invalid auditId")
-  const { data, error } = await client.from("monitoring_events").select("*").eq("audit_id", auditId).eq("user_id", userId).order("due_date", { ascending: true })
+  // Column-scoped like every sibling query on the thread path: the three
+  // consumers together read id, event_type, title, due_date, provenance,
+  // status, source, document_version_id, audit_id, created_at — nothing else.
+  const { data, error } = await client.from("monitoring_events").select("id, audit_id, event_type, title, due_date, provenance, status, source, document_version_id, created_at").eq("audit_id", auditId).eq("user_id", userId).order("due_date", { ascending: true })
   if (error) throw new Error(error.message)
   return (data as Array<Record<string, unknown>>) ?? []
 }
