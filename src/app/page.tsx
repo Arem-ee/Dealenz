@@ -2,11 +2,15 @@ import Link from "next/link"
 import Image from "next/image"
 import { CREDIT_PACKAGES, formatPrice, packageValueLines } from "@/lib/billing/catalog"
 import {
+  ArrowDown,
   ArrowRight,
   Bell,
+  CheckCircle2,
   CircleAlert,
+  Clock,
   Download,
   EyeOff,
+  FileCheck,
   FileText,
   Mail,
   PenLine,
@@ -29,16 +33,19 @@ const steps = [
   {
     n: "1",
     title: "Upload it",
+    tag: "Their paper in",
     body: "Drop in their contract or describe the situation in your own words. No questionnaire, no legal form, no account homework.",
   },
   {
     n: "2",
     title: "Push back",
+    tag: "Every risk, quoted",
     body: "For each real risk, get the exact words to send back — staged payments, clearer scope, a revised clause. Re-check the redline before you sign.",
   },
   {
     n: "3",
     title: "Sign guarded",
+    tag: "Sign tracked",
     body: "Both sides sign in the same workspace. Renewals, notice windows, and obligations stay tracked, with email alerts before they matter.",
   },
 ]
@@ -176,7 +183,7 @@ export default function Home() {
                 10 signup credits — first two analyses free
               </span>
             </div>
-            <h1 className="mx-auto mt-5 max-w-[20ch] text-[40px] font-semibold leading-[1.04] tracking-[-0.04em] sm:text-[54px] lg:text-[64px]">
+            <h1 className="mx-auto mt-5 max-w-[20ch] text-[40px] font-semibold leading-[1.04] tracking-[-0.04em] sm:text-[48px] lg:text-[56px]">
               Know the risk. Get the words to push back.
             </h1>
             <p className="mx-auto mt-5 max-w-[56ch] text-[15px] leading-relaxed text-foreground/60 lg:text-[16px]">
@@ -207,14 +214,26 @@ export default function Home() {
               <OrbitChip label="Contract" className="left-[8%] top-[16%]">
                 <FileText className="h-4 w-4 text-[var(--burgundy)]" />
               </OrbitChip>
+              <OrbitChip label="Signed" className="left-[15%] top-[34%] hidden sm:flex">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              </OrbitChip>
               <OrbitChip label="Review" className="right-[10%] top-[12%]">
                 <Search className="h-4 w-4 text-amber-600" />
+              </OrbitChip>
+              <OrbitChip label="Deadlines" className="right-[17%] top-[32%] hidden sm:flex">
+                <Clock className="h-4 w-4 text-sky-600" />
               </OrbitChip>
               <OrbitChip label="Fair terms" className="left-[2%] top-[52%]">
                 <Scale className="h-4 w-4 text-emerald-600" />
               </OrbitChip>
+              <OrbitChip label="Verified" className="left-[6%] top-[70%] hidden sm:flex">
+                <ShieldCheck className="h-4 w-4 text-[var(--burgundy)]" />
+              </OrbitChip>
               <OrbitChip label="Alerts" className="right-[3%] top-[48%]">
                 <Bell className="h-4 w-4 text-sky-600" />
+              </OrbitChip>
+              <OrbitChip label="Protected" className="right-[9%] top-[68%] hidden sm:flex">
+                <FileCheck className="h-4 w-4 text-violet-600" />
               </OrbitChip>
               <OrbitChip label="Upload" className="bottom-[10%] left-[16%]">
                 <Upload className="h-4 w-4 text-violet-600" />
@@ -318,74 +337,81 @@ export default function Home() {
               Upload the contract, push back with the right words, sign, and stay
               guarded — three steps, one place, nothing to learn.
             </p>
-            {/* Connected stepper: the process drawn as motion, not cards.
-                Desktop shows three nodes joined by arrows with a loop-back
-                for the re-check (push back → they revise → re-check is a real
-                cycle, and the differentiator). Mobile collapses to a vertical
-                timeline with the same spine — no fake geometry. */}
-            <div className="mt-10 hidden md:block" aria-label="How Dealenz works">
-              <ol className="grid grid-cols-3 items-stretch gap-0">
-                {steps.map((s, i) => (
-                  <li key={s.n} className="relative flex">
-                    <div className="flex-1 px-2 text-center">
-                      <span
-                        className={`mx-auto flex h-10 w-10 items-center justify-center rounded-full text-[15px] font-bold ${
-                          i === 1 ? "bg-[var(--burgundy)] text-white" : "border border-border bg-card text-foreground"
-                        }`}
+            {/* Arrow process: stacked stage cards joined by connectors, not a
+                card grid. The active stage (push back) carries the accent;
+                the re-check pill names the real loop (they revise, you
+                re-check). Text column carries the headline so the visual
+                never floats unexplained. */}
+            <div className="mt-10 grid items-center gap-10 lg:grid-cols-2">
+              <ol aria-label="How Dealenz works" className="order-2 mx-auto w-full max-w-[360px] lg:order-1">
+                {steps.map((s, i) => {
+                  const Icon = [Upload, Search, PenLine][i] ?? FileText
+                  const active = i === 1
+                  return (
+                    <li key={s.n}>
+                      <div
+                        className={`flex items-center gap-3.5 rounded-2xl border px-4 py-3.5 ${
+                          active
+                            ? "border-transparent bg-[var(--burgundy)] text-white shadow-[0_24px_56px_-20px_rgba(52,20,20,0.5)]"
+                            : "border-border bg-card shadow-[0_16px_40px_-24px_rgba(28,25,23,0.2)]"
+                        } ${i === 1 ? "sm:ml-10" : ""}`}
                       >
-                        {s.n}
-                      </span>
-                      <h3 className="mt-4 text-[17px] font-semibold tracking-[-0.01em]">{s.title}</h3>
-                      <p className="mx-auto mt-2 max-w-[32ch] text-[13px] leading-relaxed text-foreground/60">{s.body}</p>
-                    </div>
-                    {i < steps.length - 1 && (
-                      <ArrowRight aria-hidden className="absolute -right-3 top-4 h-5 w-5 text-foreground/30" />
-                    )}
-                  </li>
-                ))}
+                        <span
+                          aria-hidden
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                            active ? "bg-white/15" : "bg-foreground/[0.05]"
+                          }`}
+                        >
+                          <Icon className={`h-4 w-4 ${active ? "text-white" : "text-[var(--burgundy)]"}`} />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-[15px] font-semibold tracking-[-0.01em]">{s.title}</span>
+                          <span className={`block truncate text-[12px] ${active ? "text-white/70" : "text-foreground/50"}`}>{s.tag}</span>
+                        </span>
+                        <span
+                          aria-hidden
+                          className={`ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                            active ? "bg-white/15 text-white" : "bg-foreground/[0.05] text-foreground/60"
+                          }`}
+                        >
+                          {s.n}
+                        </span>
+                      </div>
+                      {i < steps.length - 1 && (
+                        <div aria-hidden className={`relative h-9 ${i === 1 ? "sm:ml-10" : ""}`}>
+                          <span className="absolute bottom-0 left-8 top-0 w-px bg-border" />
+                          <ArrowDown className="absolute -bottom-0.5 left-[25px] h-3.5 w-3.5 text-foreground/40" />
+                        </div>
+                      )}
+                      {i === 1 && (
+                        <p className={`mb-1 mt-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--burgundy)]/10 px-3 py-1 text-[11px] font-medium text-[var(--burgundy)] ${i === 1 ? "sm:ml-10" : ""}`}>
+                          <RotateCcw className="h-3 w-3" />
+                          They revise? Re-check before you sign
+                        </p>
+                      )}
+                    </li>
+                  )
+                })}
               </ol>
-              <div className="relative mt-2 h-16" aria-hidden>
-                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 16" preserveAspectRatio="none">
-                  <defs>
-                    <marker id="recheck-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                      <path d="M0,0 L6,3 L0,6 Z" fill="var(--burgundy)" />
-                    </marker>
-                  </defs>
-                  <path
-                    d="M 50,1 C 42,15 24,15 17,2"
-                    fill="none"
-                    stroke="var(--burgundy)"
-                    strokeOpacity="0.55"
-                    strokeWidth="0.6"
-                    strokeDasharray="2 1.4"
-                    markerEnd="url(#recheck-arrow)"
-                  />
-                </svg>
-                <p className="absolute inset-x-0 top-9 text-center text-[11px] font-medium text-[var(--burgundy)]">
-                  They revise — re-check the redline before you sign
+              <div className="order-1 mx-auto w-full max-w-[480px] text-center lg:order-2 lg:text-left">
+                <h3 className="text-[24px] font-semibold leading-tight tracking-[-0.02em] sm:text-[30px]">
+                  The loop is the product
+                </h3>
+                <p className="mt-3 text-[14px] leading-relaxed text-foreground/60">
+                  Most tools stop at the report. Dealenz is built around what happens next: push
+                  back in your words, re-check their revision, sign, and stay guarded — every
+                  deal, same loop, nothing to learn.
                 </p>
+                <Link
+                  href="/register"
+                  className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-[var(--burgundy)] px-7 text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
+                >
+                  Analyze your first deal
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <p className="mt-3 text-[12px] text-foreground/40">Free to start. No credit card required.</p>
               </div>
             </div>
-            <ol className="mt-10 space-y-0 md:hidden" aria-label="How Dealenz works">
-              {steps.map((s) => (
-                <li key={s.n} className="relative flex gap-4 pb-8 pl-1 last:pb-0">
-                  <span aria-hidden className="absolute bottom-0 left-[15px] top-9 w-px bg-border last:hidden" />
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-bold text-primary-foreground">
-                    {s.n}
-                  </span>
-                  <div className="min-w-0 pt-0.5">
-                    <h3 className="text-[16px] font-semibold tracking-[-0.01em]">{s.title}</h3>
-                    <p className="mt-1 text-[13px] leading-relaxed text-foreground/60">{s.body}</p>
-                    {s.n === "2" && (
-                      <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--burgundy)]/10 px-3 py-1 text-[11px] font-medium text-[var(--burgundy)]">
-                        <RotateCcw className="h-3 w-3" />
-                        They revise? Re-check before you sign
-                      </p>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ol>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               <div className="rounded-[20px] border border-border bg-card p-5">
@@ -445,18 +471,18 @@ export default function Home() {
                 </div>
               </div>
               <div className="space-y-2.5">
-                <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.2)]">
+                <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-[0_24px_56px_-24px_rgba(28,25,23,0.25)]">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--burgundy)] text-[12px] font-bold text-white">AK</span>
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-semibold">Protection package ready</p>
                     <p className="truncate text-[12px] text-foreground/50">Revised clause 4.2 is ready to send.</p>
                   </div>
                 </div>
-                <div className="ml-8 flex items-center gap-2.5 rounded-2xl border border-border bg-card p-4 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.2)]">
+                <div className="ml-8 flex items-center gap-2.5 rounded-2xl border border-border bg-card p-4 shadow-[0_24px_56px_-24px_rgba(28,25,23,0.25)]">
                   <CircleAlert className="h-4 w-4 shrink-0 text-amber-700" />
                   <p className="text-[13px]">Renewal in 21 days — alert scheduled</p>
                 </div>
-                <div className="ml-16 flex items-center gap-2.5 rounded-2xl border border-border bg-card p-4 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.2)]">
+                <div className="ml-16 flex items-center gap-2.5 rounded-2xl border border-border bg-card p-4 shadow-[0_24px_56px_-24px_rgba(28,25,23,0.25)]">
                   <Mail className="h-4 w-4 shrink-0 text-[var(--burgundy)]" />
                   <p className="text-[13px]">Signed by both sides — document locked</p>
                 </div>
