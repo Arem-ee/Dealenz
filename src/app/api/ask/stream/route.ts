@@ -70,7 +70,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         send({ type: "token", delta })
       }
       try {
-        const ports = buildAskPorts(supabase, user, ledger)
+        const ports = await buildAskPorts(supabase, user, ledger)
         // Stage narration wraps the context ports: each emits only when it
         // actually runs (audit-attached turns), so unattached questions skip
         // straight to thinking.

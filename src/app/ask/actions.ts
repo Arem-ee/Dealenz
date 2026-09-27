@@ -260,11 +260,11 @@ export async function prepareAskTurn(
  * Real pipeline ports both callers share: RLS-governed reads, authenticated
  * AI surface (streaming when onToken is passed), ledger RPCs, priced policy.
  */
-export function buildAskPorts(
+export async function buildAskPorts(
   supabase: SupabaseServerClient,
   user: { id: string },
   ledger: LedgerClient
-): ConversationPorts {
+): Promise<ConversationPorts> {
   return {
       loadContext: async (auditId: string) => {
         const { data } = await supabase
@@ -344,7 +344,7 @@ async function askQuestionInner(input: AskInput): Promise<ConversationResponse &
       userId: user.id,
       history: serverHistory,
       idempotencyKey: input.idempotencyKey,
-      ports: buildAskPorts(supabase, user, ledger),
+      ports: await buildAskPorts(supabase, user, ledger),
     })
   } catch (err) {
     // Provider/infrastructure details never reach the client. The pipeline
