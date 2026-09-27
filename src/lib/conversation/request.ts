@@ -221,12 +221,18 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
     isClarificationTurn(history, text) && priceForOperation(operation) === CREDIT_PRICE_BRIEF
   const policy = clarification && request.ports.policy ? CLARIFICATION_POLICY : request.ports.policy
 
+  // Length-priced turn: raw submitted length (not the 4000-char prompt
+  // truncation, not history — the user pays for the material they sent this
+  // turn, already-paid history is never re-billed) travels to both the
+  // reservation and the completion so estimate and charge always agree.
+  const turnChars = rawText.length
   const authorization: Authorization = await authorizeOperation({
     ledger: request.ports.ledger,
     userId: request.userId,
     operation,
     idempotencyKey: request.idempotencyKey,
     policy,
+    inputChars: turnChars,
   })
   if (!authorization.authorized) {
     return {
@@ -517,6 +523,7 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
       usage: deliveredUsage,
       status: "success",
       policy,
+      inputChars: turnChars,
     })
     return {
       type: "answer",

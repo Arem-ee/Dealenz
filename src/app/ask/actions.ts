@@ -23,7 +23,7 @@ import {
   type HistoryTurn,
 } from "@/lib/conversation/request"
 import { getCreditBalance, type LedgerClient } from "@/lib/credits/ledger"
-import { priceForOperation, STANDARD_CREDIT_POLICY } from "@/lib/credits/pricing"
+import { priceForAsk, STANDARD_CREDIT_POLICY } from "@/lib/credits/pricing"
 import { fetchPublishedKnowledge, resolveKnowledge } from "@/lib/knowledge"
 import { parseContextEnvelope } from "@/lib/context/schema"
 import { callAISurface, callAISurfaceStreaming } from "@/lib/ai/client"
@@ -110,7 +110,9 @@ function asExtractedData(value: unknown): ExtractedData | null {
 function estimatedCreditsFor(text: string, hasDocument: boolean): number {
   if (isGreeting(text)) return 0
   try {
-    return priceForOperation(classifyOperation(text, hasDocument))
+    // Same price the pipeline will charge (work vs material, whichever is
+    // higher) — the estimate is a quote, never a teaser.
+    return priceForAsk(text, classifyOperation(text, hasDocument))
   } catch {
     return 1
   }

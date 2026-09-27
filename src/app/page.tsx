@@ -47,7 +47,7 @@ const steps = [
     n: "3",
     title: "Sign covered",
     tag: "Sign tracked",
-    body: "Both sides sign in the same workspace. Renewals, notice windows, and obligations stay tracked, with email alerts before they matter.",
+    body: "You sign first, then the other side signs through a secure link — no account needed on their end. Renewals, notice windows, and obligations stay tracked, with email alerts before they matter.",
   },
 ]
 
@@ -319,7 +319,7 @@ export default function Home() {
                 {
                   icon: <Bell className="h-4 w-4 text-[var(--burgundy)]" />,
                   title: "Sign here, stay guarded",
-                  body: "Both sides sign in one workspace. Renewals, notice windows, and obligations stay tracked, with email alerts before they matter.",
+                  body: "You sign first, then the other side signs through a secure link — no account needed on their end. Renewals, notice windows, and obligations stay tracked, with email alerts before they matter.",
                 },
               ].map((f) => (
                 <div key={f.title} className="text-center sm:px-6">

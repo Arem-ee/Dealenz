@@ -30,8 +30,12 @@ describe("estimateAskCredits", () => {
     expect(priceForOperation(classifyOperation("Hello", false))).toBe(2)
     // estimateAskCredits itself wraps isGreeting check to return 0
     expect(await estimateAskCredits("Hello", false)).toBe(0)
-    expect(await estimateAskCredits("What does net 30 mean?", false)).toBe(2)
+    // Length-priced: a basic 22-char question pays the 1-credit quick rate,
+    // not the flat brief 2; a document-backed standard question holds at 6.
+    expect(await estimateAskCredits("What does net 30 mean?", false)).toBe(1)
     expect(await estimateAskCredits("Should I accept this freelance contract?", true)).toBe(6)
+    // Pasted material on a brief question prices by length (extended here).
+    expect(await estimateAskCredits(`What does this mean? ${"lorem ipsum dolor sit amet ".repeat(400)}`, false)).toBe(25)
   }, 20000)
 })
 

@@ -26,6 +26,9 @@ export interface AuthorizationRequest {
   // whenever a policy is configured; optional in metering mode.
   idempotencyKey?: string
   policy?: CreditPolicy | null
+  // User-text length for length-priced policies (conversation path).
+  // Absent means price by operation alone.
+  inputChars?: number
 }
 
 export type AuthorizationMode = "metering" | "reserved" | "denied"
@@ -40,7 +43,7 @@ export interface Authorization {
 
 export async function authorizeOperation(request: AuthorizationRequest): Promise<Authorization> {
   const balance = await getCreditBalance(request.ledger).catch(() => null)
-  const estimate = request.policy ? request.policy.estimateMaxCredits(request.operation) : null
+  const estimate = request.policy ? request.policy.estimateMaxCredits(request.operation, request.inputChars) : null
   if (estimate === null) {
     // No priced policy: meter only. Nothing is held or charged.
     return { mode: "metering", authorized: true, reservationId: null, balance }
@@ -79,6 +82,8 @@ export interface CompletionInput {
   usage?: TokenUsage
   status: AIOperationStatus
   policy?: CreditPolicy | null
+  // Mirrors the authorization's inputChars so estimate and charge agree.
+  inputChars?: number
 }
 
 export interface Completion {
@@ -98,6 +103,7 @@ export async function completeOperation(input: CompletionInput): Promise<Complet
     model: input.model ?? "unattributed",
     usage: input.usage,
     status: input.status,
+    inputChars: input.inputChars,
   })
   if (input.authorization.mode !== "reserved" || !input.authorization.reservationId) {
     return { record, balance: input.authorization.balance }

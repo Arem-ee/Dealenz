@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/toast"
 import { useAiConsent } from "@/hooks/use-ai-consent"
 import { classifyInput } from "@/lib/chat/classifier"
-import { priceForOperation } from "@/lib/credits/pricing"
+import { priceForAsk } from "@/lib/credits/pricing"
 import { UPLOAD_CREDITS } from "@/lib/credits/pricing"
 import { setPendingFile } from "@/lib/pending-file"
 import { askQuestionAction } from "@/app/ask/actions"
@@ -67,16 +67,16 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
   }, [value])
   const hasContent = value.trim().length > 0 || !!pendingFile
   // Pre-send estimate, mirrored from Ask: greetings are free, questions
-  // price by operation size. Deal and action outcomes price downstream
-  // (analysis allowance, plan approval, document costs), so no number is
-  // shown rather than a wrong one.
+  // price by work-vs-material (whichever is higher). Deal and action outcomes
+  // price downstream (analysis allowance, plan approval, document costs), so
+  // no number is shown rather than a wrong one.
   const estimate = (() => {
     const text = value.trim() || (pendingFile ? `Document: ${pendingFile.name}` : "")
     if (!text) return null
     try {
       const { outcome, operation } = classifyInput(text, !!pendingFile)
       if (outcome === "greeting") return 0
-      if (outcome === "question") return priceForOperation(operation)
+      if (outcome === "question") return priceForAsk(text, operation)
       return null
     } catch {
       return null

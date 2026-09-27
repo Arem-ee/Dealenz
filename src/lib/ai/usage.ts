@@ -30,6 +30,10 @@ export interface AIUsageRecord {
   inputTokens?: number
   outputTokens?: number
   totalTokens?: number
+  // User-text length in characters, set by length-priced callers
+  // (conversation path). Drives the material half of the charge; absent
+  // means the policy prices by operation alone. Never provider tokens.
+  inputChars?: number
   // Null until a real credit policy records a charge. A null charge means
   // "not charged under any policy", never "free" and never zero by default.
   creditsConsumed: number | null
@@ -62,6 +66,7 @@ export function toUsageRecord(input: {
   status: AIOperationStatus
   dealType?: string
   step?: string
+  inputChars?: number
 }): AIUsageRecord {
   const record: AIUsageRecord = {
     operation: input.operation,
@@ -72,6 +77,9 @@ export function toUsageRecord(input: {
     dealType: input.dealType,
     step: input.step,
     createdAt: new Date().toISOString(),
+  };
+  if (typeof input.inputChars === "number" && Number.isFinite(input.inputChars) && input.inputChars >= 0) {
+    record.inputChars = Math.floor(input.inputChars)
   }
   if (input.usage) {
     record.inputTokens = input.usage.inputTokens
@@ -86,7 +94,7 @@ export function toUsageRecord(input: {
 // tokens into a charge. Provider tokens are an input to the policy, never
 // the user's balance and never a 1:1 price unless explicitly decided.
 export interface CreditPolicy {
-  estimateMaxCredits(operation: AIOperation): number | null
+  estimateMaxCredits(operation: AIOperation, inputChars?: number): number | null
   creditsForUsage(record: AIUsageRecord): number | null
 }
 

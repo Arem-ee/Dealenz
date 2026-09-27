@@ -1,12 +1,12 @@
-// First priced credit policy (Phase 5G).
-//
-// Operation-based flat prices per output-budget tier. These are provisional
-// product decisions, not measured economics: product.md requires roughly a
-// week of real token-usage measurement before prices freeze, so treat these
-// as the starting point for that exercise, not the final word. Deliberately
-// NOT derived from provider tokens: measured tokens are recorded on every
-// AIUsageRecord for the future pricing review, but the charge is a flat
-// per-operation price. No token-to-credit rate exists anywhere here.
+// First priced credit policy (Phase 5G), length-priced for conversation.
+// Operation tiers price the WORK (output budgets brief 1024 / standard 2048
+// / extended 8192); input-length tiers price the MATERIAL (quick 1 / brief 2
+// / standard 6 / extended 25 by user-text characters). Brief-tier asks pay
+// purely by material; standard/extended asks keep their tier as a floor.
+// Estimate and charge share one function, so quotes equal charges. Measured
+// provider tokens are recorded on every AIUsageRecord for future pricing
+// reviews but never converted at a token rate: the user pays for what they
+// send plus the work they request, never our prompt overhead.
 
 import { resolveOperationProfile, type AIOperation } from "@/lib/ai/operations"
 import type { AIUsageRecord, CreditPolicy } from "@/lib/ai/usage"
@@ -67,15 +67,84 @@ export function priceForOperation(operation: AIOperation): number {
   return CREDIT_PRICE_EXTENDED
 }
 
+// Input-length tiers (user-text characters, roughly 4 chars per token).
+// The operation tier prices the WORK (output budget); the length tier prices
+// the MATERIAL (how much the user pasted). A 20-word question costs 1, a
+// pasted contract costs extended — without this, both paid flat brief and
+// neither price was honest. Deliberately character-based, not token-based:
+// deterministic, explainable before the call, and independent of provider
+// tokenizers. Only the user's own text counts — findings, knowledge, history
+// and system prompts the pipeline adds are our cost, never billed.
+export const INPUT_TIER_QUICK_MAX = 280
+export const INPUT_TIER_BRIEF_MAX = 2000
+export const INPUT_TIER_STANDARD_MAX = 8000
+
+export const CREDIT_PRICE_QUICK = 1
+
+export function priceForInputLength(chars: number): number {
+  if (!Number.isFinite(chars) || chars <= INPUT_TIER_QUICK_MAX) return CREDIT_PRICE_QUICK
+  if (chars <= INPUT_TIER_BRIEF_MAX) return CREDIT_PRICE_BRIEF
+  if (chars <= INPUT_TIER_STANDARD_MAX) return CREDIT_PRICE_STANDARD
+  return CREDIT_PRICE_EXTENDED
+}
+
+// Ask pricing: brief-tier work is priced purely by material (a basic
+// question costs 1, a pasted contract costs up to extended); standard and
+// extended work keeps its tier as a floor and length can only raise it — a
+// short "draft my proposal" still pays the standard tier for the work
+// requested. Estimate and charge use this same function, so the quoted
+// price is always the paid price.
+export function priceForAskChars(chars: number, operation: AIOperation): number {
+  const lengthPrice = priceForInputLength(chars)
+  const operationPrice = priceForOperation(operation)
+  if (operationPrice === CREDIT_PRICE_BRIEF) return lengthPrice
+  return Math.max(operationPrice, lengthPrice)
+}
+
+export function priceForAsk(text: string, operation: AIOperation): number {
+  const length = typeof text === "string" ? text.trim().length : 0
+  return priceForAskChars(length, operation)
+}
+
 export const STANDARD_CREDIT_POLICY: CreditPolicy = {
-  estimateMaxCredits(operation: AIOperation): number {
+  estimateMaxCredits(operation: AIOperation, inputChars?: number): number {
+    if (typeof inputChars === "number") return priceForAskChars(inputChars, operation)
     return priceForOperation(operation)
   },
   creditsForUsage(record: AIUsageRecord): number {
-    // Flat operation price. The measured tokens on the record inform future
-    // pricing reviews; they do not change this charge.
-    return priceForOperation(record.operation)
+    // Settle-down: the final is the higher of material price (what the user
+    // sent) and output price (what was delivered), capped by the estimate —
+    // the quote is a ceiling and the final only stays or drops, never rises.
+    // For brief work the cap equals the input price, so output never matters
+    // there; standard/extended answers that land short refund the difference.
+    // Unmeasured output (no telemetry) settles at the estimate formula:
+    // discounts require measured proof, never absence. Non-conversation
+    // callers carry no inputChars and keep the flat operation price.
+    if (typeof record.inputChars !== "number") {
+      return priceForOperation(record.operation)
+    }
+    const estimate = priceForAskChars(record.inputChars, record.operation)
+    if (typeof record.outputTokens !== "number") {
+      return estimate
+    }
+    return Math.min(estimate, Math.max(priceForInputLength(record.inputChars), priceForOutputTokens(record.outputTokens)))
   },
+}
+
+// Output tiers (measured provider output tokens). Thresholds align with the
+// output budgets so a tier's cap prices at its own tier: brief answers top
+// out at brief price, standard at standard, extended at extended. Coarse
+// buckets on purpose — provider verbosity within a bucket is free, so no
+// tokenizer or model chattiness can nickel-and-dime the user.
+export const OUTPUT_TIER_QUICK_MAX = 256
+export const OUTPUT_TIER_BRIEF_MAX = 1024
+export const OUTPUT_TIER_STANDARD_MAX = 2048
+
+export function priceForOutputTokens(tokens: number): number {
+  if (!Number.isFinite(tokens) || tokens <= OUTPUT_TIER_QUICK_MAX) return CREDIT_PRICE_QUICK
+  if (tokens <= OUTPUT_TIER_BRIEF_MAX) return CREDIT_PRICE_BRIEF
+  if (tokens <= OUTPUT_TIER_STANDARD_MAX) return CREDIT_PRICE_STANDARD
+  return CREDIT_PRICE_EXTENDED
 }
 
 // Per-document generation costs, keyed by document family. These price the

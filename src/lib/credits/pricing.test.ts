@@ -7,6 +7,7 @@ import {
   CREDIT_PRICE_BRIEF,
   CREDIT_PRICE_STANDARD,
   CREDIT_PRICE_EXTENDED,
+  CREDIT_PRICE_QUICK,
   DOCUMENT_CREDIT_COSTS,
   LAWYER_REQUEST_CREDITS,
   SIGNATURE_SEND_CREDITS,
@@ -15,6 +16,9 @@ import {
   UPLOAD_CREDITS,
   creditsForDocumentType,
   isClarificationTurn,
+  priceForAsk,
+  priceForAskChars,
+  priceForInputLength,
   priceForOperation,
 } from "./pricing"
 
@@ -92,6 +96,70 @@ describe("standard credit policy", () => {
   it("prices counterparty research at standard with a micro resolution floor", () => {
     expect(priceForOperation("counterparty_research")).toBe(CREDIT_PRICE_STANDARD)
     expect(COUNTERPARTY_RESOLVE_CREDITS).toBe(1)
+  })
+})
+
+describe("length-priced asking", () => {
+  it("tiers material by characters, not provider tokens", () => {
+    expect(priceForInputLength(0)).toBe(CREDIT_PRICE_QUICK)
+    expect(priceForInputLength(280)).toBe(CREDIT_PRICE_QUICK)
+    expect(priceForInputLength(281)).toBe(CREDIT_PRICE_BRIEF)
+    expect(priceForInputLength(2000)).toBe(CREDIT_PRICE_BRIEF)
+    expect(priceForInputLength(2001)).toBe(CREDIT_PRICE_STANDARD)
+    expect(priceForInputLength(8000)).toBe(CREDIT_PRICE_STANDARD)
+    expect(priceForInputLength(8001)).toBe(CREDIT_PRICE_EXTENDED)
+    expect(CREDIT_PRICE_QUICK).toBe(1)
+  })
+
+  it("prices brief work purely by material", () => {
+    // A basic question costs 1, not the flat brief 2.
+    expect(priceForAsk("What does net 30 mean?", "conversation")).toBe(1)
+    expect(priceForAskChars(22, "conversation")).toBe(1)
+    expect(priceForAskChars(1500, "conversation")).toBe(CREDIT_PRICE_BRIEF)
+    // A pasted contract on a brief question pays extended for the material.
+    expect(priceForAskChars(20000, "conversation")).toBe(CREDIT_PRICE_EXTENDED)
+  })
+
+  it("never discounts standard and extended work below its tier", () => {
+    // A short "draft my proposal" still pays the standard tier for the work.
+    expect(priceForAsk("Draft my proposal", "decision_support")).toBe(CREDIT_PRICE_STANDARD)
+    expect(priceForAskChars(10000, "decision_support")).toBe(CREDIT_PRICE_EXTENDED)
+    expect(priceForAskChars(10000, "document_analysis")).toBe(CREDIT_PRICE_EXTENDED)
+  })
+
+  it("estimates and charges the same length-aware price", () => {
+    expect(STANDARD_CREDIT_POLICY.estimateMaxCredits("conversation", 22)).toBe(1)
+    expect(STANDARD_CREDIT_POLICY.estimateMaxCredits("conversation")).toBe(CREDIT_PRICE_BRIEF)
+    const record = {
+      operation: "conversation" as const, provider: "anthropic", model: "m",
+      creditsConsumed: null, status: "success" as const, createdAt: new Date().toISOString(),
+      inputChars: 22,
+    }
+    expect(STANDARD_CREDIT_POLICY.creditsForUsage(record)).toBe(1)
+  })
+
+  it("settles output down from the estimate, never up", () => {
+    const recordFor = (inputChars: number, operation: "conversation" | "decision_support", outputTokens?: number) => ({
+      operation, provider: "anthropic", model: "m",
+      creditsConsumed: null, status: "success" as const, createdAt: new Date().toISOString(),
+      inputChars, ...(outputTokens === undefined ? {} : { outputTokens }),
+    })
+    // Short standard question, concise answer: quoted 6, settled 1.
+    expect(STANDARD_CREDIT_POLICY.creditsForUsage(recordFor(41, "decision_support", 120))).toBe(1)
+    // Same question, full-length answer: quoted 6, settled 6.
+    expect(STANDARD_CREDIT_POLICY.creditsForUsage(recordFor(41, "decision_support", 1800))).toBe(6)
+    // Long input holds the charge even when the answer lands short.
+    expect(STANDARD_CREDIT_POLICY.creditsForUsage(recordFor(5000, "decision_support", 120))).toBe(6)
+    // Brief work settles at the input price regardless of output length.
+    expect(STANDARD_CREDIT_POLICY.creditsForUsage(recordFor(22, "conversation", 900))).toBe(1)
+    expect(STANDARD_CREDIT_POLICY.creditsForUsage(recordFor(1500, "conversation", 100))).toBe(2)
+    // No telemetry, no discount: settles at the estimate.
+    expect(STANDARD_CREDIT_POLICY.creditsForUsage(recordFor(41, "decision_support"))).toBe(6)
+    // Provider input-token counts still never price anything — only the
+    // character count and the measured output do.
+    expect(
+      STANDARD_CREDIT_POLICY.creditsForUsage({ ...recordFor(22, "conversation"), inputTokens: 9000, totalTokens: 9100 })
+    ).toBe(1)
   })
 })
 

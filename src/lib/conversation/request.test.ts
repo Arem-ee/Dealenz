@@ -361,7 +361,7 @@ describe("answerQuestion", () => {
     expect(aiCalls[0].maxTokens).toBeLessThanOrEqual(1024)
   })
 
-  it("charges the full brief price for the same text with no preceding question", async () => {
+  it("charges the quick rate for short text with no preceding question", async () => {
     const { ports } = fakePorts({ policy: STANDARD_CREDIT_POLICY })
     const response = await answerQuestion({
       text: "Lagos, Nigeria",
@@ -371,14 +371,22 @@ describe("answerQuestion", () => {
     })
     expect(response.type).toBe("answer")
     if (response.type !== "answer") throw new Error("unreachable")
-    expect(response.creditsConsumed).toBe(2)
+    // Short brief-tier text pays the 1-credit quick rate by length — the
+    // clarification policy is not what discounts it (no preceding question).
+    expect(response.creditsConsumed).toBe(1)
   })
 
   it("charges full price when the reply asks its own question", async () => {
     const { ports } = fakePorts({ policy: STANDARD_CREDIT_POLICY })
     const history = [{ role: "assistant" as const, text: "Where will the work be performed?" }]
+    // Long enough to clear the quick tier, so only the standard policy can
+    // price it — and the "?" disqualifies the clarification rate regardless.
+    const text =
+      "Lagos — but what does governing law mean? I need to understand how jurisdiction clauses interact " +
+      "with dispute resolution venues, which courts would hear a claim if something goes wrong, and whether " +
+      "arbitration or litigation serves a small freelance engagement better across borders."
     const response = await answerQuestion({
-      text: "Lagos — but what does governing law mean?",
+      text,
       userId: "u1",
       history,
       idempotencyKey: "clar-2",

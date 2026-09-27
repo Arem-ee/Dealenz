@@ -18,7 +18,7 @@ import {
   type ConversationSummary,
 } from "@/app/ask/actions"
 import { classifyOperation, isGreeting } from "@/lib/conversation/classify"
-import { CREDIT_PRICE_BRIEF, CREDIT_PRICE_EXTENDED, CREDIT_PRICE_STANDARD, priceForOperation } from "@/lib/credits/pricing"
+import { CREDIT_PRICE_BRIEF, CREDIT_PRICE_EXTENDED, CREDIT_PRICE_QUICK, CREDIT_PRICE_STANDARD, priceForAsk } from "@/lib/credits/pricing"
 import type { ConversationResponse, HistoryTurn } from "@/lib/conversation/request"
 import type { Evidence } from "@/lib/evidence/schema"
 import { EvidenceLine } from "@/components/evidence/evidence-line"
@@ -53,7 +53,7 @@ function estimatedCost(text: string, hasDocument: boolean): number | null {
   if (!text.trim()) return null
   if (isGreeting(text)) return 0
   try {
-    return priceForOperation(classifyOperation(text, hasDocument))
+    return priceForAsk(text, classifyOperation(text, hasDocument))
   } catch {
     return null
   }
@@ -585,7 +585,7 @@ export function AskClient({
               <>Estimated cost: {estimate} credit{estimate === 1 ? "" : "s"}. </>
             )
           ) : null}
-          Answers cost {CREDIT_PRICE_BRIEF}/{CREDIT_PRICE_STANDARD}/{CREDIT_PRICE_EXTENDED} credits by size (brief/standard/extended). <Link href="/billing" className="underline">Billing</Link>
+          Quick questions cost {CREDIT_PRICE_QUICK} credit; longer questions cost {CREDIT_PRICE_BRIEF}/{CREDIT_PRICE_STANDARD}/{CREDIT_PRICE_EXTENDED} by length (brief/standard/extended). The quote is a ceiling — concise answers settle lower. <Link href="/billing" className="underline">Billing</Link>
         </p>
         {viewer ? (
           <DocumentViewerModal
