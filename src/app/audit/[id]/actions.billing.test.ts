@@ -207,6 +207,24 @@ describe("billing enforcement", () => {
     expect(mockRpc).not.toHaveBeenCalledWith("finalize_reservation", expect.anything())
   })
 
+  it("analyzeDeal on a plan-held reservation skips inner reserve/finalize/void", async () => {
+    const audits = auditsQuery(
+      { id: "audit-1", ai_consent: true, raw_input: "Build a website", structured_data: { files: [] } },
+      [{ id: "audit-1" }]
+    )
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? consentQb() : table === "audits" ? audits : qb()))
+
+    const result = await analyzeDeal("audit-1", { outerReservationId: "plan-res-1" })
+
+    // Same completed analysis, but peak hold stays at the plan's 5: no inner
+    // hold is ever created, so nothing is finalized or voided here either —
+    // the plan owns settlement entirely.
+    expect(result.success).toBe(true)
+    expect(mockRpc).not.toHaveBeenCalledWith("reserve_credits", expect.anything())
+    expect(mockRpc).not.toHaveBeenCalledWith("finalize_reservation", expect.anything())
+    expect(mockRpc).not.toHaveBeenCalledWith("void_reservation", expect.anything())
+  })
+
   it("generateProtectionPackage reserves the 55-credit package and finalizes on success", async () => {
     const row = {
       id: "audit-1",

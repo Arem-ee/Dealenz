@@ -10,6 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { isApprovalValidForPlan } from "./transitions"
 import type { PlanRow, PlanStepRow } from "./schema"
 import { getCreditBalance } from "@/lib/credits/ledger"
+import { logEventWithClient } from "@/lib/logger"
 
 type Client = SupabaseClient
 
@@ -39,7 +40,25 @@ registerStepHandler("document_analysis", async (step, ctx) => {
   }
   try {
     const { analyzeDeal } = await import("@/app/audit/[id]/actions")
-    const result = await analyzeDeal(auditId)
+    // Plan-held settlement: the executor already holds the estimate, so the
+    // analysis runs on that hold instead of stacking a second one (peak 5,
+    // not 10 — a balance of exactly 5 must still execute). The handler books
+    // the measured 5 below; the plan tail settles the remainder. Without an
+    // execution hold (metering mode), analyzeDeal reserves on its own exactly
+    // as direct callers experience it.
+    let outerReservationId: string | null = null
+    try {
+      const { data: execRow } = await ctx.client
+        .from("work_executions")
+        .select("reservation_id")
+        .eq("id", ctx.executionId)
+        .maybeSingle()
+      const rid = (execRow as { reservation_id?: string | null } | null)?.reservation_id
+      if (typeof rid === "string" && rid.length > 0) outerReservationId = rid
+    } catch {
+      outerReservationId = null
+    }
+    const result = await analyzeDeal(auditId, outerReservationId ? { outerReservationId } : undefined)
     if (!result.success) {
       const msg = result.error ?? "Analysis failed"
       // Rate limiting is fail-closed, distinct from needs_input (which is resumable via missing context).
@@ -121,12 +140,11 @@ registerStepHandler("document_analysis", async (step, ctx) => {
       }
       return { error: msg, creditsConsumed: 0, resultRef: { auditId, error: msg } }
     }
-    // Success — the 5-credit analysis charge settles INSIDE analyzeDeal
-    // (reserve → finalize), which bills exactly once no matter the caller.
-    // This handler reports 0 so the plan reservation is not charged a second
-    // time: the plan estimate (5) covers approval display, the inner ledger
-    // entry records the spend. Failures and needs-input report 0 with the
-    // inner hold voided: nothing is charged for work that did not complete.
+    // Success — on the plan hold when the executor reserved one (the handler
+    // books the measured ANALYSIS_CREDITS so the plan tail settles the rest),
+    // on analyzeDeal's own hold otherwise (which settles itself inside, and
+    // the handler reports 0 so the plan is never charged twice).
+    const { ANALYSIS_CREDITS } = await import("@/lib/credits/pricing")
     const riskReport = result.riskReport as { overallScore?: number; riskLevel?: string } | undefined
     const findings = (result.deterministicFindings ?? []) as Array<unknown>
     return {
@@ -140,7 +158,7 @@ registerStepHandler("document_analysis", async (step, ctx) => {
         // Snapshot of existing evidence/provenance is already persisted on audits.structured_data
         // Work product will link by auditId rather than duplicating the full report.
       },
-      creditsConsumed: 0,
+      creditsConsumed: outerReservationId ? ANALYSIS_CREDITS : 0,
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Analysis failed"
@@ -375,7 +393,14 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
   const { data: stepsRaw, error: stepsErr } = await client.from("work_plan_steps").select("*").eq("plan_id", planId).eq("user_id", userId).order("step_index", { ascending: true })
   if (stepsErr) throw new Error(stepsErr.message)
   const steps = (stepsRaw as PlanStepRow[]) ?? []
-  if (steps.length === 0) throw new Error("Plan has no steps")
+  if (steps.length === 0) {
+    // Pre-loop failures never reach the tail logger below, which once left a
+    // failed execution with zero diagnostic trace. Log here, best-effort.
+    try {
+      await logEventWithClient(client as never, { audit_id: plan.deal_id, user_id: userId, phase: "work_execution", status: "failure", error_message: `plan ${planId} v${plan.version}: no steps to execute` })
+    } catch {}
+    throw new Error("Plan has no steps")
+  }
 
   // Existing execution for this plan version, if any. Succeeded replays
   // return immediately (idempotent); pending/running on an approved plan is
@@ -434,14 +459,24 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
       reservationId = existing.reservation_id ?? null
     }
   } else {
-    if (plan.status !== "approved") throw new Error(`Cannot execute from status ${plan.status}`)
+    if (plan.status !== "approved") {
+      try {
+        await logEventWithClient(client as never, { audit_id: plan.deal_id, user_id: userId, phase: "work_execution", status: "failure", error_message: `plan ${planId} v${plan.version}: execute from status ${plan.status}` })
+      } catch {}
+      throw new Error(`Cannot execute from status ${plan.status}`)
+    }
     // Create execution row
     const { data: execRaw, error: execErr } = await client
       .from("work_executions")
       .insert({ plan_id: planId, user_id: userId, plan_version: plan.version, status: "pending" })
       .select("*")
       .single()
-    if (execErr || !execRaw) throw new Error(execErr?.message ?? "Failed to create execution")
+    if (execErr || !execRaw) {
+      try {
+        await logEventWithClient(client as never, { audit_id: plan.deal_id, user_id: userId, phase: "work_execution", status: "failure", error_message: `plan ${planId} v${plan.version}: execution row creation failed` })
+      } catch {}
+      throw new Error(execErr?.message ?? "Failed to create execution")
+    }
     executionId = (execRaw as { id: string }).id
   }
 
@@ -460,6 +495,9 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
       if (!res.allowed) {
         await client.from("work_executions").update({ status: "failed", completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", executionId)
         await client.from("work_plans").update({ status: "failed", updated_at: new Date().toISOString() }).eq("id", planId).eq("user_id", userId)
+        try {
+          await logEventWithClient(client as never, { audit_id: plan.deal_id, user_id: userId, phase: "work_execution", status: "failure", error_message: `plan ${planId} v${plan.version}: plan reservation denied for ${estimated} credits` })
+        } catch {}
         throw new Error("Insufficient credits for plan execution")
       }
       reservationId = res.reservationId

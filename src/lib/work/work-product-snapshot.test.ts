@@ -119,4 +119,70 @@ describe("WorkProduct snapshot", () => {
     const res = await executePlan({ client: client as never, userId, planId, approval: approval as never, policy: null })
     expect(res.status).toBe("succeeded")
   })
+
+  it("runs analysis on the plan hold instead of stacking a second one", async () => {
+    mockAnalyzeDeal.mockResolvedValueOnce({ success: true, riskReport: { overallScore: 72, riskLevel: "Medium" }, deterministicFindings: [] } as never)
+
+    const userId = "00000000-0000-0000-0000-000000000001"
+    const planId = "00000000-0000-0000-0000-000000000001"
+    const auditId = "00000000-0000-0000-0000-0000000000aa"
+    const threadId = "00000000-0000-0000-0000-0000000000bb"
+    const executionId = "00000000-0000-0000-0000-000000000020"
+
+    const planRow = { id: planId, user_id: userId, conversation_id: threadId, deal_id: auditId, objective: "Analyze deal: Test", objective_kind: "deal_analysis", version: 1, estimated_credits: 0, status: "approved", payload_hash: "ph_test", approved_at: new Date().toISOString(), completed_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+
+    const client: Record<string, unknown> = {}
+    client.from = vi.fn((table: string) => {
+      const self: Record<string, unknown> = {}
+      if (table === "work_plans") {
+        self.select = vi.fn(() => self)
+        self.eq = vi.fn(() => self)
+        self.maybeSingle = vi.fn(() => Promise.resolve({ data: planRow, error: null }))
+        const chain: Record<string, unknown> = {}
+        chain.eq = vi.fn(() => chain)
+        chain.select = vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: planRow, error: null })) }))
+        self.update = vi.fn(() => chain as never)
+        return self as never
+      }
+      if (table === "work_plan_steps") {
+        const step = { id: "00000000-0000-0000-0000-000000000011", plan_id: planId, user_id: userId, step_index: 0, operation: "document_analysis", input_ref: { auditId, threadId }, depends_on: [], estimated_credits: 0, status: "pending", result_ref: null, credits_consumed: null, error: null }
+        self.select = vi.fn(() => self)
+        self.eq = vi.fn(() => self)
+        self.order = vi.fn(() => Promise.resolve({ data: [step], error: null }) as never)
+        self.update = vi.fn(() => ({ eq: vi.fn(() => Promise.resolve({ data: null, error: null })) }) as never)
+        return self as never
+      }
+      if (table === "work_executions") {
+        self.select = vi.fn(() => self)
+        self.eq = vi.fn(() => self)
+        self.in = vi.fn(() => self)
+        self.order = vi.fn(() => self)
+        self.limit = vi.fn(() => self)
+        // No existing execution status, but the created one carries a plan hold.
+        self.maybeSingle = vi.fn(() => Promise.resolve({ data: { id: executionId, reservation_id: "res-plan-1" }, error: null }))
+        self.single = vi.fn(() => Promise.resolve({ data: { id: executionId, status: "pending" }, error: null }))
+        self.insert = vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: { id: executionId, plan_id: planId, user_id: userId, plan_version: 1, status: "pending" }, error: null })) })) })) as never
+        const chain: Record<string, unknown> = {}
+        chain.eq = vi.fn(() => chain)
+        chain.select = vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: { id: executionId, status: "succeeded" }, error: null })) }))
+        self.update = vi.fn(() => chain as never)
+        return self as never
+      }
+      self.select = vi.fn(() => self)
+      self.eq = vi.fn(() => self)
+      self.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }))
+      self.insert = vi.fn(() => Promise.resolve({ data: null, error: null }))
+      self.update = vi.fn(() => self)
+      self.order = vi.fn(() => self)
+      self.limit = vi.fn(() => self)
+      return self as never
+    })
+    client.rpc = vi.fn(() => Promise.resolve({ data: [{ allowed: true, balance: 100, reservation_id: null }], error: null }))
+
+    const approval = { plan_version: 1, approved_payload_hash: "ph_test", id: "00000000-0000-0000-0000-000000000030" }
+    const res = await executePlan({ client: client as never, userId, planId, approval: approval as never, policy: null })
+    expect(res.status).toBe("succeeded")
+    // The 5-credit analysis runs on the plan's hold: peak exposure stays 5.
+    expect(mockAnalyzeDeal).toHaveBeenCalledWith(auditId, { outerReservationId: "res-plan-1" })
+  })
 })

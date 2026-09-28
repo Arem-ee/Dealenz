@@ -468,7 +468,8 @@ export async function deleteDeal(auditId: string): Promise<{ ok: true } | { ok: 
 }
 
 export async function analyzeDeal(
-  auditId: string
+  auditId: string,
+  opts?: { outerReservationId?: string }
 ): Promise<{ success: boolean; data?: ExtractedData; riskReport?: RiskReport | GenericRiskReport; error?: string; contextGate?: string; missingRequiredContext?: string[]; knowledgeCandidates?: KnowledgeCandidate[]; deterministicFindings?: RuleResult[]; findingDelta?: FindingDelta | null; riskDegraded?: boolean; rulesDegraded?: boolean }> {
   const startMs = Date.now()
   const supabase = await createClient()
@@ -530,6 +531,13 @@ export async function analyzeDeal(
   // every failure path, finalize only on a completed analysis. Callers that
   // already reserved (direct chat path, plan executor) were simplified to
   // rely on this single charge: exactly 5 credits per analysis, once.
+  //
+  // Outer-reservation mode (plan executor only): when the caller passes the
+  // reservation it already holds, this function neither reserves, finalizes,
+  // nor voids — the caller owns settlement entirely. Without this, plan (5)
+  // plus inner (5) holds stack to 10 and any balance under 10 deadlocks an
+  // execution whose single charge is only 5. The analysisReservationId stays
+  // null in this mode, so every existing guard below is naturally a no-op.
   const { ANALYSIS_CREDITS } = await import("@/lib/credits/pricing")
   const { reserveCredits, finalizeReservation, voidReservation } = await import("@/lib/credits/ledger")
   const ledger = {
@@ -542,20 +550,25 @@ export async function analyzeDeal(
     },
   }
   let analysisReservationId: string | null = null
-  try {
-    const reservation = await reserveCredits(ledger, {
-      operation: "document_analysis",
-      amount: ANALYSIS_CREDITS,
-      idempotencyKey: `analysis:${auditId}:${crypto.randomUUID()}`,
-    })
-    if (!reservation.allowed || !reservation.reservationId) {
+  if (opts?.outerReservationId) {
+    // Plan-held mode: the executor's reservation covers this analysis (see
+    // comment above). No inner hold, so peak exposure stays at 5, not 10.
+  } else {
+    try {
+      const reservation = await reserveCredits(ledger, {
+        operation: "document_analysis",
+        amount: ANALYSIS_CREDITS,
+        idempotencyKey: `analysis:${auditId}:${crypto.randomUUID()}`,
+      })
+      if (!reservation.allowed || !reservation.reservationId) {
+        await supabase.from("audits").update({ locked_at: null, updated_at: new Date().toISOString() }).eq("id", auditId)
+        return { success: false, error: `This analysis needs ${ANALYSIS_CREDITS} credits — top up in Billing to continue.` }
+      }
+      analysisReservationId = reservation.reservationId
+    } catch {
       await supabase.from("audits").update({ locked_at: null, updated_at: new Date().toISOString() }).eq("id", auditId)
-      return { success: false, error: `This analysis needs ${ANALYSIS_CREDITS} credits — top up in Billing to continue.` }
+      return { success: false, error: "Could not verify credit balance. Please try again — nothing was charged." }
     }
-    analysisReservationId = reservation.reservationId
-  } catch {
-    await supabase.from("audits").update({ locked_at: null, updated_at: new Date().toISOString() }).eq("id", auditId)
-    return { success: false, error: "Could not verify credit balance. Please try again — nothing was charged." }
   }
   const voidAnalysisHold = async () => {
     try {

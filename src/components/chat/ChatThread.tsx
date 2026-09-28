@@ -374,6 +374,10 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
     }
     if (!exec.ok) {
       fail(exec.error)
+      await refreshWorkPlan()
+      const msgs = await getThreadMessages(threadId)
+      if (msgs.ok) setMessages(msgs.messages)
+      return
     }
     await refreshWorkPlan()
     const msgs = await getThreadMessages(threadId)

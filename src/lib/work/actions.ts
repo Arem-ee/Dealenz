@@ -109,6 +109,12 @@ export async function executeApprovedPlan(planId: string, approvalId: string): P
     // 0 and simply reserve nothing below.
     const { STANDARD_CREDIT_POLICY } = await import("@/lib/credits/pricing")
     const res = await executePlan({ client: supabase as never, userId: user.id, planId, approval: approval as never, policy: STANDARD_CREDIT_POLICY })
+    // A failed execution is a failure to the caller, not a silent dead panel:
+    // the thread surfaces the error instead of rendering "failed" with no
+    // explanation. Credits for uncompleted work are voided inside executePlan.
+    if (res.status === "failed") {
+      return { ok: false, error: "Execution failed before the analysis could run. No credits were charged for work that did not complete — please try again." }
+    }
     return { ok: true, executionId: res.executionId, status: res.status }
   } catch (e) {
     return toActionFailure(e, "Execution failed.") as never
