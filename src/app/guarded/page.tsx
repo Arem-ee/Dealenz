@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { StandaloneContractForm } from "@/components/signing/standalone-contract-form"
 
 export const dynamic = "force-dynamic"
 
@@ -101,14 +102,20 @@ export default async function GuardedPage() {
       <h1 className="mt-1.5  text-[28px] font-semibold leading-tight tracking-[-0.01em]">Tracker</h1>
 
       {deals.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-dashed p-6 text-center">
-          <p className="text-sm font-medium">Nothing tracked yet</p>
-          <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-            Signed deals land here with their next deadlines. Review a deal, push back, and sign — this page fills itself.
-          </p>
-          <Link href="/dashboard" className="mt-3 inline-flex h-9 items-center rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground hover:opacity-90">
-            Go to deals
-          </Link>
+        <div className="mt-6 space-y-4">
+          <div className="rounded-xl border border-dashed p-6 text-center">
+            <p className="text-sm font-medium">Nothing tracked yet</p>
+            <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+              Signed deals land here with their next deadlines. Review a deal, push back, and sign — this page fills itself.
+            </p>
+            <Link href="/dashboard" className="mt-3 inline-flex h-9 items-center rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground hover:opacity-90">
+              Go to deals
+            </Link>
+          </div>
+          <div>
+            <p className="mb-2 text-sm font-medium">Already signed somewhere else?</p>
+            <StandaloneContractForm mode="track" />
+          </div>
         </div>
       ) : (
         <div className="mt-6">

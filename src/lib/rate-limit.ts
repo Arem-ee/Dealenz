@@ -11,6 +11,7 @@ export type RateLimitedAction =
   | "pdf_export"
   | "document_invite"
   | "document_send"
+  | "upload_version"
   | "verification_resend"
 
 const LIMITS: Record<RateLimitedAction, number> = {
@@ -26,6 +27,9 @@ const LIMITS: Record<RateLimitedAction, number> = {
   pdf_export: 20,
   document_invite: 20,
   document_send: 10,
+  // Bring-your-own-paper uploads and external-signature records: no AI, no
+  // credits — storage-only, so the rate cap is the abuse bound (20/day).
+  upload_version: 20,
   verification_resend: 5,
 }
 

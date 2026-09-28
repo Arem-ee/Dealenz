@@ -3,7 +3,6 @@ import Image from "next/image"
 import { LandingMobileNav } from "./landing-mobile-nav"
 import { CREDIT_PACKAGES, formatPrice, packageValueLines } from "@/lib/billing/catalog"
 import {
-  ArrowDown,
   ArrowRight,
   Bell,
   CheckCircle2,
@@ -35,13 +34,13 @@ const steps = [
     n: "1",
     title: "Upload it",
     tag: "Their paper in",
-    body: "Drop in their contract or describe the situation in your own words. No questionnaire, no legal form, no account homework.",
+    body: "Drop in the contract they sent, or describe the situation in your own words. There is no questionnaire to complete, no legal form to fill in, and no background reading required before you begin.",
   },
   {
     n: "2",
     title: "Respond",
     tag: "Drafted replies",
-    body: "For each real risk, get a drafted response — staged payments, clearer scope, a revised clause. Re-check the redline before you sign.",
+    body: "For each genuine risk, you receive a drafted response — staged payments, clearer scope, a revised clause — which you can send as written or adjust in your own voice. When they return a revision, re-check it here before you sign.",
   },
   {
     n: "3",
@@ -54,27 +53,27 @@ const steps = [
 const faqs = [
   {
     q: "What kinds of deals can Dealenz look at?",
-    a: "Freelance contracts, leases, partnership agreements, purchase agreements, and more. Dealenz starts with your actual situation instead of forcing it into a template.",
+    a: "Freelance contracts, leases, partnership agreements, purchase agreements, employment terms, founder agreements, and MSAs. Dealenz starts from your actual situation instead of forcing it into a template, and it tells you plainly when something falls outside what it handles well.",
   },
   {
     q: "Is this a replacement for a lawyer?",
-    a: "No. Dealenz helps you catch problems before they become legal problems. For high value contracts or anything complex, have a lawyer review the final document.",
+    a: "No. Dealenz helps you catch problems before they become legal problems, and it prepares a cleaner file for your lawyer when one is needed. For high-value contracts or anything genuinely complex, have a qualified lawyer review the final document.",
   },
   {
     q: "How does Dealenz check its own work?",
-    a: "Every risk Dealenz flags goes through a deterministic rule check before it reaches you, not just an AI result. If the AI and the rules disagree, the rules win.",
+    a: "Every risk it flags goes through a deterministic rule check before it reaches you — not just an AI result. Where the model and the rules disagree, the rules win, and findings that lack supporting evidence are reported as unknown rather than stated with false confidence.",
   },
   {
     q: "What do I leave with?",
-    a: "More than a report. Every freelance analysis can produce the documents you need: a proposal, a scope of work, a contract, or a deliverables checklist — plus negotiation drafts for unfair terms.",
+    a: "More than a report. Every freelance analysis can produce the documents the situation calls for — a proposal, a scope of work, a contract, or a deliverables checklist — alongside negotiation drafts for the terms you should push back on.",
   },
   {
     q: "Can the other side sign here too?",
-    a: "Yes. You sign first, then the counterparty signs through a secure link — no account needed on their side. Once everyone has signed, the document locks and any later change becomes a new version, not a silent edit.",
+    a: "Yes. You sign first, then the counterparty signs through a secure link, with no account needed on their side. Once everyone has signed, the document locks, and any later change becomes a new version rather than a silent edit.",
   },
   {
     q: "What happens after I sign?",
-    a: "Dealenz can track what was agreed in monitoring: renewal dates, notice windows, payment obligations, and material deadlines — connect Gmail once and it emails you before they matter.",
+    a: "Dealenz keeps watch over what was agreed through monitoring: renewal dates, notice windows, payment obligations, and material deadlines. Connect Gmail once and it emails you before each one matters, instead of after.",
   },
   {
     q: "What happens to my contract data?",
@@ -82,7 +81,7 @@ const faqs = [
   },
   {
     q: "Is the free tier a trial?",
-    a: "There is no trial because there is nothing to gate: 10 signup credits, enough for your first two analyses. No credit card required to start.",
+    a: "There is no trial because there is nothing to gate: every account starts with 10 signup credits, which covers your first two analyses. No credit card is required to start, and nothing expires.",
   },
 ]
 
@@ -116,6 +115,24 @@ function LogoMark({ dark = false }: { dark?: boolean }) {
         dealenz
       </span>
     </div>
+  )
+}
+
+function ProductShot({ url, label, children }: { url: string; label: string; children: React.ReactNode }) {
+  return (
+    <figure role="img" aria-label={label} className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2.5" aria-hidden>
+        <span className="flex gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-foreground/15" />
+          <span className="h-2.5 w-2.5 rounded-full bg-foreground/15" />
+          <span className="h-2.5 w-2.5 rounded-full bg-foreground/15" />
+        </span>
+        <span className="ml-2 min-w-0 flex-1 truncate rounded-md bg-background px-3 py-1 text-[11px] text-foreground/45">{url}</span>
+      </div>
+      <div className="p-5 text-left sm:p-6" aria-hidden>
+        {children}
+      </div>
+    </figure>
   )
 }
 
@@ -190,8 +207,10 @@ export default function Home() {
             <h1 className="mx-auto mt-5 max-w-[20ch] text-[40px] font-semibold leading-[1.04] tracking-[-0.04em] sm:text-[48px] lg:text-[56px]">
               Know what&apos;s in your contracts.
             </h1>
-            <p className="mx-auto mt-5 max-w-[56ch] text-[15px] leading-relaxed text-foreground/60 lg:text-[16px]">
-              Upload their contract. See every risk with its clause. Draft, sign, and stay covered.
+            <p className="mx-auto mt-5 max-w-[60ch] text-[15px] leading-relaxed text-foreground/60 lg:text-[16px]">
+              Upload the contract you received. Dealenz reads every clause, flags the terms that put you
+              at risk, drafts your replies, and carries the deal through signing, renewal, and every
+              deadline after it.
             </p>
             <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link
@@ -280,7 +299,7 @@ export default function Home() {
         {/* Deal-type cloud */}
         <section className="border-y border-border bg-card">
           <div className="mx-auto max-w-[1280px] px-6 py-10 lg:px-8">
-            <p className="text-center text-[12px] text-foreground/40">Built for the people who receive the paper</p>
+            <p className="text-center text-[12px] text-foreground/40">Built for the people who receive the paper, not the ones who wrote it</p>
             <div className="mt-5 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-[15px] text-foreground/35">
               <span className="font-semibold tracking-tight">Freelance contracts</span>
               <span className="font-medium">Founder agreements</span>
@@ -304,17 +323,17 @@ export default function Home() {
                 {
                   icon: <Search className="h-4 w-4 text-[var(--burgundy)]" />,
                   title: "Every flag carries its clause",
-                  body: "Findings quote the exact language they came from. What the model cannot support, it says unknown — never a confident guess.",
+                  body: "Each finding quotes the exact language it came from, so you can verify everything yourself instead of taking the software at its word. Where the evidence does not support a conclusion, the report says unknown rather than guessing.",
                 },
                 {
                   icon: <PenLine className="h-4 w-4 text-[var(--burgundy)]" />,
                   title: "Negotiation drafts",
-                  body: "Every real risk comes with a drafted response — staged payments, capped revisions, a revised clause. Copy it straight from the report.",
+                  body: "Every material risk arrives with a drafted response you can send — staged payments, capped revisions, a rewritten clause — written in your voice and ready to copy into your reply.",
                 },
                 {
                   icon: <ShieldCheck className="h-4 w-4 text-[var(--burgundy)]" />,
                   title: "Rules overrule the AI",
-                  body: "Each finding passes a deterministic rule check before it reaches you. If the AI and the rules disagree, the rules win.",
+                  body: "Before any finding reaches you, it passes a deterministic rule check. Where the model and the rules disagree, the rules win, and the report shows the reasoning it relied on.",
                 },
                 {
                   icon: <Bell className="h-4 w-4 text-[var(--burgundy)]" />,
@@ -340,99 +359,148 @@ export default function Home() {
             <h2 className="mx-auto max-w-[26ch] text-center text-[28px] font-semibold leading-tight tracking-[-0.03em] sm:text-[36px]">
               From their paper to your signature
             </h2>
-            <p className="mx-auto mt-3 max-w-[54ch] text-center text-[14px] leading-relaxed text-foreground/55">
-              Upload the contract, draft your response, sign, and stay
-              covered — three steps, one place, nothing to learn.
+            <p className="mx-auto mt-3 max-w-[58ch] text-center text-[14px] leading-relaxed text-foreground/55">
+              Upload the contract, answer one clarifying question where something is missing, respond
+              with drafted replies, sign, and stay covered — three stages in one place, designed for
+              people who have never done this before.
             </p>
-            {/* Arrow process: stacked stage cards joined by connectors, not a
-                card grid. The active stage (respond) carries the accent;
-                the re-check pill names the real loop (they revise, you
-                re-check). Text column carries the headline so the visual
-                never floats unexplained. */}
-            <div className="mt-10 grid items-center gap-10 lg:grid-cols-2">
-              <ol aria-label="How Dealenz works" className="order-2 mx-auto w-full max-w-[360px] lg:order-1">
-                {steps.map((s, i) => {
-                  const Icon = [Upload, Search, PenLine][i] ?? FileText
-                  const active = i === 1
-                  return (
-                    <li key={s.n}>
-                      <div
-                        className={`flex items-center gap-3.5 rounded-2xl border px-4 py-3.5 ${
-                          active
-                            ? "border-transparent bg-[var(--burgundy)] text-white shadow-[0_24px_56px_-20px_rgba(52,20,20,0.5)]"
-                            : "border-border bg-card shadow-[0_16px_40px_-24px_rgba(28,25,23,0.2)]"
-                        } ${i === 1 ? "sm:ml-10" : ""}`}
-                      >
-                        <span
-                          aria-hidden
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                            active ? "bg-white/15" : "bg-foreground/[0.05]"
-                          }`}
-                        >
-                          <Icon className={`h-4 w-4 ${active ? "text-white" : "text-[var(--burgundy)]"}`} />
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-[15px] font-semibold tracking-[-0.01em]">{s.title}</span>
-                          <span className={`block truncate text-[12px] ${active ? "text-white/70" : "text-foreground/50"}`}>{s.tag}</span>
-                        </span>
-                        <span
-                          aria-hidden
-                          className={`ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
-                            active ? "bg-white/15 text-white" : "bg-foreground/[0.05] text-foreground/60"
-                          }`}
-                        >
-                          {s.n}
-                        </span>
-                      </div>
-                      {i < steps.length - 1 && (
-                        <div aria-hidden className={`relative h-9 ${i === 1 ? "sm:ml-10" : ""}`}>
-                          <span className="absolute bottom-0 left-8 top-0 w-px bg-border" />
-                          <ArrowDown className="absolute -bottom-0.5 left-[25px] h-3.5 w-3.5 text-foreground/40" />
-                        </div>
-                      )}
-                      {i === 1 && (
-                        <p className={`mb-1 mt-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--burgundy)]/10 px-3 py-1 text-[11px] font-medium text-[var(--burgundy)] ${i === 1 ? "sm:ml-10" : ""}`}>
-                          <RotateCcw className="h-3 w-3" />
-                          They revise? Re-check before you sign
-                        </p>
-                      )}
-                    </li>
-                  )
-                })}
-              </ol>
-              <div className="order-1 mx-auto w-full max-w-[480px] text-center lg:order-2 lg:text-left">
-                <h3 className="text-[24px] font-semibold leading-tight tracking-[-0.02em] sm:text-[30px]">
-                  The loop is the product
-                </h3>
-                <p className="mt-3 text-[14px] leading-relaxed text-foreground/60">
-                  Most tools stop at the report. Dealenz is built around what happens next: push
-                  back in your words, re-check their revision, sign, and stay guarded — every
-                  deal, same loop, nothing to learn.
-                </p>
-                <Link
-                  href="/register"
-                  className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-[var(--burgundy)] px-7 text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
-                >
-                  Analyze your first deal
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-                <p className="mt-3 text-[12px] text-foreground/40">Free to start. No credit card required.</p>
-              </div>
+            {/* Steps: flat numbered list on hairlines — no cards. The loop
+                note and CTA follow the list, centered. */}
+            <ol aria-label="How Dealenz works" className="mx-auto mt-12 w-full max-w-3xl divide-y divide-border border-y border-border">
+              {steps.map((s, i) => (
+                <li key={s.n} className="flex items-baseline gap-5 py-7 sm:gap-8">
+                  <span aria-hidden className="shrink-0 text-[13px] font-semibold tabular-nums text-foreground/30">
+                    0{s.n}
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="text-[19px] font-semibold tracking-[-0.01em] sm:text-[21px]">
+                      {s.title}
+                      <span className="ml-2.5 align-middle text-[12px] font-medium text-foreground/40">{s.tag}</span>
+                    </h3>
+                    <p className="mt-1.5 max-w-[62ch] text-[14px] leading-relaxed text-foreground/60">{s.body}</p>
+                    {i === 1 && (
+                      <p className="mt-2.5 inline-flex items-center gap-1.5 text-[12px] font-medium text-[var(--burgundy)]">
+                        <RotateCcw className="h-3 w-3" />
+                        They revise? Re-check before you sign
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <div className="mt-10 text-center">
+              <h3 className="text-[24px] font-semibold leading-tight tracking-[-0.02em] sm:text-[30px]">
+                The loop is the product
+              </h3>
+              <p className="mx-auto mt-3 max-w-[54ch] text-[14px] leading-relaxed text-foreground/60">
+                Most tools stop at the report. Dealenz is built around what happens next: push
+                back in your words, re-check their revision, sign, and stay guarded — every
+                deal, same loop, nothing to learn.
+              </p>
+              <Link
+                href="/register"
+                className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-[var(--burgundy)] px-7 text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
+              >
+                Analyze your first deal
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <p className="mt-3 text-[12px] text-foreground/40">Free to start. No credit card required.</p>
             </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-[20px] border border-border bg-card p-5">
+            <div className="mx-auto mt-16 grid max-w-4xl gap-10 sm:grid-cols-2 sm:gap-8">
+              <figure>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground/40">Suggested response</p>
-                <p className="mt-2 text-[15px] leading-relaxed">&ldquo;Please cap revisions at two rounds. Extra rounds will be billed at my standard rate.&rdquo;</p>
-                <p className="mt-2 text-[11px] text-foreground/40">Illustrated example · from an unlimited-revisions finding</p>
-              </div>
-              <div className="rounded-[20px] border border-border bg-primary p-5 text-primary-foreground">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary-foreground/50">Evidence</p>
-                <p className="mt-2 text-[15px] font-semibold leading-snug">Payment is due before you have leverage to enforce it.</p>
-                <p className="mt-3 rounded-xl bg-primary-foreground/[0.07] px-3.5 py-3 text-[12px] leading-relaxed text-primary-foreground/80">
+                <blockquote className="mt-3 border-l-2 border-[var(--burgundy)] pl-5 text-[19px] font-medium leading-snug tracking-[-0.01em]">
+                  &ldquo;Please cap revisions at two rounds. Extra rounds will be billed at my standard rate.&rdquo;
+                </blockquote>
+                <figcaption className="mt-3 text-[11px] text-foreground/40">Illustrated example · from an unlimited-revisions finding</figcaption>
+              </figure>
+              <figure>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground/40">Evidence</p>
+                <p className="mt-3 text-[19px] font-semibold leading-snug tracking-[-0.01em]">Payment is due before you have leverage to enforce it.</p>
+                <p className="mt-3 border-l-2 border-border pl-5 text-[13px] leading-relaxed text-foreground/60">
                   Clause 4.2: full payment on signing, delivery within 60 days.
                 </p>
-                <p className="mt-2 text-[11px] text-primary-foreground/40">Illustrated example · deterministic rule, quoted source</p>
+                <figcaption className="mt-3 text-[11px] text-foreground/40">Illustrated example · deterministic rule, quoted source</figcaption>
+              </figure>
+            </div>
+          </div>
+        </section>
+
+        {/* A look inside — crafted product shots in browser frames, the way
+            established startups present the product before asking for signup. */}
+        <section className="border-t border-border bg-card">
+          <div className="mx-auto max-w-[1280px] px-6 py-16 lg:px-8 lg:py-24">
+            <p className="text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/40">A look inside</p>
+            <h2 className="mx-auto mt-3 max-w-[26ch] text-center text-[28px] font-semibold leading-tight tracking-[-0.03em] sm:text-[36px]">
+              The product, before you create an account
+            </h2>
+            <p className="mx-auto mt-3 max-w-[56ch] text-center text-[14px] leading-relaxed text-foreground/55">
+              These are faithful illustrations of the two screens you will spend your time on:
+              the risk report that quotes every clause, and the signing view your counterparty sees.
+            </p>
+            <div className="mx-auto mt-12 grid max-w-5xl gap-8 lg:grid-cols-2">
+              <div>
+                <ProductShot url="app.dealenz.site/report" label="Illustrated risk report showing quoted findings with severity levels">
+                  <p className="text-[13px] font-semibold">Freelance Agreement — Risk report</p>
+                  <p className="mt-1 text-[12px] text-foreground/50">Score 62 · 4 findings need attention</p>
+                  <ul className="mt-4 divide-y divide-border border-y border-border">
+                    <li className="py-3">
+                      <p className="flex items-center gap-2 text-[13px] font-semibold">
+                        <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-700">High</span>
+                        Unlimited revisions, fixed price
+                      </p>
+                      <p className="mt-1 text-[12px] text-foreground/55">&ldquo;Contractor shall perform unlimited revisions…&rdquo; — Clause 3.1</p>
+                    </li>
+                    <li className="py-3">
+                      <p className="flex items-center gap-2 text-[13px] font-semibold">
+                        <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">Medium</span>
+                        Payment on signing, delivery in 60 days
+                      </p>
+                      <p className="mt-1 text-[12px] text-foreground/55">&ldquo;Full payment due upon execution…&rdquo; — Clause 4.2</p>
+                    </li>
+                    <li className="py-3">
+                      <p className="flex items-center gap-2 text-[13px] font-semibold">
+                        <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">Medium</span>
+                        Termination without notice
+                      </p>
+                      <p className="mt-1 text-[12px] text-foreground/55">&ldquo;Either party may terminate at will…&rdquo; — Clause 9.3</p>
+                    </li>
+                  </ul>
+                  <p className="mt-3 text-[12px] font-medium text-[var(--burgundy)]">Negotiation drafts ready for each finding →</p>
+                </ProductShot>
+                <p className="mt-2 text-[11px] text-foreground/40">Illustrated example · the risk report</p>
+              </div>
+              <div>
+                <ProductShot url="app.dealenz.site/sign" label="Illustrated signing view showing owner signature and renewal tracking">
+                  <p className="text-[13px] font-semibold">MSA with Acme — Signing</p>
+                  <p className="mt-1 text-[12px] text-foreground/50">Version 2 · locked after all signatures</p>
+                  <ul className="mt-4 divide-y divide-border border-y border-border">
+                    <li className="flex items-center gap-2.5 py-3">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold">You signed · May 12</p>
+                        <p className="text-[12px] text-foreground/50">Owner signature recorded</p>
+                      </div>
+                    </li>
+                    <li className="flex items-center gap-2.5 py-3">
+                      <Clock className="h-4 w-4 shrink-0 text-amber-700" />
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold">Counterparty invited</p>
+                        <p className="text-[12px] text-foreground/50">Secure link sent · no account needed</p>
+                      </div>
+                    </li>
+                    <li className="flex items-center gap-2.5 py-3">
+                      <Bell className="h-4 w-4 shrink-0 text-[var(--burgundy)]" />
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold">Renewal tracked · Jun 2</p>
+                        <p className="text-[12px] text-foreground/50">Alert scheduled 21 days before</p>
+                      </div>
+                    </li>
+                  </ul>
+                  <p className="mt-3 text-[12px] font-medium text-[var(--burgundy)]">Deadlines stay tracked after signing →</p>
+                </ProductShot>
+                <p className="mt-2 text-[11px] text-foreground/40">Illustrated example · signing and tracking</p>
               </div>
             </div>
           </div>
@@ -455,12 +523,12 @@ export default function Home() {
                     </span>
                   ))}
                 </div>
-                <h2 className="mt-5 max-w-[20ch] text-[28px] font-semibold leading-tight tracking-[-0.03em] sm:text-[34px]">
-                  Move faster with the whole deal in view
+                <h2 className="mt-5 max-w-[22ch] text-[28px] font-semibold leading-tight tracking-[-0.03em] sm:text-[34px]">
+                  The whole deal in view, from first flag to final signature
                 </h2>
-                <p className="mt-3 max-w-[46ch] text-[14px] leading-relaxed text-foreground/55">
-                  Flags, counter-words, signatures, and deadlines live on one
-                  timeline. Nothing slips between the report and the handshake.
+                <p className="mt-3 max-w-[48ch] text-[14px] leading-relaxed text-foreground/55">
+                  Flags, drafted replies, signatures, and deadlines live on one timeline, so nothing
+                  slips between the report you read and the handshake you make.
                 </p>
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                   <Link
@@ -477,23 +545,26 @@ export default function Home() {
                   </Link>
                 </div>
               </div>
-              <div className="space-y-2.5">
-                <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-[0_24px_56px_-24px_rgba(28,25,23,0.25)]">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--burgundy)] text-[12px] font-bold text-white">AK</span>
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold">Protection package ready</p>
-                    <p className="truncate text-[12px] text-foreground/50">Revised clause 4.2 is ready to send.</p>
-                  </div>
-                </div>
-                <div className="ml-8 flex items-center gap-2.5 rounded-2xl border border-border bg-card p-4 shadow-[0_24px_56px_-24px_rgba(28,25,23,0.25)]">
-                  <CircleAlert className="h-4 w-4 shrink-0 text-amber-700" />
-                  <p className="text-[13px]">Renewal in 21 days — alert scheduled</p>
-                </div>
-                <div className="ml-16 flex items-center gap-2.5 rounded-2xl border border-border bg-card p-4 shadow-[0_24px_56px_-24px_rgba(28,25,23,0.25)]">
-                  <Mail className="h-4 w-4 shrink-0 text-[var(--burgundy)]" />
-                  <p className="text-[13px]">Signed by both sides — document locked</p>
-                </div>
-                <p className="pl-16 pt-1 text-[11px] text-foreground/40">Illustrated example · signing and monitoring</p>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/40">Live example</p>
+                <ul className="mt-4 divide-y divide-border border-y border-border">
+                  <li className="flex items-center gap-3 py-4">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--burgundy)] text-[11px] font-bold text-white">AK</span>
+                    <div className="min-w-0">
+                      <p className="truncate text-[14px] font-semibold">Protection package ready</p>
+                      <p className="truncate text-[12px] text-foreground/50">Revised clause 4.2 is ready to send.</p>
+                    </div>
+                  </li>
+                  <li className="flex items-center gap-3 py-4">
+                    <CircleAlert className="h-4 w-4 shrink-0 text-amber-700" />
+                    <p className="text-[14px]">Renewal in 21 days — alert scheduled</p>
+                  </li>
+                  <li className="flex items-center gap-3 py-4">
+                    <Mail className="h-4 w-4 shrink-0 text-[var(--burgundy)]" />
+                    <p className="text-[14px]">Signed by both sides — document locked</p>
+                  </li>
+                </ul>
+                <p className="pt-2 text-[11px] text-foreground/40">Illustrated example · signing and monitoring</p>
               </div>
             </div>
           </div>
@@ -505,7 +576,7 @@ export default function Home() {
             <h2 className="mx-auto max-w-[24ch] text-center text-[28px] font-semibold leading-tight tracking-[-0.03em] sm:text-[36px]">
               From redline to signature without leaving
             </h2>
-            <div className="mt-12 grid gap-8 sm:grid-cols-3">
+            <div className="mt-12 grid gap-10 sm:grid-cols-3 sm:gap-8">
               {[
                 {
                   icon: <Upload className="h-4 w-4 text-[var(--burgundy)]" />,
@@ -523,7 +594,7 @@ export default function Home() {
                   body: "Connect Gmail once. Renewals, notice windows, and payment obligations surface as email alerts before they matter.",
                 },
               ].map((f) => (
-                <div key={f.title} className="rounded-[20px] border border-border bg-card p-6">
+                <div key={f.title}>
                   <span className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/[0.04]">
                     {f.icon}
                   </span>
@@ -543,9 +614,10 @@ export default function Home() {
                 <h2 className="max-w-[20ch] text-[28px] font-semibold leading-tight tracking-[-0.03em] sm:text-[34px]">
                   Plays well with how you already work
                 </h2>
-                <p className="mt-3 max-w-[46ch] text-[14px] leading-relaxed text-foreground/55">
-                  No new platform to live in. The tool meets the deal where it
-                  already lives — your inbox, their signature, your lawyer.
+                <p className="mt-3 max-w-[48ch] text-[14px] leading-relaxed text-foreground/55">
+                  There is no new platform to adopt. Dealenz works inside the channels the deal
+                  already moves through — your inbox for alerts, a secure link for their signature,
+                  and a clean handoff file for your lawyer.
                 </p>
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                   <Link
@@ -556,23 +628,21 @@ export default function Home() {
                   </Link>
                 </div>
               </div>
-              <ul className="space-y-3">
+              <ul className="divide-y divide-border border-y border-border">
                 {[
                   {
-                    icon: <Mail className="h-4 w-4 text-white" />,
-                    bg: "bg-[#EA4335]",
+                    icon: <Mail className="h-4 w-4 text-[var(--burgundy)]" />,
                     name: "Gmail",
                     body: "Deadline alerts land in your inbox before they matter. Connect once, in Settings.",
                   },
                   {
-                    icon: <PenLine className="h-4 w-4 text-primary-foreground" />,
-                    bg: "bg-primary",
+                    icon: <PenLine className="h-4 w-4 text-[var(--burgundy)]" />,
                     name: "Counterparty signing link",
                     body: "The other side signs through a secure link — no account needed on their end.",
                   },
                 ].map((r) => (
-                  <li key={r.name} className="flex items-start gap-3.5 rounded-2xl border border-border bg-card p-4">
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${r.bg}`}>
+                  <li key={r.name} className="flex items-start gap-3.5 py-5">
+                    <span className="mt-0.5 shrink-0">
                       {r.icon}
                     </span>
                     <div>
@@ -596,7 +666,7 @@ export default function Home() {
               Contracts carry other people&apos;s names, numbers, and money. Dealenz gives you
               control over every copy — before, during, and after the work.
             </p>
-            <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-12 grid gap-10 sm:grid-cols-2 sm:gap-8 lg:grid-cols-4">
               {[
                 {
                   icon: <EyeOff className="h-4 w-4 text-[var(--burgundy)]" />,
@@ -619,7 +689,7 @@ export default function Home() {
                   body: "Every shared view and report link lives in one place with its expiry — kill any of them in one tap.",
                 },
               ].map((f) => (
-                <div key={f.title} className="rounded-[20px] border border-border bg-background p-6">
+                <div key={f.title}>
                   <span className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/[0.04]">
                     {f.icon}
                   </span>
@@ -647,39 +717,36 @@ export default function Home() {
                 Pay per deal outcome. Nothing else.
               </h2>
               <p className="mx-auto mt-3 max-w-xl text-[14px] text-foreground/55">
-                No subscriptions, no tiers, no feature gates. 10 signup credits
-                to start — every analysis after that costs 5 credits.
+                There are no subscriptions, no tiers, and no feature gates. Every account starts
+                with 10 signup credits, and every analysis after that costs 5 credits.
               </p>
             </div>
-            <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-[20px] border border-border bg-card p-6 shadow-sm">
+            <ul className="mx-auto mt-12 max-w-3xl divide-y divide-border border-y border-border">
+              <li className="flex flex-wrap items-baseline gap-x-6 gap-y-1 py-6">
                 <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-foreground/40">Free</p>
-                <p className="mt-2 text-4xl font-semibold tracking-tight">$0</p>
-                <ul className="mt-5 space-y-2 text-[13px] text-foreground/60">
-                  <li>10 signup credits — first two analyses free</li>
-                  <li>All four document types on freelance deals</li>
-                </ul>
-                <Link href="/register" className="mt-6 flex w-full items-center justify-center rounded-full border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-foreground/[0.03]">
+                <p className="text-4xl font-semibold tracking-tight">$0</p>
+                <p className="w-full text-[13px] text-foreground/60">10 signup credits — first two analyses free. All four document types on freelance deals.</p>
+                <Link href="/register" className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-foreground">
                   Get started free
+                  <ArrowRight className="h-4 w-4" />
                 </Link>
-              </div>
+              </li>
               {CREDIT_PACKAGES.filter((p) => p.active).map((p) => (
-                <div key={p.id} className="rounded-[20px] border border-border bg-card p-6 shadow-sm">
+                <li key={p.id} className="flex flex-wrap items-baseline gap-x-6 gap-y-1 py-6">
                   <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-foreground/40">{p.credits} credits</p>
-                  <p className="mt-2 text-4xl font-semibold tracking-tight">{formatPrice(p.prices.USD, "USD")}</p>
-                  <p className="mt-1 text-[13px] text-foreground/55">{p.id === "starter" ? "A deal or two" : p.id === "standard" ? "A busy month" : "Steady deal flow"}</p>
-                  <ul className="mt-3 space-y-1 text-[12px] text-foreground/55">
-                    {packageValueLines(p.credits).map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                  <p className="mt-4 text-[13px] text-foreground/60">One-time top-up. No subscription.</p>
-                  <Link href="/register" className="mt-5 flex w-full items-center justify-center rounded-full bg-[var(--burgundy)] px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90">
+                  <p className="text-4xl font-semibold tracking-tight">{formatPrice(p.prices.USD, "USD")}</p>
+                  <p className="w-full text-[13px] text-foreground/60">
+                    {p.id === "starter" ? "Enough for a deal or two, start to finish" : p.id === "standard" ? "Enough for a busy month of reviews" : "Enough for steady deal flow across your pipeline"}
+                    {" · "}{packageValueLines(p.credits).join(" · ")}
+                    {" · "}One-time top-up. No subscription.
+                  </p>
+                  <Link href="/register" className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--burgundy)] transition-opacity hover:opacity-80">
                     Buy {p.credits} credits
+                    <ArrowRight className="h-4 w-4" />
                   </Link>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
             <p className="mt-4 text-center text-[12px] text-foreground/45">Prices in USD, plus tax at checkout. An account is required before purchase.</p>
           </div>
         </section>
@@ -690,11 +757,11 @@ export default function Home() {
             <h2 className="text-center text-[28px] font-semibold tracking-[-0.03em] sm:text-[36px]">
               Common questions
             </h2>
-            <div className="mt-10 space-y-3">
+            <div className="mt-10 divide-y divide-border border-y border-border">
               {faqs.map((faq) => (
                 <details
                   key={faq.q}
-                  className="group rounded-[16px] border border-border bg-card p-5 shadow-sm transition-colors open:shadow-md"
+                  className="group py-5"
                 >
                   <summary className="cursor-pointer list-none text-[15px] font-semibold [&::-webkit-details-marker]:hidden">
                     <span className="flex items-center justify-between gap-4">
@@ -702,21 +769,22 @@ export default function Home() {
                       <span className="text-foreground/30 transition-transform duration-300 group-open:rotate-45">+</span>
                     </span>
                   </summary>
-                  <p className="mt-2.5 text-[14px] leading-relaxed text-foreground/60">{faq.a}</p>
+                  <p className="mt-2.5 max-w-[62ch] text-[14px] leading-relaxed text-foreground/60">{faq.a}</p>
                 </details>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Final CTA */}
-        <section className="bg-card px-6 pb-16 lg:px-8 lg:pb-24">
-          <div className="mx-auto max-w-[1280px] rounded-[28px] bg-[var(--burgundy)] px-6 py-16 text-center text-white lg:py-20">
+        {/* Final CTA — full-bleed flat band, square edges, no card. */}
+        <section className="bg-[var(--burgundy)] px-6 py-16 text-center text-white lg:px-8 lg:py-20">
+          <div className="mx-auto max-w-[1280px]">
             <h2 className="mx-auto max-w-[20ch] text-[30px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-[42px]">
               Upload your next contract.
             </h2>
-            <p className="mx-auto mt-3 max-w-[48ch] text-[15px] text-white/70">
-              You do not need to know where to start. Upload the paper — leave with total clarity.
+            <p className="mx-auto mt-3 max-w-[52ch] text-[15px] text-white/70">
+              You do not need to know where to start. Upload the paper you received, and see
+              what it means, what to change, and what to sign.
             </p>
             <div className="mt-8">
               <Link
@@ -755,12 +823,12 @@ export default function Home() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-foreground/40">Company</p>
               <ul className="mt-4 space-y-2.5 text-[13px]">
                 <li><a href="mailto:support@dealenz.com" className="text-white/70 transition-colors hover:text-white">Contact</a></li>
+                <li><Link href="/help" className="text-white/70 transition-colors hover:text-white">Help center</Link></li>
               </ul>
             </nav>
             <nav aria-label="Resources">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-foreground/40">Resources</p>
               <ul className="mt-4 space-y-2.5 text-[13px]">
-                <li><Link href="/help" className="text-white/70 transition-colors hover:text-white">Help center</Link></li>
                 <li><Link href="/register" className="text-white/70 transition-colors hover:text-white">Get started</Link></li>
                 <li><Link href="/login" className="text-white/70 transition-colors hover:text-white">Sign in</Link></li>
               </ul>
@@ -780,7 +848,10 @@ export default function Home() {
               professional.
             </p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-[12px] text-primary-foreground/40">© 2026 Dealenz</p>
+              <p className="text-[12px] text-primary-foreground/40">© 2026 Dealenz. Know what&apos;s in your contracts.</p>
+              <p className="text-[12px] text-primary-foreground/40">
+                Questions? <a href="mailto:support@dealenz.com" className="underline underline-offset-2 transition-colors hover:text-white">support@dealenz.com</a>
+              </p>
             </div>
           </div>
         </div>

@@ -64,10 +64,9 @@ export default function PrivacyPage() {
 
           <H>Who processes it</H>
           <p>
-            Your data lives in our EU-hosted database (Supabase, EU West) and is served through
-            our hosting provider (Vercel). Deal content you submit for analysis is transmitted to
-            our AI processing provider (OpenRouter), which routes it to the underlying model
-            provider to produce that analysis. Payments run through Paddle. Email sending and
+            Your data lives in our EU-hosted database and is served through
+            our hosting provider. Deal content you submit for analysis is transmitted to
+            our AI processing providers to produce that analysis. Payments run through Paddle. Email sending and
             Gmail access run through Google, only where you enable them. Each processes data only
             to provide its part of the service, under agreements that forbid any other use. We do
             not sell your data, and we do not use it for advertising.
@@ -75,8 +74,8 @@ export default function PrivacyPage() {
           <p>
             On AI retention and training: we send submitted content to AI providers only to
             fulfil your request, and our provider terms prohibit any other use including model
-            training. Underlying model providers publish their own retention practices — check
-            OpenRouter&apos;s policy for current details. If those commitments change materially,
+            training. Underlying model providers publish their own retention practices — write
+            to support@dealenz.com for current details. If those commitments change materially,
             we will update this policy and, where the law requires it, seek fresh consent before
             continuing to send content there.
           </p>
@@ -87,8 +86,8 @@ export default function PrivacyPage() {
             any time from Settings → Delete account and everything in it is erased from our live
             systems immediately. Download a copy of everything first from Settings → Privacy, and
             delete individual deals any time from your dashboard deals table — you never have to
-            erase everything to remove one sensitive deal. Encrypted provider backups age out on
-            the provider&apos;s own schedule after that. We keep malfunction and billing records
+            erase everything to remove one sensitive deal. Encrypted backups age out on
+            their own schedule after that. We keep malfunction and billing records
             only as long as needed for security, troubleshooting, and legal obligations.
           </p>
 
@@ -103,14 +102,14 @@ export default function PrivacyPage() {
           <H>International transfers</H>
           <p>
             Our database is hosted in the EU. AI processing and some infrastructure operate in the
-            United States under our providers&apos; contractual safeguards. By using Dealenz you
+            United States under contractual safeguards. By using Dealenz you
             understand deal content you submit may be processed there to produce your analysis.
           </p>
 
           <H>Security</H>
           <p>
             Access is scoped so accounts can only ever read their own data; all traffic is
-            encrypted in transit and storage is encrypted at rest by our providers. No system is
+            encrypted in transit and storage is encrypted at rest. No system is
             impregnable: if a breach exposes your data we will notify you and the relevant
             authority without undue delay, as the law requires.
           </p>
