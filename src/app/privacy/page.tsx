@@ -21,8 +21,8 @@ export default function PrivacyPage() {
           <p>
             Dealenz is the data controller for your account. If you have any privacy question —
             including what is held about you — write to{" "}
-            <a href="mailto:support@dealenz.com" className="font-medium text-foreground hover:underline">
-              support@dealenz.com
+            <a href="mailto:dealenz.help@gmail.com" className="font-medium text-foreground hover:underline">
+              dealenz.help@gmail.com
             </a>
             .
           </p>
@@ -75,9 +75,20 @@ export default function PrivacyPage() {
             On AI retention and training: we send submitted content to AI providers only to
             fulfil your request, and our provider terms prohibit any other use including model
             training. Underlying model providers publish their own retention practices — write
-            to support@dealenz.com for current details. If those commitments change materially,
+            to dealenz.help@gmail.com for current details. If those commitments change materially,
             we will update this policy and, where the law requires it, seek fresh consent before
             continuing to send content there.
+          </p>
+
+          <H>Counterparty and signature data</H>
+          <p>
+            When you invite someone to sign, we process what the ceremony needs and nothing
+            else: their name, email, the signature image they draw, type, or upload, and the
+            timestamps of sending and signing. Counterparties never need an account,
+            and their data is kept with your deal — deleted when the deal or your account is
+            deleted, and covered by the same no-training, no-advertising commitments above.
+            Documents you record as signed elsewhere carry only the date you enter and the
+            text you provide.
           </p>
 
           <H>How long we keep it</H>
@@ -94,7 +105,7 @@ export default function PrivacyPage() {
           <H>Your rights</H>
           <p>
             You can access, correct, export, or delete your data — most of it directly in the
-            product, the rest by writing to support@dealenz.com. Where the law gives you rights of
+            product, the rest by writing to dealenz.help@gmail.com. Where the law gives you rights of
             objection or restriction, or the right to complain to your supervisory authority, those
             apply in full. We answer privacy requests within one month.
           </p>

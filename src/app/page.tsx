@@ -328,12 +328,12 @@ export default function Home() {
                 {
                   icon: <PenLine className="h-4 w-4 text-[var(--burgundy)]" />,
                   title: "Negotiation drafts",
-                  body: "Every material risk arrives with a drafted response you can send — staged payments, capped revisions, a rewritten clause — written in your voice and ready to copy into your reply.",
+                  body: "Every material risk arrives with a drafted response you can accept, edit, or skip — staged payments, capped revisions, a rewritten clause — written in your voice and ready to copy into your reply.",
                 },
                 {
                   icon: <ShieldCheck className="h-4 w-4 text-[var(--burgundy)]" />,
                   title: "Rules overrule the AI",
-                  body: "Before any finding reaches you, it passes a deterministic rule check. Where the model and the rules disagree, the rules win, and the report shows the reasoning it relied on.",
+                  body: "Before any finding reaches you, it passes a deterministic check against rule packs built for your deal type — freelance, lease, partnership, employment, and more. Most teams have no playbook at all; yours ships inside the product. Where the model and the rules disagree, the rules win, and the report shows the reasoning it relied on.",
                 },
                 {
                   icon: <Bell className="h-4 w-4 text-[var(--burgundy)]" />,
@@ -822,8 +822,9 @@ export default function Home() {
             <nav aria-label="Company">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-foreground/40">Company</p>
               <ul className="mt-4 space-y-2.5 text-[13px]">
-                <li><a href="mailto:support@dealenz.com" className="text-white/70 transition-colors hover:text-white">Contact</a></li>
+                <li><a href="mailto:dealenz.help@gmail.com" className="text-white/70 transition-colors hover:text-white">Contact</a></li>
                 <li><Link href="/help" className="text-white/70 transition-colors hover:text-white">Help center</Link></li>
+                <li><Link href="/methodology" className="text-white/70 transition-colors hover:text-white">Our method</Link></li>
               </ul>
             </nav>
             <nav aria-label="Resources">
@@ -850,7 +851,7 @@ export default function Home() {
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-[12px] text-primary-foreground/40">© 2026 Dealenz. Know what&apos;s in your contracts.</p>
               <p className="text-[12px] text-primary-foreground/40">
-                Questions? <a href="mailto:support@dealenz.com" className="underline underline-offset-2 transition-colors hover:text-white">support@dealenz.com</a>
+                Questions? <a href="mailto:dealenz.help@gmail.com" className="underline underline-offset-2 transition-colors hover:text-white">dealenz.help@gmail.com</a>
               </p>
             </div>
           </div>

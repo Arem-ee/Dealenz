@@ -46,6 +46,21 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     token: s.token ? String(s.token) : null,
   }))
 
+  // Drawn/typed signature images for signed rows (owner RLS scopes the read;
+  // invitees see their own ceremony state, not the gallery).
+  const signatureImages: Record<string, string> = {}
+  if (signers.length > 0) {
+    const { data: artifacts } = await supabase
+      .from("signer_signature_artifacts")
+      .select("signer_id, image_data")
+      .in("signer_id", signers.map((s) => s.id))
+    for (const a of ((artifacts ?? []) as Array<{ signer_id: string; image_data: string }>)) {
+      if (typeof a.image_data === "string" && a.image_data.startsWith("data:image/png")) {
+        signatureImages[String(a.signer_id)] = a.image_data
+      }
+    }
+  }
+
   const { data: finals } = await supabase.from("final_documents").select("document_version_id").eq("audit_id", auditId).limit(10)
   const finalIds = new Set(((finals ?? []) as Array<{ document_version_id: string }>).map((f) => String(f.document_version_id)))
   const isFinal = versions.length > 0 && finalIds.has(versions[0].id)
@@ -67,5 +82,26 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     }
   }
 
-  return <DocumentReader auditId={auditId} threadId={threadId ?? null} versions={versions} signers={signers} executed={executed} isFinal={isFinal} guarded={guarded} />
+  // Tamper seal for the latest version once executed: first-writer-wins hash
+  // over the exact content, best-effort like monitoring above. Version UPDATE
+  // is not user-granted (versions are insert-only for owners), so sealing
+  // runs service-role after the ownership check above. A seal that later
+  // mismatches reads as tampered in the certificate, never resealed.
+  let seal: { hash: string; sealedAt: string | null; tampered: boolean } | null = null
+  if (executed && versions.length > 0) {
+    try {
+      const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (serviceUrl && serviceKey) {
+        const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+        const { ensureVersionSeal } = await import("@/lib/signatures/seal")
+        const latest = versions[0] as { id: string }
+        seal = await ensureVersionSeal(createServiceClient(serviceUrl, serviceKey) as never, { auditId, versionId: latest.id, userId: user.id })
+      }
+    } catch {
+      seal = null
+    }
+  }
+
+  return <DocumentReader auditId={auditId} threadId={threadId ?? null} versions={versions} signers={signers} executed={executed} isFinal={isFinal} guarded={guarded} signatureImages={signatureImages} seal={seal} />
 }

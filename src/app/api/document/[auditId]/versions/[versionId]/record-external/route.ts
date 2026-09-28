@@ -86,5 +86,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
   if (error) {
     return NextResponse.json({ success: false, error: "Could not record the signing. Please try again." }, { status: 500 })
   }
+  // Seal the recorded content best-effort: externally-signed paper gets the
+  // same tamper evidence as witnessed ceremonies from this point forward.
+  // Seal failure never fails the recording itself.
+  try {
+    const { ensureVersionSeal } = await import("@/lib/signatures/seal")
+    await ensureVersionSeal(service as never, { auditId, versionId, userId: user.id })
+  } catch {
+    // Best-effort only.
+  }
   return NextResponse.json({ success: true })
 }

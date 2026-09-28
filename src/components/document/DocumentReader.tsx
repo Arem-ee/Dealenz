@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/toast"
 import { renderMarkdown } from "@/lib/markdown"
 import { ClientTime } from "@/components/datetime"
+import { SignaturePad, type SignatureValue } from "@/components/sign/signature-pad"
 
 interface VersionItem {
   id: string
@@ -38,6 +39,8 @@ export function DocumentReader({
   executed,
   isFinal,
   guarded,
+  signatureImages,
+  seal,
 }: {
   auditId: string
   threadId?: string | null
@@ -46,6 +49,8 @@ export function DocumentReader({
   executed: boolean
   isFinal: boolean
   guarded?: { created: number; total: number } | null
+  signatureImages?: Record<string, string>
+  seal?: { hash: string; sealedAt: string | null; tampered: boolean } | null
 }) {
   const router = useRouter()
   const [selectedId, setSelectedId] = useState<string>(versions[0]?.id ?? "")
@@ -53,6 +58,7 @@ export function DocumentReader({
   const [counterpartyName, setCounterpartyName] = useState("")
   const [counterpartyEmail, setCounterpartyEmail] = useState("")
   const [busy, setBusy] = useState(false)
+  const [ownerSignature, setOwnerSignature] = useState<SignatureValue | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [sideOpen, setSideOpen] = useState(false)
   const { showError, showSuccess } = useToast()
@@ -107,9 +113,17 @@ export function DocumentReader({
 
   async function handleOwnerSign() {
     if (!ownerSigner) return
+    if (!ownerSignature) {
+      fail("Draw or type your signature above first.")
+      return
+    }
     setBusy(true)
     try {
-      const res = await fetch(`/api/document/${auditId}/sign-owner`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ signerId: ownerSigner.id }) })
+      const res = await fetch(`/api/document/${auditId}/sign-owner`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signerId: ownerSigner.id, imageData: ownerSignature.dataUrl, method: ownerSignature.method }),
+      })
       const data = await res.json()
       if (!data.success) throw new Error(data.error ?? "Signing failed")
       setNotice("You signed. Counterparty has been notified.")
@@ -214,7 +228,7 @@ export function DocumentReader({
           <div className="rounded-xl border bg-card p-4">
             <h3 className="text-sm font-semibold flex items-center gap-2"><History className="h-4 w-4" /> Versions</h3>
             <div className="mt-3 space-y-1">
-              {versions.length === 0 && <p className="text-xs text-muted-foreground">No versions — generate a draft in chat first.</p>}
+              {versions.length === 0 && <p className="text-xs text-muted-foreground">No versions — generate a draft in chat, or bring your own paper from Signing.</p>}
               {versions.map((v) => (
                 <button
                   key={v.id}
@@ -236,10 +250,14 @@ export function DocumentReader({
             <div className="mt-3 space-y-2">
               {signers.length === 0 && <p className="text-xs text-muted-foreground">No signers yet. Add a counterparty below.</p>}
               {signers.map((s) => (
-                <div key={s.id} className="flex items-center justify-between rounded-lg border p-2.5">
-                  <div>
+                <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg border p-2.5">
+                  <div className="min-w-0">
                     <p className="text-xs font-medium">{s.name} <span className="text-muted-foreground font-normal">({s.partyLabel})</span></p>
                     <p className="text-[11px] text-muted-foreground">{s.email}</p>
+                    {s.status === "signed" && signatureImages?.[s.id] && (
+                      // eslint-disable-next-line @next/next/no-img-element -- data-URL artifact, not an optimizable asset
+                      <img src={signatureImages[s.id]} alt={`Signature of ${s.name}`} className="mt-1.5 h-10 w-auto rounded border border-border/60 bg-white px-2" />
+                    )}
                   </div>
                   <span className={`text-[10px] rounded-full px-2 py-1 font-medium capitalize ${s.status === "signed" ? "bg-success/10 text-success" : s.status === "pending" ? "bg-amber-500/10 text-amber-700" : "bg-muted text-muted-foreground"}`}>
                     {s.status === "signed" ? <><Check className="h-3 w-3 inline mr-1" />signed</> : s.status}
@@ -262,9 +280,12 @@ export function DocumentReader({
 
                 <div className="mt-4 space-y-2">
                   {ownerSigner && ownerSigner.status === "pending" && (
-                    <Button size="sm" className="w-full" onClick={() => void handleOwnerSign()} disabled={busy}>
-                      {busy ? "Signing…" : "Sign as owner (first)"}
-                    </Button>
+                    <>
+                      <SignaturePad name={ownerSigner.name} onChange={setOwnerSignature} />
+                      <Button size="sm" className="w-full" onClick={() => void handleOwnerSign()} disabled={busy || !ownerSignature}>
+                        {busy ? "Signing…" : "Sign as owner (first)"}
+                      </Button>
+                    </>
                   )}
                   {ownerSigner?.status === "signed" && counterpartySigner?.status === "pending" && (
                     <Button size="sm" className="w-full" onClick={() => void handleSend()} disabled={busy}>
@@ -291,6 +312,43 @@ export function DocumentReader({
               <Clock className="h-3.5 w-3.5" /> {executed ? "Completed" : signers.length > 0 && signers.every((s) => s.status === "signed") ? "Signatures complete — locking" : signers.some((s) => s.status === "pending") ? "Pending signatures" : "Not sent"}
             </div>
           </div>
+
+          {executed && (
+            <div className="rounded-xl border bg-card p-4">
+              <h4 className="text-xs font-semibold">Completion certificate</h4>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                The ceremony record: who signed, when, and proof the document is unchanged since.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {signers.filter((s) => s.status === "signed").map((s) => (
+                  <li key={s.id} className="text-xs">
+                    <p className="font-medium">{s.name} <span className="font-normal text-muted-foreground">({s.partyLabel})</span></p>
+                    <p className="text-muted-foreground">
+                      {s.signedAt ? new Date(s.signedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "Signed"}
+                      {" · verified by signing link + name match"}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 border-t border-border/60 pt-3 text-[11px] text-muted-foreground">
+                {seal ? (
+                  seal.tampered ? (
+                    <p className="font-medium text-red-700">Content differs from the sealed copy — treat this version as untrusted and re-issue it.</p>
+                  ) : (
+                    <>
+                      <p>
+                        Seal <span className="font-mono" title={seal.hash}>{seal.hash.slice(0, 16)}…</span>
+                        {seal.sealedAt ? ` · sealed ${new Date(seal.sealedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}
+                      </p>
+                      <p className="mt-1">SHA-256 over the exact signed text. Any edit after sealing breaks the match above.</p>
+                    </>
+                  )
+                ) : (
+                  <p>Seal pending — it is written the first time this executed version loads.</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

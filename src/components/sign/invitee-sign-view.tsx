@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/toast"
 import { renderMarkdown } from "@/lib/markdown"
-import { signInviteeDocument, declineInviteeDocument, type SignerView } from "@/app/sign/[token]/actions"
+import { SignaturePad, type SignatureValue } from "./signature-pad"
+import { saveInviteeSignature, signInviteeDocument, declineInviteeDocument, type SignerView } from "@/app/sign/[token]/actions"
 
 // Public invitee signing surface. No account, no deal access: everything is
 // token-scoped server-side. This component collects intent only; the RPC
@@ -16,13 +17,25 @@ export function InviteeSignView({ token, initial }: { token: string; initial: Si
   const [view, setView] = useState(initial)
   const [name, setName] = useState(initial.signerName)
   const [email, setEmail] = useState(initial.signerEmail)
+  const [signature, setSignature] = useState<SignatureValue | null>(null)
   const [busy, setBusy] = useState(false)
   const [declined, setDeclined] = useState(false)
   const { showError, showSuccess } = useToast()
 
   async function handleSign() {
+    if (!signature) {
+      showError("Draw or type your signature above first.")
+      return
+    }
     setBusy(true)
     try {
+      // Image first: a failed artifact blocks signing, so a recorded
+      // signature always carries its image.
+      const saved = await saveInviteeSignature(token, signature.dataUrl, signature.method)
+      if (!saved.success) {
+        showError(saved.error ?? "Could not save the signature image.")
+        return
+      }
       const res = await signInviteeDocument(token, name, email)
       if (!res.success) {
         showError(res.error ?? "Signing failed")
@@ -83,6 +96,10 @@ export function InviteeSignView({ token, initial }: { token: string; initial: Si
               </div>
               <p className="text-sm font-medium">Your signature: complete{view.signedAt ? ` on ${new Date(view.signedAt).toLocaleDateString()}` : ""}.</p>
             </div>
+            {signature && (
+              // eslint-disable-next-line @next/next/no-img-element -- data-URL artifact just drawn, not an optimizable asset
+              <img src={signature.dataUrl} alt="Your recorded signature" className="h-16 w-auto rounded-lg border border-border bg-white px-3" />
+            )}
             <p className="text-xs text-muted-foreground">
               {view.signedSigners >= view.totalSigners && view.totalSigners > 0
                 ? "All required signatures complete. Document executed."
@@ -106,8 +123,12 @@ export function InviteeSignView({ token, initial }: { token: string; initial: Si
                 <Input id="sign-email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               </div>
             </div>
+            <div className="space-y-1.5">
+              <Label>Your signature</Label>
+              <SignaturePad name={name} onChange={setSignature} />
+            </div>
             <div className="flex gap-2">
-              <Button onClick={() => void handleSign()} disabled={busy}>
+              <Button onClick={() => void handleSign()} disabled={busy || !signature}>
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Sign document
               </Button>

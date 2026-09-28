@@ -37,7 +37,11 @@ export default function TermsPage() {
             Dealenz uses AI models that can make mistakes, misread clauses, or state things
             confidently that are wrong. Treat every finding, draft, and answer as a starting
             point to verify — never as a settled fact — especially figures, dates, governing
-            law, and obligations.
+            law, and obligations. How findings are checked is published on our{" "}
+            <Link href="/methodology" className="font-medium text-foreground underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/40">
+              methodology page
+            </Link>
+            .
           </p>
 
           <H>Who can use it</H>
@@ -51,7 +55,9 @@ export default function TermsPage() {
             Dealenz is free to start: new accounts receive 10 credits, enough for two full
             analyses. Further work — analyses (5 each), answers, drafts, uploads, signature
             sends — consumes credits, which can be topped up in one-time credit packs inside the app. There are no subscriptions.
-            Credits never expire. Failed operations do not consume credits. A purchase counts once
+            Quoted prices are ceilings: quick questions cost 1 credit, longer answers are
+            priced by length, and concise answers settle lower than quoted — you never pay
+            more than the estimate shown before you send. Credits never expire. Failed operations do not consume credits. A purchase counts once
             our payment provider&apos;s verified settlement lands it in your balance; returning
             from checkout alone means nothing. If a purchase does not land in your balance, write
             to support and it will be put right.
@@ -81,7 +87,11 @@ export default function TermsPage() {
           <p>
             When you invite someone to sign through a Dealenz link, you confirm you may lawfully
             share the document with them and contact them about it. Counterparties sign without
-            needing an account; their signature data is processed as described in Privacy.
+            needing an account; their name, email, signature image, and signing timestamps are
+            processed as described in Privacy and kept with the deal until it — or your
+            account — is deleted. Documents you bring yourself and signings completed
+            elsewhere are your records to keep; recording them here does not turn them into
+            legal advice or legal determinations.
           </p>
 
           <H>Suspension and termination</H>

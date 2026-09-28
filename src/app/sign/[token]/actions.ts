@@ -121,3 +121,36 @@ export async function declineInviteeDocument(token: string) {
   if (!result?.success) return { success: false, error: result?.message ?? "Request failed" }
   return { success: true }
 }
+
+/**
+ * Stores the invitee's drawn/typed signature image, token-gated like the
+ * ceremony itself. Invitees are unauthenticated, so the write goes through
+ * the service role after resolving the token to a still-pending signer —
+ * never by token alone, never for another row. Called BEFORE signInviteeDocument:
+ * a failed artifact blocks signing, so a recorded signature always has its image.
+ */
+export async function saveInviteeSignature(token: string, imageData: string, method: string) {
+  if (!TOKEN_RE.test(token)) return { success: false, error: "Invalid signing link" }
+  const { validateSignatureArtifact } = await import("@/lib/signatures/validate")
+  const valid = validateSignatureArtifact({ imageData, method })
+  if (!valid.ok) return { success: false, error: valid.error }
+  const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceUrl || !serviceKey) return { success: false, error: "Service unavailable. Please try again." }
+  const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+  const service = createServiceClient(serviceUrl, serviceKey)
+  const { data: signer } = await service
+    .from("document_signers")
+    .select("id, status")
+    .eq("token", token)
+    .maybeSingle()
+  const row = signer as { id: string; status: string } | null
+  if (!row) return { success: false, error: "Invalid signing link" }
+  if (row.status !== "pending") return { success: false, error: "This invitation is no longer pending." }
+  const { error } = await service.from("signer_signature_artifacts").upsert(
+    { signer_id: row.id, image_data: valid.imageData, method: valid.method },
+    { onConflict: "signer_id" }
+  )
+  if (error) return { success: false, error: "Could not save the signature image. Please try again." }
+  return { success: true }
+}

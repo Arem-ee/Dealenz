@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
 const mockRpc = vi.hoisted(() => vi.fn())
 const mockServiceMaybeSingle = vi.hoisted(() => vi.fn())
+const mockUpsert = vi.hoisted(() => vi.fn())
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(() => ({ rpc: mockRpc })),
@@ -9,6 +10,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 // ownerStillPending reads ordering state through the service client:
 // counterparty signer row, then the owner row on the same version.
+// saveInviteeSignature resolves the token then upserts the artifact.
 vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => ({
     from: () => ({
@@ -19,11 +21,12 @@ vi.mock("@supabase/supabase-js", () => ({
           maybeSingle: mockServiceMaybeSingle,
         }),
       }),
+      upsert: (...args: unknown[]) => mockUpsert(...args),
     }),
   })),
 }))
 
-import { getInviteeView, signInviteeDocument, declineInviteeDocument } from "./actions"
+import { getInviteeView, signInviteeDocument, declineInviteeDocument, saveInviteeSignature } from "./actions"
 
 const TOKEN = "A1b2C3d4E5f6G7h8I9j0"
 
@@ -133,5 +136,32 @@ describe("invitee signing access", () => {
     mockRpc.mockResolvedValue({ data: [{ success: false, message: "A newer document version exists" }], error: null })
     const res = await signInviteeDocument(TOKEN, "Alice", "alice@example.com")
     expect(res).toEqual({ success: false, error: "A newer document version exists" })
+  })
+})
+
+describe("saveInviteeSignature", () => {
+  const IMG = `data:image/png;base64,${"A".repeat(2000)}`
+
+  beforeEach(() => {
+    mockServiceMaybeSingle.mockResolvedValue({ data: { id: "signer-1", status: "pending" }, error: null })
+    mockUpsert.mockResolvedValue({ error: null })
+  })
+
+  it("stores the artifact for a pending token", async () => {
+    await expect(saveInviteeSignature(TOKEN, IMG, "drawn")).resolves.toEqual({ success: true })
+    expect(mockUpsert).toHaveBeenCalledWith(
+      { signer_id: "signer-1", image_data: IMG, method: "drawn" },
+      { onConflict: "signer_id" }
+    )
+  })
+
+  it("rejects bad tokens, non-pending invitations, and bad images without writing", async () => {
+    await expect(saveInviteeSignature("x", IMG, "drawn")).resolves.toMatchObject({ success: false })
+    mockServiceMaybeSingle.mockResolvedValueOnce({ data: { id: "signer-1", status: "signed" }, error: null })
+    await expect(saveInviteeSignature(TOKEN, IMG, "drawn")).resolves.toMatchObject({ success: false })
+    mockServiceMaybeSingle.mockResolvedValueOnce({ data: null, error: null })
+    await expect(saveInviteeSignature(TOKEN, IMG, "drawn")).resolves.toMatchObject({ success: false })
+    await expect(saveInviteeSignature(TOKEN, "blank", "drawn")).resolves.toMatchObject({ success: false })
+    expect(mockUpsert).not.toHaveBeenCalled()
   })
 })

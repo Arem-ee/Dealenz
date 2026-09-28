@@ -21,11 +21,11 @@ const FAQS = [
   },
   {
     q: "How do documents work?",
-    a: "From a thread with an analyzed deal you can generate drafts. Values Dealenz already knows are filled in and labeled by source; anything inferred needs your confirmation. You approve the final draft.",
+    a: "From a thread with an analyzed deal you can generate drafts. Values Dealenz already knows are filled in and labeled by source; anything inferred needs your confirmation. You approve the final draft. If the paper already exists — written elsewhere, received by email — add it from Signing instead: no analysis, no credits, and it becomes signable as your own version.",
   },
   {
     q: "How does signing work?",
-    a: "Open a draft in the Document Reader, add your counterparty (name + email), sign as owner first, then send. Both sides sign their own link; when everyone has signed, the document is marked executed and locked.",
+    a: "Open a draft in the Document Reader, add your counterparty (name + email), draw or type your signature and sign as owner first, then send. Both sides sign their own link — no account needed on their end — and each signature carries its image. When everyone has signed, the document is marked executed, sealed against later edits, and locked. Paper signed elsewhere can be recorded from Signing so it stays tracked here too.",
   },
   {
     q: "When should a lawyer review my deal?",
@@ -33,7 +33,11 @@ const FAQS = [
   },
   {
     q: "What do credits pay for?",
-    a: "Credits pay for deal outcomes: analyses (5 each), Ask answers (2/6/25 by size), documents (proposal 10, scope 15, contract 20, checklist 10), uploads (5), signature sends (10) — never for a favorable answer. Greetings are always free, and your 10 signup credits cover your first two analyses.",
+    a: "Credits pay for deal outcomes: analyses (5 each), Ask answers (quick questions 1, longer ones 2/6/25 by length — the quote is a ceiling and concise answers settle lower), documents (proposal 10, scope 15, contract 20, checklist 10), uploads (5), signature sends (10) — never for a favorable answer. Greetings are always free, and your 10 signup credits cover your first two analyses.",
+  },
+  {
+    q: "How does Dealenz check its work?",
+    a: "Every finding passes a deterministic rule check against rule packs built for your deal type, carries the exact clause it came from, and says unknown where the evidence runs out. The full method — pipeline, guardrails, and where human judgment takes over — is published on the methodology page, not as an accuracy score.",
   },
 ]
 
@@ -78,8 +82,8 @@ function HelpContent() {
       <h1 className="text-xl font-semibold tracking-tight">Get help</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Plain answers about using Dealenz. Anything else — write to{" "}
-        <a href="mailto:support@dealenz.com" className="font-medium text-foreground hover:underline">
-          support@dealenz.com
+        <a href="mailto:dealenz.help@gmail.com" className="font-medium text-foreground hover:underline">
+          dealenz.help@gmail.com
         </a>.
       </p>
       <div className="mt-6 space-y-3">
@@ -93,6 +97,9 @@ function HelpContent() {
       <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
         <Link href="/dashboard" className="font-medium text-primary hover:underline">
           Open the Dashboard
+        </Link>
+        <Link href="/methodology" className="font-medium text-primary hover:underline">
+          How Dealenz checks its work
         </Link>
         <Link href="/register" className="font-medium text-primary hover:underline">
           Create an account
