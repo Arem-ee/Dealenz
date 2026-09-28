@@ -36,6 +36,13 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
   const { consented: aiConsented, consenting, grant: grantConsent } = useAiConsent()
   const fileRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // Synchronous in-flight guard: `sending` state lags rapid double-submits
+  // (double-Enter, key-repeat, double-tap), and each attempt mints a fresh
+  // billable turn — so the guard must flip before the first await, not after
+  // re-render. Stable idempotency key per draft: rotated only on successful
+  // send, so retries of the same draft converge server-side.
+  const inflight = useRef(false)
+  const draftKey = useRef(crypto.randomUUID())
   const [pendingFile, setPendingFileLocal] = useState<File | null>(null)
   // Mask-sensitive-details panel: detection runs locally on the current
   // draft; the user reviews every item before anything is replaced.
@@ -90,7 +97,9 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
   const [appliedPrefillKey, setAppliedPrefillKey] = useState<number | null>(null)
   if (prefill && prefill.text && prefill.key !== appliedPrefillKey) {
     setAppliedPrefillKey(prefill.key)
-    setValue(prefill.text)
+    // Never clobber an in-progress draft: "Ask about this finding" lands
+    // only in an empty box, otherwise the user's text would vanish silently.
+    if (!value.trim()) setValue(prefill.text)
   }
 
   async function doSend(text: string, hasDocument: boolean, file?: File | null): Promise<boolean> {
@@ -100,7 +109,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
         text,
         auditId: outcome === "question" ? auditId || undefined : undefined,
         conversationId: outcome === "question" ? threadId || undefined : undefined,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: draftKey.current,
       })
       if (res.type === "error") {
         handleActionError(res.error, text, hasDocument)
@@ -222,7 +231,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
         text,
         auditId: auditId || undefined,
         conversationId: threadId || undefined,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: draftKey.current,
       })
       if (res.type === "error") {
         handleActionError(res.error, text, hasDocument)
@@ -288,7 +297,8 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
 
   async function handleSubmit() {
     const rawText = value.trim()
-    if ((!rawText && !pendingFile) || sending) return
+    if ((!rawText && !pendingFile) || sending || inflight.current) return
+    inflight.current = true
     const hasDocument = !!pendingFile
     const text = rawText || (pendingFile ? `Document: ${pendingFile.name}` : "")
     const { outcome } = classifyInput(text, hasDocument)
@@ -297,6 +307,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
       setPendingText(text)
       setPendingHasDocument(hasDocument)
       setShowConsentModal(true)
+      inflight.current = false
       return
     }
     if (needsConsent && aiConsented === null) {
@@ -306,6 +317,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
         setPendingText(text)
         setPendingHasDocument(hasDocument)
         setShowConsentModal(true)
+        inflight.current = false
         return
       }
     }
@@ -319,18 +331,25 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
         setValue("")
         setPendingFileLocal(null)
         setPendingFile(null)
+        // The draft is gone: rotate the idempotency key so the next draft is
+        // a new billable turn (and a retry of the old one stays converged).
+        draftKey.current = crypto.randomUUID()
       }
     } catch (err) {
       await reportSubmitFailure(err)
     } finally {
+      inflight.current = false
       setSending(false)
     }
   }
 
   async function handleConsentConfirm() {
+    if (inflight.current) return
+    inflight.current = true
     const ok = await grantConsent()
     if (!ok) {
       showError("Failed to save consent. Please try again — server did not confirm.")
+      inflight.current = false
       return
     }
     setShowConsentModal(false)
@@ -348,6 +367,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
           setValue("")
           setPendingFileLocal(null)
           setPendingFile(null)
+          draftKey.current = crypto.randomUUID()
         }
       } catch (err) {
         await reportSubmitFailure(err)
@@ -355,6 +375,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
         setSending(false)
       }
     }
+    inflight.current = false
   }
 
   const handleConsentDismiss = () => {

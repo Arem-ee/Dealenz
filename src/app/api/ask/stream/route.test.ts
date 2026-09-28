@@ -78,7 +78,10 @@ describe("POST /api/ask/stream", () => {
     const res = await POST(req({ text: "What is this?" }))
     expect(res.headers.get("Content-Type")).toContain("text/event-stream")
     const events = await readEvents(res)
-    expect(events[0]).toMatchObject({ type: "stage" })
+    // Turn setup commits first: the started event carries the conversation
+    // id so clients resume instead of duplicating on transport failure.
+    expect(events[0]).toMatchObject({ type: "started", conversationId: "conv_1" })
+    expect(events[1]).toMatchObject({ type: "stage" })
     expect(events.filter((e) => e.type === "token").map((e) => e.delta).join("")).toBe("Hello there")
     const done = events.find((e) => e.type === "done")
     expect(done).toMatchObject({ conversationId: "conv_1", replaced: false })

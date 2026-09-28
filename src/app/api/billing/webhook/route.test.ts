@@ -236,13 +236,16 @@ describe("billing webhook (Paddle) fulfillment", () => {
     expect(inserts.some((i) => i.table === "credit_purchases")).toBe(false)
   })
 
-  it("rejects underpayment below the catalog floor", async () => {
+  it("acks underpayment without granting (no futile Paddle retries)", async () => {
     const res = await POST(
       reqWithSig(
         paddleBody({ data: { id: "txn_01test12345678901234567890ac", status: "completed", customer_id: "ctm_01test", currency_code: "USD", custom_data: { user_id: USER_ID }, items: [{ price: { id: "pri_standard_222" } }], details: { totals: { total: "100", currency_code: "USD" } } } })
       )
     )
-    expect(res.status).toBe(400)
+    // 200 stops Paddle retrying a decision that can never change; the money
+    // is real so ops gets a critical report instead of silence.
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ received: true, status: "underpaid" })
     expect(inserts.some((i) => i.table === "credit_ledger")).toBe(false)
   })
 

@@ -28,7 +28,11 @@ function serviceBuilder(table: string): Record<string, unknown> {
   })
   b.update = vi.fn((row: Record<string, unknown>) => {
     mockUpdateImpl.value?.impl(row)
-    return { eq: vi.fn(() => Promise.resolve({ error: null })) }
+    const chain: Record<string, unknown> = {}
+    chain.eq = vi.fn(() => chain)
+    chain.in = vi.fn(() => chain)
+    chain.select = vi.fn(() => Promise.resolve({ data: [{ id: "ver-1" }], error: null }))
+    return chain
   })
   return b
 }

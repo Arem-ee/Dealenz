@@ -42,9 +42,17 @@ export async function uploadAndAttachFile(auditId: string, file: File): Promise<
       return { ok: false, error: "You must be signed in." }
     }
     const storageKey = `${user.id}/${auditId}/${safeName}`
+    // Content-derived idempotency: retries of the same bytes reuse the key
+    // instead of minting fresh holds, and re-attaching an already-listed
+    // path replaces the row instead of duplicating it (and the charge).
+    const buffer = new Uint8Array(await file.arrayBuffer())
+    const digest = await crypto.subtle.digest("SHA-256", buffer as BufferSource)
+    const fingerprint = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("")
     const { error: upError } = await supabase.storage
       .from("audit-files")
-      .upload(storageKey, file, { contentType: mime, upsert: false })
+      // Replace-on-retry: the same user/audit/name re-upload overwrites
+      // instead of hard-failing, so a failed first attempt is recoverable.
+      .upload(storageKey, file, { contentType: mime, upsert: true })
     if (upError) {
       return { ok: false, error: "We couldn't upload that file. Please try again." }
     }
@@ -54,6 +62,7 @@ export async function uploadAndAttachFile(auditId: string, file: File): Promise<
         size: file.size,
         type: mime,
         path: `audit-files/${storageKey}`,
+        fingerprint,
       })
       if (!attached.ok) {
         await supabase.storage.from("audit-files").remove([storageKey]).catch(() => null)

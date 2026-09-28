@@ -7,6 +7,7 @@ import { buildAskPorts, persistAskAssistant, prepareAskTurn, type AskInput } fro
 export const dynamic = "force-dynamic"
 
 type StreamEvent =
+  | { type: "started"; conversationId: string }
   | { type: "stage"; label: string }
   | { type: "token"; delta: string }
   | { type: "done"; response: unknown; conversationId: string; replaced: boolean }
@@ -64,6 +65,11 @@ export async function POST(req: NextRequest): Promise<Response> {
         return
       }
       const { supabase, user, conversation, ledger, serverHistory } = prepared.ready
+      // Commit notice first: the conversation row and user turn already exist
+      // (prepare persists them), so a client that loses the stream mid-flight
+      // can resume against this id instead of re-running turn setup (which
+      // would orphan a duplicate conversation and user row).
+      send({ type: "started", conversationId: conversation.id })
       let streamed = ""
       const sendToken = (delta: string) => {
         streamed += delta

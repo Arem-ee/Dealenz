@@ -49,6 +49,7 @@ describe("uploadAndAttachFile", () => {
       size: expect.any(Number),
       type: "application/pdf",
       path: `audit-files/${USER_ID}/${AUDIT_ID}/My_Contract.pdf`,
+      fingerprint: expect.stringMatching(/^[0-9a-f]{64}$/),
     })
   })
 

@@ -48,23 +48,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
       return { data: result.data, error: result.error }
     },
   }
-  let reservation: { allowed: boolean; reservationId: string | null }
-  try {
-    reservation = await reserveCredits(ledger, {
-      operation: "document_analysis",
-      amount: SIGNATURE_SEND_CREDITS,
-      idempotencyKey: `invite:${auditId}:${crypto.randomUUID()}`,
-    })
-  } catch {
-    return NextResponse.json({ success: false, error: "Could not verify credit balance. Please try again." }, { status: 500 })
-  }
-  if (!reservation.allowed || !reservation.reservationId) {
-    return NextResponse.json({ success: false, error: `Insufficient credits for this operation. Sending a signature request costs ${SIGNATURE_SEND_CREDITS} credits.` }, { status: 402 })
+  // The reservation moves below (after audit+version+dedupe resolve) so the
+  // idempotency key is stable per invite — declared here for the void paths.
+  let reservation: { allowed: boolean; reservationId: string | null } | null = null
+  const voidHold = async () => {
+    try {
+      if (reservation?.reservationId) await voidReservation(ledger, reservation.reservationId)
+    } catch {
+      // Best-effort release; stale holds expire.
+    }
   }
 
   const { data: audit } = await supabase.from("audits").select("id").eq("id", auditId).eq("user_id", user.id).maybeSingle()
   if (!audit) {
-    await voidReservation(ledger, reservation.reservationId).catch(() => null)
     return NextResponse.json({ success: false, error: "Audit not found" }, { status: 404 })
   }
 
@@ -72,7 +68,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
   if (!versionId) {
     const { data: latest } = await supabase.from("document_versions").select("id").eq("audit_id", auditId).order("version_number", { ascending: false }).limit(1).maybeSingle<{ id: string }>()
     if (!latest) {
-      await voidReservation(ledger, reservation.reservationId).catch(() => null)
       return NextResponse.json({ success: false, error: "No document version to invite for" }, { status: 400 })
     }
     versionId = latest.id
@@ -81,8 +76,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
   // Ensure version belongs to audit
   const { data: version } = await supabase.from("document_versions").select("id, document_type").eq("id", versionId).eq("audit_id", auditId).maybeSingle()
   if (!version) {
-    await voidReservation(ledger, reservation.reservationId).catch(() => null)
     return NextResponse.json({ success: false, error: "Version not found" }, { status: 404 })
+  }
+
+  // Idempotent re-invite: a pending invite for the same version+email
+  // returns success without a second row, token, or charge. Double-clicks
+  // and retries converge here (plus the DB-level partial unique index).
+  const { data: existingInvite } = await supabase
+    .from("document_signers")
+    .select("id")
+    .eq("audit_id", auditId)
+    .eq("document_version_id", versionId)
+    .eq("email", email.toLowerCase())
+    .eq("status", "pending")
+    .maybeSingle()
+  if (existingInvite) {
+    return NextResponse.json({ success: true, duplicate: true })
+  }
+
+  try {
+    reservation = await reserveCredits(ledger, {
+      operation: "document_analysis",
+      amount: SIGNATURE_SEND_CREDITS,
+      // Stable per invite: retries replay the same hold (pending-only replay
+      // since 00088) instead of stacking fresh 10-credit holds.
+      idempotencyKey: `invite:${auditId}:${versionId}:${email.toLowerCase()}`.slice(0, 120),
+    })
+  } catch {
+    return NextResponse.json({ success: false, error: "Could not verify credit balance. Please try again." }, { status: 500 })
+  }
+  if (!reservation.allowed || !reservation.reservationId) {
+    return NextResponse.json({ success: false, error: `Insufficient credits for this operation. Sending a signature request costs ${SIGNATURE_SEND_CREDITS} credits.` }, { status: 402 })
   }
 
   try {
@@ -100,7 +124,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
       status: "pending",
     })
     if (error) {
-      await voidReservation(ledger, reservation.reservationId).catch(() => null)
+      await voidHold()
       const { sanitizeUserError } = await import("@/lib/errors/sanitize")
       return NextResponse.json({ success: false, error: sanitizeUserError(error.message) }, { status: 400 })
     }
@@ -139,7 +163,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
 
     return NextResponse.json({ success: true })
   } catch (e) {
-    await voidReservation(ledger, reservation.reservationId).catch(() => null)
+    await voidHold()
     const msg = e instanceof Error ? e.message : "Failed to send invite"
     return NextResponse.json({ success: false, error: msg }, { status: 500 })
   }

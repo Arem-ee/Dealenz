@@ -68,9 +68,12 @@ export function ThreadPanel({ messages, auditId, onContextConfirm, onDocumentGen
           {latest ? (
             <PanelCard message={latest} auditId={auditId} onContextConfirm={onContextConfirm} onDocumentGenerate={onDocumentGenerate} onAskFinding={onAskFinding} />
           ) : (
-            <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-              Nothing structured yet.
-            </p>
+            <div className="px-4 py-8 text-center">
+              <p className="text-sm font-medium">Nothing structured yet.</p>
+              <p className="mx-auto mt-1 max-w-xs text-xs leading-relaxed text-muted-foreground">
+                Ask a question below — the analysis, drafts, and documents land here as the work completes.
+              </p>
+            </div>
           )}
         </div>
       </div>

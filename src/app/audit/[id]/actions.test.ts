@@ -498,7 +498,7 @@ describe("generateProtectionPackage", () => {
   it("generates documents on valid audit with extracted data and risk report", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
 
-    const auditQuery = qb()
+    const auditQuery = qb({ data: [{ id: "audit-1" }], error: null })
     auditQuery.single = vi.fn().mockResolvedValueOnce({
       data: { id: "audit-1", structured_data: { extractedData: mockExtractedData }, risk_report: mockRiskReport },
       error: null,
@@ -531,7 +531,7 @@ describe("generateProtectionPackage", () => {
   it("returns fallback documents when all AI generation uses templates", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
 
-    const auditQuery = qb()
+    const auditQuery = qb({ data: [{ id: "audit-1" }], error: null })
     auditQuery.single = vi.fn().mockResolvedValueOnce({
       data: { id: "audit-1", structured_data: { extractedData: mockExtractedData }, risk_report: mockRiskReport },
       error: null,

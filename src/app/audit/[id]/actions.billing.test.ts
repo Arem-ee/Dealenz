@@ -92,6 +92,7 @@ function auditsQuery(auditRow: unknown, lockRows: unknown[]) {
     return builder
   })
   b.or = vi.fn(() => builder)
+  b.or = vi.fn(() => builder)
   b.select = vi.fn(() => {
     if (updated) sawSelectAfterUpdate = true
     return builder
@@ -240,7 +241,15 @@ describe("billing enforcement", () => {
     qq.single = vi.fn().mockResolvedValue({ data: row, error: null })
     qq.maybeSingle = vi.fn().mockImplementation(() => Promise.resolve({ data: null, error: null }))
     qq.limit = vi.fn(() => q)
-    qq.update = vi.fn(() => q)
+    // Audit lock chain (update→eq→eq→or→select): resolves the lock row so
+    // generation proceeds past the concurrency guard.
+    qq.update = vi.fn(() => {
+      const chain: Record<string, unknown> = {}
+      chain.eq = vi.fn(() => chain)
+      chain.or = vi.fn(() => chain)
+      chain.select = vi.fn(() => Promise.resolve({ data: [{ id: "audit-1" }], error: null }))
+      return chain
+    })
     qq.order = vi.fn(() => q)
     qq.is = vi.fn(() => q)
     qq.insert = vi.fn(() => Promise.resolve({ error: null }))

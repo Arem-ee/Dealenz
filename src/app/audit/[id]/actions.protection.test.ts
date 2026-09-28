@@ -80,7 +80,15 @@ describe("generateProtectionPackage deal-type boundary (Phase 26)", () => {
     q.single = vi.fn().mockResolvedValue({ data: auditRow("freelance"), error: null })
     q.maybeSingle = vi.fn().mockImplementation(() => Promise.resolve({ data: null, error: null }))
     q.limit = vi.fn(() => q)
-    q.update = vi.fn(() => q)
+    // Audit lock chain (update→eq→eq→or→select): resolves the lock row so
+    // the success path proceeds past the concurrency guard.
+    q.update = vi.fn(() => {
+      const chain: Record<string, unknown> = {}
+      chain.eq = vi.fn(() => chain)
+      chain.or = vi.fn(() => chain)
+      chain.select = vi.fn(() => Promise.resolve({ data: [{ id: "audit-1" }], error: null }))
+      return chain
+    })
     q.select = vi.fn(() => q)
     q.eq = vi.fn(() => q)
     q.order = vi.fn(() => q)
@@ -124,4 +132,35 @@ describe("generateProtectionPackage deal-type boundary (Phase 26)", () => {
       expect(mockGenerateDocuments).not.toHaveBeenCalled()
     })
   }
+
+  it("refuses a concurrent run with a friendly busy error (no forked versions, no second hold)", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+    const q = qb() as unknown as Record<string, ReturnType<typeof vi.fn>>
+    q.single = vi.fn().mockResolvedValue({ data: auditRow("freelance"), error: null })
+    q.maybeSingle = vi.fn().mockImplementation(() => Promise.resolve({ data: null, error: null }))
+    q.limit = vi.fn(() => q)
+    // Lock acquisition finds a live lock: empty rows.
+    q.update = vi.fn(() => {
+      const chain: Record<string, unknown> = {}
+      chain.eq = vi.fn(() => chain)
+      chain.or = vi.fn(() => chain)
+      chain.select = vi.fn(() => Promise.resolve({ data: [], error: null }))
+      return chain
+    })
+    q.select = vi.fn(() => q)
+    q.eq = vi.fn(() => q)
+    q.order = vi.fn(() => q)
+    q.is = vi.fn(() => q)
+    q.insert = vi.fn(() => Promise.resolve({ error: null })) as unknown as ReturnType<typeof vi.fn>
+    const consentQ = qb() as unknown as Record<string, ReturnType<typeof vi.fn>>
+    consentQ.select = vi.fn(() => consentQ)
+    consentQ.eq = vi.fn(() => consentQ)
+    consentQ.maybeSingle = vi.fn().mockResolvedValue({ data: { has_consented_to_ai_analysis: true }, error: null })
+    mockFrom.mockImplementation((table: string) => (table === "user_ai_consents" ? (consentQ as never) : (q as never)))
+    const res = await generateProtectionPackage("audit-1")
+    expect(res.success).toBe(false)
+    expect(res.error).toMatch(/already being generated/i)
+    expect(mockGenerateDocuments).not.toHaveBeenCalled()
+    expect(mockRpc).not.toHaveBeenCalledWith("reserve_credits", expect.anything())
+  })
 })

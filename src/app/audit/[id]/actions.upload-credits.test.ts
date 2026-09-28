@@ -49,6 +49,8 @@ function tableMock(updateResult: unknown = { data: null, error: null }) {
   builder.update = vi.fn(() => builder)
   builder.insert = vi.fn(() => Promise.resolve({ data: null, error: null }))
   builder.single = vi.fn(() => Promise.resolve({ data: { structured_data: {} }, error: null }))
+  // Retry-after-success probe: no existing files by default.
+  builder.maybeSingle = vi.fn(() => Promise.resolve({ data: { structured_data: { files: [] } }, error: null }))
   builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve(updateResult).then(resolve)
   return builder
 }
@@ -64,7 +66,7 @@ beforeEach(() => {
 })
 
 describe("attachFileMetadata credit gate (5 credits)", () => {
-  it("denies never-purchased accounts without touching the database", async () => {
+  it("denies never-purchased accounts without charging", async () => {
     mockRpc.mockImplementation((fn: string) => {
       if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: false, balance: 10, reservation_id: null }], error: null })
       return Promise.resolve({ data: null, error: null })
@@ -73,7 +75,9 @@ describe("attachFileMetadata credit gate (5 credits)", () => {
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error("unreachable")
     expect(result.error).toMatch(/Insufficient credits/)
-    expect(mockFrom).not.toHaveBeenCalled()
+    // Denied at the gate: no finalize, no charge, no writes. (The
+    // retry-after-success probe may read audits first — reads never bill.)
+    expect(mockRpc).not.toHaveBeenCalledWith("finalize_reservation", expect.anything())
   })
 
   it("deducts exactly the upload price on success", async () => {
@@ -142,5 +146,27 @@ describe("attachFileMetadata credit gate (5 credits)", () => {
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error("unreachable")
     expect(result.error).toMatch(/Insufficient credits/)
+  })
+
+  it("retry-after-success returns the existing attach free (no second charge)", async () => {
+    mockRpc.mockImplementation((fn: string) => {
+      if (fn === "reserve_credits") return Promise.resolve({ data: [{ allowed: true, balance: 100, reservation_id: "res-1" }], error: null })
+      if (fn === "finalize_reservation") return Promise.resolve({ data: [{ balance: 85 }], error: null })
+      return Promise.resolve({ data: null, error: null })
+    })
+    // The first attempt already attached this exact path.
+    mockFrom.mockImplementation(() => {
+      const b = tableMock()
+      const bb = b as unknown as Record<string, ReturnType<typeof vi.fn>>
+      bb.maybeSingle = vi.fn(() => Promise.resolve({
+        data: { structured_data: { files: [{ ...fileData(), uploaded_at: "2026-01-01T00:00:00.000Z" }] } },
+        error: null,
+      }))
+      return b
+    })
+    const result = await attachFileMetadata(AUDIT_ID, fileData())
+    expect(result.ok).toBe(true)
+    // No reservation: the retry converges on the completed attach, free.
+    expect(mockRpc).not.toHaveBeenCalledWith("reserve_credits", expect.anything())
   })
 })

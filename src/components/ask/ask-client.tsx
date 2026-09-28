@@ -84,6 +84,10 @@ export function AskClient({
   const { consented: aiConsented, consenting, grant: grantConsent } = useAiConsent()
   const [showConsentModal, setShowConsentModal] = useState(false)
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
+  // Last failed send for one-tap retry (same idempotency key, no duplicate
+  // user bubble). Cleared on the next delivered answer.
+  const [lastFailed, setLastFailed] = useState<{ question: string; messageId: string } | null>(null)
+  const consentBusy = useRef(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -105,14 +109,7 @@ export function AskClient({
           return
         }
         setAuditId(result.conversation.attachedAuditId ?? "")
-        setMessages(
-          result.messages.map((m) => ({
-            id: m.id,
-            role: m.role,
-            text: m.content,
-            auditId: result.conversation.attachedAuditId ?? null,
-          }))
-        )
+        setMessages(serverMessagesToChat(result.messages, result.conversation.attachedAuditId ?? null))
       })
       .catch((err: unknown) => {
         // Belt and suspenders: the action returns failures as data, but any
@@ -126,6 +123,13 @@ export function AskClient({
 
   function toHistory(msgs: ChatMessage[]): HistoryTurn[] {
     return msgs.slice(-20).map((m) => ({ role: m.role, text: m.text.slice(0, 1000) }))
+  }
+
+  function serverMessagesToChat(
+    msgs: Array<{ id: string; role: "user" | "assistant"; content: string }>,
+    attachedAuditId: string | null
+  ): ChatMessage[] {
+    return msgs.map((m) => ({ id: m.id, role: m.role, text: m.content, auditId: attachedAuditId }))
   }
 
   function assistantMessage(
@@ -159,29 +163,41 @@ export function AskClient({
     }
   }
 
-  async function doSend(question: string) {
+  async function doSend(question: string, existingMessageId?: string) {
     setError(null)
-    const userMessage: ChatMessage = { id: newId(), role: "user", text: question }
+    // Retry reuses the original message id (same idempotency key server-side)
+    // and never appends a second user bubble for one question.
+    const userMessage: ChatMessage = existingMessageId
+      ? { id: existingMessageId, role: "user", text: question }
+      : { id: newId(), role: "user", text: question }
     const placeholderId = newId()
-    const nextMessages = [...messages, userMessage, { id: placeholderId, role: "assistant", text: "", streaming: true, stage: "Thinking…" } as ChatMessage]
+    const nextMessages = existingMessageId
+      ? [...messages, { id: placeholderId, role: "assistant", text: "", streaming: true, stage: "Thinking…" } as ChatMessage]
+      : [...messages, userMessage, { id: placeholderId, role: "assistant", text: "", streaming: true, stage: "Thinking…" } as ChatMessage]
     setMessages(nextMessages)
-    setInput("")
+    // The box clears only on delivered answers (see applyResponse): every
+    // failure path keeps the question for retry instead of eating it.
     setSending(true)
     // Same intentional pacing as deal analysis: never flash working→done.
     const startedAt = Date.now()
     let streamed = false
     try {
-      streamed = await doSendStreamed(question, userMessage, placeholderId)
+      let startedId: string | null = null
+      streamed = await doSendStreamed(question, userMessage, placeholderId, (id) => {
+        startedId = id
+      })
       if (!streamed) {
-        // Transport failed before the pipeline produced anything: the
-        // placeholder never received a byte, so the buffered action is a
-        // safe retry (same idempotency key either way — never double bills).
+        // Transport failed before the pipeline produced anything — EXCEPT the
+        // turn setup may already have committed (started event carries its
+        // conversation). Pass it through so the buffered retry joins the turn
+        // instead of orphaning a duplicate (same idempotency key either way).
         setMessages((prev) => prev.filter((m) => m.id !== placeholderId))
-        await doSendBuffered(question, userMessage, nextMessages.slice(0, -1))
+        await doSendBuffered(question, userMessage, nextMessages.slice(0, -1), startedId)
       }
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== placeholderId))
       setError(sanitizeUserError(err instanceof Error ? err.message : "Something went wrong. Please try again."))
+      setLastFailed({ question, messageId: userMessage.id })
     } finally {
       // Streamed answers paced themselves token by token; only the buffered
       // path needs the minimum working time.
@@ -200,7 +216,7 @@ export function AskClient({
    * it would execute and bill the pipeline a second time. Returns false only
    * when transport failed before a single event arrived.
    */
-  async function doSendStreamed(question: string, userMessage: ChatMessage, placeholderId: string): Promise<boolean> {
+  async function doSendStreamed(question: string, userMessage: ChatMessage, placeholderId: string, onStarted?: (conversationId: string) => void): Promise<boolean> {
     const patchPlaceholder = (patch: Partial<ChatMessage>) =>
       setMessages((prev) => prev.map((m) => (m.id === placeholderId ? { ...m, ...patch } : m)))
     let res: Response
@@ -226,6 +242,9 @@ export function AskClient({
     const decoder = new TextDecoder()
     let buffer = ""
     let sawEvent = false
+    // Conversation this turn committed to (started event, else the selected
+    // thread): used to reconcile if transport drops mid-stream.
+    let activeConversationId: string | null = selectedId
     const applyDone = (response: ConversationResponse & { conversationId?: string }) => {
       applyResponse(response, question, placeholderId)
     }
@@ -246,7 +265,22 @@ export function AskClient({
             continue
           }
           sawEvent = true
-          if (payload.type === "stage") {
+          if (payload.type === "started") {
+            // True resume point: turn setup already committed server-side, so
+            // any retry joins this conversation instead of orphaning a new one.
+            if (payload.conversationId) {
+              activeConversationId = payload.conversationId
+              if (payload.conversationId !== selectedId) {
+                setSelectedId(payload.conversationId)
+                setConversations((prev) => {
+                  if (prev.some((c) => c.id === payload.conversationId)) return prev
+                  const title = question.slice(0, 60)
+                  return [{ id: payload.conversationId as string, title, attachedAuditId: auditId || null, updatedAt: new Date().toISOString(), createdAt: new Date().toISOString() }, ...prev]
+                })
+              }
+              onStarted?.(payload.conversationId)
+            }
+          } else if (payload.type === "stage") {
             patchPlaceholder({ stage: payload.label ?? "Thinking…" })
           } else if (payload.type === "token") {
             const delta = payload.delta ?? ""
@@ -263,16 +297,36 @@ export function AskClient({
               // attempt failed and nothing was charged for it.
               patchPlaceholder({ streaming: false, stage: null })
               setError(payload.error ?? "Something went wrong. Please try again.")
+              setLastFailed({ question, messageId: userMessage.id })
             }
           }
         }
       }
     } catch {
-      // Mid-stream transport cut: the pipeline owns the turn (it may still
-      // complete server-side), so never fall back to buffered here. Partial
-      // text stays with an honest error beside it.
+      // Mid-stream transport cut: the pipeline may still complete server-side
+      // (persist + charge), so reconcile against the thread instead of
+      // asserting nothing happened. If the completed answer is there, it
+      // replaces the partial bubble; otherwise the partial stays with an
+      // honest error — and either way the buffered fallback must NOT run.
+      try {
+        if (activeConversationId) {
+          const result = await getAskConversation(activeConversationId)
+          if (result.ok) {
+            const server = serverMessagesToChat(result.messages, result.conversation.attachedAuditId ?? null)
+            const lastServer = server[server.length - 1]
+            const hasAnswer = lastServer && lastServer.role === "assistant" && lastServer.text.trim().length > 0
+            if (hasAnswer) {
+              setMessages(server)
+              return sawEvent
+            }
+          }
+        }
+      } catch {
+        // Reconcile failed too — fall through to the partial + error below.
+      }
       patchPlaceholder({ streaming: false, stage: null })
-      setError("The answer stopped arriving — check the thread; nothing was charged for this attempt.")
+      setError("The answer stopped arriving — we rechecked the thread and it isn't there. Nothing was charged for this attempt; send again to retry.")
+      setLastFailed({ question, messageId: userMessage.id })
     }
     return sawEvent
   }
@@ -298,8 +352,12 @@ export function AskClient({
       const assistant = assistantMessage(response, auditId || null)
       swapPlaceholder({ ...assistant, streaming: false, stage: null })
       if (typeof response.balance === "number") setBalance(response.balance)
+      setInput("")
+      setLastFailed(null)
     } else if (response.type === "needs_document") {
       swapPlaceholder({ id: placeholderId, role: "assistant", text: response.message, streaming: false })
+      setInput("")
+      setLastFailed(null)
     } else {
       // Denied for credits: keep the question in the box (nothing the user
       // typed is lost), state the balance, and link the way forward.
@@ -318,7 +376,7 @@ export function AskClient({
     }
   }
 
-  async function doSendBuffered(question: string, userMessage: ChatMessage, baseMessages: ChatMessage[]) {
+  async function doSendBuffered(question: string, userMessage: ChatMessage, baseMessages: ChatMessage[], resumeConversationId?: string | null) {
     // Buffered fallback: appends a working placeholder and reuses the same
     // swap-in logic as the stream path, so both land identical messages.
     const fallbackId = newId()
@@ -327,7 +385,7 @@ export function AskClient({
       const response = await askQuestionAction({
         text: question,
         auditId: auditId || undefined,
-        conversationId: selectedId ?? undefined,
+        conversationId: resumeConversationId ?? selectedId ?? undefined,
         history: toHistory(baseMessages.slice(0, -1)),
         idempotencyKey: userMessage.id,
       })
@@ -339,12 +397,14 @@ export function AskClient({
           return
         }
         setError(response.error)
+        setLastFailed({ question, messageId: userMessage.id })
         return
       }
       applyResponse(response, question, fallbackId)
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== fallbackId))
       setError(sanitizeUserError(err instanceof Error ? err.message : "Something went wrong. Please try again."))
+      setLastFailed({ question, messageId: userMessage.id })
     }
   }
 
@@ -371,18 +431,29 @@ export function AskClient({
   }
 
   async function handleConsentConfirm() {
-    const ok = await grantConsent()
-    if (!ok) {
-      setError("Failed to save consent. Please try again.")
-      return
-    }
-    setShowConsentModal(false)
-    const q = pendingQuestion
-    if (q) {
-      await doSend(q)
-      setPendingQuestion(null)
-    } else {
-      setPendingQuestion(null)
+    // Consent modal buttons lag behind `consenting` exactly like send buttons
+    // lag behind `sending`: guard re-entry synchronously or a double-tap
+    // sends the pending question twice (same text, fresh message ids).
+    if (consentBusy.current || sending) return
+    consentBusy.current = true
+    setSending(true)
+    try {
+      const ok = await grantConsent()
+      if (!ok) {
+        setError("Failed to save consent. Please try again.")
+        return
+      }
+      setShowConsentModal(false)
+      const q = pendingQuestion
+      if (q) {
+        await doSend(q)
+        setPendingQuestion(null)
+      } else {
+        setPendingQuestion(null)
+      }
+    } finally {
+      consentBusy.current = false
+      setSending(false)
     }
   }
 
@@ -452,6 +523,45 @@ export function AskClient({
               </option>
             ))}
           </select>
+        </div>
+        {/* Mobile conversation switcher: the sidebar is desktop-only, so
+            phones get the same list + new-conversation entry inline. */}
+        <div className="mb-3 flex gap-2 md:hidden">
+          <select
+            value={selectedId ?? ""}
+            onChange={(e) => {
+              const id = e.target.value || null
+              setSelectedId(id)
+              if (!id) {
+                setMessages([])
+                setAuditId("")
+                setError(null)
+              }
+            }}
+            className="h-9 min-w-0 flex-1 truncate rounded-md border border-input bg-background px-2 text-sm"
+            aria-label="Conversation"
+          >
+            <option value="">New conversation</option>
+            {conversations.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 shrink-0"
+            onClick={() => {
+              setSelectedId(null)
+              setMessages([])
+              setAuditId("")
+              setError(null)
+            }}
+          >
+            <Plus className="h-4 w-4" />
+            <span className="sr-only">New conversation</span>
+          </Button>
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto rounded-xl border border-border/60 bg-card p-4 shadow-sm">
@@ -552,6 +662,17 @@ export function AskClient({
         {error && (
           <div className="mt-3 flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             <span className="flex-1">{error}</span>
+            {lastFailed && !sending && (
+              <button
+                className="font-medium hover:underline"
+                onClick={() => {
+                  setError(null)
+                  void doSend(lastFailed.question, lastFailed.messageId)
+                }}
+              >
+                Retry
+              </button>
+            )}
             <button className="font-medium hover:underline" onClick={() => setError(null)}>
               Dismiss
             </button>

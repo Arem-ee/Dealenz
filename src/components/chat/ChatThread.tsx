@@ -73,6 +73,8 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   // the event handler (never during render) replaces Date.now, which
   // render-purity rules forbid lexically even inside handlers.
   const prefillKey = useRef(0)
+  // Billed-action guard shared by document generation entry points.
+  const generatingRef = useRef(false)
   const [versions, setVersions] = useState<DocVersion[]>([])
   const [signers, setSigners] = useState<Signer[]>([])
   const [signingEvents, setSigningEvents] = useState<SigningEvent[]>([])
@@ -97,8 +99,11 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   // stashes the run here and opens the consent modal instead of stalling the
   // plan in needs_input with no way forward. Granting resumes the run.
   const [showConsentModal, setShowConsentModal] = useState(false)
-  const [pendingConsentRun, setPendingConsentRun] = useState<{ planId: string; approvalId: string } | null>(null)
-  const { consenting, grant: grantConsent } = useAiConsent()
+  const [pendingConsentRun, setPendingConsentRun] = useState<{ planId: string; approvalId: string | null } | null>(null)
+  const { consented: aiConsented, consenting, grant: grantConsent } = useAiConsent()
+  // Synchronous guard: approval mints a fresh idempotency key per click, so
+  // rapid double-taps create duplicate approvals without this.
+  const approvingRef = useRef(false)
   // Overview collapse: explicit user choice wins; otherwise the card stays
   // open on a fresh deal and collapses to one line once messages exist, so
   // the reply viewport gets the room.
@@ -341,14 +346,54 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
     void run()
   }, [threadId, messages.length])
 
+  // Live plan updates while work is in flight: execution posts no messages
+  // until it finishes, so without this the panel sits frozen on "executing"
+  // for the whole run (including the analysis stage feed, which keys off the
+  // running step). Polls only during active states; terminal states stop it.
+  useEffect(() => {
+    const active =
+      workPlan?.status === "approved" ||
+      workPlan?.status === "executing" ||
+      workExecution?.status === "running"
+    if (!active || !threadId) return
+    const timer = setInterval(() => {
+      void refreshWorkPlan()
+    }, 4000)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshWorkPlan intentionally excluded: re-subscribing per render would reset the interval
+  }, [threadId, workPlan?.status, workExecution?.status])
+
   const handlePlanApprove = async (planId: string) => {
+    if (approvingRef.current) return
+    approvingRef.current = true
     try {
-      const { approveWorkPlan } = await import("@/lib/work/actions")
-      const idempotencyKey = crypto.randomUUID()
-      const appr = await approveWorkPlan(planId, idempotencyKey)
-      if (!appr.ok) {
-        fail(appr.error)
+      // Consent before approval, not after: approving first strands the plan
+      // in `approved` with no CTA when the consent modal is dismissed. An
+      // already-approved plan skips straight to execution (idempotent resume
+      // of the same intent, never a second approval).
+      if (aiConsented === false) {
+        setPendingConsentRun({ planId, approvalId: null })
+        setShowConsentModal(true)
         return
+      }
+      if (aiConsented === null) {
+        const { getAiConsentStatus: fetchStatus } = await import("@/lib/ai-consent")
+        const fresh = await fetchStatus().catch(() => false)
+        if (!fresh) {
+          setPendingConsentRun({ planId, approvalId: null })
+          setShowConsentModal(true)
+          return
+        }
+      }
+      const alreadyApproved = workPlan?.id === planId && workPlan.status === "approved"
+      if (!alreadyApproved) {
+        const { approveWorkPlan } = await import("@/lib/work/actions")
+        const idempotencyKey = crypto.randomUUID()
+        const appr = await approveWorkPlan(planId, idempotencyKey)
+        if (!appr.ok) {
+          fail(appr.error)
+          return
+        }
       }
       // Fetch approval id for execution
       const { createClient } = await import("@/lib/supabase/client")
@@ -361,6 +406,8 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
       await executeWithConsent(planId, (approval as { id: string }).id)
     } catch {
       fail("We couldn't approve and execute that plan. Please try again.")
+    } finally {
+      approvingRef.current = false
     }
   }
 
@@ -395,7 +442,13 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
     setPendingConsentRun(null)
     if (pending) {
       try {
-        await executeWithConsent(pending.planId, pending.approvalId)
+        // approvalId null means consent gated the approve itself: run the
+        // approve flow now (it skips re-approval for approved plans).
+        if (pending.approvalId === null) {
+          await handlePlanApprove(pending.planId)
+        } else {
+          await executeWithConsent(pending.planId, pending.approvalId)
+        }
       } catch {
         fail("We couldn't run that plan. Please try again.")
       }
@@ -512,6 +565,10 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
 
   async function handleDocumentGenerate(messageId: string, vars: Record<string, string>) {
     if (!auditId) return
+    // Document buttons carry no pending state of their own: guard here or a
+    // double-tap generates (and bills) twice.
+    if (generatingRef.current) return
+    generatingRef.current = true
     try {
       const { generateDocumentAndPost } = await import("@/lib/chat/actions")
       const generated = await generateDocumentAndPost(threadId, auditId, vars)
@@ -524,6 +581,8 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
       else fail(msgs.error)
     } catch {
       fail("We couldn't generate that document. Please try again.")
+    } finally {
+      generatingRef.current = false
     }
   }
 
@@ -595,7 +654,8 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
     void refreshWorkPlan()
     getThreadMessages(threadId).then((res) => {
       if (res.ok) setMessages(res.messages)
-    }).catch(() => {})
+      else fail("Saved, but the view may be stale — refresh to confirm.")
+    }).catch(() => fail("Saved, but the view may be stale — refresh to confirm."))
   }
 
   const conversation = (

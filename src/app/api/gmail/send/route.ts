@@ -24,10 +24,23 @@ export async function POST(req: NextRequest) {
   const { data: plan } = await supabase.from("work_plans").select("id, user_id, version").eq("id", body.planId).eq("user_id", user.id).maybeSingle()
   if (!plan) return NextResponse.json({ error: "Plan not found or not owned" }, { status: 404 })
 
+  // The row must exist in the plan's own steps: rowId is otherwise an
+  // arbitrary-email oracle (any owner of any plan could send any content).
+  // planVersion must match the live plan — never trust the client's number.
+  const { data: steps } = await supabase.from("work_plan_steps").select("input_ref").eq("plan_id", body.planId).eq("user_id", user.id).limit(50)
+  const knownRowIds = new Set(
+    ((steps ?? []) as Array<{ input_ref?: unknown }>)
+      .map((s) => (s.input_ref as Record<string, unknown> | null)?.rowId)
+      .filter((v): v is string => typeof v === "string" && v.length > 0)
+  )
+  if (!knownRowIds.has(body.rowId)) return NextResponse.json({ error: "Row not part of this plan" }, { status: 400 })
+  const liveVersion = (plan as { version?: unknown }).version
+  const planVersion = typeof liveVersion === "number" ? liveVersion : 1
+
   try {
     const result = await sendGmailForRow(supabase as never, user.id, {
       planId: body.planId,
-      planVersion: body.planVersion ?? 1,
+      planVersion,
       rowId: body.rowId,
       to: body.to,
       subject: body.subject ?? `Proposal for ${body.to}`,

@@ -77,3 +77,4 @@ flows that depend on them go live.
 - Ask answer streaming (`/api/ask/stream`, token port, progressive UI).
 - Deal-thread stage streaming (plan sub-stages + direct-path card).
 - Dashboard aggregation + monitoring column trim.
+- Full-audit repair batch: reserve replay pending-only, execution requeue arms, sign_as_owner party binding + version advancement, completion trigger, upload replace-on-retry + dedupe + orphan cleanup, package audit lock, invite dedupe + stable keys, refund fail-closed, settlement retry+report, gmail row validation, sign-owner gates, anon ceremony throttles, double-submit guards (composer/confirm/approve/generate), ask resume + retry + input preservation, mobile ask switcher, password-reset landing, RPC + gmail_tokens grants.

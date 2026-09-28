@@ -63,6 +63,16 @@ export function PlanPreview({
           </button>
         </div>
       )}
+      {plan.status === "approved" && (
+        <div className="mt-4 flex gap-2">
+          <button onClick={() => void run("approve", onApprove)} disabled={pending !== null} aria-label={pending === "approve" ? "Executing" : "Execute plan"} className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50">
+            {pending === "approve" ? "Executing…" : `Execute — ${plan.estimated_credits} credits`}
+          </button>
+          <button onClick={() => void run("reject", onReject)} disabled={pending !== null} className="rounded-md border px-4 py-2 text-sm disabled:opacity-50">
+            Reject / Edit
+          </button>
+        </div>
+      )}
       {plan.status === "needs_input" && onResume && (
         <div className="mt-4 flex gap-2">
           <button onClick={() => void run("resume", onResume)} disabled={pending !== null} className="rounded-md bg-amber-600 px-4 py-2 text-sm text-white disabled:opacity-50">

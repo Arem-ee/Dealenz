@@ -78,7 +78,11 @@ export default function LoginPage() {
   const handleForgotPassword = async () => {
     if (!email || resetCooldown) return
     const supabase = createClient()
-    const { error } = await supabase.auth.resetPasswordForEmail(email)
+    // Explicit recovery landing: without redirectTo the emailed link drops
+    // the user on the homepage with tokens nothing consumes (dead end).
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    })
     if (error) {
       logAuthFailure(error.message, "login")
     }

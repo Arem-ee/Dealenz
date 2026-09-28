@@ -1,10 +1,30 @@
 "use server"
 
+import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createServiceClient } from "@supabase/supabase-js"
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{10,200}$/
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
+
+// Anonymous ceremony endpoints have no account to throttle by: bound them by
+// platform-derived IP (+ token prefix for writes) through the durable anon
+// limiter. Fail closed — an unbounded token oracle and artifact spam target
+// is worse than a blocked legitimate retry.
+async function checkInviteeLimit(kind: "view" | "write", token: string): Promise<boolean> {
+  try {
+    const { getTrustedClientIp, checkAnonymousRateLimit } = await import("@/lib/rate-limit-anon")
+    const h = await headers()
+    const ip = getTrustedClientIp(h)
+    const key = kind === "view" ? `invite-view:${ip}` : `invite-write:${ip}:${token.slice(0, 8)}`
+    const limit = kind === "view" ? 60 : 10
+    const supabase = await createClient()
+    const { allowed } = await checkAnonymousRateLimit(supabase as never, key, limit, 3600)
+    return allowed
+  } catch {
+    return false
+  }
+}
 
 // Default signing order is owner-first-then-counterparty. The counterparty
 // link stays valid, but a counterparty signature is refused while the owner
@@ -60,6 +80,7 @@ export interface SignerView {
 /** Token-gated read: no account, no deal access beyond this invitation. */
 export async function getInviteeView(token: string): Promise<{ found: boolean; view?: SignerView }> {
   if (!TOKEN_RE.test(token)) return { found: false }
+  if (!(await checkInviteeLimit("view", token))) return { found: false }
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("get_signer_view", { p_token: token })
   if (error || !data) return { found: false }
@@ -89,6 +110,9 @@ export async function getInviteeView(token: string): Promise<{ found: boolean; v
  * superseded, duplicate, revoked, or declined invitations server-side. */
 export async function signInviteeDocument(token: string, name: string, email: string) {
   if (!TOKEN_RE.test(token)) return { success: false, error: "Invalid signing link" }
+  if (!(await checkInviteeLimit("write", token))) {
+    return { success: false, error: "Too many attempts. Please wait a while and try again." }
+  }
   const cleanName = typeof name === "string" ? name.trim() : ""
   const cleanEmail = typeof email === "string" ? email.trim() : ""
   if (!cleanName || cleanName.length > 120) return { success: false, error: "Enter your full name" }
@@ -113,6 +137,9 @@ export async function signInviteeDocument(token: string, name: string, email: st
 
 export async function declineInviteeDocument(token: string) {
   if (!TOKEN_RE.test(token)) return { success: false, error: "Invalid signing link" }
+  if (!(await checkInviteeLimit("write", token))) {
+    return { success: false, error: "Too many attempts. Please wait a while and try again." }
+  }
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("decline_as_invitee", { p_token: token })
   if (error) return { success: false, error: "Request failed. Please try again." }
@@ -131,6 +158,9 @@ export async function declineInviteeDocument(token: string) {
  */
 export async function saveInviteeSignature(token: string, imageData: string, method: string) {
   if (!TOKEN_RE.test(token)) return { success: false, error: "Invalid signing link" }
+  if (!(await checkInviteeLimit("write", token))) {
+    return { success: false, error: "Too many attempts. Please wait a while and try again." }
+  }
   const { validateSignatureArtifact } = await import("@/lib/signatures/validate")
   const valid = validateSignatureArtifact({ imageData, method })
   if (!valid.ok) return { success: false, error: valid.error }

@@ -8,6 +8,17 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(() => ({ rpc: mockRpc })),
 }))
 
+// Anonymous limiter: allow in tests (the fail-closed behavior itself is
+// covered by checkInviteeLimit's catch path, not by these flow tests).
+vi.mock("@/lib/rate-limit-anon", () => ({
+  getTrustedClientIp: vi.fn(() => "127.0.0.1"),
+  checkAnonymousRateLimit: vi.fn(async () => ({ allowed: true, currentCount: 0 })),
+}))
+
+vi.mock("next/headers", () => ({
+  headers: vi.fn(async () => new Headers()),
+}))
+
 // ownerStillPending reads ordering state through the service client:
 // counterparty signer row, then the owner row on the same version.
 // saveInviteeSignature resolves the token then upserts the artifact.

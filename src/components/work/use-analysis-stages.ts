@@ -23,22 +23,34 @@ export function useAnalysisStages(auditId: string | null | undefined, active: bo
     }
     let cancelled = false
     let polls = 0
+    let inflight = false
+    let timer: ReturnType<typeof setInterval> | null = null
     const tick = async () => {
-      if (cancelled || polls >= STAGE_POLL_MAX) return
+      // Stop the interval itself at the cap (not just no-op): a leaked
+      // 2.5s timer firing forever is a slow battery/memory bleed. Skip while
+      // a previous poll is still in flight so slow reads never overlap.
+      if (cancelled || inflight) return
+      if (polls >= STAGE_POLL_MAX) {
+        if (timer) clearInterval(timer)
+        return
+      }
       polls += 1
+      inflight = true
       try {
         const { getAnalysisStages } = await import("@/app/audit/[id]/stages")
         const res = await getAnalysisStages(auditId)
         if (!cancelled && res.ok) setStages(res.stages)
       } catch {
         // Best-effort: a failed poll keeps the last stages (or nothing).
+      } finally {
+        inflight = false
       }
     }
     void tick()
-    const timer = setInterval(() => void tick(), STAGE_POLL_MS)
+    timer = setInterval(() => void tick(), STAGE_POLL_MS)
     return () => {
       cancelled = true
-      clearInterval(timer)
+      if (timer) clearInterval(timer)
     }
   }, [active, auditId])
 

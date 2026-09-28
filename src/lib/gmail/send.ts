@@ -113,7 +113,12 @@ export async function observeReplies(
   // observation_failed — never a fabricated reply, never an exception.
   void input.planId
   if (input.threadIds.length === 0) return []
-  const tokens = await getGmailTokens(client, userId).catch(() => null)
+  // Refresh-capable tokens: an expired access token must read as
+  // "couldn't check", and a refresh must be attempted first — otherwise
+  // every thread degrades to observation_failed (read downstream as "no
+  // reply") on a merely stale token.
+  const { getValidGmailTokens } = await import("./tokens")
+  const tokens = await getValidGmailTokens(client as never, userId).catch(() => null)
   if (!tokens) {
     return input.threadIds.map((tid) => ({ threadId: tid, status: "observation_failed" as const }))
   }

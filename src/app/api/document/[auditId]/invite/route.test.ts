@@ -27,7 +27,10 @@ const USER_ID = "00000000-0000-0000-0000-000000000001"
 const AUDIT_ID = "00000000-0000-0000-0000-000000000002"
 const mockUser = { id: USER_ID, email: "owner@test.com", email_confirmed_at: "2024-01-01" }
 
-const inserts: string[] = []
+const inserts: string[] = [];
+
+// Pending-invite probe result for the dedupe check (null = no duplicate).
+const existingInviteRow = vi.hoisted(() => ({ value: null as null | { id: string } }))
 
 function tableMock() {
   const builder: Record<string, unknown> = {}
@@ -46,6 +49,13 @@ function tableMock() {
   return builder
 }
 
+function signerMock() {
+  const builder = tableMock()
+  const b = builder as unknown as Record<string, ReturnType<typeof vi.fn>>
+  b.maybeSingle = vi.fn(() => Promise.resolve({ data: existingInviteRow.value, error: null }))
+  return builder
+}
+
 function request() {
   return new NextRequest(`http://localhost/api/document/${AUDIT_ID}/invite`, {
     method: "POST",
@@ -59,7 +69,8 @@ beforeEach(() => {
   mockRpc.mockReset()
   inserts.length = 0
   mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
-  mockFrom.mockImplementation(() => tableMock())
+  mockFrom.mockImplementation((table: string) => (table === "document_signers" ? signerMock() : tableMock()))
+  existingInviteRow.value = null
   // Usage RPC allows by default; abuse-rate denial is covered by dedicated
   // tests elsewhere. Per-test implementations below override as needed.
   mockRpc.mockImplementation((fn: string) => {
@@ -97,7 +108,27 @@ describe("invite signature-send credit gate (10 credits)", () => {
     expect(((await res.json()) as { success: boolean }).success).toBe(true)
     const reserve = seen.find((s) => s.fn === "reserve_credits")
     expect((reserve?.args as { p_amount?: number }).p_amount).toBe(10)
+    // Stable per-invite key (version + email), never a random UUID: retries
+    // replay instead of stacking holds.
+    const key = (reserve?.args as { p_idempotency_key?: string }).p_idempotency_key ?? ""
+    expect(key).toContain(AUDIT_ID)
+    expect(key).toContain("cp@test.com")
     const fin = seen.find((s) => s.fn === "finalize_reservation")
     expect((fin?.args as { p_consumption_amount?: number }).p_consumption_amount).toBe(10)
+  })
+
+  it("returns the existing pending invite free on double-submit", async () => {
+    existingInviteRow.value = { id: "signer-pending-1" }
+    const seen: Array<{ fn: string }> = []
+    mockRpc.mockImplementation((fn: string) => {
+      seen.push({ fn })
+      if (fn === "increment_usage") return Promise.resolve({ data: [{ allowed: true, current_count: 1 }], error: null })
+      return Promise.resolve({ data: null, error: null })
+    })
+    const res = await POST(request(), { params: Promise.resolve({ auditId: AUDIT_ID }) })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ success: true, duplicate: true })
+    expect(seen.some((s) => s.fn === "reserve_credits")).toBe(false)
+    expect(inserts).toHaveLength(0)
   })
 })

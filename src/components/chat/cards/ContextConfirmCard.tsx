@@ -24,6 +24,10 @@ export function ContextConfirmCard({ payload, onConfirm }: { payload: Record<str
   const [edits, setEdits] = useState<Record<string, string>>({})
   const [customOpen, setCustomOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  // Terminal guard: once answers leave this card (final submit or dismiss),
+  // the parent runs a billed analysis — double Submit/Enter must not fire it
+  // twice before re-render. All exits disable while confirming.
+  const [confirming, setConfirming] = useState(false)
 
   if (fields.length === 0) {
     return (
@@ -31,7 +35,7 @@ export function ContextConfirmCard({ payload, onConfirm }: { payload: Record<str
         <p className="text-sm font-medium">Context looks complete</p>
         <p className="mt-1 text-xs text-muted-foreground">Nothing needs confirming before analysis runs.</p>
         <div className="mt-3">
-          <Button size="sm" onClick={() => onConfirm({})}>Looks good</Button>
+          <Button size="sm" disabled={confirming} onClick={() => { setConfirming(true); onConfirm({}) }}>Looks good</Button>
         </div>
       </div>
     )
@@ -47,6 +51,7 @@ export function ContextConfirmCard({ payload, onConfirm }: { payload: Record<str
     setEdits(nextEdits)
     setCustomOpen(false)
     if (nextStep >= fields.length) {
+      setConfirming(true)
       onConfirm(nextEdits)
     } else {
       setStep(nextStep)
@@ -68,6 +73,7 @@ export function ContextConfirmCard({ payload, onConfirm }: { payload: Record<str
   }
 
   const dismiss = () => {
+    setConfirming(true)
     onConfirm(edits)
   }
 
@@ -155,7 +161,7 @@ export function ContextConfirmCard({ payload, onConfirm }: { payload: Record<str
             <input
               aria-label={field.label}
               placeholder={field.value ? `Confirm or correct: ${field.value}` : "Type your answer"}
-              defaultValue={field.value}
+              value={edits[field.key] ?? field.value ?? ""}
               onChange={(e) => setEdits((s) => ({ ...s, [field.key]: e.target.value }))}
               onKeyDown={(e) => {
                 if (e.key === "Enter") submit()
@@ -165,18 +171,18 @@ export function ContextConfirmCard({ payload, onConfirm }: { payload: Record<str
           )}
 
           <div className="mt-4 flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={dismiss}>
+            <Button size="sm" variant="ghost" onClick={dismiss} disabled={confirming}>
               Dismiss
             </Button>            {safeStep > 0 && (
-              <Button size="sm" variant="ghost" onClick={back} className="text-muted-foreground">
+              <Button size="sm" variant="ghost" onClick={back} disabled={confirming} className="text-muted-foreground">
                 Back
               </Button>
             )}
-            <Button size="sm" variant="ghost" onClick={skip} className="text-muted-foreground">
+            <Button size="sm" variant="ghost" onClick={skip} disabled={confirming} className="text-muted-foreground">
               Skip
             </Button>
             <span className="flex-1" />
-            <Button size="sm" onClick={submit} disabled={!canSubmit}>
+            <Button size="sm" onClick={submit} disabled={!canSubmit || confirming}>
               {isLast ? "Submit" : "Continue"}
             </Button>
           </div>

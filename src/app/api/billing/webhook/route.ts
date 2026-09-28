@@ -61,6 +61,11 @@ export async function POST(req: NextRequest) {
     const terminalStatus = event.status === "disputed" ? "disputed" : "refunded"
     const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    // Fail closed like the succeeded path: a 200 here tells Paddle the refund
+    // was processed and stops retries while the user keeps the credits.
+    if (!serviceUrl || !serviceKey) {
+      return NextResponse.json({ error: "Service role not configured" }, { status: 503 })
+    }
     if (serviceUrl && serviceKey && event.providerTransactionId) {
       try {
         const service = createServiceClient(serviceUrl, serviceKey)
@@ -152,7 +157,24 @@ export async function POST(req: NextRequest) {
   }
   const expectedAmount = priceForPackage(pkg, currency)
   if (event.totalMinor < expectedAmount) {
-    return NextResponse.json({ error: `Amount below catalog price: expected ${expectedAmount}, got ${event.totalMinor}` }, { status: 400 })
+    // Money arrived but short of catalog: a 4xx tells Paddle to retry a
+    // decision that can never change. Ack without granting and escalate for
+    // human follow-up instead — the payment is real, the fulfillment isn't.
+    try {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (url && key) {
+        await reportError(createServiceClient(url, key), {
+          phase: "billing_webhook",
+          error: `Paid total below catalog: expected ${expectedAmount}, got ${event.totalMinor}`,
+          details: { provider: "paddle", step: "underpayment", packageId: pkg.id, currency, providerTransactionId: event.providerTransactionId },
+          severity: "critical",
+        })
+      }
+    } catch {
+      // Reporting never breaks the ack.
+    }
+    return NextResponse.json({ received: true, status: "underpaid" }, { status: 200 })
   }
 
   const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

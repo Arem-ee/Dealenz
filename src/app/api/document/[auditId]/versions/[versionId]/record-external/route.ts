@@ -75,7 +75,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
     return NextResponse.json({ success: false, error: "That version is already closed — only open versions can record an external signing." }, { status: 400 })
   }
 
-  const { error } = await service
+  // Walk the lifecycle chain along legal arms (draft→ready_to_sign→
+  // owner_signed→counterparty_pending→fully_signed): a direct jump raises
+  // the transition trigger. Each step is conditional so re-runs and
+  // mid-chain versions converge instead of erroring.
+  const chain: Array<{ from: string[]; to: string }> = [
+    { from: ["draft"], to: "ready_to_sign" },
+    { from: ["ready_to_sign", "ready_to_send"], to: "owner_signed" },
+    { from: ["owner_signed"], to: "counterparty_pending" },
+  ]
+  for (const step of chain) {
+    const { data: current } = await service.from("document_versions").select("status").eq("id", versionId).maybeSingle()
+    const status = (current as { status?: string } | null)?.status
+    if (status && step.from.includes(status)) {
+      const { error: stepError } = await service.from("document_versions").update({ status: step.to }).eq("id", versionId)
+      if (stepError) {
+        return NextResponse.json({ success: false, error: "Could not record the signing. Please try again." }, { status: 500 })
+      }
+    }
+  }
+
+  const { data: recorded, error } = await service
     .from("document_versions")
     .update({
       status: "fully_signed",
@@ -83,7 +103,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
       metadata: { ...(row.metadata ?? {}), recorded_externally: true, recorded_at: new Date().toISOString() },
     })
     .eq("id", versionId)
-  if (error) {
+    .in("status", ["counterparty_pending", "sent"])
+    .select("id")
+  if (error || !recorded || (Array.isArray(recorded) && recorded.length === 0)) {
     return NextResponse.json({ success: false, error: "Could not record the signing. Please try again." }, { status: 500 })
   }
   // Seal the recorded content best-effort: externally-signed paper gets the

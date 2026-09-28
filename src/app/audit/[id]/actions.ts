@@ -169,6 +169,7 @@ export async function attachFileMetadata(
     size: number
     type: string
     path: string
+    fingerprint?: string
   }
 ): Promise<AttachFileResult> {
   const supabase = await createClient()
@@ -219,6 +220,24 @@ export async function attachFileMetadata(
     return { ok: false, error: "File content does not match its declared type" }
   }
 
+  // Retry-after-success is free: if this exact path is already attached,
+  // the earlier attempt completed (its hold settled) and this call is a
+  // client retry, not new work. Return the existing list with no charge —
+  // without this, the fingerprint-keyed reservation below would deny (the
+  // original hold is settled, and settled keys never replay as live).
+  {
+    const { data: existingAudit } = await supabase
+      .from("audits")
+      .select("structured_data")
+      .eq("id", auditId)
+      .eq("user_id", user.id)
+      .maybeSingle()
+    const existingFiles = ((existingAudit?.structured_data as Record<string, unknown> | null)?.files as Array<{ path?: unknown }> | undefined) ?? []
+    if (existingFiles.some((f) => f.path === fileData.path)) {
+      return { ok: true, files: existingFiles as Array<Record<string, unknown>> }
+    }
+  }
+
   // Credit gate at the point of use: file upload/parsing costs UPLOAD_CREDITS.
   // Same balance check as every other billable operation — never-purchased
   // accounts (free-signup grant only) cannot afford it. Deducted only when
@@ -239,8 +258,14 @@ export async function attachFileMetadata(
       amount: UPLOAD_CREDITS,
       // Never embed the user-controlled filename: reserve_credits rejects
       // keys over 120 chars, and real filenames ("Isolex_openTILL_…")
-      // blow past that. Uniqueness comes from the UUID alone.
-      idempotencyKey: `upload:${auditId}:${fileData.size}:${crypto.randomUUID()}`,
+      // blow past that. Retries reuse the content fingerprint (64 hex +
+      // audit id = 108 chars), so a retry-after-success replays the
+      // original hold instead of minting a second charge; without one (older
+      // clients), uniqueness still comes from the UUID.
+      idempotencyKey:
+        typeof fileData.fingerprint === "string" && /^[0-9a-f]{64}$/.test(fileData.fingerprint)
+          ? `upload:${auditId}:${fileData.fingerprint}`
+          : `upload:${auditId}:${fileData.size}:${crypto.randomUUID()}`,
     })
   } catch {
     // The reservation RPC itself failed (as opposed to denying for low
@@ -285,10 +310,17 @@ export async function attachFileMetadata(
       return { ok: false, error: `Maximum of ${MAX_FILES_PER_AUDIT} files allowed per audit` }
     }
 
-    files.push({
+    // Replace-by-path: a re-attach of the same storage object updates its row
+    // instead of duplicating it (the retry-after-success early return above
+    // covers the common case; this covers races).
+    const incomingPath = (fileData as Record<string, unknown>).path
+    const atIndex = files.findIndex((f) => (f as Record<string, unknown>).path === incomingPath)
+    const row = {
       ...fileData,
       uploaded_at: new Date().toISOString(),
-    })
+    }
+    if (atIndex >= 0) files[atIndex] = row as Record<string, unknown>
+    else files.push(row as Record<string, unknown>)
 
     const { error } = await supabase
       .from("audits")
@@ -309,14 +341,26 @@ export async function attachFileMetadata(
       })
       settled = true
     } catch {
-      // The attach itself succeeded; a settlement-only failure is logged for
-      // ops rather than rewriting success into failure.
-      await logEvent({
-        audit_id: auditId,
-        user_id: user.id,
-        phase: "file_metadata_settle",
-        status: "failure",
-      })
+      // One immediate retry: settlement blips are usually transient, and a
+      // dropped 5-credit consumption is lost revenue with no ledger trace.
+      // Still failing → report critical with the reservation id (ops can
+      // settle by hand) while the attach itself stands.
+      try {
+        await finalizeReservation(ledger, {
+          reservationId: uploadReservation.reservationId,
+          consumptionAmount: UPLOAD_CREDITS,
+          operation: "document_analysis",
+        })
+        settled = true
+      } catch (retryErr) {
+        await reportError(supabase, {
+          phase: "file_metadata_settle",
+          error: retryErr,
+          details: { step: "finalize_retry", reservationId: uploadReservation.reservationId },
+          severity: "critical",
+          userId: user.id,
+        })
+      }
     }
 
     await logEvent({
@@ -373,6 +417,26 @@ export async function removeFileMetadata(
     .eq("user_id", user.id)
 
   if (error) throw new Error(error.message)
+
+  // Delete the bytes too: metadata-only removal orphans the object, which
+  // then blocks that filename forever (uploads are replace-on-retry, but a
+  // removed-then-readded file must start clean). Same prefix guard as above
+  // scopes the delete; failures are logged, never fatal to the metadata fix.
+  try {
+    const storageKey = filePath.startsWith("audit-files/") ? filePath.slice("audit-files/".length) : filePath
+    const { error: rmError } = await supabase.storage.from("audit-files").remove([storageKey])
+    if (rmError) {
+      await logEvent({
+        audit_id: auditId,
+        user_id: user.id,
+        phase: "file_storage_remove",
+        status: "failure",
+        error_message: rmError.message.slice(0, 200),
+      })
+    }
+  } catch {
+    // Metadata already fixed; orphan cleanup retries via deal erasure.
+  }
 
   await logEvent({
     audit_id: auditId,
@@ -1050,6 +1114,9 @@ export async function analyzeDeal(
 
     // Settle the analysis charge: the report is complete and persisted, so
     // the reserved credits are earned. Failures below void the hold instead.
+    // One immediate retry before giving up: a dropped 5-credit consumption
+    // is lost revenue with no ledger trace, so persistent failure reports
+    // critical with the reservation id for hand settlement.
     try {
       if (analysisReservationId) {
         await finalizeReservation(ledger, {
@@ -1059,10 +1126,26 @@ export async function analyzeDeal(
         })
         analysisReservationId = null
       }
-    } catch {
-      // Settlement-only failure after a completed analysis: the work is done
-      // and persisted; the hold releases via expiry rather than failing this.
-      analysisReservationId = null
+    } catch (settleErr) {
+      try {
+        if (analysisReservationId) {
+          await finalizeReservation(ledger, {
+            reservationId: analysisReservationId,
+            consumptionAmount: ANALYSIS_CREDITS,
+            operation: "document_analysis",
+          })
+          analysisReservationId = null
+        }
+      } catch (retryErr) {
+        await reportError(supabase, {
+          phase: "analysis_settle",
+          error: retryErr ?? settleErr,
+          details: { step: "finalize_retry", reservationId: analysisReservationId, auditId },
+          severity: "critical",
+          userId: user.id,
+        })
+        analysisReservationId = null
+      }
     }
 
     return { success: true, data: extracted, riskReport, knowledgeCandidates, deterministicFindings: ruleResults, findingDelta: (structuredUpdate.findingDelta as FindingDelta | null) ?? null, riskDegraded, rulesDegraded }
@@ -1165,16 +1248,40 @@ export async function generateProtectionPackage(
     return { success: false, error: "Complete the audit analysis before generating documents." }
   }
 
+  // Audit lock: concurrent package runs fork version history AND double-hold
+  // 55-credit reservations (fresh UUID key per call defeats idempotency).
+  // Same pattern as analyzeDeal: second caller waits for the friendly error.
+  {
+    const ttlThreshold = new Date(Date.now() - LOCK_TTL_MS).toISOString()
+    const { data: locked, error: lockError } = await supabase
+      .from("audits")
+      .update({ locked_at: new Date().toISOString() })
+      .eq("id", auditId)
+      .eq("user_id", user.id)
+      .or(`locked_at.is.null,locked_at.lt.${ttlThreshold}`)
+      .select("id")
+    if (lockError || !locked || locked.length === 0) {
+      return { success: false, error: "Documents are already being generated for this deal. Please wait a moment and check Drafts." }
+    }
+  }
+  const unlockAudit = async () => {
+    try {
+      await supabase.from("audits").update({ locked_at: null, updated_at: new Date().toISOString() }).eq("id", auditId).eq("user_id", user.id)
+    } catch {
+      // Stale locks expire via TTL; unlock failure never fails the caller.
+    }
+  }
+
   {
     const rate = await checkRateLimit("generateProtectionPackage")
     if (!rate.allowed) {
+      await unlockAudit()
       return { success: false, error: rate.error ?? "Rate limit check failed. Please try again." }
     }
   }
 
   // Credit gate for the full 4-document chain (proposal 10 + sow 15 +
-  // contract 20 + checklist 10): reserve up front, finalize only when the
-  // versions persist, void on any failure. Previously this path charged
+  // contract 20 + checklist 10): reserve up front, finalize only when the  // versions persist, void on any failure. Previously this path charged
   // nothing — the priced document costs applied only to plans no production
   // caller used.
   const { DOCUMENT_CREDIT_COSTS } = await import("@/lib/credits/pricing")
@@ -1198,10 +1305,12 @@ export async function generateProtectionPackage(
       idempotencyKey: `package:${auditId}:${crypto.randomUUID()}`,
     })
     if (!reservation.allowed || !reservation.reservationId) {
+      await unlockAudit()
       return { success: false, error: `Insufficient credits for this operation. The full document package costs ${PACKAGE_CREDITS} credits.` }
     }
     packageReservationId = reservation.reservationId
   } catch {
+    await unlockAudit()
     return { success: false, error: "Could not verify credit balance. Please try again — nothing was charged." }
   }
   const voidPackageHold = async () => {
@@ -1277,7 +1386,9 @@ export async function generateProtectionPackage(
         nextVersionNumber = existing.version_number + 1
       }
 
-      await supabase.from("document_versions").insert({
+      // Checked insert: a failed persist throws (voiding the whole hold)
+      // instead of charging 55 for documents that do not exist.
+      const { error: versionError } = await supabase.from("document_versions").insert({
         audit_id: auditId,
         user_id: user.id,
         document_type: docType,
@@ -1286,6 +1397,9 @@ export async function generateProtectionPackage(
         generation_method: method,
         created_at: new Date().toISOString(),
       })
+      if (versionError) {
+        throw new Error(`Could not save the ${docType} document. Please try again — nothing was charged.`)
+      }
     }
 
     const methodSummary = Object.entries(docMap).map(([type, { method }]) => `${type}=${method}`).join(", ")
@@ -1346,7 +1460,9 @@ export async function generateProtectionPackage(
       }
     }
 
-    // Settle the package charge: all four versions persisted above.
+    // Settle the package charge: all four versions persisted above. One
+    // immediate retry before giving up: a dropped 55-credit consumption is
+    // lost revenue with no ledger trace.
     try {
       if (packageReservationId) {
         await finalizeReservation(packageLedger, {
@@ -1356,15 +1472,33 @@ export async function generateProtectionPackage(
         })
         packageReservationId = null
       }
-    } catch {
-      // Settlement-only failure after persisted versions: the work is done;
-      // the hold releases via expiry rather than failing a completed package.
-      packageReservationId = null
+    } catch (settleErr) {
+      try {
+        if (packageReservationId) {
+          await finalizeReservation(packageLedger, {
+            reservationId: packageReservationId,
+            consumptionAmount: PACKAGE_CREDITS,
+            operation: "document_analysis",
+          })
+          packageReservationId = null
+        }
+      } catch (retryErr) {
+        await reportError(supabase, {
+          phase: "package_settle",
+          error: retryErr ?? settleErr,
+          details: { step: "finalize_retry", reservationId: packageReservationId, auditId },
+          severity: "critical",
+          userId: user.id,
+        })
+        packageReservationId = null
+      }
     }
 
+    await unlockAudit()
     return { success: true, documents }
   } catch (err) {
     await voidPackageHold()
+    await unlockAudit()
     await logEvent({
       audit_id: auditId,
       user_id: user.id,

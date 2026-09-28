@@ -6,6 +6,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+  // Same gates as every sibling ceremony route: verified senders only,
+  // bounded rate — signing mutates shared legal state.
+  if (!user.email_confirmed_at) return NextResponse.json({ success: false, error: "Please verify your email address before signing." }, { status: 403 })
+  const { checkRateLimit } = await import("@/lib/rate-limit")
+  const rate = await checkRateLimit("document_send")
+  if (!rate.allowed) {
+    return NextResponse.json({ success: false, error: rate.error ?? "Rate limit exceeded" }, { status: 429 })
+  }
   const body = await req.json().catch(() => ({})) as { signerId?: string; imageData?: string; method?: string }
   const signerId = typeof body.signerId === "string" ? body.signerId : ""
   if (!signerId) return NextResponse.json({ success: false, error: "Missing signer" }, { status: 400 })
