@@ -93,3 +93,25 @@ tracks (revisit with a signed anchor customer), per-customer encryption keys.
 **First three moves this week:** (1) founder attests or removes the SOC 2/EU/AES landing
 claims; (2) SAML SSO spike against staging Supabase; (3) `org_id` data-model RFC
 (RLS migration plan + backfill of solo users as org-of-one).
+
+## E1 build status (implemented, verified green)
+
+- **SAML SSO sign-in** (`src/lib/auth/sso.ts`, login page): work-domain form drives
+  `signInWithSSO`, returns through the existing `/auth/callback` code exchange.
+  Providers configure in Supabase Auth > SSO; unconfigured domains fail closed with an
+  honest message. Founder action: register the first customer IdP in staging and run
+  one live login before promising SSO in sales calls.
+- **TOTP MFA** (`src/components/settings/mfa-section.tsx`, login challenge step):
+  enroll/verify/unenroll with manual-entry secrets, AAL2 challenge at password sign-in.
+  No QR library: secrets are typed into any authenticator app.
+- **SCIM-lite** (`src/lib/scim/`, `/api/scim/users`, `/api/scim/users/[id]`): list,
+  provision (verified email, IdP as source of truth), suspend via ban (never delete;
+  DELETE refused with 405). Bearer provision token (`SCIM_PROVISION_TOKEN`, 32+ chars,
+  fails closed unset). Documented in `.env.example` + `VERCEL_ENV_TEMPLATE.md`.
+- **Security + DPA pages** (`/security`, `/dpa`), footer-linked. DPA names live
+  subprocessors and the signed-copy-on-request motion.
+- **Live status** (`/api/health`, `/status`): app/database/AI checks with an AI-fallback
+  spike detector; raw volumes never ship. Converged with an in-flight health design
+  from a parallel workstream (its 5 tests pass against this implementation).
+- **Not code:** SOC 2 Type II audit kickoff, signed DPA delivery, staging SSO live
+  verification, `SCIM_PROVISION_TOKEN` issuance. All with named founder ownership.

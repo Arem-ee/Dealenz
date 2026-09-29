@@ -55,6 +55,12 @@ Do not commit real values. All values below are names only.
 |---|---|---|
 | `CRON_SECRET` | Generate with `openssl rand -hex 32` | Server-only. Vercel Cron sends it as `Authorization: Bearer`. Unset fails closed everywhere except local non-production dev — always set in deployed envs. |
 
+### Enterprise provisioning (SCIM-lite, only if an IdP provisions users)
+
+| Variable | Where to obtain | Notes |
+|---|---|---|
+| `SCIM_PROVISION_TOKEN` | Generate with `openssl rand -hex 32` (32+ chars) | Server-only. Bearer token for `/api/scim/*`, given to Okta/Azure AD. Unset fails closed everywhere. SSO providers themselves live in Supabase Dashboard → Auth → SSO, never here. |
+
 ### Lawyer-service webhooks (only if lawyer payouts are live)
 
 | Variable | Where to obtain | Notes |

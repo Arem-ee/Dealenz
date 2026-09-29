@@ -5,9 +5,6 @@ import { ArrowRight, ShieldCheck, Lock, CheckCircle2 } from "lucide-react"
 export function PreFooterCta() {
   return (
     <section className="relative overflow-hidden bg-[#0A0D14] py-24 text-center text-white lg:py-32">
-      {/* Ambient warm radial backlight */}
-      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[450px] w-[750px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/[0.12] blur-[140px]" />
-
       <div className="relative z-10 mx-auto max-w-4xl px-6 lg:px-8">
         
         {/* Eyebrow */}
@@ -23,8 +20,8 @@ export function PreFooterCta() {
         </h2>
 
         <p className="mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-white/70 sm:text-[17px]">
-          Upload their paper. Uncover every hidden liability, get exact pushback words in seconds,
-          and protect your business with institutional rigor.
+          Upload their paper. Surface hidden liabilities, get suggested pushback words in
+          minutes, and protect your business with institutional rigor.
         </p>
 
         {/* Dual Buttons */}

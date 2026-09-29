@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Loader2, Eye, EyeOff } from "lucide-react"
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { logAuthFailure } from "@/app/login/actions"
 import { resolveNextPath } from "@/lib/auth/link"
+import { parseSsoDomain, ssoErrorMessage } from "@/lib/auth/sso"
 import { FounderNote } from "@/components/auth/founder-note"
 import Link from "next/link"
 
@@ -25,6 +26,11 @@ export default function LoginPage() {
   const [notice, setNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [resetCooldown, setResetCooldown] = useState(false)
+  const [ssoOpen, setSsoOpen] = useState(false)
+  const [ssoDomain, setSsoDomain] = useState("")
+  const [ssoLoading, setSsoLoading] = useState(false)
+  const [mfaChallenge, setMfaChallenge] = useState<{ factorId: string; challengeId: string } | null>(null)
+  const [mfaCode, setMfaCode] = useState("")
 
   function loginDestination(): string {
     return resolveNextPath(new URLSearchParams(window.location.search).get("next"))
@@ -40,6 +46,17 @@ export default function LoginPage() {
       const supabase = createClient()
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
+      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+        const { data: factors } = await supabase.auth.mfa.listFactors()
+        const verified = (factors?.totp ?? []).find((f) => f.status === "verified")
+        if (!verified) throw new Error("Two-factor required but no verified authenticator found. Contact support.")
+        const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: verified.id })
+        if (challengeError || !challenge) throw challengeError ?? new Error("Could not start two-factor verification.")
+        setMfaChallenge({ factorId: verified.id, challengeId: challenge.id })
+        setMfaCode("")
+        return
+      }
       router.push(loginDestination())
       router.refresh()
     } catch (err) {
@@ -52,8 +69,7 @@ export default function LoginPage() {
     }
   }
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true)
+  const handleGoogleSignIn = async () => {    setLoading(true)
     setError(null)
     setNotice(null)
 
@@ -71,6 +87,55 @@ export default function LoginPage() {
       const msg = "We couldn't start Google sign-in. Please try again."
       setError(msg)
       logAuthFailure(raw || "blank provider error", "login")
+      setLoading(false)
+    }
+  }
+
+  const handleSsoSignIn = async () => {
+    const domain = parseSsoDomain(ssoDomain)
+    if (!domain) {
+      setError("Enter your work email domain, e.g. acme.com.")
+      return
+    }
+    setSsoLoading(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithSSO({
+        domain,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(loginDestination())}`,
+        },
+      })
+      if (error) throw error
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : ""
+      setError(ssoErrorMessage(raw))
+      logAuthFailure(raw || "sso start failed", "login")
+      setSsoLoading(false)
+    }
+  }
+
+  const handleVerifySubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!mfaChallenge || mfaCode.trim().length < 6 || loading) return
+    setError(null)
+    setLoading(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.mfa.verify({
+        factorId: mfaChallenge.factorId,
+        challengeId: mfaChallenge.challengeId,
+        code: mfaCode.trim(),
+      })
+      if (error) throw error
+      router.push(loginDestination())
+      router.refresh()
+    } catch {
+      setError("That code didn't verify. Check your authenticator app and try again.")
+      logAuthFailure("mfa verify failed", "login")
+    } finally {
       setLoading(false)
     }
   }
@@ -110,7 +175,38 @@ export default function LoginPage() {
           <h1 className="mt-8 text-[22px] font-semibold tracking-[-0.02em]">Welcome back</h1>
           <p className="mt-1.5 text-[13px] leading-relaxed text-foreground/55">Sign in to continue your work.</p>
 
-          <form onSubmit={handleSubmit} className="mt-7 space-y-4" noValidate>
+          <form onSubmit={mfaChallenge ? handleVerifySubmit : handleSubmit} className="mt-7 space-y-4" noValidate>
+            {mfaChallenge ? (
+              <div>
+                <Label htmlFor="mfa-code" className="text-[12px] font-medium">
+                  Authenticator code
+                </Label>
+                <p className="mt-1 text-[12px] text-foreground/55">Two-factor is on for this account. Enter the 6-digit code.</p>
+                <Input
+                  id="mfa-code"
+                  type="text"
+                  placeholder="123456"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                  required
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  className="mt-1.5 h-11 rounded-xl border-border bg-card px-4 text-[14px]"
+                />
+                <Button type="submit" disabled={loading || mfaCode.trim().length < 6} className="mt-4 h-11 w-full rounded-full bg-primary text-primary-foreground text-[14px] font-medium hover:bg-primary/85">
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Verify
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => { setMfaChallenge(null); setMfaCode("") }}
+                  className="mt-2 w-full text-center text-[12px] font-medium text-foreground/55 hover:text-foreground"
+                >
+                  Back to password sign-in
+                </button>
+              </div>
+            ) : (
+              <>
             <div>
               <Label htmlFor="email" className="text-[12px] font-medium">
                 Email
@@ -166,6 +262,8 @@ export default function LoginPage() {
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Sign in
             </Button>
+              </>
+            )}
           </form>
 
           {error && (
@@ -197,6 +295,47 @@ export default function LoginPage() {
             <FcGoogle className="h-[18px] w-[18px]" />
             Continue with Google
           </button>
+
+          <div className="mt-4 rounded-2xl border border-border/60 bg-muted/20">
+            <button
+              type="button"
+              onClick={() => setSsoOpen((v) => !v)}
+              aria-expanded={ssoOpen}
+              className="flex w-full items-center justify-between px-4 py-3 text-left"
+            >
+              <span className="text-[13px] font-medium">Continue with SSO</span>
+              <span className="text-[11px] text-foreground/50">{ssoOpen ? "Hide" : "SAML · OIDC"}</span>
+            </button>
+            {ssoOpen && (
+              <div className="flex gap-2 px-4 pb-4">
+                <label htmlFor="sso-domain" className="sr-only">Work email domain</label>
+                <Input
+                  id="sso-domain"
+                  type="text"
+                  placeholder="acme.com"
+                  value={ssoDomain}
+                  onChange={(e) => setSsoDomain(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      void handleSsoSignIn()
+                    }
+                  }}
+                  autoComplete="organization"
+                  className="h-10 min-w-0 flex-1 rounded-xl border-border bg-card px-3.5 text-[13px]"
+                />
+                <Button
+                  type="button"
+                  onClick={() => void handleSsoSignIn()}
+                  disabled={ssoLoading}
+                  className="h-10 shrink-0 rounded-full px-4 text-[13px]"
+                >
+                  {ssoLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Go
+                </Button>
+              </div>
+            )}
+          </div>
 
           <p className="mt-6 text-center text-[13px] text-foreground/55">
             Don&apos;t have an account?{" "}

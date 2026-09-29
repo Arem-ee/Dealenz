@@ -62,7 +62,7 @@ export default function Home() {
             </div>
 
             {/* Main Headline matching Agiloft commanding visual stature */}
-            <h1 className="mx-auto mt-6 max-w-4xl text-[36px] font-bold leading-[1.08] tracking-tight text-white sm:text-[54px] lg:text-[64px]">
+            <h1 className="mx-auto mt-6 max-w-3xl text-balance text-[36px] font-bold leading-[1.08] tracking-tight text-white sm:text-[54px] lg:text-[64px]">
               Turn Contracts into Business Intelligence With AI Deal Management.
             </h1>
 

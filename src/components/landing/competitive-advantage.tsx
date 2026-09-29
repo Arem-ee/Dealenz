@@ -10,7 +10,7 @@ export function CompetitiveAdvantageSection() {
   const tabs = [
     {
       id: "ingestion",
-      label: "INTAKE & INGESTION",
+      label: "INTAKE",
       title: "Drop in any agreement: PDF, Word, or plain text",
       desc: "Our document intake reads PDFs, Word files, and pasted text, preserving the structure and cross-referenced definitions the review engine reasons over.",
       incoming: "Section 3.1: Contractor shall perform unlimited revisions at no additional charge until Client confirms full satisfaction in its sole discretion.",
@@ -19,7 +19,7 @@ export function CompetitiveAdvantageSection() {
     },
     {
       id: "audit",
-      label: "DEEP RISK AUDIT",
+      label: "RISK AUDIT",
       title: "Deterministic Rulepacks Overrule Generative Guesswork",
       desc: "Every clause is audited against specialized rulepacks (Commercial MSAs, Leases, IP Assignment, Employment). If evidence is lacking, findings are reported as unknown rather than fabricated.",
       incoming: "Section 7.4: All Intellectual Property, trade secrets, and background inventions developed prior to or during this Agreement belong exclusively to Customer upon creation.",
@@ -28,7 +28,7 @@ export function CompetitiveAdvantageSection() {
     },
     {
       id: "redline",
-      label: "ASSISTED REDLINE",
+      label: "REDLINE",
       title: "Suggested counter-language, ready to send",
       desc: "Dealenz drafts pushback in your preferred tone: conservative, standard commercial, or assertive. You review every word before it goes out.",
       incoming: "Section 12.2: Payment is due ninety (90) days following receipt of final uncontested invoice. Customer may withhold up to 30% retention.",
@@ -37,7 +37,7 @@ export function CompetitiveAdvantageSection() {
     },
     {
       id: "governance",
-      label: "EXECUTION & GOVERNANCE",
+      label: "SIGN & TRACK",
       title: "Sign here, then watch every deadline",
       desc: "You sign first, then counterparties sign through a link with no account required. After signing, renewals and notice deadlines stay tracked with email alerts.",
       incoming: "Section 15.1: This Agreement auto-renews for consecutive 1-year terms unless written notice is received exactly 60 days prior to the calendar anniversary.",
@@ -79,13 +79,13 @@ export function CompetitiveAdvantageSection() {
         </div>
 
         {/* Interactive Tabs Bar */}
-        <div className="mt-14 flex flex-wrap justify-center gap-2 border-b border-neutral-200 pb-3">
+        <div className="mt-14 flex flex-nowrap justify-start gap-2 overflow-x-auto border-b border-neutral-200 pb-3 sm:justify-center">
           {tabs.map((tab, idx) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(idx)}
-              className={`rounded-full px-4 py-2 text-[12px] font-bold tracking-wider transition-all ${
+              className={`shrink-0 rounded-full px-4 py-2 text-[12px] font-bold tracking-wider transition-all ${
                 activeTab === idx
                   ? "bg-neutral-900 text-white shadow-md"
                   : "bg-white text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"

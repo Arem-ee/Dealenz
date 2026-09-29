@@ -14,6 +14,7 @@ import { Loader2, Check, AlertCircle, Sun, Moon, Monitor, Download } from "lucid
 import { useTheme, type ThemeChoice } from "@/components/theme-provider"
 import { exportMyData } from "@/app/settings/actions"
 import { SharedLinksCard } from "@/components/settings/shared-links"
+import { MfaSection } from "@/components/settings/mfa-section"
 
 import { ReferralSection } from "@/components/referral-section"
 
@@ -542,6 +543,7 @@ function SecuritySection({ email, googleConnected, gmailConnected }: { email: st
           </div>
         </div>
       </SectionCard>
+      <MfaSection />
     </div>
   )
 }

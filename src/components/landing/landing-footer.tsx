@@ -56,10 +56,10 @@ export function LandingFooter() {
           <div className="lg:col-span-2">
             <h4 className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/40">Platform</h4>
             <ul className="mt-4 space-y-2.5 text-[13px] text-white/70">
-              <li><Link href="/#how-it-works" className="transition-colors hover:text-white">Intake & OCR</Link></li>
-              <li><Link href="/#features" className="transition-colors hover:text-white">Deterministic Rules</Link></li>
-              <li><Link href="/#features" className="transition-colors hover:text-white">Counter-Drafting</Link></li>
-              <li><Link href="/#features" className="transition-colors hover:text-white">Counterparty E-Sign</Link></li>
+              <li><Link href="/#workflows" className="transition-colors hover:text-white">Intake & Review</Link></li>
+              <li><Link href="/#solutions" className="transition-colors hover:text-white">Deterministic Rules</Link></li>
+              <li><Link href="/#solutions" className="transition-colors hover:text-white">Counter-Drafting</Link></li>
+              <li><Link href="/#platform" className="transition-colors hover:text-white">Counterparty E-Sign</Link></li>
               <li><Link href="/#pricing" className="transition-colors hover:text-white">Pricing & Credits</Link></li>
             </ul>
           </div>
@@ -71,7 +71,10 @@ export function LandingFooter() {
               <li><Link href="/methodology" className="transition-colors hover:text-white">Methodology & Rules</Link></li>
               <li><Link href="/help" className="transition-colors hover:text-white">Help & Knowledgebase</Link></li>
               <li><Link href="/#faq" className="transition-colors hover:text-white">Frequently Asked</Link></li>
-              <li><Link href="/privacy" className="transition-colors hover:text-white">Security & Encryption</Link></li>
+              <li><Link href="/security" className="transition-colors hover:text-white">Security</Link></li>
+              <li><Link href="/dpa" className="transition-colors hover:text-white">DPA</Link></li>
+              <li><Link href="/status" className="transition-colors hover:text-white">Status</Link></li>
+              <li><Link href="/privacy" className="transition-colors hover:text-white">Privacy Policy</Link></li>
             </ul>
           </div>
 
@@ -96,7 +99,7 @@ export function LandingFooter() {
 
           <div className="mt-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center text-[12px] text-white/40">
             <p>© 2026 Dealenz Inc. All rights reserved. Know the risk before you sign.</p>
-            <p>EU Hosted & Compliant · Bank-Grade Encryption</p>
+            <p>EU Hosted · AES-256 Encryption</p>
           </div>
         </div>
 

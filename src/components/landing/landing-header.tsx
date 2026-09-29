@@ -19,7 +19,7 @@ export function LandingHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#090A0E]/85 backdrop-blur-md">
-      <div className="mx-auto flex h-[70px] max-w-6xl items-center justify-between px-6 lg:px-8">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6 lg:px-8">
         
         {/* Left: Brand Logo */}
         <Link href="/" aria-label="Dealenz Home">

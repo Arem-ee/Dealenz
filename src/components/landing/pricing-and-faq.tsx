@@ -57,7 +57,7 @@ export function PricingAndFaq() {
             <div className="flex flex-col justify-between rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
               <div>
                 <span className="rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-bold tracking-wider text-neutral-700 uppercase">
-                  Starter Grant
+                  Free
                 </span>
                 <div className="mt-4 flex items-baseline gap-1">
                   <span className="text-[40px] font-bold tracking-tight text-neutral-900">$0</span>

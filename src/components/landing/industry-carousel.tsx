@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
-import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react"
+import Link from "next/link"
+import { ArrowLeft, ArrowRight, ArrowUpRight, Building2, Briefcase, Landmark, Handshake } from "lucide-react"
 
 export function IndustryCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -11,30 +11,30 @@ export function IndustryCarousel() {
     {
       title: "Enterprise Tech & Cloud SaaS",
       tag: "IP & MSA GOVERNANCE",
-      desc: "Audit vendor master services agreements, warranty disclaimers, and data protection addendums without weeks of back-and-forth.",
-      image: "/founder.jpg",
-      highlight: "Pushes for mutual liability caps and IP preservation",
+      desc: "Review vendor master services agreements, warranty disclaimers, and data protection addendums with every risk traced to its clause.",
+      icon: <Building2 className="h-7 w-7" />,
+      highlight: "Flags one-sided liability and IP grabs",
     },
     {
       title: "Professional Services & Agencies",
       tag: "SCOPE & BILLING DEFENSE",
-      desc: "Cap revision loops, lock in staged payment milestones, and ensure deliverable ownership transfers only after final invoice settlement.",
-      image: "/hidden-clause.jpg",
+      desc: "Review revision caps, staged payment milestones, and deliverable ownership terms before they cost margin.",
+      icon: <Briefcase className="h-7 w-7" />,
       highlight: "Flags scope creep on fixed-fee engagements",
     },
     {
       title: "Commercial Real Estate & Leases",
       tag: "LEASE & OPERATIONAL AUDIT",
-      desc: "Dissect rent escalation formulas, CAM expense allocations, and renewal notice traps across complex commercial leasing agreements.",
-      image: "/deal-plan.jpg",
-      highlight: "Detects hidden maintenance and early exit penalties",
+      desc: "Review rent escalation formulas, CAM expense allocations, and renewal notice traps in commercial leases.",
+      icon: <Landmark className="h-7 w-7" />,
+      highlight: "Surfaces maintenance and exit penalties",
     },
     {
       title: "Venture & Strategic Partnerships",
       tag: "EQUITY & JURISDICTION COMPLIANCE",
-      desc: "Evaluate founder vesting schedules, deadlock resolution mechanisms, and cross-border regulatory frameworks across US, UK, and CAMA.",
-      image: "/mutual-terms.jpg",
-      highlight: "Protects minority shareholder & voting rights",
+      desc: "Review founder vesting schedules, deadlock provisions, and cross-border terms across US, UK, and CAMA frameworks.",
+      icon: <Handshake className="h-7 w-7" />,
+      highlight: "Surfaces voting and exit-term risks",
     },
   ]
 
@@ -90,16 +90,12 @@ export function IndustryCarousel() {
                 key={ind.title}
                 className="group overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
               >
-              {/* Card Photo Header */}
-              <div className="relative h-56 w-full overflow-hidden bg-neutral-900">
-                <Image
-                  src={ind.image}
-                  alt={ind.title}
-                  fill
-                  className="object-cover filter grayscale contrast-125 brightness-95 transition-transform duration-700 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-neutral-950/25" />
-                <span className="absolute bottom-3 left-4 rounded-md bg-white/90 px-2.5 py-1 text-[10px] font-bold tracking-wider text-neutral-900 uppercase backdrop-blur-xs">
+              {/* Card Icon Header */}
+              <div className="relative flex h-36 w-full items-center justify-between overflow-hidden bg-neutral-900 px-6">
+                <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/15 bg-white/[0.05] text-amber-400">
+                  {ind.icon}
+                </span>
+                <span className="rounded-md bg-white/90 px-2.5 py-1 text-[10px] font-bold tracking-wider text-neutral-900 uppercase">
                   {ind.tag}
                 </span>
               </div>
@@ -120,8 +116,10 @@ export function IndustryCarousel() {
                 </div>
 
                 <div className="mt-4 flex items-center justify-between text-[12px] font-bold text-neutral-900">
-                  <span>Explore rulepack</span>
-                  <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  <Link href="/methodology" className="flex items-center gap-1 transition-colors group-hover:text-amber-700">
+                    <span>Explore rulepack</span>
+                    <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  </Link>
                 </div>
               </div>
             </div>

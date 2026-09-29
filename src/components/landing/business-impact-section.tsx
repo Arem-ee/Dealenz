@@ -126,9 +126,9 @@ export function BusinessImpactSection() {
                 </p>
               </div>
               <div>
-                <p className="text-[32px] font-bold tracking-tight text-white sm:text-[38px]">1:1</p>
+                <p className="text-[32px] font-bold tracking-tight text-white sm:text-[38px]">4</p>
                 <p className="mt-1 text-[12px] font-medium leading-snug text-white/60">
-                  Every finding traced to its source clause
+                  Regions covered: Nigeria, US, UK & EU
                 </p>
               </div>
             </div>
