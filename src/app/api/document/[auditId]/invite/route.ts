@@ -14,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
-  const body = await req.json().catch(() => ({})) as { name?: string; email?: string; partyLabel?: string; documentVersionId?: string }
+  const body = await req.json().catch(() => ({})) as { name?: string; email?: string; partyLabel?: string; documentVersionId?: string; expiresInDays?: number }
   const name = typeof body.name === "string" ? body.name.trim() : ""
   const email = typeof body.email === "string" ? body.email.trim() : ""
   // Owner rows are created server-side by this route (ensure-owner); callers
@@ -22,8 +22,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
   // "owner"/"Owner " signer that evaded the owner-first ordering checks.
   const partyLabel = "counterparty"
   const documentVersionId = typeof body.documentVersionId === "string" ? body.documentVersionId : null
+  const expiresInDays = typeof body.expiresInDays === "number" ? body.expiresInDays : null
   if (!name || name.length > 120) return NextResponse.json({ success: false, error: "Enter name" }, { status: 400 })
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ success: false, error: "Enter valid email" }, { status: 400 })
+  if (expiresInDays !== null && (!Number.isInteger(expiresInDays) || expiresInDays < 1 || expiresInDays > 120)) {
+    return NextResponse.json({ success: false, error: "Expiry must be 1 to 120 days." }, { status: 400 })
+  }
   if (!user.email_confirmed_at) return NextResponse.json({ success: false, error: "Please verify your email address before inviting signers." }, { status: 403 })
 
   // Abuse-rate cap on top of the credit charge: invites email real
@@ -112,6 +116,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
   try {
     // Generate token
     const token = `${crypto.randomUUID().replace(/-/g, "")}${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`
+    const expiresAt = expiresInDays !== null ? new Date(Date.now() + expiresInDays * 86400000).toISOString() : null
 
     const { error } = await supabase.from("document_signers").insert({
       audit_id: auditId,
@@ -122,6 +127,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
       party_label: partyLabel,
       token,
       status: "pending",
+      ...(expiresAt ? { expires_at: expiresAt } : {}),
     })
     if (error) {
       await voidHold()
@@ -142,6 +148,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
         party_label: "owner",
         token: ownerToken,
         status: "pending",
+        ...(expiresAt ? { expires_at: expiresAt } : {}),
       })
     }
 

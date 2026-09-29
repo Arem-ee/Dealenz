@@ -849,7 +849,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         </div>
       )}
       {/* Message list — flexes to fill remaining space */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
         <div className="mx-auto max-w-3xl">
           <MessageList
             messages={messages}
@@ -874,7 +874,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
       )}
 
       {/* Composer — floats above the thread, not cemented to a bar. */}
-      <div className="shrink-0 bg-transparent px-4 pb-4 pt-1">
+      <div className="shrink-0 bg-transparent px-3 pb-3 pt-1">
         <div className="mx-auto max-w-3xl rounded-2xl shadow-[0_16px_48px_-16px_rgba(0,0,0,0.3)] dark:shadow-[0_16px_48px_-16px_rgba(0,0,0,0.8)]">
           <Composer threadId={threadId} auditId={auditId} onMessageSent={handleSent} prefill={prefill} />
         </div>
@@ -912,7 +912,7 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
               monitoring={monitoring}
             />
             {workPlan && (
-              <div className="shrink-0 border-b border-border/60 bg-card p-3">
+              <div className="shrink-0 border-b border-border/60 bg-card px-3 py-2.5">
                 <PlanPreview plan={workPlan} steps={workSteps} onApprove={handlePlanApprove} onReject={handlePlanReject} onResume={handlePlanResume} />
                 {workExecution && workPlan.status !== "awaiting_approval" && (
                   <div className="mt-3">

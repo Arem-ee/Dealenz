@@ -300,9 +300,9 @@ export async function buildAskPorts(
         const items = await fetchPublishedKnowledge(supabase as never)
         return resolveKnowledge(envelope, items, { asOf: new Date() })
       },
-      standingRules: async () => {
+      standingRules: async (dealType: string | null) => {
         const { getStandingRuleTexts } = await import("@/app/library/actions")
-        return getStandingRuleTexts()
+        return getStandingRuleTexts(dealType)
       },
       aiCaller: async ({ systemPrompt, userContent, maxTokens, onToken }) => {
         try {

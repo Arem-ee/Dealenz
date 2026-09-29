@@ -50,10 +50,10 @@ export interface ConversationPorts {
   loadContext(auditId: string): Promise<ContextEnvelope | null>
   loadFacts(auditId: string): Promise<{ extracted: ExtractedData; rawText: string } | null>
   loadKnowledge(envelope: ContextEnvelope | null): Promise<KnowledgeCandidate[]>
-  // Standing client rules (Library): oldest-first texts, applied to every
-  // deal. Optional so tests and non-authenticated callers omit it; absent
-  // means no standing block, never an error.
-  standingRules?(): Promise<string[]>
+  // Standing client rules (Library): oldest-first texts, scoped to the deal
+  // type when known. Optional so tests and non-authenticated callers omit it;
+  // absent means no standing block, never an error.
+  standingRules?(dealType: string | null): Promise<string[]>
   aiCaller(request: {
     systemPrompt: string
     userContent: string
@@ -446,7 +446,7 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
   // the block, never fail the answer.
   let standingBlock: string | null = null
   try {
-    const rules = request.ports.standingRules ? await request.ports.standingRules() : []
+    const rules = request.ports.standingRules ? await request.ports.standingRules(dealType === "unknown" ? null : dealType) : []
     standingBlock = formatStandingBlock(rules ?? [])
   } catch {
     standingBlock = null

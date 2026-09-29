@@ -19,6 +19,7 @@ export interface InboxThreadItem {
   from: string | null
   date: string | null
   snippet: string | null
+  unread: boolean
 }
 
 export interface InboxMessageItem {
@@ -50,8 +51,10 @@ export async function getInboxStatus(): Promise<{ ok: true; connected: boolean }
   }
 }
 
-export async function listInboxThreads(): Promise<
-  | { ok: true; connected: true; threads: InboxThreadItem[] }
+const INBOX_PAGE_SIZE = 25
+
+export async function listInboxThreads(input: { pageToken?: string } = {}): Promise<
+  | { ok: true; connected: true; threads: InboxThreadItem[]; nextPageToken?: string }
   | { ok: true; connected: false }
   | { ok: false; error: string }
 > {
@@ -60,23 +63,28 @@ export async function listInboxThreads(): Promise<
     if (!ctx) return { ok: false as const, error: "You must be signed in." }
     const tokens = await getValidGmailTokens(ctx.supabase as never, ctx.user.id).catch(() => null)
     if (!tokens) return { ok: true as const, connected: false as const }
-    const listed = await listGmailThreads(tokens.access_token, { maxResults: 10 })
-    const items: InboxThreadItem[] = []
-    for (const t of listed.threads.slice(0, 10)) {
+    const accessToken = tokens.access_token
+    const listed = await listGmailThreads(accessToken, { maxResults: INBOX_PAGE_SIZE, pageToken: input.pageToken })
+    const refs = listed.threads.slice(0, INBOX_PAGE_SIZE)
+    async function describe(ref: { id: string; snippet?: string }): Promise<InboxThreadItem> {
       try {
-        const thread = await getGmailThread(tokens.access_token, t.id)
+        const thread = await getGmailThread(accessToken, ref.id)
         const firstId = thread.messageIds[0]
         if (!firstId) {
-          items.push({ threadId: t.id, subject: null, from: null, date: null, snippet: t.snippet ?? null })
-          continue
+          return { threadId: ref.id, subject: null, from: null, date: null, snippet: ref.snippet ?? null, unread: thread.hasUnread }
         }
-        const msg = await getGmailMessage(tokens.access_token, firstId)
-        items.push({ threadId: t.id, subject: msg.subject, from: msg.from, date: msg.date, snippet: msg.snippet ?? t.snippet ?? null })
+        const msg = await getGmailMessage(accessToken, firstId)
+        return { threadId: ref.id, subject: msg.subject, from: msg.from, date: msg.date, snippet: msg.snippet ?? ref.snippet ?? null, unread: thread.hasUnread }
       } catch {
-        items.push({ threadId: t.id, subject: null, from: null, date: null, snippet: t.snippet ?? null })
+        return { threadId: ref.id, subject: null, from: null, date: null, snippet: ref.snippet ?? null, unread: false }
       }
     }
-    return { ok: true as const, connected: true as const, threads: items }
+    const items: InboxThreadItem[] = []
+    for (let i = 0; i < refs.length; i += 5) {
+      const batch = await Promise.all(refs.slice(i, i + 5).map(describe))
+      items.push(...batch)
+    }
+    return { ok: true as const, connected: true as const, threads: items, nextPageToken: listed.nextPageToken }
   } catch (e) {
     return toActionFailure(e, "Could not list inbox threads.") as never
   }
@@ -136,7 +144,7 @@ function formatImportedThread(messages: Array<{ subject: string | null; from: st
 
 export async function importInboxThread(
   threadId: string
-): Promise<{ ok: true; threadId: string; duplicate: boolean } | { ok: false; error: string }> {
+): Promise<{ ok: true; threadId: string; auditId: string; duplicate: boolean } | { ok: false; error: string }> {
   try {
     const ctx = await requireUser()
     if (!ctx) return { ok: false as const, error: "You must be signed in." }
@@ -164,7 +172,7 @@ export async function importInboxThread(
         .limit(1)
         .maybeSingle()
       const convId = (conv as { id: string } | null)?.id
-      if (convId) return { ok: true as const, threadId: convId, duplicate: true as const }
+      if (convId) return { ok: true as const, threadId: convId, auditId: dup.id, duplicate: true as const }
       return { ok: false as const, error: "This thread was already imported." }
     }
 
@@ -204,7 +212,7 @@ export async function importInboxThread(
       attachedAuditId: auditId,
     }).catch(() => null)
     if (!conv) return { ok: false as const, error: "Deal created, but we couldn't open its chat. Find it in recent threads." }
-    return { ok: true as const, threadId: conv.id, duplicate: false as const }
+    return { ok: true as const, threadId: conv.id, auditId, duplicate: false as const }
   } catch (e) {
     return toActionFailure(e, "Could not import that thread.") as never
   }

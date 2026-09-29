@@ -78,12 +78,12 @@ describe("inbox import", () => {
 
   it("lists recent threads with message metadata", async () => {
     mockListThreads.mockResolvedValue({ threads: [{ id: "thr1", snippet: "sn" }], nextPageToken: undefined })
-    mockGetThread.mockResolvedValue({ id: "thr1", messageIds: ["m1"] })
+    mockGetThread.mockResolvedValue({ id: "thr1", messageIds: ["m1"], hasUnread: true })
     mockGetMessage.mockResolvedValue({ id: "m1", threadId: "thr1", subject: "Contract", from: "them@co.test", date: "Mon", snippet: "sn", bodyText: "terms" })
     const res = await listInboxThreads()
     expect(res.ok).toBe(true)
     if (res.ok && res.connected) {
-      expect(res.threads).toEqual([{ threadId: "thr1", subject: "Contract", from: "them@co.test", date: "Mon", snippet: "sn" }])
+      expect(res.threads).toEqual([{ threadId: "thr1", subject: "Contract", from: "them@co.test", date: "Mon", snippet: "sn", unread: true }])
     } else {
       throw new Error("expected connected list")
     }
@@ -105,7 +105,7 @@ describe("inbox import", () => {
       return chain(null)
     })
     const res = await importInboxThread("thr1")
-    expect(res).toEqual({ ok: true, threadId: "conv-1", duplicate: true })
+    expect(res).toEqual({ ok: true, threadId: "conv-1", auditId: "audit-1", duplicate: true })
     expect(inserts).toHaveLength(0)
     expect(mockGetThread).not.toHaveBeenCalled()
   })
@@ -130,7 +130,7 @@ describe("inbox import", () => {
     mockGetMessage.mockResolvedValue({ id: "m9", threadId: "thr9", subject: "SOW", from: "them@co.test", date: "Tue", snippet: "sn", bodyText: "Work terms here" })
     mockCreateConversation.mockResolvedValue({ id: "conv-9" })
     const res = await importInboxThread("thr9")
-    expect(res).toEqual({ ok: true, threadId: "conv-9", duplicate: false })
+    expect(res).toEqual({ ok: true, threadId: "conv-9", auditId: "audit-9", duplicate: false })
     const auditInsert = inserts.find((a) => (a as Record<string, unknown>).deal_type === "generic") as Record<string, unknown>
     expect(auditInsert.title).toBe("SOW")
     expect(auditInsert.raw_input as string).toContain("Work terms here")

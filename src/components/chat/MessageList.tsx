@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { ClientTime } from "@/components/datetime"
 import type { ThreadMessage } from "@/lib/chat/types"
@@ -9,6 +9,38 @@ import { ContextConfirmCard } from "./cards/ContextConfirmCard"
 import { DocumentDraftCard } from "./cards/DocumentDraftCard"
 import { LawyerRecommendationCard } from "./cards/LawyerRecommendationCard"
 import { Markdown } from "./Markdown"
+import { addStandingRule } from "@/app/library/actions"
+
+function SaveRuleButton({ text }: { text: string }) {
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "failed">("idle")
+
+  async function save() {
+    const snippet = text.trim().slice(0, 300)
+    if (!snippet || state === "saving" || state === "saved") return
+    setState("saving")
+    try {
+      const res = await addStandingRule(snippet)
+      setState(res.ok ? "saved" : "failed")
+    } catch {
+      setState("failed")
+    }
+  }
+
+  if (state === "saved") {
+    return <span className="mt-1.5 block text-[11px] font-medium text-emerald-700">Saved to Library rules</span>
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => void save()}
+      disabled={state === "saving"}
+      title="Save this answer as a standing rule for every deal"
+      className="mt-1.5 block text-[11px] font-medium text-muted-foreground opacity-60 transition-opacity hover:text-foreground hover:opacity-100 disabled:opacity-40"
+    >
+      {state === "saving" ? "Saving…" : state === "failed" ? "Retry save as rule" : "Save as rule"}
+    </button>
+  )
+}
 
 export function MessageList({
   messages,
@@ -46,7 +78,7 @@ export function MessageList({
   const showRich = richMode === "inline"
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {messages.map((m) => {
         if (!showRich && (m.type === "risk_report" || m.type === "context_confirm" || m.type === "document_draft" || m.type === "document_draft_turn" || m.type === "lawyer_recommendation")) {
           return null
@@ -101,6 +133,7 @@ export function MessageList({
             >
               <Markdown text={m.content} />
               <p className="mt-1 text-[11px] opacity-60"><ClientTime iso={m.createdAt} kind="time" /></p>
+              {m.role !== "user" && m.content.trim().length > 0 && <SaveRuleButton text={m.content} />}
             </div>
           </div>
         )

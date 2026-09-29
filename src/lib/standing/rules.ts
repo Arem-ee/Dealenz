@@ -10,6 +10,30 @@ export const MAX_STANDING_RULES = 20
 export const MAX_RULE_CHARS = 300
 export const STANDING_BLOCK_BUDGET_CHARS = 2000
 
+export const RULE_DEAL_TYPES = [
+  "freelance",
+  "generic",
+  "lease",
+  "purchase_sale",
+  "employment",
+  "founder",
+  "partnership",
+] as const
+
+export type RuleDealType = (typeof RULE_DEAL_TYPES)[number]
+
+export function normalizeRuleDealTypes(input: unknown): string[] {
+  if (!Array.isArray(input)) return []
+  const allowed = new Set<string>(RULE_DEAL_TYPES)
+  return [...new Set(input.filter((v): v is string => typeof v === "string" && allowed.has(v)))]
+}
+
+export function ruleAppliesToDeal(dealTypes: string[], dealType: string | null): boolean {
+  if (dealTypes.length === 0) return true
+  if (!dealType) return true
+  return dealTypes.includes(dealType)
+}
+
 export function formatStandingBlock(rules: string[]): string | null {
   const clean = rules
     .map((r) => (typeof r === "string" ? r.trim() : ""))

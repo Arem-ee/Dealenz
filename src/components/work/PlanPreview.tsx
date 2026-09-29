@@ -31,7 +31,7 @@ export function PlanPreview({
     }
   }
   return (
-    <div className="rounded-xl border bg-card p-5">
+    <div>
       <h3 className="text-sm font-semibold">Plan — {plan.objective_kind}</h3>
       <p className="mt-2 text-sm text-muted-foreground">{plan.objective}</p>
       <div className="mt-3 text-xs text-muted-foreground">

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { listStandingRules, addStandingRule, deleteStandingRule, getStandingRuleTexts } from "./actions"
+import { listStandingRules, addStandingRule, deleteStandingRule, updateStandingRule, getStandingRuleTexts } from "./actions"
 
 const mockGetUser = vi.hoisted(() => vi.fn())
 const mockFrom = vi.hoisted(() => vi.fn())
@@ -17,11 +17,14 @@ function chain(final: unknown) {
   const builder: Record<string, unknown> = {}
   builder.select = vi.fn(() => builder)
   builder.eq = vi.fn(() => builder)
+  builder.in = vi.fn(() => builder)
   builder.order = vi.fn(() => builder)
   builder.limit = vi.fn(() => builder)
   builder.insert = vi.fn(() => builder)
+  builder.update = vi.fn(() => builder)
   builder.delete = vi.fn(() => builder)
   builder.single = vi.fn(() => Promise.resolve(final))
+  builder.maybeSingle = vi.fn(() => Promise.resolve(final))
   builder.then = undefined
   return builder
 }
@@ -42,9 +45,17 @@ describe("listStandingRules", () => {
   it("returns the caller's rules oldest first", async () => {
     mockFrom.mockReturnValue(terminal({ data: [{ id: "r1", text: "Rule one", created_at: "2026-01-01" }], error: null }))
     const result = await listStandingRules()
-    expect(result).toEqual({ ok: true, rules: [{ id: "r1", text: "Rule one", created_at: "2026-01-01" }] })
+    expect(result).toEqual({ ok: true, rules: [{ id: "r1", text: "Rule one", created_at: "2026-01-01", dealTypes: [] }] })
     const builder = mockFrom.mock.results[0].value as Record<string, ReturnType<typeof vi.fn>>
     expect(builder.eq).toHaveBeenCalledWith("user_id", mockUser.id)
+  })
+
+  it("merges per-type scopes from the second read", async () => {
+    mockFrom
+      .mockReturnValueOnce(terminal({ data: [{ id: "r1", text: "Rule one", created_at: "2026-01-01" }], error: null }))
+      .mockReturnValueOnce(terminal({ data: [{ id: "r1", deal_types: ["lease"] }], error: null }))
+    const result = await listStandingRules()
+    expect(result).toEqual({ ok: true, rules: [{ id: "r1", text: "Rule one", created_at: "2026-01-01", dealTypes: ["lease"] }] })
   })
 
   it("rejects unauthenticated callers and masks database errors", async () => {
@@ -64,9 +75,19 @@ describe("addStandingRule", () => {
       .mockReturnValueOnce(terminal({ data: [], error: null }))
       .mockReturnValueOnce(chain({ data: { id: "r1", text: "Rule one", created_at: "2026-01-02" }, error: null }))
     const result = await addStandingRule("  Rule one  ")
-    expect(result).toEqual({ ok: true, rule: { id: "r1", text: "Rule one", created_at: "2026-01-02" } })
+    expect(result).toEqual({ ok: true, rule: { id: "r1", text: "Rule one", created_at: "2026-01-02", dealTypes: [] } })
     const insertBuilder = mockFrom.mock.results[1].value as Record<string, ReturnType<typeof vi.fn>>
     expect(insertBuilder.insert).toHaveBeenCalledWith({ user_id: mockUser.id, text: "Rule one" })
+  })
+
+  it("stores scopes when given", async () => {
+    mockFrom
+      .mockReturnValueOnce(terminal({ data: [], error: null }))
+      .mockReturnValueOnce(chain({ data: { id: "r2", text: "Scoped", created_at: "2026-01-03" }, error: null }))
+    const result = await addStandingRule("Scoped", ["lease", "bogus"])
+    expect(result).toEqual({ ok: true, rule: { id: "r2", text: "Scoped", created_at: "2026-01-03", dealTypes: ["lease"] } })
+    const insertBuilder = mockFrom.mock.results[1].value as Record<string, ReturnType<typeof vi.fn>>
+    expect(insertBuilder.insert).toHaveBeenCalledWith({ user_id: mockUser.id, text: "Scoped", deal_types: ["lease"] })
   })
 
   it("refuses empty text and a full rulebook", async () => {
@@ -93,11 +114,47 @@ describe("deleteStandingRule", () => {
   })
 })
 
+describe("updateStandingRule", () => {
+  it("edits text without touching scopes when none are given", async () => {
+    mockFrom.mockReturnValue(chain({ data: { id: "r1", text: "Edited", created_at: "2026-01-01" }, error: null }))
+    const result = await updateStandingRule("r1", "Edited")
+    expect(result).toEqual({ ok: true, rule: { id: "r1", text: "Edited", created_at: "2026-01-01", dealTypes: [] } })
+    const builder = mockFrom.mock.results[0].value as Record<string, ReturnType<typeof vi.fn>>
+    expect(builder.update).toHaveBeenCalledWith({ text: "Edited" })
+  })
+
+  it("falls back to a text-only edit before the scope migration", async () => {
+    mockFrom
+      .mockReturnValueOnce(chain({ data: null, error: { message: 'column "deal_types" does not exist' } }))
+      .mockReturnValueOnce(chain({ data: { id: "r1", text: "Edited", created_at: "2026-01-01" }, error: null }))
+    const result = await updateStandingRule("r1", "Edited", [])
+    expect(result.ok).toBe(true)
+  })
+
+  it("refuses scope edits before the scope migration without saving", async () => {
+    mockFrom.mockReturnValue(chain({ data: null, error: { message: 'column "deal_types" does not exist' } }))
+    const result = await updateStandingRule("r1", "Edited", ["lease"])
+    expect(result.ok).toBe(false)
+  })
+})
+
 describe("getStandingRuleTexts", () => {
   it("returns texts oldest first and never throws", async () => {
-    mockFrom.mockReturnValue(terminal({ data: [{ text: "A" }, { text: "B" }], error: null }))
+    mockFrom.mockReturnValue(terminal({ data: [{ id: "r1", text: "A", created_at: "2026-01-01" }, { id: "r2", text: "B", created_at: "2026-01-02" }], error: null }))
     await expect(getStandingRuleTexts()).resolves.toEqual(["A", "B"])
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null })
     await expect(getStandingRuleTexts()).resolves.toEqual([])
+    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null })
+  })
+
+  it("honors per-type scopes when a deal type is given", async () => {
+    mockFrom
+      .mockReturnValueOnce(terminal({ data: [{ id: "r1", text: "A", created_at: "2026-01-01" }, { id: "r2", text: "B", created_at: "2026-01-02" }], error: null }))
+      .mockReturnValueOnce(terminal({ data: [{ id: "r1", deal_types: ["lease"] }, { id: "r2", deal_types: [] }], error: null }))
+    await expect(getStandingRuleTexts("founder")).resolves.toEqual(["B"])
+    mockFrom
+      .mockReturnValueOnce(terminal({ data: [{ id: "r1", text: "A", created_at: "2026-01-01" }, { id: "r2", text: "B", created_at: "2026-01-02" }], error: null }))
+      .mockReturnValueOnce(terminal({ data: [{ id: "r1", deal_types: ["lease"] }, { id: "r2", deal_types: [] }], error: null }))
+    await expect(getStandingRuleTexts("lease")).resolves.toEqual(["A", "B"])
   })
 })

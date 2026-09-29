@@ -6,6 +6,7 @@ import {
   createMonitoringAlert,
   createMonitoringEvent,
   listMonitoringEvents,
+  resolveMonitoringEvent,
   sendMonitoringAlert,
 } from "./store"
 import { extractMonitoringEvents } from "./extract"
@@ -70,6 +71,19 @@ export async function createMonitoringAlertAction(input: MonitoringAlertInput) {
     return { ok: true as const, id: created.id }
   } catch (e) {
     return toActionFailure(e, "Could not create alert.") as never
+  }
+}
+
+export async function resolveMonitoringEventAction(auditId: string, eventId: string, status: "active" | "completed" | "dismissed") {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false as const, error: VERIFY_REQUIRED_ERROR }
+    const resolved = await resolveMonitoringEvent(supabase as never, user.id, auditId, eventId, status)
+    return { ok: true as const, id: resolved.id, status: resolved.status }
+  } catch (e) {
+    return toActionFailure(e, "Could not update that obligation.") as never
   }
 }
 

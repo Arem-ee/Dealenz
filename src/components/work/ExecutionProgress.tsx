@@ -38,7 +38,7 @@ export function ExecutionProgress({ execution, steps, auditId }: { execution: Wo
 
   if (!execution) return <div className="text-sm text-muted-foreground">No execution yet.</div>
   return (
-    <div className="rounded-xl border bg-card p-5">
+    <div>
       <h3 className="text-sm font-semibold">Execution — {execution.status}</h3>
       <div className="mt-1 text-xs text-muted-foreground">Plan v{execution.plan_version} · Started {execution.started_at ? <ClientTime iso={execution.started_at} kind="datetime" /> : "—"}</div>
       <ol className="mt-4 space-y-2">

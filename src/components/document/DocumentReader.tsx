@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/toast"
 import { renderMarkdown } from "@/lib/markdown"
+import { diffLines } from "@/lib/diff/lines"
 import { ClientTime } from "@/components/datetime"
 import { SignaturePad, type SignatureValue } from "@/components/sign/signature-pad"
 
@@ -41,6 +42,7 @@ export function DocumentReader({
   guarded,
   signatureImages,
   seal,
+  initialVersionId,
 }: {
   auditId: string
   threadId?: string | null
@@ -51,16 +53,22 @@ export function DocumentReader({
   guarded?: { created: number; total: number } | null
   signatureImages?: Record<string, string>
   seal?: { hash: string; sealedAt: string | null; tampered: boolean } | null
+  initialVersionId?: string | null
 }) {
   const router = useRouter()
-  const [selectedId, setSelectedId] = useState<string>(versions[0]?.id ?? "")
+  // Deep links (?v=) preselect the version; invalid ids fall back to latest.
+  const [selectedId, setSelectedId] = useState<string>(
+    (initialVersionId && versions.some((v) => v.id === initialVersionId) ? initialVersionId : versions[0]?.id) ?? ""
+  )
   const selected = versions.find((v) => v.id === selectedId) ?? versions[0]
   const [counterpartyName, setCounterpartyName] = useState("")
   const [counterpartyEmail, setCounterpartyEmail] = useState("")
+  const [expiryDays, setExpiryDays] = useState("")
   const [busy, setBusy] = useState(false)
   const [ownerSignature, setOwnerSignature] = useState<SignatureValue | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [sideOpen, setSideOpen] = useState(false)
+  const [compareId, setCompareId] = useState<string | null>(null)
   const { showError, showSuccess } = useToast()
 
   function fail(message: string) {
@@ -70,10 +78,20 @@ export function DocumentReader({
 
   const ownerSigner = signers.find((s) => s.partyLabel === "owner" || s.partyLabel === "Owner")
   const counterpartySigner = signers.find((s) => s.partyLabel !== "owner" && s.partyLabel !== "Owner")
+  const compareBase = compareId ? versions.find((v) => v.id === compareId) ?? null : null
+  const comparison = compareBase && selected && compareBase.id !== selected.id ? diffLines(compareBase.content, selected.content) : null
+  const comparisonStats = comparison
+    ? { adds: comparison.filter((l) => l.type === "add").length, dels: comparison.filter((l) => l.type === "del").length }
+    : null
 
   async function handleAddCounterparty() {
     if (!counterpartyName.trim() || !counterpartyEmail.trim()) {
       fail("Enter name and email for counterparty")
+      return
+    }
+    const days = expiryDays.trim() === "" ? null : Number(expiryDays.trim())
+    if (days !== null && (!Number.isInteger(days) || days < 1 || days > 120)) {
+      fail("Expiry must be 1 to 120 days, or left blank for no expiry.")
       return
     }
     setBusy(true)
@@ -81,7 +99,7 @@ export function DocumentReader({
       const res = await fetch(`/api/document/${auditId}/invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: counterpartyName.trim(), email: counterpartyEmail.trim(), partyLabel: "counterparty", documentVersionId: selected?.id }),
+        body: JSON.stringify({ name: counterpartyName.trim(), email: counterpartyEmail.trim(), partyLabel: "counterparty", documentVersionId: selected?.id, ...(days !== null ? { expiresInDays: days } : {}) }),
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error ?? "Failed to add counterparty")
@@ -169,7 +187,54 @@ export function DocumentReader({
       <div className="mx-auto max-w-6xl px-4 py-6 grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
           <div className="rounded-xl border bg-card p-6 sm:p-8 doc-artifact">
-            {selected ? renderMarkdown(selected.content) : <p className="font-sans text-sm text-muted-foreground">No document versions yet. Generate a draft in chat first.</p>}
+            {compareBase && selected ? (
+              <div>
+                <div className="mb-4 flex flex-wrap items-center gap-2 font-sans">
+                  <p className="text-sm font-semibold">
+                    v{compareBase.versionNumber} → v{selected.versionNumber}
+                  </p>
+                  {comparisonStats && (
+                    <p className="text-xs text-muted-foreground">
+                      {comparisonStats.adds} additions · {comparisonStats.dels} deletions
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setCompareId(null)}
+                    className="ml-auto rounded-full border border-border px-3 py-1 text-xs font-medium hover:bg-muted/60"
+                  >
+                    Exit compare
+                  </button>
+                </div>
+                {comparison === null ? (
+                  <p className="font-sans text-sm text-muted-foreground">These versions are too long to compare line by line. Open each version to read it in full.</p>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border font-mono text-[12px] leading-relaxed">
+                    {comparison.slice(0, 400).map((l, idx) => (
+                      <p
+                        key={idx}
+                        className={
+                          l.type === "add"
+                            ? "whitespace-pre-wrap bg-emerald-500/10 px-3 py-0.5 text-emerald-900"
+                            : l.type === "del"
+                              ? "whitespace-pre-wrap bg-red-500/10 px-3 py-0.5 text-red-900"
+                              : "whitespace-pre-wrap px-3 py-0.5 text-muted-foreground"
+                        }
+                      >
+                        {l.type === "add" ? "+ " : l.type === "del" ? "− " : "  "}{l.text || " "}
+                      </p>
+                    ))}
+                    {comparison.length > 400 && (
+                      <p className="px-3 py-1 font-sans text-xs text-muted-foreground">Showing the first 400 of {comparison.length} lines.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : selected ? (
+              renderMarkdown(selected.content)
+            ) : (
+              <p className="font-sans text-sm text-muted-foreground">No document versions yet. Generate a draft in chat first.</p>
+            )}
           </div>
           {executed && (
             <div className="rounded-lg border border-success/20 bg-success/5 p-3 text-xs text-success flex items-center gap-2">
@@ -232,7 +297,7 @@ export function DocumentReader({
               {versions.map((v) => (
                 <button
                   key={v.id}
-                  onClick={() => setSelectedId(v.id)}
+                  onClick={() => { setSelectedId(v.id); setCompareId(null) }}
                   className={`w-full text-left rounded-md px-2.5 py-2 text-xs border ${selectedId === v.id ? "bg-primary/10 border-primary/20" : "bg-muted/30 hover:bg-muted"}`}
                 >
                   <div className="flex items-center justify-between">
@@ -243,6 +308,26 @@ export function DocumentReader({
                 </button>
               ))}
             </div>
+            {versions.length > 1 && selected && (
+              <div className="mt-3 border-t border-border/60 pt-3">
+                <label htmlFor="compare-select" className="block text-[11px] font-medium text-muted-foreground">
+                  Compare v{selected.versionNumber} with…
+                </label>
+                <select
+                  id="compare-select"
+                  value={compareId ?? ""}
+                  onChange={(e) => setCompareId(e.target.value || null)}
+                  className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
+                >
+                  <option value="">No comparison</option>
+                  {versions.filter((v) => v.id !== selected.id).map((v) => (
+                    <option key={v.id} value={v.id}>
+                      v{v.versionNumber} ({v.documentType})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="rounded-xl border bg-card p-4">
@@ -273,6 +358,8 @@ export function DocumentReader({
                   <Input id="cp-name" placeholder="Name" value={counterpartyName} onChange={(e) => setCounterpartyName(e.target.value)} className="h-8 text-xs" />
                   <Label htmlFor="cp-email" className="sr-only">Counterparty email</Label>
                   <Input id="cp-email" placeholder="Email" value={counterpartyEmail} onChange={(e) => setCounterpartyEmail(e.target.value)} className="h-8 text-xs" type="email" autoComplete="email" />
+                  <Label htmlFor="cp-expiry" className="text-xs font-normal text-muted-foreground">Invitation expires in (days, optional)</Label>
+                  <Input id="cp-expiry" placeholder="No expiry" value={expiryDays} onChange={(e) => setExpiryDays(e.target.value)} className="h-8 text-xs" inputMode="numeric" />
                   <Button size="sm" variant="outline" className="w-full" onClick={() => void handleAddCounterparty()} disabled={busy}>
                     <Plus className="h-3.5 w-3.5 mr-1" /> Add counterparty
                   </Button>

@@ -5,7 +5,6 @@ import { RiskReportCard } from "./cards/RiskReportCard"
 import { DocumentDraftCard } from "./cards/DocumentDraftCard"
 import { ContextConfirmCard } from "./cards/ContextConfirmCard"
 import { LawyerRecommendationCard } from "./cards/LawyerRecommendationCard"
-import { FileText } from "lucide-react"
 
 const RICH_TYPES = new Set(["risk_report", "document_draft", "document_draft_turn", "context_confirm", "lawyer_recommendation"])
 
@@ -57,12 +56,6 @@ export function ThreadPanel({ messages, auditId, onContextConfirm, onDocumentGen
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-border/60 px-4 py-3 sm:px-5">
-        <p className="flex items-center gap-2 text-sm font-semibold">
-          <FileText className="h-4 w-4 text-muted-foreground" />
-          Deal document
-        </p>
-      </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
         <div className="mx-auto w-full max-w-2xl ">
           {latest ? (

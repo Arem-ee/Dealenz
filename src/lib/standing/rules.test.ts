@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest"
 import {
   formatStandingBlock,
+  normalizeRuleDealTypes,
+  ruleAppliesToDeal,
   MAX_STANDING_RULES,
   MAX_RULE_CHARS,
   STANDING_BLOCK_BUDGET_CHARS,
@@ -38,5 +40,21 @@ describe("formatStandingBlock", () => {
     const rules = Array.from({ length: MAX_STANDING_RULES }, () => "y".repeat(300))
     const block = formatStandingBlock(rules)
     expect(block!.length).toBeLessThanOrEqual(STANDING_BLOCK_BUDGET_CHARS + 100)
+  })
+})
+
+describe("rule deal-type scoping", () => {
+  it("normalizes to known deal types, deduped", () => {
+    expect(normalizeRuleDealTypes(["lease", "lease", "bogus", 3, "founder"])).toEqual(["lease", "founder"])
+    expect(normalizeRuleDealTypes(undefined)).toEqual([])
+    expect(normalizeRuleDealTypes("lease")).toEqual([])
+  })
+
+  it("unscoped rules apply everywhere; unknown deal type never drops rules", () => {
+    expect(ruleAppliesToDeal([], "lease")).toBe(true)
+    expect(ruleAppliesToDeal([], null)).toBe(true)
+    expect(ruleAppliesToDeal(["lease"], null)).toBe(true)
+    expect(ruleAppliesToDeal(["lease"], "lease")).toBe(true)
+    expect(ruleAppliesToDeal(["lease"], "founder")).toBe(false)
   })
 })

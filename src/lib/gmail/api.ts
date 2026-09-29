@@ -99,16 +99,18 @@ export interface GmailMessage {
   bodyText: string | null
 }
 
-export async function getGmailThread(accessToken: string, threadId: string): Promise<{ id: string; messageIds: string[] }> {
+export async function getGmailThread(accessToken: string, threadId: string): Promise<{ id: string; messageIds: string[]; hasUnread: boolean }> {
   if (!threadId) throw new Error("Invalid thread id")
   const data = (await gmailFetch(accessToken, `/threads/${encodeURIComponent(threadId)}?format=minimal`, { method: "GET" })) as {
     id?: string
-    messages?: Array<{ id?: string }>
+    messages?: Array<{ id?: string; labelIds?: string[] }>
   }
   if (!data || typeof data.id !== "string") throw new Error("Gmail thread not found")
+  const messages = (data.messages ?? []).filter((m) => typeof m.id === "string")
   return {
     id: data.id,
-    messageIds: (data.messages ?? []).filter((m) => typeof m.id === "string").map((m) => m.id as string),
+    messageIds: messages.map((m) => m.id as string),
+    hasUnread: messages.some((m) => (m.labelIds ?? []).includes("UNREAD")),
   }
 }
 

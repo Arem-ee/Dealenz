@@ -22,6 +22,27 @@ export function StandaloneContractForm({ mode }: { mode: "sign" | "track" }) {
   const [signedAt, setSignedAt] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fileName, setFileName] = useState<string | null>(null)
+
+  async function handleFile(file: File | null) {
+    setError(null)
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) {
+      setError("That file is over 2 MB. Paste the text instead.")
+      return
+    }
+    try {
+      const text = await file.text()
+      if (!text.trim()) {
+        setError("That file has no readable text. Paste the contract text instead.")
+        return
+      }
+      setContent(text.slice(0, 20000))
+      setFileName(file.name)
+    } catch {
+      setError("Could not read that file. Paste the contract text instead.")
+    }
+  }
 
   async function handleSubmit() {
     setError(null)
@@ -72,7 +93,7 @@ export function StandaloneContractForm({ mode }: { mode: "sign" | "track" }) {
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-border/60 bg-card p-4 text-left shadow-sm">
+    <div className="space-y-3 text-left">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-xs font-medium">
           Contract name
@@ -111,9 +132,19 @@ export function StandaloneContractForm({ mode }: { mode: "sign" | "track" }) {
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Paste the full contract text here…"
-          rows={6}
-          className="mt-1 min-h-[120px] w-full resize-y rounded-md border border-input bg-background px-2 py-2 text-sm font-normal"
+          rows={4}
+          className="mt-1 min-h-[96px] w-full resize-y rounded-md border border-input bg-background px-2 py-2 text-sm font-normal"
         />
+      </label>
+      <label className="block text-xs font-medium">
+        Or upload a text file
+        <input
+          type="file"
+          accept=".txt,.md,.csv,text/plain"
+          onChange={(e) => void handleFile(e.target.files?.[0] ?? null)}
+          className="mt-1 block w-full text-xs font-normal text-muted-foreground file:mr-2 file:rounded-full file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-xs file:font-medium"
+        />
+        {fileName && <span className="mt-1 block text-[11px] font-normal text-muted-foreground">Loaded {fileName}. PDFs and Word files cannot be read here, paste their text above.</span>}
       </label>
       {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
       <Button onClick={() => void handleSubmit()} disabled={saving} size="sm" className="w-full sm:w-auto">

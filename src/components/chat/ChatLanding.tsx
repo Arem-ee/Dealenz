@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { deleteDeal } from "@/app/audit/[id]/actions"
 import { useToast } from "@/components/ui/toast"
 import { CapabilityStrip } from "@/components/home/CapabilityStrip"
+import { NewDealComposer } from "@/components/chat/NewDealComposer"
 
 interface ThreadItem {
   id: string
@@ -181,7 +182,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
       return false
     }
   })
-  const nextDeadline = (deadlines ?? [])[0] ?? null
+  const deadlineByAudit = new Map((deadlines ?? []).map((d) => [d.auditId, d]))
   const topDeals = [...threads]
     .filter((t) => typeof t.openIssues === "number" && (t.openIssues ?? 0) > 0)
     .sort((a, b) => (b.openIssues ?? 0) - (a.openIssues ?? 0))
@@ -205,6 +206,9 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
   const WAITING = ["negotiating", "ready-to-sign"]
   const DONE = ["signed", "guarded"]
   const [queue, setQueue] = useState<QueueFilter>("all")
+  const [tableQuery, setTableQuery] = useState("")
+  const [drill, setDrill] = useState<"open" | "rated" | "resolved" | null>(null)
+  const atCap = threads.length >= 30
   const momentRows = threads.map((t) => {
     const executed = !!t.auditId && (executedAuditIds ?? []).includes(t.auditId)
     const signingActive = !!t.auditId && (signingAuditIds ?? []).includes(t.auditId) && !executed
@@ -226,9 +230,14 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
     done: momentRows.filter((r) => DONE.includes(r.moment)).length,
   }
   const visibleRows = momentRows.filter((r) => {
-    if (queue === "needs-you") return NEEDS_YOU.includes(r.moment)
-    if (queue === "waiting") return WAITING.includes(r.moment)
-    if (queue === "done") return DONE.includes(r.moment)
+    if (queue === "needs-you" && !NEEDS_YOU.includes(r.moment)) return false
+    if (queue === "waiting" && !WAITING.includes(r.moment)) return false
+    if (queue === "done" && !DONE.includes(r.moment)) return false
+    if (drill === "open" && !((r.t.openIssues ?? 0) > 0)) return false
+    if (drill === "rated" && typeof r.t.overallScore !== "number") return false
+    if (drill === "resolved" && !((r.t.resolvedCount ?? 0) > 0)) return false
+    const q = tableQuery.trim().toLowerCase()
+    if (q && !(r.t.title || "").toLowerCase().includes(q)) return false
     return true
   })
   const QUEUE_VIEWS: Array<{ key: QueueFilter; label: string; empty: string }> = [
@@ -254,6 +263,15 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
             <Plus className="h-3.5 w-3.5" />
             New deal
           </Link>
+        </div>
+      </div>
+
+      <div className="shrink-0 pb-3">
+        <div className="rounded-2xl border border-border bg-card p-3">
+          <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Describe a deal
+          </p>
+          <NewDealComposer />
         </div>
       </div>
 
@@ -310,35 +328,45 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
 
       {threads.length > 0 && portfolio && hasPortfolioSignal && (
         <>
-          <section aria-label="Portfolio health" className="grid shrink-0 gap-3 lg:grid-cols-3">
-            <div className="rounded-2xl border border-border bg-card p-5 lg:row-span-2">
+          <section aria-label="Portfolio health" className="grid shrink-0 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="rounded-2xl border border-border bg-card p-4">
               <div className="flex items-start justify-between">
                 <p className="text-[13px] font-semibold">Open Issues</p>
               </div>
-              <p className="mt-2 text-[30px] font-semibold leading-none tracking-tight" data-numeric>
-                {portfolio.totalOpen}
+              <button
+                type="button"
+                onClick={() => setDrill((d) => (d === "open" ? null : "open"))}
+                aria-pressed={drill === "open"}
+                title="Show only deals with open issues"
+                className="mt-2 rounded-lg text-left transition-opacity hover:opacity-75"
+              >
+                <span className={cn("text-[22px] font-semibold leading-none tracking-tight", drill === "open" && "underline")} data-numeric>
+                  {portfolio.totalOpen}
+                </span>
                 <span className="ml-1 align-middle text-[13px] font-normal text-foreground/45">across {portfolio.openDeals} deal{portfolio.openDeals === 1 ? "" : "s"}</span>
-              </p>
+              </button>
               {topDeals.length > 0 && (
                 <div className="mt-4 flex items-center">
                   {topDeals.map((t, i) => (
-                    <div
+                    <Link
                       key={t.id}
+                      href={`/chat/${t.id}`}
                       title={`${t.title || "Untitled"} — ${t.openIssues} open`}
+                      aria-label={`Open ${t.title || "Untitled deal"} — ${t.openIssues} open issues`}
                       className={cn(
-                        "flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold ring-4 ring-white",
+                        "flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold ring-4 ring-white transition-transform hover:scale-105",
                         BUBBLE_STYLES[i % BUBBLE_STYLES.length],
                         i > 0 && "-ml-4"
                       )}
                     >
                       {t.openIssues}
-                    </div>
+                    </Link>
                   ))}
                   <div className="ml-3 min-w-0 space-y-0.5">
                     {topDeals.map((t) => (
-                      <p key={t.id} className="truncate text-[11px] text-foreground/50">
+                      <Link key={t.id} href={`/chat/${t.id}`} className="block truncate text-[11px] text-foreground/50 hover:underline">
                         <span className="font-semibold text-foreground">{t.openIssues}</span> · {t.title || "Untitled"}
-                      </p>
+                      </Link>
                     ))}
                   </div>
                 </div>
@@ -365,43 +393,63 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
               )}
             </div>
 
-            <div className="rounded-2xl border border-border bg-card p-5">
+            <div className="rounded-2xl border border-border bg-card p-4">
               <p className="text-[13px] font-semibold">Avg Risk</p>
               {portfolio.avgScore !== null ? (
-                <>
-                  <p className="mt-2 text-[26px] font-semibold leading-none tracking-tight" data-numeric>
+                <button
+                  type="button"
+                  onClick={() => setDrill((d) => (d === "rated" ? null : "rated"))}
+                  aria-pressed={drill === "rated"}
+                  title="Show only rated deals"
+                  className="mt-2 block rounded-lg text-left transition-opacity hover:opacity-75"
+                >
+                  <span className={cn("text-[22px] font-semibold leading-none tracking-tight", drill === "rated" && "underline")} data-numeric>
                     {portfolio.avgScore}<span className="text-[13px] font-normal text-foreground/45"> /100</span>
-                  </p>
-                  <p className="mt-1 text-[11px] text-foreground/50">Avg across {portfolio.ratedCount} rated deal{portfolio.ratedCount === 1 ? "" : "s"}</p>
-                </>
+                  </span>
+                  <span className="mt-1 block text-[11px] text-foreground/50">Avg across {portfolio.ratedCount} rated deal{portfolio.ratedCount === 1 ? "" : "s"}</span>
+                </button>
               ) : (
                 <p className="mt-2 text-xs text-foreground/50">No rated deals yet — ratings appear after analysis.</p>
               )}
             </div>
 
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <p className="text-[13px] font-semibold">Next Deadline</p>
-              {nextDeadline ? (
-                <Link href={nextDeadline.href} className="group mt-2 block">
-                  <p className="truncate text-[15px] font-semibold leading-snug group-hover:underline">{nextDeadline.title}</p>
-                  <p className="mt-1 text-[11px] text-foreground/50">
-                    {new Date(nextDeadline.dueDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                  </p>
-                </Link>
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <p className="text-[13px] font-semibold">Upcoming</p>
+              {(deadlines ?? []).length > 0 ? (
+                <ul className="mt-2 space-y-1.5">
+                  {(deadlines ?? []).map((d) => (
+                    <li key={d.id}>
+                      <Link href={d.href} className="group block">
+                        <p className="truncate text-[13px] font-semibold leading-snug group-hover:underline">{d.title}</p>
+                        <p className="mt-0.5 text-[11px] text-foreground/50">
+                          {new Date(d.dueDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </p>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               ) : (
                 <p className="mt-2 text-xs text-foreground/50">Nothing dated tracked. Deadlines appear after signing.</p>
               )}
             </div>
 
-            <div className="rounded-2xl border border-border bg-card p-5">
+            <div className="rounded-2xl border border-border bg-card p-4">
               <p className="text-[13px] font-semibold">Resolved</p>
-              <p className="mt-2 text-[26px] font-semibold leading-none tracking-tight" data-numeric>
-                {threads.reduce((s, t) => s + (typeof t.resolvedCount === "number" ? t.resolvedCount : 0), 0)}
-              </p>
-              <p className="mt-1 text-[11px] text-foreground/50">pushbacks landed via re-check</p>
+              <button
+                type="button"
+                onClick={() => setDrill((d) => (d === "resolved" ? null : "resolved"))}
+                aria-pressed={drill === "resolved"}
+                title="Show only deals with landed pushbacks"
+                className="mt-2 block rounded-lg text-left transition-opacity hover:opacity-75"
+              >
+                <span className={cn("text-[22px] font-semibold leading-none tracking-tight", drill === "resolved" && "underline")} data-numeric>
+                  {threads.reduce((s, t) => s + (typeof t.resolvedCount === "number" ? t.resolvedCount : 0), 0)}
+                </span>
+                <span className="mt-1 block text-[11px] text-foreground/50">pushbacks landed via re-check</span>
+              </button>
             </div>
 
-            <div className="rounded-2xl border border-border bg-card p-5">
+            <div className="rounded-2xl border border-border bg-card p-4">
               <div className="flex items-center justify-between">
                 <p className="text-[13px] font-semibold">This Week</p>
                 <p className="text-[11px] text-foreground/50">Last 7 days</p>
@@ -427,8 +475,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
           </section>
 
           <section aria-label="All deals" className="mt-3 shrink-0 overflow-hidden rounded-2xl border border-border bg-card">
-            <div className="flex gap-1 overflow-x-auto border-b border-border/60 px-3 py-2" role="tablist" aria-label="Deal queues">
-              {QUEUE_VIEWS.map((v) => (
+            <div className="flex gap-1 overflow-x-auto border-b border-border/60 px-3 py-2" role="tablist" aria-label="Deal queues">              {QUEUE_VIEWS.map((v) => (
                 <button
                   key={v.key}
                   role="tab"
@@ -443,14 +490,33 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                 </button>
               ))}
             </div>
+            <div className="border-b border-border/60 px-3 py-2">
+              <input
+                type="search"
+                value={tableQuery}
+                onChange={(e) => setTableQuery(e.target.value)}
+                placeholder="Search deals…"
+                aria-label="Search deals table"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              />
+              {drill && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  Filtered: {drill === "open" ? "deals with open issues" : drill === "rated" ? "rated deals" : "deals with landed pushbacks"}{" "}
+                  <button type="button" onClick={() => setDrill(null)} className="font-semibold text-primary hover:underline">
+                    Clear
+                  </button>
+                </p>
+              )}
+            </div>
             <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-left text-sm">
+            <table className="w-full min-w-[560px] text-left text-sm">
               <thead>
                 <tr className="border-b border-border text-[11px] uppercase tracking-[0.08em] text-foreground/45">
                   <th scope="col" className="px-5 py-3 font-semibold">Deal</th>
                   <th scope="col" className="px-2 py-3 font-semibold">State</th>
                   <th scope="col" className="px-2 py-3 text-right font-semibold">Open</th>
                   <th scope="col" className="hidden px-2 py-3 font-semibold sm:table-cell">Risk</th>
+                  <th scope="col" className="hidden px-2 py-3 font-semibold lg:table-cell">Due</th>
                   <th scope="col" className="hidden px-5 py-3 text-right font-semibold md:table-cell">Updated</th>
                   <th scope="col" className="w-10 px-2 py-3"><span className="sr-only">Actions</span></th>
                 </tr>
@@ -458,6 +524,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
               <tbody className="divide-y divide-border">
                 {visibleRows.map(({ t, moment }) => {
                   const pill = riskPill(t.riskLevel)
+                  const due = t.auditId ? deadlineByAudit.get(t.auditId) ?? null : null
                   return (
                     <tr key={t.id} className="relative cursor-pointer transition-colors hover:bg-foreground/[0.02]">
                       <td className="max-w-0 px-5 py-3">
@@ -478,6 +545,9 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                           <span className="text-xs text-foreground/40">—</span>
                         )}
                       </td>
+                      <td className="hidden whitespace-nowrap px-2 py-3 text-xs text-foreground/60 lg:table-cell">
+                        {due ? new Date(due.dueDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}
+                      </td>
                       <td className="hidden whitespace-nowrap px-5 py-3 text-right text-xs text-foreground/45 md:table-cell">
                         {formatDate(t.updatedAt)}
                       </td>
@@ -491,7 +561,7 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
                 })}
                 {visibleRows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-5 py-8 text-center text-xs text-muted-foreground">
+                    <td colSpan={7} className="px-5 py-8 text-center text-xs text-muted-foreground">
                       {QUEUE_VIEWS.find((v) => v.key === queue)?.empty}
                     </td>
                   </tr>
@@ -499,6 +569,9 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
               </tbody>
             </table>
             </div>
+            <p className="border-t border-border/60 px-5 py-2 text-[11px] text-muted-foreground" aria-live="polite">
+              Showing {visibleRows.length} of {momentRows.length} deals{atCap ? " — the 30 most recent, search to narrow" : ""}.
+            </p>
           </section>
         </>
       )}

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Archive, ArrowUp, FileText, Loader2, Plus, Trash2 } from "lucide-react"
+import { Archive, ArrowUp, FileText, Loader2, Pencil, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/toast"
 import { vaultChatAction, type VaultMatch } from "@/app/vault/actions"
@@ -10,9 +10,11 @@ import {
   listStandingRules,
   addStandingRule,
   deleteStandingRule,
+  updateStandingRule,
   type StandingRule,
 } from "@/app/library/actions"
 import { MAX_STANDING_RULES } from "@/lib/standing/rules"
+import { RULE_DEAL_TYPES } from "@/lib/standing/rules"
 import { cn } from "@/lib/utils"
 import { Markdown } from "@/components/chat/Markdown"
 
@@ -32,8 +34,7 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-function ResultCard({ match }: { match: VaultMatch }) {
-  return (
+function ResultCard({ match }: { match: VaultMatch }) {  return (
     <Link
       href={`/chat/${match.id}`}
       className="block rounded-xl border bg-card p-4 transition-colors hover:bg-muted/40"
@@ -62,6 +63,47 @@ function ResultCard({ match }: { match: VaultMatch }) {
   )
 }
 
+const STARTER_PACK = [
+  "I never accept net-60 payment terms",
+  "Always flag uncapped liability",
+  "Always flag broad indemnity without a cap",
+  "I need a termination-for-convenience clause",
+  "Flag any auto-renewal without a notice window",
+  "IP I create stays mine unless the price reflects a buyout",
+]
+
+function toggleScope(list: string[], t: string): string[] {
+  return list.includes(t) ? list.filter((x) => x !== t) : [...list, t]
+}
+
+function ScopePicker({ value, onChange, idPrefix }: { value: string[]; onChange: (next: string[]) => void; idPrefix: string }) {
+  return (
+    <fieldset>
+      <legend className="text-[11px] font-medium text-muted-foreground">
+        Applies to {value.length === 0 ? "every deal" : "selected deal types"}
+      </legend>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {RULE_DEAL_TYPES.map((t) => (
+          <label
+            key={t}
+            htmlFor={`${idPrefix}-${t}`}
+            className={`cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${value.includes(t) ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+          >
+            <input
+              id={`${idPrefix}-${t}`}
+              type="checkbox"
+              checked={value.includes(t)}
+              onChange={() => onChange(toggleScope(value, t))}
+              className="sr-only"
+            />
+            {t.replace("_", " ")}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  )
+}
+
 export function LibraryView() {
   const { showError } = useToast()
   const [turns, setTurns] = useState<LibraryTurn[]>([])
@@ -80,9 +122,15 @@ export function LibraryView() {
   })
   const [rules, setRules] = useState<StandingRule[] | null>(null)
   const [rulesLoading, setRulesLoading] = useState(false)
+  const [ruleFilter, setRuleFilter] = useState("")
   const [newRule, setNewRule] = useState("")
+  const [newScope, setNewScope] = useState<string[]>([])
   const [savingRule, setSavingRule] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editText, setEditText] = useState("")
+  const [editScope, setEditScope] = useState<string[]>([])
+  const [savingEdit, setSavingEdit] = useState(false)
 
   async function handleSend() {
     const text = input.trim()
@@ -124,17 +172,18 @@ export function LibraryView() {
     if (m === "rules" && rules === null && !rulesLoading) void refreshRules()
   }
 
-  async function handleAddRule() {
-    const text = newRule.trim()
+  async function handleAddRule(preset?: string, scope: string[] = []) {
+    const text = (preset ?? newRule).trim()
     if (!text || savingRule) return
     setSavingRule(true)
     try {
-      const res = await addStandingRule(text)
+      const res = await addStandingRule(text, preset !== undefined ? scope : newScope)
       if (!res.ok) {
         showError(res.error, "Rule not saved")
         return
       }
       setNewRule("")
+      setNewScope([])
       setRules((prev) => (prev === null ? [res.rule] : [...prev, res.rule]))
     } catch {
       showError("Rule not saved")
@@ -143,8 +192,27 @@ export function LibraryView() {
     }
   }
 
-  async function handleDeleteRule(id: string) {
-    if (deletingId) return
+  async function handleSaveEdit() {
+    if (!editingId || savingEdit) return
+    setSavingEdit(true)
+    try {
+      const res = await updateStandingRule(editingId, editText, editScope)
+      if (!res.ok) {
+        showError(res.error, "Rule not saved")
+        return
+      }
+      setRules((prev) => (prev ?? []).map((r) => (r.id === editingId ? res.rule : r)))
+      setEditingId(null)
+      setEditText("")
+      setEditScope([])
+    } catch {
+      showError("Rule not saved")
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  async function handleDeleteRule(id: string) {    if (deletingId) return
     setDeletingId(id)
     try {
       const res = await deleteStandingRule(id)
@@ -217,39 +285,121 @@ export function LibraryView() {
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Write once, applied to every deal. Dealenz weighs these in every answer and analysis.
               </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Applied here: every rule below is sent with each analysis and answer.
+              </p>
             </div>
             {rulesLoading && rules === null ? (
               <p className="py-6 text-center text-xs text-muted-foreground">Loading your rules…</p>
             ) : (
               <>
                 {(rules ?? []).length === 0 ? (
-                  <div className="rounded-xl border bg-card p-6 text-center">
-                    <p className="text-sm font-medium">No rules yet</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Try “I never accept net-60” or “Always flag uncapped liability”.
+                  <div className="rounded-xl border bg-card p-6">
+                    <p className="text-center text-sm font-medium">No rules yet</p>
+                    <p className="mt-1 text-center text-xs text-muted-foreground">
+                      Start from a starter rule, or write your own below.
                     </p>
+                    <ul className="mt-4 space-y-2">
+                      {STARTER_PACK.map((s) => (
+                        <li key={s}>
+                          <button
+                            type="button"
+                            onClick={() => void handleAddRule(s)}
+                            disabled={savingRule}
+                            className="flex w-full items-center justify-between gap-2 rounded-xl border border-border px-4 py-2.5 text-left text-sm transition-colors hover:bg-muted/60 disabled:opacity-50"
+                          >
+                            <span className="min-w-0 flex-1">{s}</span>
+                            <span className="shrink-0 text-xs font-semibold text-primary">Add</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 ) : (
-                  <ul className="space-y-2">
-                    {(rules ?? []).map((r) => (
-                      <li key={r.id} className="flex items-start gap-2 rounded-xl border bg-card px-4 py-3">
-                        <p className="min-w-0 flex-1 text-sm leading-relaxed">{r.text}</p>
-                        <button
-                          type="button"
-                          onClick={() => void handleDeleteRule(r.id)}
-                          disabled={deletingId === r.id}
-                          aria-label={`Delete rule: ${r.text.slice(0, 60)}`}
-                          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    {(rules ?? []).length > 1 && (
+                      <input
+                        type="search"
+                        value={ruleFilter}
+                        onChange={(e) => setRuleFilter(e.target.value)}
+                        placeholder="Filter rules…"
+                        aria-label="Filter standing rules"
+                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      />
+                    )}
+                    {(() => {
+                      const q = ruleFilter.trim().toLowerCase()
+                      const shown = q ? (rules ?? []).filter((r) => r.text.toLowerCase().includes(q)) : (rules ?? [])
+                      if (shown.length === 0) {
+                        return <p className="py-4 text-center text-xs text-muted-foreground">No rules match.</p>
+                      }
+                      return (
+                        <ul className="space-y-2">
+                          {shown.map((r) => (
+                            <li key={r.id} className="flex items-start gap-2 rounded-xl border bg-card px-4 py-3">
+                              <div className="min-w-0 flex-1">
+                                {editingId === r.id ? (
+                                  <div className="space-y-2">
+                                    <label htmlFor={`edit-rule-${r.id}`} className="sr-only">Edit rule</label>
+                                    <textarea
+                                      id={`edit-rule-${r.id}`}
+                                      value={editText}
+                                      onChange={(e) => setEditText(e.target.value)}
+                                      rows={2}
+                                      maxLength={300}
+                                      className="min-h-[52px] w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none"
+                                    />
+                                    <ScopePicker value={editScope} onChange={setEditScope} idPrefix={`edit-scope-${r.id}`} />
+                                    <div className="flex gap-2">
+                                      <Button size="sm" onClick={() => void handleSaveEdit()} disabled={savingEdit || !editText.trim()}>
+                                        {savingEdit ? "Saving…" : "Save"}
+                                      </Button>
+                                      <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setEditText(""); setEditScope([]) }}>
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <p className="text-sm leading-relaxed">{r.text}</p>
+                                    <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-emerald-700">
+                                      {r.dealTypes.length === 0 ? "Applied to every deal" : `Applies to ${r.dealTypes.map((t) => t.replace("_", " ")).join(", ")}`}
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                              {editingId !== r.id && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setEditingId(r.id); setEditText(r.text); setEditScope(r.dealTypes) }}
+                                    aria-label={`Edit rule: ${r.text.slice(0, 60)}`}
+                                    className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleDeleteRule(r.id)}
+                                    disabled={deletingId === r.id}
+                                    aria-label={`Delete rule: ${r.text.slice(0, 60)}`}
+                                    className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )
+                    })()}
+                  </>
                 )}
                 <p className="text-[11px] tabular-nums text-muted-foreground" aria-live="polite">
                   {(rules ?? []).length} of {MAX_STANDING_RULES} rules
                 </p>
+                <ScopePicker value={newScope} onChange={setNewScope} idPrefix="new-scope" />
                 <div className="flex items-end gap-2">
                   <label htmlFor="library-rule-input" className="sr-only">New standing rule</label>
                   <input

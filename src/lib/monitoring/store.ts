@@ -129,3 +129,20 @@ export async function sendMonitoringAlert(client: Client, userId: string, alertI
   await client.from("activity_events").insert({ user_id: userId, audit_id: a.audit_id, event_type: "monitoring_alert_sent", payload: { alertId, monitoringEventId: a.monitoring_event_id, destination: a.destination } })
   return { sent: true, providerMessageId }
 }
+
+export type MonitoringEventResolution = "active" | "completed" | "dismissed"
+
+export async function resolveMonitoringEvent(client: Client, userId: string, auditId: string, eventId: string, status: MonitoringEventResolution): Promise<{ id: string; status: string }> {
+  if (!isUUID(auditId) || !isUUID(eventId)) throw new Error("Invalid ids")
+  if (status !== "active" && status !== "completed" && status !== "dismissed") throw new Error("Invalid status")
+  const { data, error } = await client
+    .from("monitoring_events")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", eventId)
+    .eq("audit_id", auditId)
+    .eq("user_id", userId)
+    .select("id, status")
+    .maybeSingle()
+  if (error || !data) throw new Error("Monitoring event not found")
+  return data as { id: string; status: string }
+}

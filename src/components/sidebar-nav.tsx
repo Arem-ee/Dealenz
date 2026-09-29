@@ -124,7 +124,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
         )}
         {showTopUp && (
           <div className="mt-auto hidden shrink-0 px-1 pb-1 pt-4 group-hover/nav:block">
-            <div className="whitespace-nowrap rounded-2xl bg-burgundy p-4 text-white">
+            <div className="rounded-2xl bg-burgundy p-4 text-white">
               <p className="flex items-center gap-1.5 text-[13px] font-bold">
                 <Zap className="h-3.5 w-3.5" />
                 Low credits

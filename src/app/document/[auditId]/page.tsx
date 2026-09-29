@@ -4,9 +4,9 @@ import { DocumentReader } from "@/components/document/DocumentReader"
 
 export const dynamic = "force-dynamic"
 
-export default async function DocumentPage({ params, searchParams }: { params: Promise<{ auditId: string }>; searchParams: Promise<{ threadId?: string }> }) {
+export default async function DocumentPage({ params, searchParams }: { params: Promise<{ auditId: string }>; searchParams: Promise<{ threadId?: string; v?: string }> }) {
   const { auditId } = await params
-  const { threadId } = await searchParams
+  const { threadId, v: versionParam } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
@@ -103,5 +103,5 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     }
   }
 
-  return <DocumentReader auditId={auditId} threadId={threadId ?? null} versions={versions} signers={signers} executed={executed} isFinal={isFinal} guarded={guarded} signatureImages={signatureImages} seal={seal} />
+  return <DocumentReader auditId={auditId} threadId={threadId ?? null} versions={versions} signers={signers} executed={executed} isFinal={isFinal} guarded={guarded} signatureImages={signatureImages} seal={seal} initialVersionId={typeof versionParam === "string" && versions.some((v) => v.id === versionParam) ? versionParam : null} />
 }

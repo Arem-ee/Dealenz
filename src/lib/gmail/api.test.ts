@@ -80,10 +80,13 @@ describe("gmail api", () => {
     expect(msg.bodyText).toBe("plain renewal 2027-03-01")
   })
 
-  it("reads thread message ids for reply observation", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { id: "t1", messages: [{ id: "m1" }, { id: "m2" }] }))
+  it("reads thread message ids and unread flags for reply observation", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { id: "t1", messages: [{ id: "m1", labelIds: ["INBOX", "UNREAD"] }, { id: "m2", labelIds: ["INBOX"] }] }))
     const thread = await getGmailThread("at", "t1")
-    expect(thread).toEqual({ id: "t1", messageIds: ["m1", "m2"] })
+    expect(thread).toEqual({ id: "t1", messageIds: ["m1", "m2"], hasUnread: true })
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { id: "t2", messages: [{ id: "m3" }] }))
+    const read = await getGmailThread("at", "t2")
+    expect(read.hasUnread).toBe(false)
     fetchMock.mockResolvedValueOnce(jsonResponse(404, {}))
     await expect(getGmailThread("at", "missing")).rejects.toThrow()
   })
