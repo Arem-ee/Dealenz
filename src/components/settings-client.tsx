@@ -15,10 +15,11 @@ import { useTheme, type ThemeChoice } from "@/components/theme-provider"
 import { exportMyData } from "@/app/settings/actions"
 import { SharedLinksCard } from "@/components/settings/shared-links"
 import { MfaSection } from "@/components/settings/mfa-section"
+import { OrgSection } from "@/components/settings/org-section"
 
 import { ReferralSection } from "@/components/referral-section"
 
-type Section = "account" | "appearance" | "privacy" | "referrals" | "billing" | "security"
+type Section = "account" | "appearance" | "privacy" | "referrals" | "billing" | "security" | "team"
 
 const sections: { key: Section; label: string }[] = [
   { key: "account", label: "Account" },
@@ -27,6 +28,7 @@ const sections: { key: Section; label: string }[] = [
   { key: "referrals", label: "Referrals" },
   { key: "billing", label: "Billing" },
   { key: "security", label: "Security" },
+  { key: "team", label: "Team" },
 ]
 
 interface SettingsClientProps {
@@ -143,6 +145,7 @@ export default function SettingsClient({ initialProfile, email, googleConnected,
           )}
           {activeSection === "billing" && <BillingSection />}
           {activeSection === "security" && <SecuritySection email={email} googleConnected={googleConnected} gmailConnected={gmailConnected} />}
+          {activeSection === "team" && <OrgSection />}
         </div>
       </div>
     </div>
@@ -171,8 +174,7 @@ function PrivacySection() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function download() {
-    setBusy(true)
+  async function download() {    setBusy(true)
     setError(null)
     try {
       const res = await exportMyData()
@@ -196,16 +198,46 @@ function PrivacySection() {
     }
   }
 
+  async function downloadTrail() {
+    setBusy(true)
+    setError(null)
+    try {
+      const { exportAuditTrail } = await import("@/app/settings/actions")
+      const res = await exportAuditTrail()
+      if (!res.ok) {
+        setError(res.error)
+        return
+      }
+      const blob = new Blob([JSON.stringify(res.export, null, 2)], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `dealenz-audit-trail-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError("We couldn't assemble your audit trail. Please try again.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <SectionCard
         title="Your data"
-        description="Deals, threads, documents, monitoring, billing history, and profile — one JSON file"
+        description="Deals, threads, documents, monitoring, billing history, and profile — one JSON file. The audit trail is a separate tamper-evident export of every recorded action."
       >
         <div className="flex flex-wrap items-center gap-3">
           <Button size="sm" variant="outline" onClick={() => void download()} disabled={busy}>
             {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
             {busy ? "Assembling…" : "Download my data"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => void downloadTrail()} disabled={busy}>
+            {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
+            {busy ? "Assembling…" : "Download audit trail"}
           </Button>
         </div>
         {error && (

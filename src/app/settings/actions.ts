@@ -110,3 +110,78 @@ export async function exportMyData(): Promise<{ ok: true; export: DataExport } |
     return { ok: false, error: "We couldn't assemble your export. Please try again." }
   }
 }
+
+export interface AuditTrailEntry {
+  id: string
+  auditId: string | null
+  eventType: string
+  payload: unknown
+  createdAt: string
+  chainHash: string
+}
+
+export interface AuditTrailExport {
+  exportedAt: string
+  user: { id: string; email: string | null }
+  algorithm: "sha256-chain-v1"
+  headHash: string | null
+  count: number
+  capped: boolean
+  entries: AuditTrailEntry[]
+}
+
+// Tamper-evident audit-trail export: the caller's activity events, oldest
+// first, each hashed over the previous hash plus its own fields. Anyone can
+// recompute the chain from the JSON: chainHash[i] = sha256(chainHash[i-1] +
+// id + createdAt + eventType + JSON(payload)). A gap or edit breaks every
+// later hash. Owner-scoped and bounded like the data export.
+const TRAIL_LIMIT = 2000
+
+export async function exportAuditTrail(): Promise<{ ok: true; export: AuditTrailExport } | { ok: false; error: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const { data, error } = await supabase
+      .from("activity_events")
+      .select("id, audit_id, event_type, payload, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .limit(TRAIL_LIMIT + 1)
+    if (error) return { ok: false as const, error: "We couldn't assemble your audit trail. Please try again." }
+    const rows = ((data ?? []) as Array<{ id: string; audit_id: string | null; event_type: string; payload: unknown; created_at: string }>)
+    const capped = rows.length > TRAIL_LIMIT
+    const { chainEntries } = await import("@/lib/audit/chain")
+    const { entries, headHash } = chainEntries(
+      rows.slice(0, TRAIL_LIMIT).map((r) => ({
+        id: String(r.id),
+        createdAt: String(r.created_at),
+        eventType: String(r.event_type),
+        payload: r.payload ?? {},
+      }))
+    )
+    const withAudits = entries.map((e, i) => ({
+      id: e.id,
+      auditId: rows[i]!.audit_id ? String(rows[i]!.audit_id) : null,
+      eventType: e.eventType,
+      payload: e.payload,
+      createdAt: e.createdAt,
+      chainHash: e.chainHash,
+    }))
+    return {
+      ok: true,
+      export: {
+        exportedAt: new Date().toISOString(),
+        user: { id: user.id, email: user.email ?? null },
+        algorithm: "sha256-chain-v1" as const,
+        headHash,
+        count: withAudits.length,
+        capped,
+        entries: withAudits,
+      },
+    }
+  } catch {
+    return { ok: false as const, error: "We couldn't assemble your audit trail. Please try again." }
+  }
+}

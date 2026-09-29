@@ -115,3 +115,22 @@ claims; (2) SAML SSO spike against staging Supabase; (3) `org_id` data-model RFC
   from a parallel workstream (its 5 tests pass against this implementation).
 - **Not code:** SOC 2 Type II audit kickoff, signed DPA delivery, staging SSO live
   verification, `SCIM_PROVISION_TOKEN` issuance. All with named founder ownership.
+
+## E2 build status, increment 1 (implemented, verified green)
+
+- **Organizations + RBAC foundation** (migration 00091, no data-model breakage: solo
+  users unaffected, nothing references `org_id` yet): `organizations` +
+  `organization_members` (owner/admin/member/viewer), owner-scoped RLS, all writes
+  through ownership-checked RPCs (`create_organization`, `add_organization_member`
+  with admin-cannot-grant-admin, `remove_organization_member` with last-owner and
+  owner-removal guards). Server actions with pre-migration honest errors, Settings →
+  Team UI (create, invite by email with role picker, remove/leave), hierarchy unit
+  tests. Member directory shows truncated ids until a service-role email lookup
+  lands; invites require an existing Dealenz account.
+- **Tamper-evident audit-trail export** (`src/lib/audit/chain.ts` + Settings →
+  Privacy download): owner-scoped `activity_events`, SHA-256 chained
+  (`sha256-chain-v1`, recomputable, gap-sensitive), bounded at 2000 rows with an
+  explicit capped flag.
+- **Still E2, not yet built:** org-scoped deal rooms (`org_id` on audits + RLS
+  migration), value-based approval chains (needs multi-user deals first), public API
+  + outbound webhooks, member email directory.
