@@ -23,8 +23,8 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
   const recent = [...(threads ?? [])].slice(0, 5)
 
   return (
-    <aside className={`group/nav hidden md:flex md:flex-col shrink-0 border-r border-border/60 bg-background w-16 hover:w-60 transition-[width] duration-200 overflow-hidden ${flushTop ? "md:top-0 md:h-[100dvh]" : "md:top-14 md:h-[calc(100dvh-3.5rem)]"} md:sticky`}>
-      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-2.5" aria-label="Primary">
+    <aside className={`group/nav hidden md:flex md:flex-col shrink-0 border-r border-border/60 bg-background w-12 hover:w-52 transition-[width] duration-200 overflow-hidden ${flushTop ? "md:top-0 md:h-[100dvh]" : "md:top-11 md:h-[calc(100dvh-2.75rem)]"} md:sticky`}>
+      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-1.5" aria-label="Primary">
         <div className="shrink-0 space-y-0.5">
           {PRIMARY_NAV.map((item) => {
             const Icon = item.icon
@@ -37,7 +37,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
                 aria-current={isActive ? "page" : undefined}
                 title={item.label}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-full px-4 py-2 text-[13px] transition-colors",
+                  "flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] transition-colors",
                   isActive
                     ? "bg-burgundy/10 font-semibold text-burgundy"
                     : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
@@ -62,7 +62,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
           })}
           {SECONDARY_NAV.length > 0 && (
             <>
-              <p className="whitespace-nowrap px-4 pt-4 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70 opacity-0 transition-opacity duration-150 group-hover/nav:opacity-100">
+              <p className="whitespace-nowrap px-3 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70 opacity-0 transition-opacity duration-150 group-hover/nav:opacity-100">
                 Workspace
               </p>
               {SECONDARY_NAV.map((item) => {
@@ -75,7 +75,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
                     aria-current={isActive ? "page" : undefined}
                     title={item.label}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-full px-4 py-2 text-[13px] transition-colors",
+                      "flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] transition-colors",
                       isActive
                         ? "bg-burgundy/10 font-semibold text-burgundy"
                         : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
@@ -90,8 +90,8 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
           )}
         </div>
         {recent.length > 0 && (
-          <div className="mt-4 hidden min-h-0 flex-1 flex-col group-hover/nav:flex">
-            <p className="shrink-0 whitespace-nowrap px-4 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+          <div className="mt-3 hidden min-h-0 flex-1 flex-col group-hover/nav:flex">
+            <p className="shrink-0 whitespace-nowrap px-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
               Recent
             </p>
             <ul className="min-h-0 space-y-0.5 overflow-y-auto">
@@ -105,7 +105,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
                       aria-current={isActive ? "page" : undefined}
                       title={t.title || "Untitled"}
                       className={cn(
-                        "flex items-center gap-2 rounded-lg px-4 py-1.5 text-[13px] transition-colors",
+                        "flex items-center gap-2 rounded-lg px-3 py-1 text-[13px] transition-colors",
                         isActive
                           ? "bg-burgundy/10 font-semibold text-burgundy"
                           : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
@@ -123,8 +123,8 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
           </div>
         )}
         {showTopUp && (
-          <div className="mt-auto hidden shrink-0 px-1 pb-1 pt-4 group-hover/nav:block">
-            <div className="rounded-2xl bg-burgundy p-4 text-white">
+          <div className="mt-auto hidden shrink-0 px-1 pb-1 pt-3 group-hover/nav:block">
+            <div className="rounded-2xl bg-burgundy p-3 text-white">
               <p className="flex items-center gap-1.5 text-[13px] font-bold">
                 <Zap className="h-3.5 w-3.5" />
                 Low credits
@@ -134,7 +134,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
               </p>
               <Link
                 href="/billing"
-                className="mt-3 flex h-9 items-center justify-center rounded-full bg-white text-[12px] font-semibold text-burgundy transition-colors hover:bg-white/90"
+                className="mt-2 flex h-8 items-center justify-center rounded-full bg-white text-[12px] font-semibold text-burgundy transition-colors hover:bg-white/90"
               >
                 Top up
               </Link>

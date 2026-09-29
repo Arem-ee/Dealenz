@@ -1,4 +1,10 @@
-import type { PortfolioSummary } from "@/app/dashboard/page"
+export interface PortfolioSummary {
+  totalOpen: number
+  openDeals: number
+  avgScore: number | null
+  ratedCount: number
+  topCategories: Array<{ label: string; count: number }>
+}
 
 export interface PortfolioThread {
   auditId: string | null

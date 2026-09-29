@@ -59,8 +59,8 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
   }
 
   return (
-    <header className="sticky top-0 z-40 h-14 shrink-0 border-b border-border/60 bg-background/90 backdrop-blur">
-      <div className="flex h-full items-center gap-1.5 px-3 sm:gap-2 sm:px-4">
+    <header className="sticky top-0 z-40 h-11 shrink-0 border-b border-border/60 bg-background/90 backdrop-blur">
+      <div className="flex h-full items-center gap-1 px-2 sm:gap-1.5">
         {/* Mobile web nav: top-anchored drawer, not a bottom app tab bar.
             The sidebar toggle below stays desktop-only. */}
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -141,9 +141,9 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
           type="button"
           onClick={() => setSearchOpen(true)}
           aria-label="Search deals"
-          className="hidden min-h-[44px] min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:flex"
+          className="hidden h-8 min-w-0 items-center gap-2 rounded-lg px-2 py-1 text-[13px] text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:flex"
         >
-          <Search className="h-4 w-4 shrink-0" />
+          <Search className="h-3.5 w-3.5 shrink-0" />
           <span className="hidden truncate lg:inline">Search deals</span>
           <kbd className="hidden shrink-0 rounded border border-border/60 bg-muted/60 px-1 text-[10px] font-medium sm:inline">⌘K</kbd>
         </button>
@@ -151,25 +151,25 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
         <Link
           href="/billing"
           title="Credit balance — see Billing for what credits pay for"
-          className="max-w-[110px] min-w-0 shrink truncate text-sm tabular-nums text-muted-foreground transition-colors hover:text-foreground sm:max-w-none"
+          className="max-w-[110px] min-w-0 shrink truncate text-[13px] tabular-nums text-muted-foreground transition-colors hover:text-foreground sm:max-w-none"
         >
           {typeof creditBalance === "number" ? `${creditBalance} credit${creditBalance === 1 ? "" : "s"}` : "credits unknown"}
         </Link>
         <Link
           href="/dashboard/activity"
           aria-label="Notifications"
-            className="hidden min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:flex"
+            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:flex"
         >
-          <Bell className="h-4 w-4" />
+          <Bell className="h-3.5 w-3.5" />
         </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               aria-label="Account menu"
-              className="flex min-h-[44px] min-w-[44px] shrink-0 items-center rounded-lg p-1 transition-colors hover:bg-muted/80"
+              className="flex h-8 w-8 shrink-0 items-center rounded-lg p-1 transition-colors hover:bg-muted/80"
             >
-              <Avatar className="h-7 w-7">
-                <AvatarFallback className="text-[11px] font-medium">{initials}</AvatarFallback>
+              <Avatar className="h-6 w-6">
+                <AvatarFallback className="text-[10px] font-medium">{initials}</AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>          <DropdownMenuContent className="w-52" align="end">
@@ -209,7 +209,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
             onClick={onHideTopbar}
             aria-label="Hide header"
             title="Hide header for more room"
-          className="hidden min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:flex"
+          className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:flex"
           >
             <ChevronUp className="h-4 w-4" />
           </button>

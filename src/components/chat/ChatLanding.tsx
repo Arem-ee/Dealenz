@@ -5,9 +5,6 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, Plus, Trash2 } from "lucide-react"
 import { getPendingDeal } from "@/lib/pending-deal"
-import { dealMomentState, DEAL_MOMENT_LABEL } from "@/lib/deals/moment"
-import type { DayBucket } from "@/lib/activity/week"
-import { cn } from "@/lib/utils"
 import { deleteDeal } from "@/app/audit/[id]/actions"
 import { useToast } from "@/components/ui/toast"
 import { CapabilityStrip } from "@/components/home/CapabilityStrip"
@@ -60,82 +57,64 @@ function riskPill(level: string | null | undefined): string | null {
   return null
 }
 
-// Per-deal erasure, two taps: arm, then confirm. Sits above the row's
-// stretched link (relative + z-10) with propagation stopped so deleting
-// never navigates. Refreshes server state on success; surfaces the real
-// failure message otherwise.
-function DeleteDealCell({ auditId, title }: { auditId: string; title: string }) {
+function DeleteDealButton({ auditId, title }: { auditId: string; title: string }) {
   const router = useRouter()
   const { showError } = useToast()
   const [armed, setArmed] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [failed, setFailed] = useState(false)
 
   async function confirm() {
     setBusy(true)
-    setFailed(false)
     try {
       const res = await deleteDeal(auditId)
       if (!res.ok) {
-        // Stay armed so the button becomes Retry; the toast carries why.
-        setFailed(true)
         showError(res.error)
+        setArmed(false)
         return
       }
       router.refresh()
     } catch {
-      setFailed(true)
       showError("We couldn't delete this deal. Please try again.")
+      setArmed(false)
     } finally {
       setBusy(false)
     }
   }
 
+  if (!armed) {
+    return (
+      <button
+        type="button"
+        onClick={() => setArmed(true)}
+        aria-label={`Delete ${title || "untitled deal"}`}
+        title="Delete this deal"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    )
+  }
   return (
-    <td className="relative z-10 whitespace-nowrap px-2 py-3 text-right">
-      {!armed ? (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            setFailed(false)
-            setArmed(true)
-          }}
-          aria-label={`Delete ${title || "untitled deal"}`}
-          title="Delete this deal"
-          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      ) : (
-        <span className="inline-flex items-center gap-1">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={(e) => {
-              e.stopPropagation()
-              void confirm()
-            }}
-            aria-label={`Confirm deletion of ${title || "untitled deal"}`}
-            className="rounded-lg bg-destructive px-2 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {busy ? "…" : failed ? "Retry" : "Delete?"}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={(e) => {
-              e.stopPropagation()
-              setArmed(false)
-            }}
-            aria-label="Cancel deletion"
-            className="rounded-lg px-1.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
-          >
-            Keep
-          </button>
-        </span>
-      )}
-    </td>
+    <span className="inline-flex shrink-0 items-center gap-1">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void confirm()}
+        aria-label={`Confirm deletion of ${title || "untitled deal"}`}
+        className="rounded-lg bg-destructive px-2 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+      >
+        {busy ? "…" : "Delete?"}
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => setArmed(false)}
+        aria-label="Cancel deletion"
+        className="rounded-lg px-1.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+      >
+        Keep
+      </button>
+    </span>
   )
 }
 
@@ -146,35 +125,17 @@ const LOOP_STEPS = [
   { n: "4", title: "Sign & stay covered", body: "Both sides sign here; deadlines stay tracked." },
 ]
 
-const BUBBLE_STYLES = [
-  "bg-burgundy text-white",
-  "bg-primary text-primary-foreground",
-  "bg-foreground/[0.07] text-foreground",
-]
-
-const BAR_COLORS = ["bg-burgundy", "bg-primary", "bg-foreground/20"]
-const DOT_COLORS = ["bg-burgundy", "bg-primary", "bg-foreground/30"]
-
 function todayLabel(): string {
   return new Date().toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })
 }
 
-export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, signingAuditIds, monitoredAuditIds, portfolio, week, setupNeeded = false }: {
+export function ChatLanding({ threads, loadError, deadlines, setupNeeded = false }: {
   threads: ThreadItem[]
   loadError?: string | null
   deadlines?: DeadlineItem[]
-  executedAuditIds?: string[]
-  signingAuditIds?: string[]
-  monitoredAuditIds?: string[]
-  portfolio?: PortfolioSummary | null
-  week?: DayBucket[]
   setupNeeded?: boolean
 }) {
-  // Anonymous landing input waits for its composer on /chat: surface a
-  // resume banner here instead of a composer — this screen triages.
   const [hasPending] = useState(() => getPendingDeal() !== null)
-  // First-run setup nudge: dismissed per browser, and the product never
-  // blocks on it — the banner is an invitation, not a gate.
   const [setupDismissed, setSetupDismissed] = useState(() => {
     try {
       return window.localStorage.getItem("dealenz.welcome.dismissed") === "1"
@@ -182,83 +143,20 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
       return false
     }
   })
-  const deadlineByAudit = new Map((deadlines ?? []).map((d) => [d.auditId, d]))
-  const topDeals = [...threads]
-    .filter((t) => typeof t.openIssues === "number" && (t.openIssues ?? 0) > 0)
-    .sort((a, b) => (b.openIssues ?? 0) - (a.openIssues ?? 0))
-    .slice(0, 3)
-  const maxCat = Math.max(1, ...(portfolio?.topCategories.map((c) => c.count) ?? [1]))
-  const maxWeek = Math.max(1, ...(week ?? []).map((b) => b.count))
-  const weekTotal = (week ?? []).reduce((s, b) => s + b.count, 0)
-  // Progressive disclosure: zero-signal users get entry points, not empty
-  // dashboards. Portfolio tiles render only once analysis has produced
-  // something to show (rated deals or open issues) — raw activity like a
-  // single deal creation is not signal, and "0 across 0 deals" in display
-  // type is cognitive load with zero information.
-  const hasPortfolioSignal =
-    (portfolio?.ratedCount ?? 0) > 0 || (portfolio?.totalOpen ?? 0) > 0
-
-  // Attention queues (DocuSign quick-views pattern): the same deal moments
-  // the table already shows, grouped by who owes what. Unknown moments stay
-  // visible under All only — never forced into a queue.
-  type QueueFilter = "all" | "needs-you" | "waiting" | "done"
-  const NEEDS_YOU = ["needs-action", "needs-attention", "draft"]
-  const WAITING = ["negotiating", "ready-to-sign"]
-  const DONE = ["signed", "guarded"]
-  const [queue, setQueue] = useState<QueueFilter>("all")
-  const [tableQuery, setTableQuery] = useState("")
-  const [drill, setDrill] = useState<"open" | "rated" | "resolved" | null>(null)
-  const atCap = threads.length >= 30
-  const momentRows = threads.map((t) => {
-    const executed = !!t.auditId && (executedAuditIds ?? []).includes(t.auditId)
-    const signingActive = !!t.auditId && (signingAuditIds ?? []).includes(t.auditId) && !executed
-    const hasMonitoring = !!t.auditId && (monitoredAuditIds ?? []).includes(t.auditId)
-    const moment = dealMomentState({
-      status: t.status,
-      openIssues: t.openIssues ?? null,
-      resolvedCount: t.resolvedCount ?? null,
-      executed,
-      signingActive,
-      hasMonitoring,
-    })
-    return { t, moment }
-  })
-  const queueCounts: Record<QueueFilter, number> = {
-    all: momentRows.length,
-    "needs-you": momentRows.filter((r) => NEEDS_YOU.includes(r.moment)).length,
-    waiting: momentRows.filter((r) => WAITING.includes(r.moment)).length,
-    done: momentRows.filter((r) => DONE.includes(r.moment)).length,
-  }
-  const visibleRows = momentRows.filter((r) => {
-    if (queue === "needs-you" && !NEEDS_YOU.includes(r.moment)) return false
-    if (queue === "waiting" && !WAITING.includes(r.moment)) return false
-    if (queue === "done" && !DONE.includes(r.moment)) return false
-    if (drill === "open" && !((r.t.openIssues ?? 0) > 0)) return false
-    if (drill === "rated" && typeof r.t.overallScore !== "number") return false
-    if (drill === "resolved" && !((r.t.resolvedCount ?? 0) > 0)) return false
-    const q = tableQuery.trim().toLowerCase()
-    if (q && !(r.t.title || "").toLowerCase().includes(q)) return false
-    return true
-  })
-  const QUEUE_VIEWS: Array<{ key: QueueFilter; label: string; empty: string }> = [
-    { key: "all", label: "All deals", empty: "" },
-    { key: "needs-you", label: "Needs you", empty: "Nothing needs you — every deal is either moving or done." },
-    { key: "waiting", label: "Waiting on others", empty: "Nothing waiting — no deal is parked with someone else." },
-    { key: "done", label: "Signed & tracked", empty: "Nothing signed yet — completed deals land here." },
-  ]
+  const upcoming = (deadlines ?? []).slice(0, 5)
 
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-y-auto px-4 pb-4 sm:px-6">
-      <div className="flex shrink-0 items-end justify-between gap-3 pb-4 pt-4 sm:pt-5">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col overflow-y-auto px-4 pb-6 sm:px-6">
+      <div className="flex shrink-0 items-end justify-between gap-3 pb-3 pt-4">
         <div>
-          <h1 className="text-[24px] font-bold tracking-tight text-foreground sm:text-[28px]">Deal analysis</h1>
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground">Deal analysis</h1>
           <p className="mt-0.5 text-[13px] text-foreground/50">Take control of your deals today.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span className="hidden text-xs text-foreground/50 sm:inline">{todayLabel()}</span>
           <Link
             href="/audit/new"
-            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-burgundy px-4 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-burgundy px-3.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
           >
             <Plus className="h-3.5 w-3.5" />
             New deal
@@ -267,15 +165,10 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
       </div>
 
       <div className="shrink-0 pb-3">
-        <div className="rounded-2xl border border-border bg-card p-3">
-          <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Describe a deal
-          </p>
-          <NewDealComposer />
-        </div>
+        <NewDealComposer />
       </div>
 
-      <div className="shrink-0 pb-4">
+      <div className="shrink-0 pb-5">
         <CapabilityStrip />
       </div>
 
@@ -326,254 +219,55 @@ export function ChatLanding({ threads, loadError, deadlines, executedAuditIds, s
         </div>
       )}
 
-      {threads.length > 0 && portfolio && hasPortfolioSignal && (
-        <>
-          <section aria-label="Portfolio health" className="grid shrink-0 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="rounded-2xl border border-border bg-card p-4">
-              <div className="flex items-start justify-between">
-                <p className="text-[13px] font-semibold">Open Issues</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDrill((d) => (d === "open" ? null : "open"))}
-                aria-pressed={drill === "open"}
-                title="Show only deals with open issues"
-                className="mt-2 rounded-lg text-left transition-opacity hover:opacity-75"
-              >
-                <span className={cn("text-[22px] font-semibold leading-none tracking-tight", drill === "open" && "underline")} data-numeric>
-                  {portfolio.totalOpen}
-                </span>
-                <span className="ml-1 align-middle text-[13px] font-normal text-foreground/45">across {portfolio.openDeals} deal{portfolio.openDeals === 1 ? "" : "s"}</span>
-              </button>
-              {topDeals.length > 0 && (
-                <div className="mt-4 flex items-center">
-                  {topDeals.map((t, i) => (
-                    <Link
-                      key={t.id}
-                      href={`/chat/${t.id}`}
-                      title={`${t.title || "Untitled"} — ${t.openIssues} open`}
-                      aria-label={`Open ${t.title || "Untitled deal"} — ${t.openIssues} open issues`}
-                      className={cn(
-                        "flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold ring-4 ring-white transition-transform hover:scale-105",
-                        BUBBLE_STYLES[i % BUBBLE_STYLES.length],
-                        i > 0 && "-ml-4"
-                      )}
-                    >
-                      {t.openIssues}
-                    </Link>
-                  ))}
-                  <div className="ml-3 min-w-0 space-y-0.5">
-                    {topDeals.map((t) => (
-                      <Link key={t.id} href={`/chat/${t.id}`} className="block truncate text-[11px] text-foreground/50 hover:underline">
-                        <span className="font-semibold text-foreground">{t.openIssues}</span> · {t.title || "Untitled"}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {portfolio.topCategories.length > 0 && (
-                <div className="mt-4 space-y-2.5">
-                  {portfolio.topCategories.map((c, i) => {
-                    const pct = Math.round((c.count / Math.max(1, portfolio.totalOpen)) * 100)
-                    return (
-                      <div key={c.label}>
-                        <div className="flex items-baseline justify-between gap-2">
-                          <p className="text-[18px] font-semibold tracking-tight" data-numeric>
-                            {pct}<span className="text-[13px] font-normal text-foreground/45"> %</span>
-                          </p>
-                          <p className="truncate text-[11px] text-foreground/50">{c.label} <span aria-hidden className={cn("ml-1 inline-block h-1.5 w-1.5 rounded-full align-middle", DOT_COLORS[i % DOT_COLORS.length])} /></p>
-                        </div>
-                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-foreground/[0.06]">
-                          <div className={cn("h-full rounded-full", BAR_COLORS[i % BAR_COLORS.length])} style={{ width: `${Math.max(6, Math.round((c.count / maxCat) * 100))}%` }} />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-border bg-card p-4">
-              <p className="text-[13px] font-semibold">Avg Risk</p>
-              {portfolio.avgScore !== null ? (
-                <button
-                  type="button"
-                  onClick={() => setDrill((d) => (d === "rated" ? null : "rated"))}
-                  aria-pressed={drill === "rated"}
-                  title="Show only rated deals"
-                  className="mt-2 block rounded-lg text-left transition-opacity hover:opacity-75"
-                >
-                  <span className={cn("text-[22px] font-semibold leading-none tracking-tight", drill === "rated" && "underline")} data-numeric>
-                    {portfolio.avgScore}<span className="text-[13px] font-normal text-foreground/45"> /100</span>
+      {upcoming.length > 0 && (
+        <section aria-label="Upcoming deadlines" className="mb-5 shrink-0 rounded-2xl border border-border bg-card p-4">
+          <p className="text-[13px] font-semibold">Upcoming</p>
+          <ul className="mt-2 divide-y divide-border/60">
+            {upcoming.map((d) => (
+              <li key={d.id}>
+                <Link href={d.href} className="group flex items-baseline justify-between gap-3 py-1.5">
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium group-hover:underline">{d.title}</span>
+                  <span className="shrink-0 text-[11px] tabular-nums text-foreground/50">
+                    {new Date(d.dueDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                   </span>
-                  <span className="mt-1 block text-[11px] text-foreground/50">Avg across {portfolio.ratedCount} rated deal{portfolio.ratedCount === 1 ? "" : "s"}</span>
-                </button>
-              ) : (
-                <p className="mt-2 text-xs text-foreground/50">No rated deals yet — ratings appear after analysis.</p>
-              )}
-            </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
-            <div className="rounded-2xl border border-border bg-card p-4">
-              <p className="text-[13px] font-semibold">Upcoming</p>
-              {(deadlines ?? []).length > 0 ? (
-                <ul className="mt-2 space-y-1.5">
-                  {(deadlines ?? []).map((d) => (
-                    <li key={d.id}>
-                      <Link href={d.href} className="group block">
-                        <p className="truncate text-[13px] font-semibold leading-snug group-hover:underline">{d.title}</p>
-                        <p className="mt-0.5 text-[11px] text-foreground/50">
-                          {new Date(d.dueDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </p>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-xs text-foreground/50">Nothing dated tracked. Deadlines appear after signing.</p>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-border bg-card p-4">
-              <p className="text-[13px] font-semibold">Resolved</p>
-              <button
-                type="button"
-                onClick={() => setDrill((d) => (d === "resolved" ? null : "resolved"))}
-                aria-pressed={drill === "resolved"}
-                title="Show only deals with landed pushbacks"
-                className="mt-2 block rounded-lg text-left transition-opacity hover:opacity-75"
-              >
-                <span className={cn("text-[22px] font-semibold leading-none tracking-tight", drill === "resolved" && "underline")} data-numeric>
-                  {threads.reduce((s, t) => s + (typeof t.resolvedCount === "number" ? t.resolvedCount : 0), 0)}
-                </span>
-                <span className="mt-1 block text-[11px] text-foreground/50">pushbacks landed via re-check</span>
-              </button>
-            </div>
-
-            <div className="rounded-2xl border border-border bg-card p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-[13px] font-semibold">This Week</p>
-                <p className="text-[11px] text-foreground/50">Last 7 days</p>
-              </div>
-              <p className="mt-2 text-[26px] font-semibold leading-none tracking-tight" data-numeric>
-                {weekTotal}
-                <span className="ml-1 align-middle text-[11px] font-normal text-foreground/50">deal events</span>
-              </p>
-              <div className="mt-3 flex h-20 items-end gap-1.5">
-                {(week ?? []).map((b) => (
-                  <div key={b.key} className="flex min-w-0 flex-1 flex-col items-center gap-1" title={`${b.label}: ${b.count}`}>
-                    <span
-                      className={cn("w-full rounded-sm", b.isToday ? "bg-burgundy" : "bg-foreground/[0.08]")}
-                      style={{ height: `${Math.max(5, Math.round((b.count / maxWeek) * 100))}%` }}
-                    />
-                    <span className={cn("truncate text-[11px]", b.isToday ? "font-semibold text-foreground" : "text-foreground/50")}>
-                      {b.isToday ? "Now" : b.label}
+      {threads.length > 0 && (
+        <section aria-label="Your deals" className="shrink-0">
+          <p className="px-1 pb-2 text-[13px] font-semibold">Your deals</p>
+          <ul className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border/60">
+            {threads.map((t) => {
+              const pill = riskPill(t.riskLevel)
+              const sub = [
+                typeof t.openIssues === "number" && t.openIssues > 0 ? `${t.openIssues} open` : null,
+                t.riskLevel ?? null,
+                formatDate(t.updatedAt),
+              ].filter(Boolean).join(" · ")
+              return (
+                <li key={t.id} className="flex items-center gap-2 px-4 py-2.5 transition-colors hover:bg-foreground/[0.02]">
+                  <Link href={`/chat/${t.id}`} className="min-w-0 flex-1" aria-label={`Open ${t.title || "Untitled deal"}`}>
+                    <span className="block truncate text-sm font-medium">{t.title || "Untitled"}</span>
+                    <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{sub}</span>
+                  </Link>
+                  {pill && t.riskLevel && (
+                    <span className={`shrink-0 rounded-full border px-1.5 py-px text-[10px] font-medium ${pill}`}>
+                      {t.riskLevel}
                     </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <section aria-label="All deals" className="mt-3 shrink-0 overflow-hidden rounded-2xl border border-border bg-card">
-            <div className="flex gap-1 overflow-x-auto border-b border-border/60 px-3 py-2" role="tablist" aria-label="Deal queues">              {QUEUE_VIEWS.map((v) => (
-                <button
-                  key={v.key}
-                  role="tab"
-                  aria-selected={queue === v.key}
-                  onClick={() => setQueue(v.key)}
-                  className={cn(
-                    "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                    queue === v.key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
                   )}
-                >
-                  {v.label} · <span data-numeric>{queueCounts[v.key]}</span>
-                </button>
-              ))}
-            </div>
-            <div className="border-b border-border/60 px-3 py-2">
-              <input
-                type="search"
-                value={tableQuery}
-                onChange={(e) => setTableQuery(e.target.value)}
-                placeholder="Search deals…"
-                aria-label="Search deals table"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              />
-              {drill && (
-                <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  Filtered: {drill === "open" ? "deals with open issues" : drill === "rated" ? "rated deals" : "deals with landed pushbacks"}{" "}
-                  <button type="button" onClick={() => setDrill(null)} className="font-semibold text-primary hover:underline">
-                    Clear
-                  </button>
-                </p>
-              )}
-            </div>
-            <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-border text-[11px] uppercase tracking-[0.08em] text-foreground/45">
-                  <th scope="col" className="px-5 py-3 font-semibold">Deal</th>
-                  <th scope="col" className="px-2 py-3 font-semibold">State</th>
-                  <th scope="col" className="px-2 py-3 text-right font-semibold">Open</th>
-                  <th scope="col" className="hidden px-2 py-3 font-semibold sm:table-cell">Risk</th>
-                  <th scope="col" className="hidden px-2 py-3 font-semibold lg:table-cell">Due</th>
-                  <th scope="col" className="hidden px-5 py-3 text-right font-semibold md:table-cell">Updated</th>
-                  <th scope="col" className="w-10 px-2 py-3"><span className="sr-only">Actions</span></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {visibleRows.map(({ t, moment }) => {
-                  const pill = riskPill(t.riskLevel)
-                  const due = t.auditId ? deadlineByAudit.get(t.auditId) ?? null : null
-                  return (
-                    <tr key={t.id} className="relative cursor-pointer transition-colors hover:bg-foreground/[0.02]">
-                      <td className="max-w-0 px-5 py-3">
-                        <Link href={`/chat/${t.id}`} className="block truncate font-medium hover:underline after:absolute after:inset-0" aria-label={`Open ${t.title || "Untitled deal"}`}>
-                          {t.title || "Untitled"}
-                        </Link>
-                      </td>
-                      <td className="whitespace-nowrap px-2 py-3 text-xs font-semibold">{DEAL_MOMENT_LABEL[moment]}</td>
-                      <td className="px-2 py-3 text-right text-xs tabular-nums">
-                        {typeof t.openIssues === "number" ? t.openIssues : "—"}
-                      </td>
-                      <td className="hidden px-2 py-3 sm:table-cell">
-                        {pill && t.riskLevel ? (
-                          <span className={`inline-block rounded-full border px-1.5 py-px text-[10px] font-medium ${pill}`}>
-                            {t.riskLevel}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-foreground/40">—</span>
-                        )}
-                      </td>
-                      <td className="hidden whitespace-nowrap px-2 py-3 text-xs text-foreground/60 lg:table-cell">
-                        {due ? new Date(due.dueDate + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}
-                      </td>
-                      <td className="hidden whitespace-nowrap px-5 py-3 text-right text-xs text-foreground/45 md:table-cell">
-                        {formatDate(t.updatedAt)}
-                      </td>
-                      {t.auditId ? (
-                        <DeleteDealCell auditId={t.auditId} title={t.title} />
-                      ) : (
-                        <td className="px-2 py-3" />
-                      )}
-                    </tr>
-                  )
-                })}
-                {visibleRows.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-5 py-8 text-center text-xs text-muted-foreground">
-                      {QUEUE_VIEWS.find((v) => v.key === queue)?.empty}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-            </div>
-            <p className="border-t border-border/60 px-5 py-2 text-[11px] text-muted-foreground" aria-live="polite">
-              Showing {visibleRows.length} of {momentRows.length} deals{atCap ? " — the 30 most recent, search to narrow" : ""}.
-            </p>
-          </section>
-        </>
+                  {t.auditId && <DeleteDealButton auditId={t.auditId} title={t.title} />}
+                </li>
+              )
+            })}
+          </ul>
+          {threads.length >= 30 && (
+            <p className="px-1 pt-2 text-[11px] text-muted-foreground">Showing the 30 most recent.</p>
+          )}
+        </section>
       )}
 
       {threads.length === 0 && !loadError && (

@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react"
 import { MessageList } from "./MessageList"
 import { Composer } from "./Composer"
 import { ReviseDealInput } from "./ReviseDealInput"
-import { DealOverview } from "./DealOverview"
 import { ThreadPanel, latestRichMessage } from "./ThreadPanel"
 import { SplitPane, useIsDesktop } from "@/components/split-pane"
 import { useToast } from "@/components/ui/toast"
@@ -54,11 +53,6 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   const [dealMeta, setDealMeta] = useState<{ dealType: string | null; jurisdiction: string | null } | null>(null)
   const [dealTitle, setDealTitle] = useState<string | null>(null)
   const [dealInput, setDealInput] = useState<string | null>(null)
-  const [dealFacts, setDealFacts] = useState<{ budget: string | null; userRole: string | null; counterpartyRole: string | null }>({
-    budget: null,
-    userRole: null,
-    counterpartyRole: null,
-  })
   const [findingDelta, setFindingDelta] = useState<FindingDelta | null>(null)
   const [verdictExpanded, setVerdictExpanded] = useState(false)
   const [documentCount, setDocumentCount] = useState<number>(0)
@@ -104,11 +98,6 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
   // Synchronous guard: approval mints a fresh idempotency key per click, so
   // rapid double-taps create duplicate approvals without this.
   const approvingRef = useRef(false)
-  // Overview collapse: explicit user choice wins; otherwise the card stays
-  // open on a fresh deal and collapses to one line once messages exist, so
-  // the reply viewport gets the room.
-  const [overviewCollapsed, setOverviewCollapsed] = useState<boolean | null>(null)
-  const overviewIsCollapsed = overviewCollapsed ?? messages.length > 0
 
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
@@ -133,23 +122,6 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
         } catch {}
         setDealMeta({ dealType: (data as { deal_type?: string | null }).deal_type ?? null, jurisdiction })
         setDealTitle((data as { title?: string | null }).title ?? null)
-        try {
-          const structuredFacts = (data as { structured_data?: Record<string, unknown> }).structured_data as
-            | { extractedData?: { budget?: unknown } | null }
-            | undefined
-          const budgetRaw = structuredFacts?.extractedData?.budget
-          const envFacts = (data as { context_envelope?: unknown }).context_envelope as {
-            fields?: { userRole?: { value?: unknown }; counterpartyRole?: { value?: unknown } }
-          } | null
-          setDealFacts({
-            budget: typeof budgetRaw === "string" && budgetRaw.trim() ? budgetRaw.trim().slice(0, 40) : null,
-            userRole: typeof envFacts?.fields?.userRole?.value === "string" ? (envFacts.fields.userRole.value as string) : null,
-            counterpartyRole:
-              typeof envFacts?.fields?.counterpartyRole?.value === "string" ? (envFacts.fields.counterpartyRole.value as string) : null,
-          })
-        } catch {
-          setDealFacts({ budget: null, userRole: null, counterpartyRole: null })
-        }
         const rawInput = (data as { raw_input?: unknown }).raw_input
         setDealInput(typeof rawInput === "string" ? rawInput : null)
 
@@ -660,59 +632,20 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
 
   const conversation = (
     <>
-      {/* Deal overview: the deal is the centerpiece. Renders once the
-          thread is attached to an audit; absent otherwise. The revise-input
-          pill docks into the overview header (actions) instead of stacking
-          as its own block above it. */}
-      {auditId && (() => {
-        const executed = signers.length > 0 && signers.every((s) => s.status === "signed")
-        const signingActive = signers.length > 0 && !executed
-        return (
-          <DealOverview
-            collapsed={overviewIsCollapsed}
-            onToggleCollapsed={() => setOverviewCollapsed(!overviewIsCollapsed)}
-            actions={
-              auditId && dealInput !== null ? (
-                <ReviseDealInput
-                  auditId={auditId}
-                  threadId={threadId}
-                  initialText={dealInput}
-                  onPlanReady={() => {
-                    void refreshWorkPlan()
-                    handleSent()
-                  }}
-                  onError={fail}
-                />
-              ) : undefined
-            }
-            input={{
-              title: dealTitle,
-              budget: dealFacts.budget,
-              dealType: dealMeta?.dealType ?? null,
-              userRole: dealFacts.userRole,
-              counterpartyRole: dealFacts.counterpartyRole,
-              jurisdiction: dealMeta?.jurisdiction ?? null,
-              openIssues: openItems.counts.total,
-              resolvedCount: findingDelta?.resolved.length ?? 0,
-              executed,
-              signingActive,
-              hasMonitoring: monitoringEvents.length > 0,
-              topIssues: openItems.items.slice(0, 3).map((item) => ({
-                title: item.category || item.title,
-                summary: item.summary ?? item.title,
-                severity: item.severity,
-              })),
-              signedLabel: executed
-                ? "All signatures collected."
-                : signingActive
-                  ? "Waiting on signatures."
-                  : null,
-              onAskPushback: () => handleAskFinding("What should I push back on in this deal?"),
-              onAskRecheck: () => handleAskFinding("I have a revised version of this deal. What changed?"),
+      {auditId && dealInput !== null && (
+        <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pt-3">
+          <ReviseDealInput
+            auditId={auditId}
+            threadId={threadId}
+            initialText={dealInput}
+            onPlanReady={() => {
+              void refreshWorkPlan()
+              handleSent()
             }}
+            onError={fail}
           />
-        )
-      })()}
+        </div>
+      )}
 
       {/* Open Items: one quiet feed row, details on tap. Severity counts
           read as plain text, not pills: hierarchy from type, not chrome. */}

@@ -530,13 +530,13 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Paste their contract or describe the deal…"
+            placeholder="Describe the deal or paste the contract…"
             rows={1}
             aria-label="Message Dealenz"
             className="max-h-[160px] min-h-[28px] w-full resize-none overflow-y-auto bg-transparent text-sm leading-relaxed placeholder:text-muted-foreground/60 outline-none"
           />
         </div>
-        <div className={`flex items-center gap-2 border-t border-border/60 bg-muted/20 rounded-b-2xl ${isEmpty ? "px-3 py-1.5" : "px-3 py-2.5"}`}>
+        <div className={`flex items-center gap-1.5 border-t border-border/60 bg-muted/20 rounded-b-2xl ${isEmpty ? "px-2 py-1" : "px-2 py-1.5"}`}>
           <input
             ref={fileRef}
             type="file"
@@ -556,7 +556,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             aria-label="Mask sensitive details"
             title="Mask emails, phone numbers, and your own terms before sending"
             aria-expanded={redactOpen}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <ShieldCheck className="h-4 w-4" />
           </button>
@@ -565,7 +565,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             onClick={() => fileRef.current?.click()}
             aria-label="Add a document"
             title={`PDF, DOCX, or TXT — uploading a document costs ${UPLOAD_CREDITS} credits`}
-            className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border border-input bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-input bg-card px-3 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           >
             <FileUp className="h-3.5 w-3.5" />
             <span className="hidden min-[420px]:inline">Add a document</span>
@@ -580,7 +580,7 @@ export function Composer({ threadId, auditId, onMessageSent, prefill }: Composer
             </span>
           )}
           <div className="ml-auto flex items-center gap-2">
-            <Button size="icon" onClick={() => void handleSubmit()} disabled={!hasContent || sending} aria-label={sending ? "Sending" : "Send"} className="h-11 w-11 rounded-full">
+            <Button size="icon" onClick={() => void handleSubmit()} disabled={!hasContent || sending} aria-label={sending ? "Sending" : "Send"} className="h-9 w-9 rounded-full">
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
             </Button>
           </div>
