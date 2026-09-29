@@ -7,38 +7,38 @@ export function ConnectedWorkflowsSection() {
     {
       num: "01",
       icon: <FileUp className="h-5 w-5 text-amber-600" />,
-      title: "Contract Ingestion & OCR",
-      desc: "Instantly process PDFs, Word documents, and scanned agreements with full layout preservation.",
+      title: "Contract intake",
+      desc: "Paste text or upload PDFs and Word files. The structure your review reasons over is preserved.",
     },
     {
       num: "02",
       icon: <ShieldCheck className="h-5 w-5 text-amber-600" />,
-      title: "Deterministic Rule Verification",
-      desc: "Run deterministic checks against legal rulepacks to eliminate generative AI hallucinations.",
+      title: "Deterministic rule verification",
+      desc: "Checks run against legal rulepacks. Where evidence is thin, findings read unknown instead of guessed.",
     },
     {
       num: "03",
       icon: <Scale className="h-5 w-5 text-amber-600" />,
-      title: "Clause-Level Risk Scoring",
-      desc: "Every clause is scored for severity and backed by exact source quotations and exposure rationale.",
+      title: "Clause-level risk grading",
+      desc: "Findings carry severity grades backed by exact source quotations and exposure rationale.",
     },
     {
       num: "04",
       icon: <PenTool className="h-5 w-5 text-amber-600" />,
-      title: "Autonomous Redline Drafting",
-      desc: "Generate balanced, lawyer-grade counter-language pre-approved for your commercial interests.",
+      title: "Assisted redline drafting",
+      desc: "Suggested counter-language for your commercial position. You approve every word before it goes out.",
     },
     {
       num: "05",
       icon: <CheckCircle className="h-5 w-5 text-amber-600" />,
-      title: "Frictionless Counterparty E-Sign",
-      desc: "Secure cryptographic signing links allow counterparties to sign without requiring an account.",
+      title: "Counterparty signing",
+      desc: "You sign first, then counterparties sign through a link. No account required on their side.",
     },
     {
       num: "06",
       icon: <BellRing className="h-5 w-5 text-amber-600" />,
-      title: "24/7 Obligation Watchdog",
-      desc: "Automated alerts for notice windows, renewals, milestone commitments, and liability expirations.",
+      title: "Obligation tracking",
+      desc: "Daily digest of approaching renewals and deadlines, delivered by email when Gmail is connected.",
     },
   ]
 
@@ -49,13 +49,13 @@ export function ConnectedWorkflowsSection() {
         {/* Header */}
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">
-            AUTONOMOUS DEAL EXECUTION
+            CONNECTED DEAL WORKFLOWS
           </p>
           <h2 className="mt-3 text-[32px] font-bold tracking-tight text-neutral-900 sm:text-[44px]">
             A full suite of connected workflows, built on AI.
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-neutral-600 sm:text-[16px]">
-            From initial intake and clause extraction to autonomous counter-proposals and post-signature monitoring—all unified on a single cryptographic intelligence ledger.
+            From intake and clause extraction to suggested counter-language and post-signature monitoring, unified on one content-hashed version record.
           </p>
           <div className="mt-6 flex justify-center">
             <Link

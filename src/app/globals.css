@@ -61,11 +61,11 @@
   --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 6px);
   --font-sans: "Mona Sans Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  /* Serif is reserved for document/work content: generated artifacts read
-   * like professional documents (Georgia stack, zero bundle cost), while
-   * every UI control stays Mona Sans. Never use font-serif for chrome. */
-  --font-serif: Georgia, "Times New Roman", Times, serif;
+  --font-mono: "Mona Sans Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Single typeface throughout: every surface, including document/work
+   * content and code-like text, renders Mona Sans. The serif/mono utilities
+   * are kept as aliases so existing classes keep working. */
+  --font-serif: "Mona Sans Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 :root,

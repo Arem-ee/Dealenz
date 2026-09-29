@@ -120,8 +120,8 @@ Do not expand the primary navigation into a CRM-style dashboard.
 ## Visual Language
 
 - One accent color used sparingly (burgundy/oxblood via OKLCH)
-- Plain sans-serif for UI controls, labels, and interface text (Mona Sans Variable)
-- Serif typography for actual document and work content (work should read like a professional artifact)
+- One typeface everywhere: Mona Sans Variable for UI controls, labels, interface
+  text, and document/work content alike
 - Clean, minimal, professional, document/work-oriented
 - No gradients
 - No chatbot sparkle or generic SaaS dashboard aesthetic

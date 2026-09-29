@@ -8,7 +8,7 @@ export function InsightsSection() {
       readTime: "5 min read",
       title: "Why Deterministic Rules Must Overrule Generative AI in Legal Analysis",
       summary:
-        "Large language models alone are probabilistic and prone to hallucinated legal precedents. Discover how Dealenz's dual-engine architecture guarantees 100% verifiable source grounding.",
+        "Large language models alone are probabilistic and can state false legal conclusions with confidence. Dealenz pairs model intelligence with deterministic rules, and reports unknown where evidence is thin.",
       link: "/methodology",
     },
     {
@@ -20,11 +20,11 @@ export function InsightsSection() {
       link: "/methodology",
     },
     {
-      category: "RESEARCH REPORT",
-      readTime: "10 min read",
-      title: "2026 Contract Exposure Index: The Hidden Cost of Passive Obligation Management",
+      category: "ENTERPRISE READINESS",
+      readTime: "6 min read",
+      title: "SSO, Audit Trails, and DPAs: What Enterprise Legal Teams Ask Before Buying",
       summary:
-        "Our analysis of over 1,500 active commercial agreements indicates that 34% of organizations suffer inadvertent auto-renewals due to unmonitored calendar windows.",
+        "The security checklist behind every enterprise contract-software purchase: identity, logging, data residency, and the questions that decide the deal.",
       link: "/methodology",
     },
   ]

@@ -11,8 +11,8 @@ export function CompetitiveAdvantageSection() {
     {
       id: "ingestion",
       label: "INTAKE & INGESTION",
-      title: "Drop in any agreement—PDF, Word, or Scanned Paper",
-      desc: "Our high-precision OCR and document parser extracts structural hierarchy, nested exhibits, and cross-referenced definitions in seconds.",
+      title: "Drop in any agreement: PDF, Word, or plain text",
+      desc: "Our document intake reads PDFs, Word files, and pasted text, preserving the structure and cross-referenced definitions the review engine reasons over.",
       incoming: "Section 3.1: Contractor shall perform unlimited revisions at no additional charge until Client confirms full satisfaction in its sole discretion.",
       analysis: "High Risk · Unbounded Scope: Client retains subjective right to demand infinite cycles, converting fixed-fee contracts into perpetual unpaid obligations.",
       pushback: "Contractor shall provide up to two (2) rounds of revisions included in the fixed fee. Additional iterations shall be billed at the standard hourly rate of $150/hr.",
@@ -28,9 +28,9 @@ export function CompetitiveAdvantageSection() {
     },
     {
       id: "redline",
-      label: "AUTONOMOUS REDLINE",
-      title: "Generate Lawyer-Grade Counter-Language Instantly",
-      desc: "Dealenz drafts surgical pushback in your preferred tone—conservative, standard commercial, or assertive—ready to paste directly into your reply or email thread.",
+      label: "ASSISTED REDLINE",
+      title: "Suggested counter-language, ready to send",
+      desc: "Dealenz drafts pushback in your preferred tone: conservative, standard commercial, or assertive. You review every word before it goes out.",
       incoming: "Section 12.2: Payment is due ninety (90) days following receipt of final uncontested invoice. Customer may withhold up to 30% retention.",
       analysis: "Severe Cash-Flow Risk: Extended Net-90 timeline coupled with discretionary retention severely damages vendor liquidity and operating capital.",
       pushback: "Invoices are payable within thirty (30) days of receipt. Work shall pause if any undisputed invoice remains unpaid past forty-five (45) days.",
@@ -38,11 +38,11 @@ export function CompetitiveAdvantageSection() {
     {
       id: "governance",
       label: "EXECUTION & GOVERNANCE",
-      title: "Secure E-Sign & Post-Signature Obligation Watchdog",
-      desc: "You sign first, then counterparties sign through an encrypted link without creating an account. Post-signature, renewals and notice deadlines are actively monitored.",
+      title: "Sign here, then watch every deadline",
+      desc: "You sign first, then counterparties sign through a link with no account required. After signing, renewals and notice deadlines stay tracked with email alerts.",
       incoming: "Section 15.1: This Agreement auto-renews for consecutive 1-year terms unless written notice is received exactly 60 days prior to the calendar anniversary.",
       analysis: "Auto-Renewal Trap: Strict 60-day notice window creates exposure to inadvertent multi-year lock-in with ongoing annual financial commitments.",
-      pushback: "Automated Watchdog Scheduled: Dealenz records renewal window for October 12, with automated priority alerts sent to your inbox 30 days prior.",
+      pushback: "Tracked: Dealenz records the renewal window for October 12, with email alerts as the deadline approaches.",
     },
   ]
 
@@ -50,8 +50,8 @@ export function CompetitiveAdvantageSection() {
 
   return (
     <section className="relative overflow-hidden bg-[#FAFAF8] py-20 text-neutral-900 lg:py-28">
-      {/* Descending amber connector line from hero */}
-      <div className="absolute left-1/2 top-0 h-16 w-px -translate-x-1/2 bg-gradient-to-b from-amber-500 to-amber-500/20" aria-hidden="true" />
+      {/* Descending connector line from hero */}
+      <div className="absolute left-1/2 top-0 h-16 w-px -translate-x-1/2 bg-amber-500/40" aria-hidden="true" />
       <div className="absolute left-1/2 top-16 h-2 w-2 -translate-x-1/2 rounded-full border border-amber-500 bg-amber-400" aria-hidden="true" />
 
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
@@ -128,18 +128,18 @@ export function CompetitiveAdvantageSection() {
               <div>
                 <div className="flex items-center gap-2 text-emerald-800">
                   <CheckCircle2 className="h-4 w-4" />
-                  <span className="text-[11px] font-bold uppercase tracking-wider">Pre-Approved Counter-Redline</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Suggested Counter-Language</span>
                 </div>
                 <div className="mt-3 rounded-lg border border-emerald-200 bg-white p-4 font-mono text-[12px] leading-relaxed text-neutral-800">
                   &ldquo;{current.pushback}&rdquo;
                 </div>
                 <p className="mt-3 text-[12px] leading-relaxed text-emerald-950">
-                  <strong>Strategic Benefit:</strong> Replaces unilateral liability with reciprocal commercial terms. Ready to copy into email or Word redline.
+                  <strong>Strategic Benefit:</strong> Replaces unilateral liability with reciprocal commercial terms. Ready to copy into email or a Word redline.
                 </p>
               </div>
               <div className="mt-4 flex items-center justify-between text-[11px]">
-                <span className="font-semibold text-emerald-800">Verified by Dealenz Rulepack Engine</span>
-                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 font-bold text-emerald-900">1-Click Apply</span>
+                <span className="font-semibold text-emerald-800">Checked against Dealenz rulepacks</span>
+                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 font-bold text-emerald-900">Illustrative example</span>
               </div>
             </div>
           </div>

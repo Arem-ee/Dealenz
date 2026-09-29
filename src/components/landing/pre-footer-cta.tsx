@@ -45,18 +45,18 @@ export function PreFooterCta() {
         </div>
 
         <p className="mt-4 text-[12px] text-white/50">
-          10 free credits granted immediately · No credit card required · 60-second analysis
+          10 free credits granted on registration · No credit card required
         </p>
 
         {/* Security & Compliance Badges Bar */}
         <div className="mt-12 flex flex-wrap items-center justify-center gap-6 border-t border-white/10 pt-8 text-[12px] font-semibold text-white/60">
           <div className="flex items-center gap-1.5">
             <Lock className="h-4 w-4 text-amber-400" />
-            <span>Bank-Grade AES-256</span>
+            <span>AES-256 encryption</span>
           </div>
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            <span>SOC 2 Type II Certified</span>
+            <span>SOC 2 Type II in progress</span>
           </div>
           <div className="flex items-center gap-1.5">
             <CheckCircle2 className="h-4 w-4 text-blue-400" />

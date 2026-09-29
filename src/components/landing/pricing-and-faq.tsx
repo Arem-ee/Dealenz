@@ -1,29 +1,38 @@
 import Link from "next/link"
 import { Check } from "lucide-react"
+import { CREDIT_PACKAGES, formatPrice, packageValueLines, type Currency } from "@/lib/billing/catalog"
+
+const DISPLAY_CURRENCY: Currency = "USD"
 
 export function PricingAndFaq() {
   const faqs = [
     {
       q: "How does Dealenz differ from generic AI contract tools?",
-      a: "Generic AI tools rely purely on probabilistic token prediction, which causes dangerous legal hallucinations on complex clauses. Dealenz operates a dual-engine architecture: frontier AI extracts terms, but every finding must be validated against deterministic legal rulepacks (Commercial MSAs, Leases, IP Assignment). If there is insufficient source evidence, Dealenz reports it as unknown rather than guessing.",
+      a: "Generic AI tools predict likely text, which fails on complex clauses. Dealenz pairs model intelligence with deterministic legal rulepacks: every finding must be validated against the rules, and where source evidence is thin, Dealenz reports unknown rather than guessing.",
     },
     {
       q: "Can counterparties sign without creating an account?",
-      a: "Yes. Dealenz provides frictionless counterparty signing. You sign first, and the counterparty receives a secure, encrypted link to review and sign without being forced to register, pay, or install any software. Once executed, the agreement locks cryptographically.",
+      a: "Yes. You sign first, then the counterparty receives a link to review and sign without registering, paying, or installing anything. Once fully signed, the agreement locks against further edits.",
     },
     {
       q: "Is Dealenz a replacement for in-house or outside counsel?",
-      a: "No. Dealenz is an intelligence, triage, and negotiation acceleration platform. It catches high-risk clauses in minutes, drafts pre-approved pushback words, and prepares a clean, structured dossier with quoted clause diffs for outside counsel when high-stakes human sign-off is needed.",
+      a: "No. Dealenz is an intelligence, triage, and negotiation-acceleration platform. It surfaces high-risk clauses in minutes, drafts suggested pushback, and prepares a structured handoff with quoted clauses for outside counsel when high-stakes human sign-off is needed.",
     },
     {
-      q: "How does the post-signature obligation watchdog work?",
-      a: "Dealenz extracts key milestone obligations, liability caps, notice windows, and auto-renewal dates from your executed agreements. By syncing with Gmail or Outlook, it automatically delivers alert notifications 30, 60, or 90 days before deadlines occur, preventing unintended auto-renewals.",
+      q: "How do post-signature reminders work?",
+      a: "Dealenz pulls dated obligations out of the signed text and runs a daily check. Deadlines due within 7 days land in a digest delivered by email when Gmail is connected. Undated obligations stay visible with no invented dates.",
     },
     {
-      q: "How is our sensitive contract data secured and isolated?",
-      a: "Dealenz offers in-browser client-side masking so you can scrub sensitive counterparties, rates, and personal data before transmission. All platform databases are hosted in the European Union with AES-256 encryption at rest and in transit, zero third-party advertising tracking, and SOC 2 Type II compliance.",
+      q: "How is our contract data secured?",
+      a: "Mask sensitive details in your browser before anything is sent. Databases are EU-hosted with AES-256 encryption at rest and TLS in transit, advertising trackers are absent, and a SOC 2 Type II audit of our controls is in progress.",
+    },
+    {
+      q: "Do you offer SSO, a DPA, or an API for our legal team?",
+      a: "Enterprise plans include SAML SSO, a signed data processing agreement, audit-log export, and API access. These ship with the enterprise tier: start a conversation and we will scope them to your review.",
     },
   ]
+
+  const [starter, standard, pro] = CREDIT_PACKAGES
 
   return (
     <>
@@ -38,12 +47,12 @@ export function PricingAndFaq() {
               Pay per deal outcome. No subscription lock-in.
             </h2>
             <p className="mt-4 text-[15px] leading-relaxed text-neutral-600 sm:text-[16px]">
-              Every account starts with 10 free credits to analyze your first two contracts.
-              Purchase additional credits on-demand as your deal flow demands.
+              Every account starts with 10 free credits for your first two deal analyses.
+              Top up with credit packs when you need them. Credits never expire into a subscription.
             </p>
           </div>
 
-          <div className="mt-14 grid gap-8 md:grid-cols-3">
+          <div className="mt-14 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
             {/* Free Tier */}
             <div className="flex flex-col justify-between rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
               <div>
@@ -52,28 +61,28 @@ export function PricingAndFaq() {
                 </span>
                 <div className="mt-4 flex items-baseline gap-1">
                   <span className="text-[40px] font-bold tracking-tight text-neutral-900">$0</span>
-                  <span className="text-[13px] text-neutral-500">/ forever free</span>
+                  <span className="text-[13px] text-neutral-500">/ 10 free credits</span>
                 </div>
                 <p className="mt-2 text-[13px] text-neutral-600">
-                  10 free credits upon account registration. Covers your first two complete deal audits.
+                  Granted on registration. Covers your first two complete deal analyses.
                 </p>
 
                 <ul className="mt-6 space-y-3 text-[13px] text-neutral-700">
                   <li className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-emerald-600" />
-                    <span>2 Full Contract Risk Audits</span>
+                    <span>2 full deal analyses</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-emerald-600" />
-                    <span>Lawyer-Grade Counter-Drafts</span>
+                    <span>Suggested counter-language</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-emerald-600" />
-                    <span>Frictionless Counterparty E-Sign</span>
+                    <span>Counterparty signing</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-emerald-600" />
-                    <span>In-Browser Privacy Masking</span>
+                    <span>In-browser privacy masking</span>
                   </li>
                 </ul>
               </div>
@@ -88,98 +97,61 @@ export function PricingAndFaq() {
               </div>
             </div>
 
-            {/* Standard Tier (Featured) */}
-            <div className="relative flex flex-col justify-between rounded-2xl border-2 border-amber-500 bg-white p-8 shadow-xl">
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-3 py-0.5 text-[10px] font-extrabold tracking-wider text-neutral-950 uppercase">
-                Most Popular for Active Deals
-              </span>
-
-              <div>
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold tracking-wider text-amber-900 uppercase">
-                  Growth Pack
-                </span>
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-[40px] font-bold tracking-tight text-neutral-900">$49</span>
-                  <span className="text-[13px] text-neutral-500">/ 50 credits</span>
-                </div>
-                <p className="mt-2 text-[13px] text-neutral-600">
-                  Ideal for teams actively negotiating commercial agreements, leases, and vendor MSAs.
-                </p>
-
-                <ul className="mt-6 space-y-3 text-[13px] text-neutral-700">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-600" />
-                    <span>10 Full Contract Audits & Redlines</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-600" />
-                    <span>All Deterministic Rulepacks Included</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-600" />
-                    <span>Continuous Obligation Watchdog Alerts</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-600" />
-                    <span>Exportable Outside Counsel Dossiers</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mt-8">
-                <Link
-                  href="/register"
-                  className="inline-flex h-11 w-full items-center justify-center rounded-full bg-neutral-900 text-[13px] font-bold text-white shadow-md transition-transform hover:bg-neutral-800 active:scale-95"
+            {/* Credit packs from the live catalog */}
+            {[
+              { pkg: starter, name: "Starter", blurb: "For occasional deals and single agreements.", featured: false },
+              { pkg: standard, name: "Standard", blurb: "For active pipelines and repeat negotiations.", featured: true },
+              { pkg: pro, name: "Pro", blurb: "For heavy deal flow and portfolio tracking.", featured: false },
+            ].map(({ pkg, name, blurb, featured }) => (
+              pkg && (
+                <div
+                  key={pkg.id}
+                  className={`relative flex flex-col justify-between rounded-2xl bg-white p-8 ${featured ? "border-2 border-amber-500 shadow-xl" : "border border-neutral-200 shadow-sm"}`}
                 >
-                  Get Growth Pack
-                </Link>
-              </div>
-            </div>
-
-            {/* Enterprise Tier */}
-            <div className="flex flex-col justify-between rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
-              <div>
-                <span className="rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-bold tracking-wider text-neutral-700 uppercase">
-                  Scale & Portfolio
-                </span>
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-[40px] font-bold tracking-tight text-neutral-900">$149</span>
-                  <span className="text-[13px] text-neutral-500">/ 200 credits</span>
+                  {featured && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-3 py-0.5 text-[10px] font-extrabold tracking-wider text-neutral-950 uppercase">
+                      For Active Pipelines
+                    </span>
+                  )}
+                  <div>
+                    <span className={`rounded-full px-3 py-1 text-[11px] font-bold tracking-wider uppercase ${featured ? "bg-amber-100 text-amber-900" : "bg-neutral-100 text-neutral-700"}`}>
+                      {name}
+                    </span>
+                    <div className="mt-4 flex items-baseline gap-1">
+                      <span className="text-[40px] font-bold tracking-tight text-neutral-900">{formatPrice(pkg.prices[DISPLAY_CURRENCY], DISPLAY_CURRENCY)}</span>
+                      <span className="text-[13px] text-neutral-500">/ {pkg.credits} credits</span>
+                    </div>
+                    <p className="mt-2 text-[13px] text-neutral-600">{blurb}</p>
+                    <ul className="mt-6 space-y-3 text-[13px] text-neutral-700">
+                      {packageValueLines(pkg.credits).map((line) => (
+                        <li key={line} className="flex items-center gap-2">
+                          <Check className="h-4 w-4 text-emerald-600" />
+                          <span className="capitalize">{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="mt-8">
+                    <Link
+                      href="/register"
+                      className={`inline-flex h-11 w-full items-center justify-center rounded-full text-[13px] font-bold transition-transform active:scale-95 ${featured ? "bg-neutral-900 text-white shadow-md hover:bg-neutral-800" : "border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-50"}`}
+                    >
+                      Get {name}
+                    </Link>
+                  </div>
                 </div>
-                <p className="mt-2 text-[13px] text-neutral-600">
-                  Designed for heavy deal flow, multi-entity holdings, and institutional deal governance.
-                </p>
-
-                <ul className="mt-6 space-y-3 text-[13px] text-neutral-700">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-600" />
-                    <span>40 Full Contract Audits & Redlines</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-600" />
-                    <span>Priority Processing & OCR Speed</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-600" />
-                    <span>Multi-Corridor CAMA & Cross-Border Rules</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-600" />
-                    <span>Dedicated Integration Support</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mt-8">
-                <Link
-                  href="/register"
-                  className="inline-flex h-11 w-full items-center justify-center rounded-full border border-neutral-300 bg-white text-[13px] font-bold text-neutral-900 transition-colors hover:bg-neutral-50"
-                >
-                  Buy Scale Credits
-                </Link>
-              </div>
-            </div>
+              )
+            ))}
           </div>
+
+          <p className="mx-auto mt-8 max-w-3xl text-center text-[13px] text-neutral-600">
+            Running an enterprise legal function? SSO, a signed DPA, audit-log export, and API
+            access ship with the enterprise tier.{" "}
+            <Link href="/register" className="font-semibold text-neutral-900 underline underline-offset-2 hover:text-amber-800">
+              Talk to us
+            </Link>
+            .
+          </p>
         </div>
       </section>
 

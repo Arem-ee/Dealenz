@@ -155,8 +155,8 @@ Do not expand primary nav into a CRM (no lead stages, funnels, scoring, pipeline
 ## Visual Language
 
 - **Accent:** one burgundy/oxblood (OKLCH) used sparingly; risk-severity palette is separate
-- **UI text:** plain sans-serif (Mona Sans Variable via `@fontsource-variable/mona-sans`) for controls, labels, interface
-- **Work content:** serif typography for actual document and work content so output reads like a professional artifact
+- **UI text:** Mona Sans Variable, everywhere including work content and code-like text
+  (single typeface; the serif/mono utilities remain as aliases)
 - **Aesthetic:** clean, minimal, professional, document/work-oriented
 - **Prohibited:** gradients, chatbot sparkle, generic SaaS dashboard chrome, unnecessary visual noise
 

@@ -26,9 +26,6 @@ export function HeroContractCard() {
     <div className="relative mx-auto w-full max-w-4xl pt-6">
       {/* Warm Parchment / Canvas Wrapper Frame matching Agiloft hero preview */}
       <div className="relative rounded-2xl border border-amber-900/30 bg-[#161412] p-2.5 shadow-[0_32px_90px_-20px_rgba(0,0,0,0.85)] sm:p-4">
-        
-        {/* Subtle glowing amber backdrop edge */}
-        <div className="pointer-events-none absolute -inset-0.5 rounded-2xl bg-gradient-to-b from-amber-500/20 via-transparent to-amber-500/10 opacity-60 blur-sm" />
 
         {/* Inner Canvas Container */}
         <div className="relative overflow-hidden rounded-xl border border-neutral-200/20 bg-[#F9F7F2] text-neutral-900 shadow-inner">
@@ -49,7 +46,7 @@ export function HeroContractCard() {
                   </span>
                 </div>
                 <p className="text-[11px] text-neutral-500">
-                  Counterparty: Global Systems Inc. · Governed by Delaware & CAMA Rulepack v4.2
+                  Counterparty: Global Systems Inc. · Checked against Delaware & CAMA rulepacks
                 </p>
               </div>
             </div>
@@ -159,7 +156,7 @@ export function HeroContractCard() {
                         Recommended Counter-Words
                       </span>
                       <span className="text-[12px] font-semibold text-emerald-900">
-                        Lawyer-grade mutual redline ready to copy
+                        Suggested counter-language, ready to copy
                       </span>
                     </div>
                     <button
@@ -196,9 +193,9 @@ export function HeroContractCard() {
             {activeTab === "redline" && (
               <div className="space-y-3 font-mono text-[12px]">
                 <div className="rounded-lg border border-neutral-200 bg-white p-4 leading-relaxed">
-                  <p className="text-neutral-500 font-sans text-[11px] font-semibold uppercase tracking-wider">
-                    Automated Dealenz Redline Output — Ready for Word &amp; Google Docs
-                  </p>
+                    <p className="text-neutral-500 font-sans text-[11px] font-semibold uppercase tracking-wider">
+                      Suggested Dealenz counter-language — ready to copy into Word or email
+                    </p>
                   <p className="mt-2 text-red-700 line-through">
                     - Vendor shall unconditionally indemnify Customer without financial cap.
                   </p>
@@ -220,7 +217,7 @@ export function HeroContractCard() {
                 <div className="rounded-lg border border-neutral-200 bg-white p-3">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-neutral-800">Deterministic Engine Verification</span>
-                    <span className="text-[11px] font-mono text-emerald-600">PASS (0 Hallucinations)</span>
+                    <span className="text-[11px] font-mono text-emerald-600">Rules checked · sources cited</span>
                   </div>
                   <p className="mt-1 text-neutral-500">
                     Validated against US Delaware Commercial Code & International Cross-Border Deal Rulepack.

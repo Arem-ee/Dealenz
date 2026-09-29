@@ -19,7 +19,7 @@ import { LandingFooter } from "@/components/landing/landing-footer"
 export const metadata = {
   title: "Dealenz — Enterprise Contract & Deal Intelligence Platform",
   description:
-    "Turn contracts into strategic intelligence. Dealenz extracts risk, enforces deterministic playbooks, automates counter-drafts, and guards contractual obligations.",
+    "Turn contracts into strategic intelligence. Dealenz reviews agreements against deterministic rulepacks, drafts counter-language, and guards renewal and obligation deadlines.",
 }
 
 const softwareSchema = {
@@ -63,16 +63,13 @@ export default function Home() {
 
             {/* Main Headline matching Agiloft commanding visual stature */}
             <h1 className="mx-auto mt-6 max-w-4xl text-[36px] font-bold leading-[1.08] tracking-tight text-white sm:text-[54px] lg:text-[64px]">
-              Turn Contracts into Business Intelligence With{" "}
-              <span className="bg-gradient-to-r from-white via-amber-100 to-amber-400 bg-clip-text text-transparent">
-                AI Deal Management.
-              </span>
+              Turn Contracts into Business Intelligence With AI Deal Management.
             </h1>
 
             {/* Subtitle */}
             <p className="mx-auto mt-6 max-w-2xl text-[15px] leading-relaxed text-white/75 sm:text-[17px]">
-              The enterprise contract platform that gives you critical actionable intelligence across every
-              deal you touch—extracting hidden liabilities, enforcing deterministic rulepacks, and guarding obligations.
+              The contract platform that reviews every deal against deterministic rulepacks,
+              drafts counter-language you can send, and watches renewal and obligation deadlines after signing.
             </p>
 
             {/* Dual CTAs */}
@@ -100,17 +97,20 @@ export default function Home() {
               </span>
               <span className="flex items-center gap-1.5">
                 <Cpu className="h-4 w-4 text-amber-400" />
-                Autonomous Risk Scoring
+                Deterministic Risk Scoring
               </span>
               <span className="flex items-center gap-1.5">
                 <BellRing className="h-4 w-4 text-amber-400" />
-                24/7 Obligation Watchdog
+                Renewal & Obligation Monitoring
               </span>
             </div>
 
             {/* Hero Asset: Floating Warm Canvas Contract Review Console */}
             <div id="platform" className="mt-8">
               <HeroContractCard />
+              <p className="mx-auto mt-3 max-w-4xl text-center text-[11px] text-white/40">
+                Illustrated example. A freelance analysis can produce this exact report, with every finding traced to its source clause.
+              </p>
             </div>
 
           </div>

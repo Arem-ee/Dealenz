@@ -13,14 +13,14 @@ export function IndustryCarousel() {
       tag: "IP & MSA GOVERNANCE",
       desc: "Audit vendor master services agreements, warranty disclaimers, and data protection addendums without weeks of back-and-forth.",
       image: "/founder.jpg",
-      highlight: "Enforces mutual liability caps & IP preservation",
+      highlight: "Pushes for mutual liability caps and IP preservation",
     },
     {
       title: "Professional Services & Agencies",
       tag: "SCOPE & BILLING DEFENSE",
       desc: "Cap revision loops, lock in staged payment milestones, and ensure deliverable ownership transfers only after final invoice settlement.",
       image: "/hidden-clause.jpg",
-      highlight: "Eliminates scope creep on fixed-fee engagements",
+      highlight: "Flags scope creep on fixed-fee engagements",
     },
     {
       title: "Commercial Real Estate & Leases",
@@ -98,7 +98,7 @@ export function IndustryCarousel() {
                   fill
                   className="object-cover filter grayscale contrast-125 brightness-95 transition-transform duration-700 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/80 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-neutral-950/25" />
                 <span className="absolute bottom-3 left-4 rounded-md bg-white/90 px-2.5 py-1 text-[10px] font-bold tracking-wider text-neutral-900 uppercase backdrop-blur-xs">
                   {ind.tag}
                 </span>
