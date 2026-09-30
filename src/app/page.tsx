@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight, ShieldCheck, Cpu, BellRing } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { SiteHeader } from "@/components/landing/site-header"
 import { HeroMockup } from "@/components/landing/hero-mockup"
 import { TrustStrip } from "@/components/landing/trust-strip"
@@ -63,21 +63,6 @@ export default function Home() {
               <Link href="#platform" className="btn-ghost-dark">
                 <span>Explore Platform</span>
               </Link>
-            </div>
-
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px] font-semibold text-white/60">
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-white" />
-                Deterministic Rule Engine
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Cpu className="h-4 w-4 text-white" />
-                Deterministic Risk Scoring
-              </span>
-              <span className="flex items-center gap-1.5">
-                <BellRing className="h-4 w-4 text-white" />
-                Renewal & Obligation Monitoring
-              </span>
             </div>
 
             <div id="platform" className="mt-8">

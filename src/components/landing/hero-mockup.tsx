@@ -1,6 +1,6 @@
 export function HeroMockup() {
   return (
-    <div className="mx-auto w-full max-w-3xl">
+    <div className="mx-auto w-full max-w-5xl">
       <div className="overflow-hidden rounded-none border border-white/10 bg-white text-neutral-900">
         <div className="flex items-center justify-between border-b border-neutral-200 bg-paper px-5 py-3">
           <p className="text-[13px] font-semibold">Master Services Agreement</p>
