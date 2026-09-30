@@ -160,11 +160,15 @@ export function EarthGlobe() {
       const radius = side * 0.36
       const cx = side / 2
       const cy = side / 2
+      // Fixed key light from the upper left sculpts the spherical volume.
+      const lx = -0.55
+      const ly = -0.65
+      const lz = 0.52
       ctx.clearRect(0, 0, side, side)
 
       ctx.beginPath()
       ctx.arc(cx, cy, radius, 0, Math.PI * 2)
-      ctx.strokeStyle = "rgba(10,11,13,0.18)"
+      ctx.strokeStyle = "rgba(10,11,13,0.28)"
       ctx.lineWidth = 1
       ctx.stroke()
 
@@ -172,13 +176,22 @@ export function EarthGlobe() {
         const p = project(d.lon, d.lat, radius, cx, cy)
         if (p.z < -0.08) continue
         const depth = Math.max(0, Math.min(1, (p.z + 0.08) / 1.08))
-        const r = (d.land ? 1.1 : 0.8) + depth * (d.land ? 1.1 : 0.7)
+        // Diffuse term from the dot's rotated surface normal.
+        const lambda = ((d.lon + rot.lon) * Math.PI) / 180
+        const phi = (d.lat * Math.PI) / 180
+        const nx = Math.cos(phi) * Math.sin(lambda)
+        const ny0 = Math.sin(phi)
+        const nz0 = Math.cos(phi) * Math.cos(lambda)
+        const ny = ny0 * Math.cos(TILT) - nz0 * Math.sin(TILT)
+        const nz = ny0 * Math.sin(TILT) + nz0 * Math.cos(TILT)
+        const shade = Math.max(0.12, nx * lx + -ny * ly + nz * lz)
+        const r = (d.land ? 0.7 : 0.55) + depth * (d.land ? 2.1 : 1.2)
         if (d.land) {
-          ctx.fillStyle = `rgba(4,120,87,${0.3 + depth * 0.65})`
+          ctx.fillStyle = `rgba(4,120,87,${(0.18 + depth * 0.82) * (0.35 + 0.65 * shade)})`
         } else {
           ctx.fillStyle = mapsReady
-            ? `rgba(10,11,13,${0.05 + depth * 0.1})`
-            : `rgba(10,11,13,${0.08 + depth * 0.16})`
+            ? `rgba(10,11,13,${(0.03 + depth * 0.09) * (0.4 + 0.6 * shade)})`
+            : `rgba(10,11,13,${(0.05 + depth * 0.14) * (0.4 + 0.6 * shade)})`
         }
         ctx.beginPath()
         ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
@@ -199,8 +212,12 @@ export function EarthGlobe() {
         ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2)
         ctx.fillStyle = "#059669"
         ctx.fill()
-        ctx.fillStyle = "rgba(28,25,23,0.85)"
-        ctx.fillText(n.label, p.x + 9, p.y + 4)
+        const label = n.label
+        const w = ctx.measureText(label).width
+        ctx.fillStyle = "rgba(247,246,243,0.85)"
+        ctx.fillRect(p.x + 5, p.y - 5, w + 8, 15)
+        ctx.fillStyle = "rgba(28,25,23,0.9)"
+        ctx.fillText(label, p.x + 9, p.y + 6)
       }
     }
 

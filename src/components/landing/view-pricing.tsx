@@ -38,7 +38,7 @@ export function ViewPricing() {
   }, [])
 
   return (
-    <section ref={bandRef} className="bg-ink py-20 text-white lg:py-28">
+    <section ref={bandRef} className="bg-ink py-28 text-white lg:py-40">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
           <h2 data-reveal className="display-h mt-0 text-[30px] text-white sm:text-[40px]">

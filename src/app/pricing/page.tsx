@@ -40,7 +40,7 @@ export default function PricingPage() {
 
   return (
     <main className="min-h-screen bg-paper text-neutral-900">
-      <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-24">
+      <div className="mx-auto max-w-6xl px-6 py-24 lg:px-8 lg:py-32">
         <Link href="/" className="text-[13px] font-medium text-neutral-500 hover:text-neutral-900">
           Back to Dealenz
         </Link>

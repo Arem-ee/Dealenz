@@ -40,7 +40,7 @@ export function Comparison() {
   ]
 
   return (
-    <section id="solutions" className="bg-paper py-20 text-neutral-900 lg:py-28">
+    <section id="solutions" className="bg-paper py-28 text-neutral-900 lg:py-40">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="display-h text-[30px] leading-[1.12] text-neutral-900 sm:text-[40px]">
@@ -52,7 +52,7 @@ export function Comparison() {
           </p>
         </div>
 
-        <div className="mx-auto mt-10 max-w-5xl overflow-x-auto border border-neutral-900 bg-white">
+        <div className="mx-auto mt-14 max-w-5xl overflow-x-auto border border-neutral-900 bg-white">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead>
               <tr className="bg-pine-900 text-[11px] uppercase tracking-[0.08em] text-white">

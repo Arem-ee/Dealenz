@@ -8,8 +8,8 @@ export function HeroMockup() {
             2 risks found
           </span>
         </div>
-        <div className="space-y-3 p-5">
-          <div className="rounded-none border border-neutral-200 p-4">
+        <div className="space-y-4 p-7">
+          <div className="rounded-none border border-neutral-200 p-5">
             <div className="flex items-center gap-2">
               <span className="rounded-none bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                 Critical

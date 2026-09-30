@@ -3,7 +3,7 @@ import { ArrowRight } from "lucide-react"
 
 export function FinalCta() {
   return (
-    <section className="bg-ink py-20 text-center text-white lg:py-28">
+    <section className="bg-ink py-28 text-center text-white lg:py-40">
       <div className="mx-auto max-w-4xl px-6 lg:px-8">
         <h2 className="display-h mx-auto max-w-2xl text-[34px] leading-[1.1] text-white sm:text-[48px]">
           Stop managing contracts. Start leveraging them.

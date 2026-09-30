@@ -5,7 +5,7 @@ import { Mail } from "lucide-react"
 export function SiteFooter() {
   return (
     <footer className="relative overflow-hidden bg-[#07080B] text-white">
-      <div className="relative z-10 mx-auto max-w-6xl px-6 pt-16 pb-12 lg:px-8">
+      <div className="relative z-10 mx-auto max-w-6xl px-6 pt-24 pb-16 lg:px-8">
         <div className="grid gap-10 border-b border-white/10 pb-16 sm:grid-cols-2 lg:grid-cols-12 lg:gap-12">
 
           <div className="lg:col-span-4">

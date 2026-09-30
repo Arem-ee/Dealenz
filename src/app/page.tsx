@@ -44,7 +44,7 @@ export default function Home() {
       <SiteHeader />
 
       <main>
-        <section className="relative overflow-hidden pt-12 pb-20 lg:pt-20 lg:pb-28">
+        <section className="relative overflow-hidden pt-20 pb-28 lg:pt-28 lg:pb-40">
           <div className="relative z-10 mx-auto max-w-6xl px-6 text-center lg:px-8">
 
             <h1 className="display-h mx-auto mt-2 max-w-3xl text-balance text-[36px] leading-[1.08] text-white sm:text-[54px] lg:text-[64px]">

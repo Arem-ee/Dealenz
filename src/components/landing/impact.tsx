@@ -8,8 +8,8 @@ export function Impact() {
   ]
 
   return (
-    <section className="bg-ink py-20 text-white lg:py-28">
-      <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
+    <section className="bg-ink py-28 text-white lg:py-40">
+      <div className="mx-auto grid max-w-6xl items-center gap-14 px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
         <div>
           <h2 className="display-h text-[30px] leading-[1.12] text-white sm:text-[40px]">
             Track corporate value from each deal.
@@ -21,7 +21,7 @@ export function Impact() {
         </div>
 
         <div>
-          <div className="border border-white/20 bg-white/[0.03] p-5">
+          <div className="border border-white/20 bg-white/[0.03] p-7">
             <div className="flex items-center gap-2 text-pine-400">
               <BellRing className="h-4 w-4" />
               <p className="text-[11px] font-bold uppercase tracking-wider">Upcoming deadlines</p>

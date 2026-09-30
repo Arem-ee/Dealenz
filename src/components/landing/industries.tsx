@@ -42,7 +42,7 @@ const INDUSTRIES = [
 
 export function Industries() {
   return (
-    <section className="bg-paper py-20 text-neutral-900 lg:py-28">
+    <section className="bg-paper py-28 text-neutral-900 lg:py-40">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="max-w-3xl">
           <h2 className="display-h mt-0 text-[30px] text-neutral-900 sm:text-[40px]">
@@ -50,7 +50,7 @@ export function Industries() {
           </h2>
         </div>
 
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {INDUSTRIES.map((ind) => (
             <Link
               key={ind.slug}
@@ -71,7 +71,7 @@ export function Industries() {
                 </span>
               </div>
 
-              <div className="flex flex-1 flex-col p-5">
+              <div className="flex flex-1 flex-col p-6">
                 <h3 className="display-h text-[17px] text-neutral-900">{ind.title}</h3>
                 <p className="mt-2 text-[13px] leading-relaxed text-neutral-600">{ind.desc}</p>
                 <p className="mt-3 border-t border-neutral-100 pt-3 text-[11px] font-semibold text-pine-700">

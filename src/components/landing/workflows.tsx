@@ -2,8 +2,8 @@ import { EarthGlobe } from "@/components/landing/earth-globe"
 
 export function Workflows() {
   return (
-    <section className="bg-paper py-20 text-neutral-900 lg:py-28">
-      <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
+    <section className="bg-paper py-28 text-neutral-900 lg:py-40">
+      <div className="mx-auto grid max-w-6xl items-center gap-14 px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
         <div>
           <h2 className="display-h text-[30px] leading-[1.12] text-neutral-900 sm:text-[40px]">
             Experience every solution worldwide under a unified contract
