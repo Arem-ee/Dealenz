@@ -21,7 +21,7 @@ const NODES: EcoNode[] = [
 
 const DOT_COUNT = 1500
 const TILT = (23.4 * Math.PI) / 180
-const BASE_SPIN = 0.0016
+const BASE_SPIN = 0.0028
 
 function inRing(lon: number, lat: number, ring: LonLat[]): boolean {
   let inside = false
@@ -140,7 +140,7 @@ export function EarthGlobe() {
     function sizeCanvas() {
       const rect = wrap.getBoundingClientRect()
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      const side = Math.max(340, Math.min(rect.width, 860))
+      const side = Math.max(300, Math.min(rect.width, 600))
       canvas.width = Math.floor(side * dpr)
       canvas.height = Math.floor(side * dpr)
       canvas.style.width = `${side}px`

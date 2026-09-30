@@ -55,9 +55,9 @@ export default function Home() {
             <path d="M -20 160 L -20 110 Q -20 60 40 60 L 220 60" stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
             <path d="M 1460 160 L 1460 110 Q 1460 60 1400 60 L 1220 60" stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
           </svg>
-          <div className="relative z-10 mx-auto max-w-6xl px-6 text-center lg:px-8">
+          <div className="relative z-10 mx-auto max-w-7xl px-6 text-center lg:px-8">
 
-            <h1 className="display-h mx-auto max-w-6xl text-balance text-[36px] leading-[1.14] text-white sm:text-[56px] sm:leading-[1.12] lg:text-[64px]" aria-label="Harness automated deal intelligence to turn contracts into a strategic advantage.">
+            <h1 className="display-h mx-auto max-w-7xl text-balance text-[38px] leading-[1.14] text-white/90 sm:text-[64px] sm:leading-[1.12] lg:text-[84px]" aria-label="Harness automated deal intelligence to turn contracts into a strategic advantage.">
               <span className="block">Harness automated deal</span>
               <span className="block">intelligence to turn contracts</span>
               <span className="block">into a strategic advantage.</span>

@@ -76,6 +76,7 @@ export function SiteFooter() {
               <li><Link href="/register" className="transition-colors hover:text-white">Create Account</Link></li>
               <li><Link href="/privacy" className="transition-colors hover:text-white">Privacy Policy</Link></li>
               <li><Link href="/terms" className="transition-colors hover:text-white">Terms of Service</Link></li>
+              <li><Link href="/terms-policies" className="transition-colors hover:text-white">Terms & Policies Directory</Link></li>
             </ul>
           </div>
 

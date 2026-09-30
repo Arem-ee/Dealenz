@@ -6,7 +6,7 @@ export function FinalCta() {
     <section className="bg-ink py-28 text-center text-white lg:py-40">
       <div className="mx-auto max-w-4xl px-6 lg:px-8">
         <h2 className="display-h mx-auto max-w-2xl text-[34px] leading-[1.1] text-white sm:text-[48px]">
-          Stop managing contracts. Start leveraging them.
+          From passive administration to active commercial advantage.
         </h2>
         <p className="mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-white/70 sm:text-[17px]">
           Upload their paper and see what your deal really says.
