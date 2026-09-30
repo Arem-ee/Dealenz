@@ -57,8 +57,11 @@ export default function Home() {
           </svg>
           <div className="relative z-10 mx-auto max-w-6xl px-6 text-center lg:px-8">
 
-            <h1 className="display-h mx-auto max-w-5xl text-balance text-[44px] leading-[1.14] text-white sm:text-[76px] sm:leading-[1.12] lg:text-[92px]">
-              Turn Contracts into Strategic Intelligence with AI Deal Management.
+            <h1 className="display-h mx-auto max-w-5xl text-balance text-[44px] leading-[1.14] text-white sm:text-[76px] sm:leading-[1.12] lg:text-[92px]" aria-label="Harness automated deal intelligence to turn contracts into a strategic advantage.">
+              <span className="block">Harness automated deal</span>
+              <span className="block">intelligence to turn</span>
+              <span className="block">contracts into a</span>
+              <span className="block">strategic advantage.</span>
             </h1>
 
             <p className="mx-auto mt-6 max-w-2xl text-[15px] leading-relaxed text-white/75 sm:text-[17px]">
