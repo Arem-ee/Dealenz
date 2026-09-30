@@ -1,12 +1,11 @@
 import Link from "next/link"
-import { ArrowRight, ShieldCheck, Cpu, BellRing, Sparkles } from "lucide-react"
+import { ArrowRight, ShieldCheck, Cpu, BellRing } from "lucide-react"
 import { SiteHeader } from "@/components/landing/site-header"
 import { HeroMockup } from "@/components/landing/hero-mockup"
 import { TrustStrip } from "@/components/landing/trust-strip"
 import { Advantage } from "@/components/landing/advantage"
 import { Impact } from "@/components/landing/impact"
 import { Comparison } from "@/components/landing/comparison"
-import { Integrations } from "@/components/landing/integrations"
 import { Workflows } from "@/components/landing/workflows"
 import { Industries } from "@/components/landing/industries"
 import { ViewPricing } from "@/components/landing/view-pricing"
@@ -48,12 +47,7 @@ export default function Home() {
         <section className="relative overflow-hidden pt-12 pb-20 lg:pt-20 lg:pb-28">
           <div className="relative z-10 mx-auto max-w-6xl px-6 text-center lg:px-8">
 
-            <p className="eyebrow inline-flex items-center gap-2 text-pine-400">
-              <Sparkles className="h-3 w-3" />
-              <span>ENTERPRISE CONTRACT & DEAL INTELLIGENCE</span>
-            </p>
-
-            <h1 className="display-h mx-auto mt-6 max-w-3xl text-balance text-[36px] leading-[1.08] text-white sm:text-[54px] lg:text-[64px]">
+            <h1 className="display-h mx-auto mt-2 max-w-3xl text-balance text-[36px] leading-[1.08] text-white sm:text-[54px] lg:text-[64px]">
               Turn Contracts into Strategic Intelligence with AI Deal Management.
             </h1>
 
@@ -103,8 +97,6 @@ export default function Home() {
         <Impact />
 
         <Comparison />
-
-        <Integrations />
 
         <Workflows />
 

@@ -14,7 +14,7 @@ export function TrustStrip() {
   return (
     <section className="relative z-10 border-y border-white/10 bg-ink py-8 text-white">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
-        <p className="eyebrow text-center text-white/50">
+        <p className="text-center text-[12px] text-white/40">
           Built for teams who sign for a living
         </p>
 

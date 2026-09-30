@@ -41,7 +41,7 @@ export default async function InsightGuidePage({ params }: { params: Promise<{ s
         <Link href="/" className="text-[13px] font-medium text-neutral-500 hover:text-neutral-900">
           Back to Dealenz
         </Link>
-        <p className="eyebrow mt-8 text-pine-700">{guide.tag}</p>
+        <p className="mt-8 text-[13px] font-medium text-pine-700">{guide.tag}</p>
         <h1 className="display-h mt-3 text-[32px] leading-[1.1] sm:text-[44px]">{guide.title}</h1>
         <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-neutral-600">{guide.desc}</p>
 

@@ -41,10 +41,7 @@ export function ViewPricing() {
     <section ref={bandRef} className="bg-ink py-20 text-white lg:py-28">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
-          <p data-reveal className="eyebrow text-pine-400">
-            PRICING
-          </p>
-          <h2 data-reveal className="display-h mt-3 text-[30px] text-white sm:text-[40px]">
+          <h2 data-reveal className="display-h mt-0 text-[30px] text-white sm:text-[40px]">
             Pay per deal outcome. No subscription lock-in.
           </h2>
           <p data-reveal className="mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-white/70">

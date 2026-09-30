@@ -46,8 +46,7 @@ export default function PricingPage() {
         </Link>
 
         <div className="mx-auto mt-8 max-w-3xl text-center">
-          <p className="eyebrow text-pine-700">PRICING</p>
-          <h1 className="display-h mt-3 text-[32px] text-neutral-900 sm:text-[44px]">
+          <h1 className="display-h text-[32px] text-neutral-900 sm:text-[44px]">
             Pay per deal outcome. No subscription lock-in.
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-[15px] leading-relaxed text-neutral-600">
@@ -131,8 +130,7 @@ export default function PricingPage() {
 
         <div className="mx-auto mt-20 max-w-4xl" id="faq">
           <div className="text-center">
-            <p className="eyebrow text-pine-700">CLARITY & ASSURANCE</p>
-            <h2 className="display-h mt-3 text-[28px] text-neutral-900 sm:text-[36px]">
+            <h2 className="display-h text-[28px] text-neutral-900 sm:text-[36px]">
               Frequently Asked Questions
             </h2>
           </div>

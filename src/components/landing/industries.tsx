@@ -45,8 +45,7 @@ export function Industries() {
     <section className="bg-paper py-20 text-neutral-900 lg:py-28">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="max-w-3xl">
-          <p className="eyebrow text-pine-700">SPECIALIZED PLAYBOOKS</p>
-          <h2 className="display-h mt-3 text-[30px] text-neutral-900 sm:text-[40px]">
+          <h2 className="display-h mt-0 text-[30px] text-neutral-900 sm:text-[40px]">
             Explore by industry
           </h2>
         </div>

@@ -19,7 +19,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-white/10 bg-ink/85 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6 lg:px-8">
         <Link href="/" aria-label="Dealenz Home">
-          <Logo dark showSubtitle size="md" />
+          <Logo dark size="md" />
         </Link>
 
         <nav className="hidden items-center gap-7 md:flex" aria-label="Primary Navigation">
