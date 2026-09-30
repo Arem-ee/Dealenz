@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "@fontsource-variable/mona-sans";
+@import "@fontsource/pt-serif/400.css";
+@import "@fontsource/pt-serif/700.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -56,11 +58,20 @@
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
   --color-border-subtle: var(--border-subtle);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-pine-50: var(--pine-50);
+  --color-pine-100: var(--pine-100);
+  --color-pine-400: var(--pine-400);
+  --color-pine-500: var(--pine-500);
+  --color-pine-700: var(--pine-700);
+  --color-pine-900: var(--pine-900);
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 6px);
   --font-sans: "Mona Sans Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "PT Serif", Georgia, "Times New Roman", serif;
   --font-mono: "Mona Sans Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   /* Single typeface throughout: every surface, including document/work
    * content and code-like text, renders Mona Sans. The serif/mono utilities
@@ -80,6 +91,17 @@
    * nav, counts, primary CTAs, key highlights, executed seal. */
 
   --star: #FAFAF8;
+
+  /* Landing brand system (S0): black-and-white base, emerald accent,
+   * PT Serif display + Mona Sans body. */
+  --ink: #0A0B0D;
+  --paper: #F7F6F3;
+  --pine-50: #ECFDF5;
+  --pine-100: #D1FAE5;
+  --pine-400: #34D399;
+  --pine-500: #10B981;
+  --pine-700: #047857;
+  --pine-900: #064E3B;
 
   --primary: #1C1917;
   --primary-foreground: #FAFAF8;
@@ -414,6 +436,116 @@ html:has(.landing-anchor-scroll) {
 
 @utility animate-ai-dots {
   animation: ai-dots 1.4s ease-in-out infinite;
+}
+
+/* Tab panels slide in from the right on switch. */
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@utility animate-slide-in-right {
+  animation: slide-in-right 0.35s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-in-right {
+    animation: none;
+  }
+}
+
+/* Landing primitives (S0): one button language, one eyebrow, one display
+ * voice. Orthogonal: sharp corners, hairline borders, flat surfaces, no
+ * shadows. Sections compose these instead of inventing chrome. */
+@utility btn-ink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.75rem;
+  padding-inline: 1.5rem;
+  border-radius: 0;
+  border: 1px solid var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  color: #FFFFFF;
+  background-color: var(--ink);
+  &:hover {
+    opacity: 0.88;
+  }
+}
+
+@utility btn-paper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.75rem;
+  padding-inline: 1.5rem;
+  border-radius: 0;
+  border: 1px solid #FFFFFF;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  background-color: #FFFFFF;
+  &:hover {
+    opacity: 0.92;
+  }
+}
+
+@utility btn-ghost-dark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.75rem;
+  padding-inline: 1.5rem;
+  border-radius: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #FFFFFF;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  background-color: transparent;
+  &:hover {
+    border-color: rgb(255 255 255 / 0.6);
+  }
+}
+
+@utility btn-ghost-light {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.75rem;
+  padding-inline: 1.5rem;
+  border-radius: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  border: 1px solid rgb(10 11 13 / 0.2);
+  background-color: transparent;
+  &:hover {
+    border-color: rgb(10 11 13 / 0.5);
+  }
+}
+
+@utility eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+@utility display-h {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 @keyframes fade-in {

@@ -1,20 +1,20 @@
 import React from "react"
 import { ShieldCheck, FileSearch, PenLine, BellRing, Lock, FileCheck2 } from "lucide-react"
 
-export function SocialProofStrip() {
+export function TrustStrip() {
   const markers = [
     { name: "DETERMINISTIC RULES", icon: <ShieldCheck className="h-4 w-4" /> },
     { name: "EVIDENCE-BACKED FINDINGS", icon: <FileSearch className="h-4 w-4" /> },
     { name: "OWNER-FIRST SIGNING", icon: <PenLine className="h-4 w-4" /> },
     { name: "RENEWAL MONITORING", icon: <BellRing className="h-4 w-4" /> },
     { name: "EU-HOSTED · AES-256", icon: <Lock className="h-4 w-4" /> },
-    { name: "SOC 2 TYPE II IN PROGRESS", icon: <FileCheck2 className="h-4 w-4 text-amber-500" /> },
+    { name: "SOC 2 TYPE II IN PROGRESS", icon: <FileCheck2 className="h-4 w-4 text-pine-400" /> },
   ]
 
   return (
-    <section className="relative z-10 border-y border-white/10 bg-[#0B0C10] py-8 text-white">
+    <section className="relative z-10 border-y border-white/10 bg-ink py-8 text-white">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
-        <p className="text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
+        <p className="eyebrow text-center text-white/50">
           Built for teams who sign for a living
         </p>
 

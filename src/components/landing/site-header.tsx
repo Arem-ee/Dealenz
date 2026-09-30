@@ -5,28 +5,23 @@ import Link from "next/link"
 import { Logo } from "@/components/logo"
 import { Menu, X, ArrowRight } from "lucide-react"
 
-export function LandingHeader() {
+export function SiteHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const navLinks = [
     { href: "/#platform", label: "Platform" },
-    { href: "/#solutions", label: "Solutions" },
     { href: "/#workflows", label: "Workflows" },
-    { href: "/#integrations", label: "Integrations" },
-    { href: "/#pricing", label: "Pricing" },
-    { href: "/#faq", label: "FAQ" },
+    { href: "/pricing", label: "Pricing" },
+    { href: "/pricing#faq", label: "FAQ" },
   ]
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-[#090A0E]/85 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-ink/85 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6 lg:px-8">
-        
-        {/* Left: Brand Logo */}
         <Link href="/" aria-label="Dealenz Home">
           <Logo dark showSubtitle size="md" />
         </Link>
 
-        {/* Center: Desktop Nav Links */}
         <nav className="hidden items-center gap-7 md:flex" aria-label="Primary Navigation">
           {navLinks.map((link) => (
             <Link
@@ -39,7 +34,6 @@ export function LandingHeader() {
           ))}
         </nav>
 
-        {/* Right: Actions */}
         <div className="flex items-center gap-3">
           <Link
             href="/login"
@@ -48,31 +42,25 @@ export function LandingHeader() {
             Sign in
           </Link>
 
-          <Link
-            href="/register"
-            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-5 text-[13px] font-bold text-neutral-950 transition-all duration-150 hover:bg-neutral-100 hover:scale-105 active:scale-95"
-          >
+          <Link href="/register" className="btn-paper h-9 px-5 text-[13px]">
             <span>Start Free</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
 
-          {/* Mobile Menu Hamburger */}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 text-white/80 transition-colors hover:bg-white/10 md:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-none border border-white/15 text-white/80 transition-colors hover:bg-white/10 md:hidden"
             aria-label="Toggle navigation menu"
             aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
-
       </div>
 
-      {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="border-b border-white/10 bg-[#0C0E14] px-6 py-6 md:hidden">
+        <div className="border-b border-white/10 bg-ink px-6 py-6 md:hidden">
           <div className="flex flex-col space-y-4">
             {navLinks.map((link) => (
               <Link
