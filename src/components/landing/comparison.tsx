@@ -70,7 +70,7 @@ export function Comparison() {
                     <td key={i} className={`px-5 py-4 ${i === 0 ? "bg-pine-700/[0.07]" : ""}`}>
                       <span className="flex items-start gap-2 text-[13px] text-neutral-700">
                         {c.ok
-                          ? <Check className="mt-0.5 h-4 w-4 shrink-0 text-pine-700" strokeWidth={3} />
+                          ? <Check className="mt-0.5 h-4 w-4 shrink-0 text-neutral-900" strokeWidth={3} />
                           : <X className="mt-0.5 h-4 w-4 shrink-0 text-neutral-300" />}
                         <span>{c.text}</span>
                       </span>

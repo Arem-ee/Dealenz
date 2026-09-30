@@ -23,7 +23,7 @@ export function Impact() {
         <div>
           <div className="border border-white/20 bg-white/[0.03] p-7">
             <div className="flex items-center gap-2 text-pine-400">
-              <BellRing className="h-4 w-4" />
+              <BellRing className="h-4 w-4 text-white" />
               <p className="text-[11px] font-bold uppercase tracking-wider">Upcoming deadlines</p>
             </div>
             <ul className="mt-4 space-y-2">

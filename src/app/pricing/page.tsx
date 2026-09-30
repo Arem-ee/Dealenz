@@ -71,7 +71,7 @@ export default function PricingPage() {
               <ul className="mt-6 space-y-3 text-[13px] text-neutral-700">
                 {["2 full deal analyses", "Suggested counter-language", "Counterparty signing", "In-browser privacy masking"].map((f) => (
                   <li key={f} className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-pine-700" strokeWidth={3} />
+                    <Check className="h-4 w-4 text-neutral-900" strokeWidth={3} />
                     <span>{f}</span>
                   </li>
                 ))}
@@ -103,7 +103,7 @@ export default function PricingPage() {
                   <ul className="mt-6 space-y-3 text-[13px] text-neutral-700">
                     {packageValueLines(pkg.credits).map((line) => (
                       <li key={line} className="flex items-center gap-2">
-                        <Check className="h-4 w-4 text-pine-700" strokeWidth={3} />
+                        <Check className="h-4 w-4 text-neutral-900" strokeWidth={3} />
                         <span className="capitalize">{line}</span>
                       </li>
                     ))}

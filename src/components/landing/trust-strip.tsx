@@ -8,7 +8,7 @@ export function TrustStrip() {
     { name: "OWNER-FIRST SIGNING", icon: <PenLine className="h-4 w-4" /> },
     { name: "RENEWAL MONITORING", icon: <BellRing className="h-4 w-4" /> },
     { name: "EU-HOSTED · AES-256", icon: <Lock className="h-4 w-4" /> },
-    { name: "SOC 2 TYPE II IN PROGRESS", icon: <FileCheck2 className="h-4 w-4 text-pine-400" /> },
+    { name: "SOC 2 TYPE II IN PROGRESS", icon: <FileCheck2 className="h-4 w-4" /> },
   ]
 
   return (

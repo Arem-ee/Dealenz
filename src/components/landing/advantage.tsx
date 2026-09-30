@@ -55,7 +55,7 @@ export function Advantage() {
 
               <div>
                 <div className="rounded-none border border-neutral-200 bg-white p-7">
-                  <div className="flex items-center gap-2 text-pine-700">
+                  <div className="flex items-center gap-2 text-neutral-900">
                     <FileUp className="h-4 w-4" />
                     <p className="text-[11px] font-bold uppercase tracking-wider">Intake</p>
                   </div>
@@ -99,7 +99,7 @@ export function Advantage() {
 
               <div>
                 <div className="rounded-none border border-neutral-200 bg-white p-7">
-                  <div className="flex items-center gap-2 text-pine-700">
+                  <div className="flex items-center gap-2 text-neutral-900">
                     <ShieldCheck className="h-4 w-4" />
                     <p className="text-[11px] font-bold uppercase tracking-wider">Risk audit</p>
                   </div>
@@ -139,7 +139,7 @@ export function Advantage() {
 
               <div>
                 <div className="rounded-none border border-neutral-200 bg-white p-7">
-                  <div className="flex items-center gap-2 text-pine-700">
+                  <div className="flex items-center gap-2 text-neutral-900">
                     <PenLine className="h-4 w-4" />
                     <p className="text-[11px] font-bold uppercase tracking-wider">Redline</p>
                   </div>
@@ -174,7 +174,7 @@ export function Advantage() {
 
               <div>
                 <div className="rounded-none border border-neutral-200 bg-white p-7">
-                  <div className="flex items-center gap-2 text-pine-700">
+                  <div className="flex items-center gap-2 text-neutral-900">
                     <PenTool className="h-4 w-4" />
                     <p className="text-[11px] font-bold uppercase tracking-wider">Sign & track</p>
                   </div>

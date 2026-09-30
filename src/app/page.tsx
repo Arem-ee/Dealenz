@@ -67,15 +67,15 @@ export default function Home() {
 
             <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px] font-semibold text-white/60">
               <span className="flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-pine-400" />
+                <ShieldCheck className="h-4 w-4 text-white" />
                 Deterministic Rule Engine
               </span>
               <span className="flex items-center gap-1.5">
-                <Cpu className="h-4 w-4 text-pine-400" />
+                <Cpu className="h-4 w-4 text-white" />
                 Deterministic Risk Scoring
               </span>
               <span className="flex items-center gap-1.5">
-                <BellRing className="h-4 w-4 text-pine-400" />
+                <BellRing className="h-4 w-4 text-white" />
                 Renewal & Obligation Monitoring
               </span>
             </div>
