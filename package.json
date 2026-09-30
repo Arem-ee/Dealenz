@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@fontsource-variable/mona-sans": "^5.3.0",
-    "@fontsource/pt-serif": "^5.3.0",
+    "@fontsource/bodoni-moda": "^5.3.0",
     "@paddle/paddle-node-sdk": "^3.10.0",
     "@radix-ui/react-avatar": "^1.2.0",
     "@radix-ui/react-dialog": "^1.1.17",

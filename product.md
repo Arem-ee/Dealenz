@@ -120,7 +120,7 @@ Do not expand the primary navigation into a CRM-style dashboard.
 ## Visual Language
 
 - One accent color used sparingly (emerald on a black-and-white base)
-- Two typefaces: PT Serif for display headlines, Mona Sans Variable for body,
+- Two typefaces: Bodoni Moda for display headlines, Mona Sans Variable for body,
   UI controls, labels, and interface text
 - Clean, minimal, professional, document/work-oriented
 - No gradients

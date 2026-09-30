@@ -157,7 +157,7 @@ Do not expand primary nav into a CRM (no lead stages, funnels, scoring, pipeline
 - **Accent:** one burgundy/oxblood (OKLCH) used sparingly; risk-severity palette is separate
 - **UI text:** Mona Sans Variable, everywhere including work content and code-like text
   (the serif/mono utilities remain as aliases)
-- **Display:** PT Serif for headlines (`font-display` utility)
+- **Display:** Bodoni Moda for headlines (`font-display` utility)
 - **Aesthetic:** clean, minimal, professional, document/work-oriented
 - **Prohibited:** gradients, chatbot sparkle, generic SaaS dashboard chrome, unnecessary visual noise
 
@@ -482,7 +482,7 @@ No stated targets exist beyond "works for a handful of founders and small busine
 
 - **Accent:** one burgundy/oxblood, used sparingly
 - **UI text:** Mona Sans Variable for controls, labels, and interface
-- **Display:** PT Serif for headlines
+- **Display:** Bodoni Moda for headlines
 - Clean, minimal, professional, document/work-oriented
 - No gradients, no chatbot sparkle, no generic SaaS dashboard chrome, no unnecessary visual noise
 - Reject AI-sounding copy and generic SaaS design defaults throughout — this applies to UI copy, empty states, and error messages, not just marketing pages.
@@ -651,7 +651,7 @@ Not a generic agent framework. Architecture composes existing primitives via app
 - **Lawyer Handoff**: Contextual Founder/Partnership “Have a lawyer review this deal” CTA after protection/document, `LawyerHandoffReview` panel showing what will be shared (deal type/jurisdiction, critical findings, protection intents, evidence, legal citations/provenance, draft + missing `{{var}}`, honest limitations), submits via existing `consultation_requests` with `handoff_snapshot` `00036` (preserves evidence/VERIFIED…NOT_FOUND, jurisdiction explicit, no Nigeria leak, structure-aware), waitlist vs requested based on verified lawyers; triggers only on high-value + risky pattern (user can always request)
 - **Frontend**: Chat-first, work-first split-pane — `ChatThread` (`src/components/chat/ChatThread.tsx`) uses `SplitPane` (`src/components/split-pane`) to render chat/control and work/output side-by-side on desktop (work wider), single-column cards on mobile; sidebar is Home + Library
 (`/library`, Vault redirects), account menu holds Settings/Billing/Help/Log out; visual language is one accent,
-PT Serif display + Mona Sans UI, clean minimal professional document-oriented, no gradients/sparkle
+Bodoni Moda display + Mona Sans UI, clean minimal professional document-oriented, no gradients/sparkle
 - **Classifier**: Central `src/lib/conversation/classify.ts` (`isGreeting`, `classifyOperation` → `proposal/negotiation/drafting/comparison/decision_support/explanation/document_analysis/conversation`, `inferIntent`) drives Composer routing and cost estimation
 - **Evidence**: `EXACT/APPROXIMATE/UNAVAILABLE` via `src/lib/verticals/observe.ts` + `src/lib/evidence/inspect.ts`; `attachEvidence` on FAIL findings; `FindingsPanel` Inspect-source actions (implemented) — full click-to-highlight future
 - **Work Execution Core**: `work_plans` + `work_plan_steps` (ordered, `dependsOn` DAG, `estimated_credits` sum), `work_approvals` (immutable `payload_hash` + `plan_version` binding, `idempotency_key`, `actor_user_id`), `work_executions` (plan-level `reservation_id` → `credit_ledger`, `pending→running→succeeded/failed/needs_input`), `work_products` (`artifact_refs` + `snapshot`) — migration `00056`, sequential executor (`src/lib/work/executor.ts`), `PlanPreview`/`ExecutionProgress` surfaces (`src/components/work/*`), `hash.ts` binding, `transitions.ts` state machines, plan-level `estimatedCredits` → single reservation only after approval → finalize `consumed`

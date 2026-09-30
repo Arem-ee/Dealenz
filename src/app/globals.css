@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "@fontsource-variable/mona-sans";
-@import "@fontsource/pt-serif/400.css";
-@import "@fontsource/pt-serif/700.css";
+@import "@fontsource/bodoni-moda/400.css";
+@import "@fontsource/bodoni-moda/700.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -71,7 +71,7 @@
   --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 6px);
   --font-sans: "Mona Sans Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-display: "PT Serif", Georgia, "Times New Roman", serif;
+  --font-display: "Bodoni Moda", Georgia, "Times New Roman", serif;
   --font-mono: "Mona Sans Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   /* Single typeface throughout: every surface, including document/work
    * content and code-like text, renders Mona Sans. The serif/mono utilities
@@ -93,7 +93,7 @@
   --star: #FAFAF8;
 
   /* Landing brand system (S0): black-and-white base, emerald accent,
-   * PT Serif display + Mona Sans body. */
+   * Bodoni Moda display + Mona Sans body. */
   --ink: #0A0B0D;
   --paper: #F7F6F3;
   --pine-50: #ECFDF5;
