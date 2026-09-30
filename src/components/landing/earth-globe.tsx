@@ -140,7 +140,7 @@ export function EarthGlobe() {
     function sizeCanvas() {
       const rect = wrap.getBoundingClientRect()
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      const side = Math.max(280, Math.min(rect.width, 560))
+      const side = Math.max(340, Math.min(rect.width, 860))
       canvas.width = Math.floor(side * dpr)
       canvas.height = Math.floor(side * dpr)
       canvas.style.width = `${side}px`
@@ -157,7 +157,7 @@ export function EarthGlobe() {
     ro.observe(wrap)
 
     function draw(time: number) {
-      const radius = side * 0.36
+      const radius = side * 0.42
       const cx = side / 2
       const cy = side / 2
       // Fixed key light from the upper left sculpts the spherical volume.
@@ -184,19 +184,37 @@ export function EarthGlobe() {
         const nz0 = Math.cos(phi) * Math.cos(lambda)
         const ny = ny0 * Math.cos(TILT) - nz0 * Math.sin(TILT)
         const nz = ny0 * Math.sin(TILT) + nz0 * Math.cos(TILT)
-        const shade = Math.max(0.12, nx * lx + -ny * ly + nz * lz)
-        const r = (d.land ? 0.7 : 0.55) + depth * (d.land ? 2.1 : 1.2)
+        const diffuse = Math.max(0.05, nx * lx + -ny * ly + nz * lz)
+        // Rim light kisses the limb so the disc edge reads round.
+        const rim = Math.max(0, 1 - Math.abs(p.z) * 4) * 0.35
+        const light = Math.min(1, diffuse + rim)
+        const r = (d.land ? 0.8 : 0.6) + depth * (d.land ? 2.6 : 1.5)
         if (d.land) {
-          ctx.fillStyle = `rgba(4,120,87,${(0.18 + depth * 0.82) * (0.35 + 0.65 * shade)})`
+          ctx.fillStyle = `rgba(4,120,87,${(0.1 + depth * 0.9) * (0.25 + 0.75 * light)})`
         } else {
           ctx.fillStyle = mapsReady
-            ? `rgba(10,11,13,${(0.03 + depth * 0.09) * (0.4 + 0.6 * shade)})`
-            : `rgba(10,11,13,${(0.05 + depth * 0.14) * (0.4 + 0.6 * shade)})`
+            ? `rgba(10,11,13,${(0.02 + depth * 0.1) * (0.3 + 0.7 * light)})`
+            : `rgba(10,11,13,${(0.04 + depth * 0.16) * (0.3 + 0.7 * light)})`
         }
         ctx.beginPath()
         ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
         ctx.fill()
       }
+
+      // Soft specular bloom upper-left of the disc, clipped to the sphere.
+      ctx.save()
+      ctx.beginPath()
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+      ctx.clip()
+      const bloom = ctx.createRadialGradient(
+        cx - radius * 0.45, cy - radius * 0.5, radius * 0.05,
+        cx - radius * 0.45, cy - radius * 0.5, radius * 0.85
+      )
+      bloom.addColorStop(0, "rgba(255,255,255,0.20)")
+      bloom.addColorStop(1, "rgba(255,255,255,0)")
+      ctx.fillStyle = bloom
+      ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2)
+      ctx.restore()
 
       ctx.font = "600 11px 'Mona Sans Variable', sans-serif"
       for (const n of NODES) {

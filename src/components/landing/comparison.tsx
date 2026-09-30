@@ -42,11 +42,11 @@ export function Comparison() {
   return (
     <section id="solutions" className="bg-paper py-28 text-neutral-900 lg:py-40">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl text-center">
+        <div className="max-w-2xl">
           <h2 className="display-h text-[30px] leading-[1.12] text-neutral-900 sm:text-[40px]">
             Deal & Contract Intelligence engineered for enterprise certainty.
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-[15px] leading-relaxed text-neutral-600">
+          <p className="mt-4 text-[15px] leading-relaxed text-neutral-600">
             Where generative AI guesses, Dealenz validates every output against deterministic
             legal playbooks. AI proposes; rulepacks verify; you maintain sovereign control.
           </p>
