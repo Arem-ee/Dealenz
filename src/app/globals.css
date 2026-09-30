@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "@fontsource-variable/mona-sans";
-@import "@fontsource/bodoni-moda/400.css";
-@import "@fontsource/bodoni-moda/700.css";
+@import "@fontsource-variable/bodoni-moda";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -545,6 +544,7 @@ html:has(.landing-anchor-scroll) {
 @utility display-h {
   font-family: var(--font-display);
   font-weight: 400;
+  font-variation-settings: "opsz" 14;
   letter-spacing: 0.04em;
 }
 
