@@ -44,10 +44,20 @@ export default function Home() {
       <SiteHeader />
 
       <main>
-        <section className="relative overflow-hidden pt-20 pb-28 lg:pt-28 lg:pb-40">
+        <section className="relative flex min-h-[92svh] flex-col justify-center overflow-hidden pt-20 pb-28 lg:pt-28 lg:pb-40">
+          <svg
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-40 w-full"
+            viewBox="0 0 1440 160"
+            fill="none"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path d="M -20 160 L -20 110 Q -20 60 40 60 L 220 60" stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
+            <path d="M 1460 160 L 1460 110 Q 1460 60 1400 60 L 1220 60" stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
+          </svg>
           <div className="relative z-10 mx-auto max-w-6xl px-6 text-center lg:px-8">
 
-            <h1 className="display-h mx-auto mt-2 max-w-3xl text-balance text-[36px] leading-[1.08] text-white sm:text-[54px] lg:text-[64px]">
+            <h1 className="display-h mx-auto max-w-5xl text-balance text-[44px] leading-[1.14] text-white sm:text-[76px] sm:leading-[1.12] lg:text-[92px]">
               Turn Contracts into Strategic Intelligence with AI Deal Management.
             </h1>
 

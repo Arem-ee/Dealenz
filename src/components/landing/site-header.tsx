@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
-import { Menu, X, ArrowRight } from "lucide-react"
+import { Menu, X, ArrowRight, ChevronDown } from "lucide-react"
 
 export function SiteHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -27,9 +27,12 @@ export function SiteHeader() {
             <Link
               key={link.label}
               href={link.href}
-              className="text-[13px] font-medium text-white/70 transition-colors duration-150 hover:text-white"
+              className="flex items-center gap-1 text-[13px] font-medium text-white/70 transition-colors duration-150 hover:text-white"
             >
               {link.label}
+              {(link.label === "Platform" || link.label === "Workflows") && (
+                <ChevronDown className="h-3 w-3 text-white/40" aria-hidden />
+              )}
             </Link>
           ))}
         </nav>
