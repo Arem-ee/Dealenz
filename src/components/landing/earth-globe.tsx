@@ -166,6 +166,18 @@ export function EarthGlobe() {
       const lz = 0.52
       ctx.clearRect(0, 0, side, side)
 
+      // Cast shadow: stacked flat ellipses falling lower-left, like the
+      // study's ground shadow. Drawn first so the sphere sits on it.
+      const shX = cx - radius * 0.55
+      const shY = cy + radius * 1.04
+      const shW = radius * 1.5
+      for (const [wScale, alpha] of [[1, 0.05], [0.8, 0.05], [0.6, 0.06]] as const) {
+        ctx.beginPath()
+        ctx.ellipse(shX, shY, (shW * wScale) / 2, radius * 0.09, -0.06, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(10,11,13,${alpha})`
+        ctx.fill()
+      }
+
       ctx.beginPath()
       ctx.arc(cx, cy, radius, 0, Math.PI * 2)
       ctx.strokeStyle = "rgba(10,11,13,0.28)"
@@ -184,17 +196,21 @@ export function EarthGlobe() {
         const nz0 = Math.cos(phi) * Math.cos(lambda)
         const ny = ny0 * Math.cos(TILT) - nz0 * Math.sin(TILT)
         const nz = ny0 * Math.sin(TILT) + nz0 * Math.cos(TILT)
-        const diffuse = Math.max(0.05, nx * lx + -ny * ly + nz * lz)
+        const diffuse = Math.max(0, nx * lx + -ny * ly + nz * lz)
+        // Pencil-study ramp: eased highlight, deep terminator, faint
+        // reflected lift just past the dark edge so the limb stays round.
+        const eased = Math.pow(Math.max(0, Math.min(1, diffuse)), 1.35)
+        const bounce = Math.max(0, 1 - Math.abs(p.z + 0.38) * 3.2) * 0.14
         // Rim light kisses the limb so the disc edge reads round.
-        const rim = Math.max(0, 1 - Math.abs(p.z) * 4) * 0.35
-        const light = Math.min(1, diffuse + rim)
+        const rim = Math.max(0, 1 - Math.abs(p.z) * 4) * 0.3
+        const light = Math.min(1, eased * 0.92 + bounce + rim * (1 - eased))
         const r = (d.land ? 0.8 : 0.6) + depth * (d.land ? 2.6 : 1.5)
         if (d.land) {
-          ctx.fillStyle = `rgba(4,120,87,${(0.1 + depth * 0.9) * (0.25 + 0.75 * light)})`
+          ctx.fillStyle = `rgba(4,120,87,${0.06 + depth * 0.94 * (0.2 + 0.8 * light)})`
         } else {
           ctx.fillStyle = mapsReady
-            ? `rgba(10,11,13,${(0.02 + depth * 0.1) * (0.3 + 0.7 * light)})`
-            : `rgba(10,11,13,${(0.04 + depth * 0.16) * (0.3 + 0.7 * light)})`
+            ? `rgba(10,11,13,${(0.015 + depth * 0.1) * (0.25 + 0.75 * light)})`
+            : `rgba(10,11,13,${(0.03 + depth * 0.16) * (0.25 + 0.75 * light)})`
         }
         ctx.beginPath()
         ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
