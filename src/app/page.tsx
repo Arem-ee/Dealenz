@@ -58,7 +58,7 @@ export default function Home() {
           </svg>
           <Reveal className="relative z-10 mx-auto max-w-7xl px-6 text-center lg:px-8">
 
-            <h1 className="display-h mx-auto max-w-7xl text-balance text-[38px] leading-[1.14] text-white sm:text-[60px] sm:leading-[1.12] lg:text-[72px]" aria-label="Harness automated deal intelligence to turn contracts into a strategic advantage.">
+            <h1 className="display-h mx-auto max-w-7xl text-balance text-[42px] font-normal leading-[1.16] tracking-[0.08em] text-white sm:text-[66px] sm:leading-[1.14] lg:text-[80px]" aria-label="Harness automated deal intelligence to turn contracts into a strategic advantage.">
               <span className="block lg:whitespace-nowrap">Harness automated deal</span>
               <span className="block lg:whitespace-nowrap">intelligence to turn contracts</span>
               <span className="block lg:whitespace-nowrap">into a strategic advantage.</span>
