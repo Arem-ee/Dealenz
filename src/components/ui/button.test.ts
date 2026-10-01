@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest"
 import { buttonVariants } from "./button"
 
-// Monochrome rule: buttons render ink, paper, or muted surfaces only.
-// Severity and brand color never appear in button chrome; meaning travels
-// in labels and icons, never hue.
-const CHROMATIC = ["burgundy", "red-", "amber-", "emerald-", "blue-", "green-", "purple-", "orange-"]
+// Color-stack rule: buttons render ink, paper, muted, or the destructive
+// token only. Destructive resolves red through the token (never a literal
+// hue class); severity otherwise travels in labels and icons, never hue.
+const CHROMATIC = ["burgundy", "red-", "amber-", "emerald-", "blue-", "green-", "purple-", "orange-", "brick-", "pine-"]
 
 describe("button monochrome restraint", () => {
   it("renders the default action in ink", () => {
@@ -12,8 +12,9 @@ describe("button monochrome restraint", () => {
     expect(classes).toContain("bg-primary")
   })
 
-  it("keeps destructive actions chromatic-free (ink, not red)", () => {
+  it("renders destructive through the destructive token (red by system)", () => {
     const classes = buttonVariants({ variant: "destructive" })
+    expect(classes).toContain("bg-destructive")
     for (const hue of CHROMATIC) expect(classes).not.toContain(hue)
   })
 

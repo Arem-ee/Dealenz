@@ -1,4 +1,4 @@
-import { BellRing, Check } from "lucide-react"
+import { BellRing } from "lucide-react"
 import { Reveal } from "@/components/landing/reveal"
 
 export function Impact() {
@@ -39,10 +39,9 @@ export function Impact() {
                   </span>
                   <span
                     className={`flex shrink-0 items-center gap-1 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      d.hot ? "bg-pine-500 text-white" : "border border-white/20 text-white/60"
+                      d.hot ? "bg-brick-500 text-white" : "border border-white/20 text-white/60"
                     }`}
                   >
-                    {d.hot && <Check className="h-3 w-3" />}
                     {d.state}
                   </span>
                 </li>

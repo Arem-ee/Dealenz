@@ -31,7 +31,7 @@ function formatDate(date: string): string {
 }
 
 function riskTone(risk: DealRisk): string {
-  if (risk === "Critical") return "border-foreground bg-muted font-semibold text-foreground"
+  if (risk === "Critical") return "border-brick-700/30 bg-brick-700/10 font-semibold text-brick-700"
   if (risk === "Material") return "border-border bg-muted text-foreground"
   return "border-border text-muted-foreground"
 }

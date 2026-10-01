@@ -61,6 +61,11 @@
   --color-pine-500: var(--pine-500);
   --color-pine-700: var(--pine-700);
   --color-pine-900: var(--pine-900);
+  --color-brick-50: var(--brick-50);
+  --color-brick-100: var(--brick-100);
+  --color-brick-500: var(--brick-500);
+  --color-brick-700: var(--brick-700);
+  --color-brick-900: var(--brick-900);
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
@@ -97,6 +102,15 @@
   --pine-700: #047857;
   --pine-900: #064E3B;
 
+  /* Brick red: danger, critical risk, overdue/hot, errors, destructive
+   * actions. Same structural role as pine, opposite meaning. Pine is
+   * never used for danger; brick is never used for success. */
+  --brick-50: #FEF2F2;
+  --brick-100: #FEE2E2;
+  --brick-500: #DC2626;
+  --brick-700: #B91C1C;
+  --brick-900: #7F1D1D;
+
   --primary: #1C1917;
   --primary-foreground: #FAFAF8;
   --accent: #EDEBE7;
@@ -116,7 +130,7 @@
   --input: rgba(28, 25, 23, 0.16);
   --ring: rgba(28, 25, 23, 0.28);
 
-  --destructive: #1C1917;
+  --destructive: #B91C1C;
   --destructive-foreground: #FAFAF8;
 
   --success: oklch(0.55 0.15 150);
@@ -180,7 +194,7 @@
   --input: rgba(255, 255, 255, 0.22);
   --ring: rgba(255, 255, 255, 0.3);
 
-  --destructive: #EDE8E1;
+  --destructive: #F87171;
   --destructive-foreground: #1C1917;
   --warning: #EDE8E1;
   --warning-foreground: #EDE8E1;

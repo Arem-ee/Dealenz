@@ -51,7 +51,7 @@ function RiskAuditMockup() {
       </div>
       <div className="mt-5 rounded-none border border-neutral-200 bg-neutral-100/60 p-6">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-none bg-foreground px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-background">
+          <span className="rounded-none bg-brick-700/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brick-700">
             Critical
           </span>
           <p className="text-[13px] font-semibold text-neutral-800">
