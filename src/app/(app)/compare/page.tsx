@@ -1,0 +1,11 @@
+import { CompareView } from "@/components/compare/compare-view"
+
+export const dynamic = "force-dynamic"
+
+export default async function ComparePage() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col bg-background">
+      <CompareView />
+    </div>
+  )
+}

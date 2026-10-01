@@ -1,5 +1,5 @@
 import type { ComponentType } from "react"
-import { CalendarClock, FilePlus2, FileText, Inbox, LayoutDashboard, PenLine, ScrollText, Settings, ReceiptText, LifeBuoy } from "lucide-react"
+import { CalendarClock, Columns2, FilePlus2, FileText, Inbox, LayoutDashboard, PenLine, ScrollText, Settings, ReceiptText, LifeBuoy } from "lucide-react"
 
 export interface NavEntry {
   label: string
@@ -10,8 +10,8 @@ export interface NavEntry {
 /**
  * Navigation is rebuilt tab by tab — entries return here as each tab is
  * built. Tab 1: Home. Tab 2: Inbox. Tab 3: Drafts. Tab 4: Signing.
- * Tab 5: Tracker. Tab 6: Clauses. Tab 7: Templates. The account menu
- * lives solely in the top bar.
+ * Tab 5: Tracker. Tab 6: Clauses. Tab 7: Templates. Tab 8: Compare.
+ * The account menu lives solely in the top bar.
  */
 export const PRIMARY_NAV: NavEntry[] = [
   { label: "Home", href: "/dashboard", icon: LayoutDashboard },
@@ -21,6 +21,7 @@ export const PRIMARY_NAV: NavEntry[] = [
   { label: "Tracker", href: "/tracker", icon: CalendarClock },
   { label: "Clauses", href: "/clauses", icon: ScrollText },
   { label: "Templates", href: "/templates", icon: FilePlus2 },
+  { label: "Compare", href: "/compare", icon: Columns2 },
 ]
 
 export const SECONDARY_NAV: NavEntry[] = []
