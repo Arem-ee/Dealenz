@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { LayoutTemplate, Plus } from "lucide-react"
+import { FilePlus2, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const DEAL_TYPES = ["Founder", "Partnership", "Purchase/Sale", "Lease", "Employment", "Freelance"]
@@ -51,7 +51,7 @@ export function TemplatesView() {
       </div>
 
       <div className="border border-dashed px-4 py-12 text-center">
-        <LayoutTemplate className="mx-auto h-6 w-6 text-muted-foreground" />
+        <FilePlus2 className="mx-auto h-6 w-6 text-muted-foreground" />
         <p className="mt-2 text-sm font-medium">No templates yet</p>
         <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
           Standard starting points per deal type live here. Templates and one-click creation wire up with this tab&apos;s functions.

@@ -1,5 +1,5 @@
 import type { ComponentType } from "react"
-import { CalendarClock, FileText, Inbox, LayoutDashboard, LayoutTemplate, PenLine, ScrollText, Settings, ReceiptText, LifeBuoy } from "lucide-react"
+import { CalendarClock, FilePlus2, FileText, Inbox, LayoutDashboard, PenLine, ScrollText, Settings, ReceiptText, LifeBuoy } from "lucide-react"
 
 export interface NavEntry {
   label: string
@@ -20,7 +20,7 @@ export const PRIMARY_NAV: NavEntry[] = [
   { label: "Signing", href: "/signing", icon: PenLine },
   { label: "Tracker", href: "/tracker", icon: CalendarClock },
   { label: "Clauses", href: "/clauses", icon: ScrollText },
-  { label: "Templates", href: "/templates", icon: LayoutTemplate },
+  { label: "Templates", href: "/templates", icon: FilePlus2 },
 ]
 
 export const SECONDARY_NAV: NavEntry[] = []
