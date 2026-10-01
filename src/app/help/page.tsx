@@ -1,6 +1,4 @@
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/server"
-import { AppShell } from "@/components/app-shell"
 import { Logo } from "@/components/logo"
 
 export const metadata = {
@@ -42,18 +40,6 @@ const FAQS = [
 ]
 
 export default async function HelpPage() {
-  // Dual audience: prospects arrive from the landing footer, customers from
-  // the account menu. Authenticated users get full shell navigation;
-  // everyone else gets a slim public header. Same content either way.
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (user) {
-    return (
-      <AppShell>
-        <HelpContent />
-      </AppShell>
-    )
-  }
   return (
     <div className="h-full min-h-0 overflow-y-auto bg-background">
       <header className="border-b border-border/60">
@@ -95,8 +81,8 @@ function HelpContent() {
         ))}
       </div>
       <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-        <Link href="/dashboard" className="font-medium text-primary hover:underline">
-          Open the Dashboard
+        <Link href="/" className="font-medium text-primary hover:underline">
+          Back to home
         </Link>
         <Link href="/methodology" className="font-medium text-primary hover:underline">
           How Dealenz checks its work

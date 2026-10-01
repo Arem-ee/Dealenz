@@ -27,9 +27,21 @@ function getHandler(op: string): StepHandler | undefined {
   return handlers.get(op)
 }
 
-// Bounded deal-analysis handler — delegates to existing analyzeDeal pipeline.
-// Reuses every consent/context/usage/knowledge/rule/evidence/persistence boundary.
-// Do not copy analyzeDeal implementation; call it.
+// Bounded deal-analysis handler — analysis UI was wiped in the rebuild, so
+// this step honestly reports unavailability until the pipeline returns.
+// Do not invent analysis results here; the handler shape stays so plans
+// keep validating and the engine keeps executing other operations.
+async function missingAnalysisPipeline(_auditId: string, _opts?: { outerReservationId?: string } | undefined) {
+  return {
+    success: false as const,
+    error: "Deal analysis returns with the rebuild.",
+    contextGate: null,
+    missingRequiredContext: [] as Array<string>,
+    riskReport: null as unknown as { overallScore?: number; riskLevel?: string } | undefined,
+    deterministicFindings: [] as Array<unknown>,
+    findingDelta: null,
+  }
+}
 registerStepHandler("document_analysis", async (step, ctx) => {
   const input = step.input_ref as { auditId?: unknown; threadId?: unknown; dealId?: unknown }
   const auditId = (typeof input.auditId === "string" ? input.auditId : typeof input.dealId === "string" ? input.dealId : "") ?? ""
@@ -39,7 +51,7 @@ registerStepHandler("document_analysis", async (step, ctx) => {
     return { error: "Missing or invalid auditId for analysis", creditsConsumed: 0, needsInput: true }
   }
   try {
-    const { analyzeDeal } = await import("@/app/audit/[id]/actions")
+    const { analyzeDeal } = { analyzeDeal: missingAnalysisPipeline }
     // Plan-held settlement: the executor already holds the estimate, so the
     // analysis runs on that hold instead of stacking a second one (peak 5,
     // not 10 — a balance of exactly 5 must still execute). The handler books

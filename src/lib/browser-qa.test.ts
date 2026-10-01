@@ -5,16 +5,10 @@ import { join } from "node:path"
 // Browser QA regressions: invalid links must render designed states (never
 // the raw framework 404), and marketing must not sell what does not exist.
 describe("invalid-link surfaces", () => {
-  it("signing links degrade to a designed ceremony, not a framework 404", () => {
-    const source = readFileSync(join(process.cwd(), "src/app/sign/not-found.tsx"), "utf8")
-    expect(source).toContain("This signing link is no longer valid.")
-    expect(source).toContain("expired, been revoked, or does not exist")
-  })
-
   it("unknown routes degrade to a branded page with a next action", () => {
     const source = readFileSync(join(process.cwd(), "src/app/not-found.tsx"), "utf8")
-    expect(source).toContain("Go to your home")
-    expect(source).toContain('href="/dashboard"')
+    expect(source).toContain("Go home")
+    expect(source).toContain('href="/"')
   })
 })
 

@@ -6,16 +6,11 @@ import { join } from "node:path"
 // provider. Internal provider code (src/lib/ai/*), tests, migrations, and
 // architecture docs are intentionally out of scope here.
 const USER_FACING_FILES = [
-  "src/components/ask/ask-client.tsx",
-  "src/components/sign/invitee-sign-view.tsx",
-  "src/components/portal-view.tsx",
-  "src/app/billing/page.tsx",
-  "src/app/dashboard/page.tsx",
-  "src/app/deals/page.tsx",
   "src/app/page.tsx",
-  "src/components/settings-client.tsx",
-  "src/components/referral-section.tsx",
-  "src/components/top-navbar.tsx",
+  "src/app/login/page.tsx",
+  "src/app/register/page.tsx",
+  "src/app/pricing/page.tsx",
+  "src/app/help/page.tsx",
 ]
 
 const BANNED = [
@@ -39,10 +34,6 @@ describe("user-facing copy never names AI providers", () => {
     })
   }
 
-  it("consent copy frames processing as Dealenz AI, not a provider", () => {
-    const sources = [
-      readFileSync(join(process.cwd(), "src/components/ai-consent-modal.tsx"), "utf8"),
-    ].join("\n")
-    expect(sources).toContain("Dealenz AI")
-  })
+  // Consent copy was wiped with the consent modal in the rebuild; the
+  // assertion returns when user-facing consent copy returns.
 })

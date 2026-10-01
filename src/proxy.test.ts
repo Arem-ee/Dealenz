@@ -46,24 +46,24 @@ describe("proxy middleware — auth redirects", () => {
     else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = savedKey
   })
 
-  it("redirects authenticated user on /login to /dashboard", async () => {
+  it("redirects authenticated user on /login to /", async () => {
     mockAuth.getSession.mockResolvedValue({ data: { session: { user: { id: "u1" } } }, error: null })
     mockAuth.getUser.mockResolvedValue({ data: { user: { id: "u1", email: "a@b.com" } }, error: null })
 
     const res = await proxy(mockRequest("http://localhost:3000/login"))
 
     expect(res.status).toBe(307)
-    expect(res.headers.get("location")).toBe("http://localhost:3000/dashboard")
+    expect(res.headers.get("location")).toBe("http://localhost:3000/")
   })
 
-  it("redirects unauthenticated user on /dashboard to /login", async () => {
+  it("lets unauthenticated users through everywhere — no app routes left to guard", async () => {
     mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null })
     mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: null })
 
-    const res = await proxy(mockRequest("http://localhost:3000/dashboard"))
-
-    expect(res.status).toBe(307)
-    expect(res.headers.get("location")).toBe("http://localhost:3000/login")
+    for (const path of ["/", "/login", "/pricing", "/api/billing/webhook"]) {
+      const res = await proxy(mockRequest(`http://localhost:3000${path}`))
+      expect(res.status).toBe(200)
+    }
   })
 
   it("allows unauthenticated access to /login", async () => {
@@ -71,26 +71,6 @@ describe("proxy middleware — auth redirects", () => {
     mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: null })
 
     const res = await proxy(mockRequest("http://localhost:3000/login"))
-
-    expect(res.status).toBe(200)
-  })
-
-  it("redirects unauthenticated user on /lawyer and /admin to /login", async () => {
-    mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null })
-    mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: null })
-
-    for (const path of ["/lawyer/reviews", "/admin/lawyers"]) {
-      const res = await proxy(mockRequest(`http://localhost:3000${path}`))
-      expect(res.status).toBe(307)
-      expect(res.headers.get("location")).toBe("http://localhost:3000/login")
-    }
-  })
-
-  it("keeps /sign public for token-gated invitees", async () => {
-    mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null })
-    mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: null })
-
-    const res = await proxy(mockRequest("http://localhost:3000/sign/abc123"))
 
     expect(res.status).toBe(200)
   })
@@ -122,7 +102,7 @@ describe("proxy middleware — auth redirects", () => {
       expect.objectContaining({
         phase: "auth_redirect",
         status: "success",
-        error_message: "Authenticated user redirected to /dashboard",
+        error_message: "Authenticated user redirected to /",
       })
     )
   })

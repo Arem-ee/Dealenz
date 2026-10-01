@@ -34,15 +34,15 @@ beforeEach(() => {
 describe("normal OAuth sign-in", () => {
   it("exchanges a valid code and redirects to an allowlisted next path", async () => {
     mockExchange.mockResolvedValue({ error: null })
-    const res = await GET(req("/auth/callback?code=abc&next=/chat"))
+    const res = await GET(req("/auth/callback?code=abc&next=/pricing"))
     expect(res.status).toBe(307)
-    expect(res.headers.get("location")).toBe("http://localhost/chat")
+    expect(res.headers.get("location")).toBe("http://localhost/pricing")
   })
 
-  it("falls back to /dashboard for a malicious next URL", async () => {
+  it("falls back to / for a malicious next URL", async () => {
     mockExchange.mockResolvedValue({ error: null })
     const res = await GET(req("/auth/callback?code=abc&next=https://evil.example"))
-    expect(res.headers.get("location")).toBe("http://localhost/dashboard")
+    expect(res.headers.get("location")).toBe("http://localhost/")
   })
 
   it("fails closed on invalid/expired codes", async () => {
@@ -72,15 +72,15 @@ describe("explicit Google link flow", () => {
     mockGetUser.mockResolvedValueOnce({ data: { user: before }, error: null })
     mockExchange.mockResolvedValue({ error: null })
     mockGetUser.mockResolvedValueOnce({ data: { user: googleLinkedUser() }, error: null })
-    const res = await GET(req("/auth/callback?code=abc&flow=link&next=/settings"))
-    expect(res.headers.get("location")).toBe("http://localhost/settings")
+    const res = await GET(req("/auth/callback?code=abc&flow=link&next=/pricing"))
+    expect(res.headers.get("location")).toBe("http://localhost/pricing")
   })
 
   it("rejects unauthenticated linking attempts", async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null })
     const res = await GET(req("/auth/callback?code=abc&flow=link"))
     expect(mockExchange).not.toHaveBeenCalled()
-    expect(res.headers.get("location")).toBe("http://localhost/settings?error=link_failed")
+    expect(res.headers.get("location")).toBe("http://localhost/?error=link_failed")
   })
 
   it("rejects when the session changes accounts mid-flow", async () => {
@@ -91,7 +91,7 @@ describe("explicit Google link flow", () => {
       error: null,
     })
     const res = await GET(req("/auth/callback?code=abc&flow=link"))
-    expect(res.headers.get("location")).toBe("http://localhost/settings?error=link_failed")
+    expect(res.headers.get("location")).toBe("http://localhost/?error=link_failed")
   })
 
   it("rejects unverified Google identities", async () => {
@@ -107,7 +107,7 @@ describe("explicit Google link flow", () => {
       error: null,
     })
     const res = await GET(req("/auth/callback?code=abc&flow=link"))
-    expect(res.headers.get("location")).toBe("http://localhost/settings?error=link_failed")
+    expect(res.headers.get("location")).toBe("http://localhost/?error=link_failed")
   })
 
   it("returns a generic failure when Google belongs to another account flow", async () => {
@@ -115,7 +115,7 @@ describe("explicit Google link flow", () => {
     mockExchange.mockResolvedValue({ error: { message: "identity already exists" } })
     const res = await GET(req("/auth/callback?code=abc&flow=link"))
     const location = res.headers.get("location") ?? ""
-    expect(location).toBe("http://localhost/settings?error=link_failed")
+    expect(location).toBe("http://localhost/?error=link_failed")
     expect(location).not.toMatch(/already exists/)
   })
 })

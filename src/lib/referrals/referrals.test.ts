@@ -33,13 +33,11 @@ describe("referral policy", () => {
 
 describe("Google linking never touches referral state", () => {
   // Linking attaches an identity to the existing canonical user; it must
-  // neither create attributions nor grant rewards. Pin the call sites: the
-  // only modules allowed to invoke referral RPCs are the post-analysis hook
-  // and the billing read actions.
+  // neither create attributions nor grant rewards. The app surfaces that
+  // used to participate in the link flow are wiped in the rebuild; only the
+  // auth callback remains, and it must stay referral-free.
   const linkFlowFiles = [
     "src/app/auth/callback/route.ts",
-    "src/app/dashboard/settings/actions.ts",
-    "src/components/settings-client.tsx",
   ]
   for (const file of linkFlowFiles) {
     it(`${file} contains no referral writes`, () => {
@@ -48,11 +46,8 @@ describe("Google linking never touches referral state", () => {
     })
   }
 
-  it("only the analysis hook and billing actions invoke referral RPCs", () => {
-    const allowedCallers = new Set([
-      "src/app/audit/[id]/actions.ts",
-      "src/app/billing/actions.ts",
-    ])
+  it("no surviving surface invokes referral RPCs (reward loop returns with the rebuild)", () => {
+    const allowedCallers = new Set<string>([])
     const hits: string[] = []
     const scan = (dir: string) => {
       const joinPath = join
@@ -71,10 +66,8 @@ describe("Google linking never touches referral state", () => {
       }
     }
     scan("src")
-    expect(hits.sort()).toEqual(
-      ["src/app/audit/[id]/actions.ts", "src/app/billing/actions.ts"].sort()
-    )
-    expect(allowedCallers.size).toBe(2)
+    expect(hits.sort()).toEqual([...allowedCallers].sort())
+    expect(allowedCallers.size).toBe(0)
   })
 })
 

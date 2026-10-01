@@ -13,10 +13,10 @@ export default function RootNotFound() {
           The link you followed does not exist or was moved.
         </p>
         <Link
-          href="/dashboard"
+          href="/"
           className="mt-4 inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
         >
-          Go to your home
+          Go home
         </Link>
       </div>
     </div>

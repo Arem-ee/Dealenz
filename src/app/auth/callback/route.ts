@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get("code")
   const forLinkFlow = isLinkFlow(searchParams)
-  const next = resolveNextPath(searchParams.get("next") ?? (forLinkFlow ? SETTINGS_PATH : "/dashboard"))
+  const next = resolveNextPath(searchParams.get("next") ?? SETTINGS_PATH)
 
   if (!code) {
     return failure(req, forLinkFlow)

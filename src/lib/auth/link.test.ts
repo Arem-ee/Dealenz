@@ -3,41 +3,42 @@ import { isLinkFlow, LINK_CALLBACK_PATH, resolveNextPath } from "./link"
 
 describe("resolveNextPath", () => {
   it("accepts known internal destinations", () => {
-    expect(resolveNextPath("/dashboard")).toBe("/dashboard")
-    expect(resolveNextPath("/settings")).toBe("/settings")
-    expect(resolveNextPath("/chat")).toBe("/chat")
-    expect(resolveNextPath("/vault")).toBe("/vault")
-    expect(resolveNextPath("/billing")).toBe("/billing")
+    expect(resolveNextPath("/")).toBe("/")
+    expect(resolveNextPath("/pricing")).toBe("/pricing")
+    expect(resolveNextPath("/login")).toBe("/login")
+    expect(resolveNextPath("/help")).toBe("/help")
   })
 
-  it("falls back for removed routes such as the disabled lawyer marketplace", () => {
-    expect(resolveNextPath("/lawyer-application")).toBe("/dashboard")
-    expect(resolveNextPath("/lawyer-application/status")).toBe("/dashboard")
+  it("falls back to / for removed routes", () => {
+    expect(resolveNextPath("/dashboard")).toBe("/")
+    expect(resolveNextPath("/settings")).toBe("/")
+    expect(resolveNextPath("/lawyer-application")).toBe("/")
+    expect(resolveNextPath("/lawyer-application/status")).toBe("/")
   })
 
   it("rejects external origins", () => {
-    expect(resolveNextPath("https://evil.example")).toBe("/dashboard")
-    expect(resolveNextPath("http://evil.example/x")).toBe("/dashboard")
+    expect(resolveNextPath("https://evil.example")).toBe("/")
+    expect(resolveNextPath("http://evil.example/x")).toBe("/")
   })
 
   it("rejects protocol-relative URLs", () => {
-    expect(resolveNextPath("//evil.example")).toBe("/dashboard")
+    expect(resolveNextPath("//evil.example")).toBe("/")
   })
 
   it("rejects javascript: and data: schemes", () => {
-    expect(resolveNextPath("javascript:alert(1)")).toBe("/dashboard")
-    expect(resolveNextPath("data:text/html,hi")).toBe("/dashboard")
+    expect(resolveNextPath("javascript:alert(1)")).toBe("/")
+    expect(resolveNextPath("data:text/html,hi")).toBe("/")
   })
 
   it("rejects encoded external destinations", () => {
-    expect(resolveNextPath("%2F%2Fevil.example")).toBe("/dashboard")
-    expect(resolveNextPath("/%2e%2e/evil")).toBe("/dashboard")
+    expect(resolveNextPath("%2F%2Fevil.example")).toBe("/")
+    expect(resolveNextPath("/%2e%2e/evil")).toBe("/")
   })
 
   it("rejects unknown internal paths and non-strings", () => {
-    expect(resolveNextPath("/admin/secret")).toBe("/dashboard")
-    expect(resolveNextPath(null)).toBe("/dashboard")
-    expect(resolveNextPath(undefined)).toBe("/dashboard")
+    expect(resolveNextPath("/admin/secret")).toBe("/")
+    expect(resolveNextPath(null)).toBe("/")
+    expect(resolveNextPath(undefined)).toBe("/")
   })
 })
 

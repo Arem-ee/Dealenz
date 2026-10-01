@@ -44,7 +44,7 @@ export default function RegisterPage() {
       const supabase = createClient()
       const { error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
-      router.push("/dashboard?verify=true")
+      router.push("/login?verify=true")
       router.refresh()
     } catch (err) {
       const raw = err instanceof Error ? err.message : "unknown"

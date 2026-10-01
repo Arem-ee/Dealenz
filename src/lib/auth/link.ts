@@ -8,42 +8,40 @@
 export const LINK_FLOW_PARAM = "flow"
 export const LINK_FLOW_VALUE = "link"
 
-// Canonical post-link destination (top-level Settings container).
-export const SETTINGS_PATH = "/settings"
+// Canonical post-link destination. The app UI was wiped in the rebuild;
+// authenticated users land on the landing page until app tabs return.
+export const SETTINGS_PATH = "/"
 
 // Fixed callback path for the link flow. The client prefixes
 // window.location.origin; the path itself is server-owned, never
 // attacker-controlled.
-export const LINK_CALLBACK_PATH = "/auth/callback?flow=link&next=/settings"
+export const LINK_CALLBACK_PATH = "/auth/callback?flow=link&next=/"
 
 // Internal destinations the OAuth callback may redirect to. Anything else
 // (external origins, protocol-relative URLs, javascript:/data:) falls back
-// to /dashboard. Keep in sync with actual app routes.
+// to /. Keep in sync with actual app routes.
 const ALLOWED_NEXT_PATHS = new Set([
-  "/dashboard",
-  "/settings",
-  "/dashboard/activity",
-  "/chat",
-  "/vault",
-  "/library",
-  "/billing",
-  "/audit/new",
+  "/",
+  "/login",
+  "/register",
+  "/pricing",
+  "/help",
 ])
 
 export function resolveNextPath(next: unknown): string {
-  if (typeof next !== "string") return "/dashboard"
-  if (!next.startsWith("/") || next.startsWith("//")) return "/dashboard"
+  if (typeof next !== "string") return "/"
+  if (!next.startsWith("/") || next.startsWith("//")) return "/"
   // Reject encoded tricks that decode to external/protocol-relative targets.
   let decoded = next
   try {
     decoded = decodeURIComponent(next)
   } catch {
-    return "/dashboard"
+    return "/"
   }
-  if (!decoded.startsWith("/") || decoded.startsWith("//")) return "/dashboard"
-  if (/^\/[a-zA-Z0-9/_.-]*$/.test(decoded) === false) return "/dashboard"
+  if (!decoded.startsWith("/") || decoded.startsWith("//")) return "/"
+  if (/^\/[a-zA-Z0-9/_.-]*$/.test(decoded) === false) return "/"
   const base = decoded.split("?")[0].split("#")[0]
-  if (!ALLOWED_NEXT_PATHS.has(base)) return "/dashboard"
+  if (!ALLOWED_NEXT_PATHS.has(base)) return "/"
   return decoded
 }
 

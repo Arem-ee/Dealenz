@@ -52,5 +52,5 @@ export async function GET(req: NextRequest) {
     token_type: tokens.token_type,
   })
 
-  return NextResponse.redirect(new URL("/settings?gmail=connected", req.url))
+  return NextResponse.redirect(new URL("/?gmail=connected", req.url))
 }

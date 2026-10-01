@@ -327,9 +327,20 @@ describe("adversarial: provider and model selection ignore user content", () => 
   })
 
   it("no client component can pass a user-chosen model (static boundary)", () => {
-    const askClient = readFileSync(join(process.cwd(), "src/components/ask/ask-client.tsx"), "utf8")
-    expect(askClient).not.toMatch(/model\s*:/)
-    expect(askClient).not.toMatch(/provider\s*:\s*["']/)
+    // Ask UI was wiped in the rebuild; the boundary now scans every
+    // surviving client surface instead of one file.
+    const offenders: string[] = []
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry)
+        if (statSync(full).isDirectory()) { walk(full); continue }
+        if (!/\.(ts|tsx)$/.test(entry) || /\.test\./.test(entry)) continue
+        const source = readFileSync(full, "utf8")
+        if (/model\s*:/.test(source)) offenders.push(full)
+      }
+    }
+    for (const root of ["src/components", "src/app"]) walk(join(process.cwd(), root))
+    expect(offenders).toEqual([])
   })
 })
 

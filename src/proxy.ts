@@ -48,33 +48,17 @@ export async function proxy(request: NextRequest) {
     })
   }
 
-  if (user && pathname === "/") {
-    const url = request.nextUrl.clone()
-    url.pathname = "/dashboard"
-    return NextResponse.redirect(url)
-  }
-
+  // No app routes survive the wipe except landing + auth, so there is
+  // nothing to guard: public pages and API routes (which authenticate
+  // themselves, including the billing webhooks) pass straight through.
+  // The only redirect left keeps signed-in users off the auth pages.
   if (user && (pathname === "/login" || pathname === "/register")) {
     const url = request.nextUrl.clone()
-    url.pathname = "/dashboard"
+    url.pathname = "/"
     await logEventWithClient(supabase, {
       phase: "auth_redirect",
       status: "success",
-      error_message: "Authenticated user redirected to /dashboard",
-    })
-    return NextResponse.redirect(url)
-  }
-
-  // /lawyer/* requires a session (verified-lawyer checks run server-side per
-  // action); /admin/* likewise (page-level admin gate runs after this).
-  // /view/* and /sign/* stay public: token-gated RPCs enforce access.
-  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/audit") || pathname.startsWith("/ask") || pathname.startsWith("/deals") || pathname.startsWith("/chat") || pathname.startsWith("/vault") || pathname.startsWith("/library") || pathname.startsWith("/settings") || pathname.startsWith("/risk-intelligence") || pathname.startsWith("/billing") || pathname.startsWith("/lawyer") || pathname.startsWith("/guarded") || pathname.startsWith("/admin")) && !pathname.startsWith("/view")) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/login"
-    await logEventWithClient(supabase, {
-      phase: "auth_redirect",
-      status: "success",
-      error_message: "Unauthenticated user redirected to /login",
+      error_message: "Authenticated user redirected to /",
     })
     return NextResponse.redirect(url)
   }
