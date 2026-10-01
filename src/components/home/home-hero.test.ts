@@ -39,16 +39,14 @@ describe("Home workspace", () => {
     expect(css).toContain("--card: #FFFFFF")
   })
 
-  it("dashboard landing is the contracts repository, not the legacy hero", () => {
+  it("home tab is the deal repo with an empty state for new users", () => {
     const page = fs.readFileSync(path.join(process.cwd(), "src/app/dashboard/page.tsx"), "utf8")
-    expect(page).not.toContain("Needs Your Attention")
-    expect(page).not.toContain("In Progress")
-    expect(page).not.toContain("Quick Start")
-    expect(page).not.toContain("HomeHero")
-    expect(page).not.toContain("HomeContinuation")
-    expect(page).not.toContain("What are you working on?")
-    expect(page).not.toContain("ChatLanding")
-    expect(page).toContain("ContractsRepo")
+    expect(page).toContain("DealRepo")
+    expect(page).not.toContain("ContractsRepo")
+    expect(page).not.toContain("Under construction")
+    const repo = fs.readFileSync(path.join(process.cwd(), "src/components/home/deal-repo.tsx"), "utf8")
+    expect(repo).toContain("No deals yet")
+    expect(repo).toContain("Start your first deal")
   })
 
   it("sidebar holds only Home and Library, account menu holds the rest", () => {

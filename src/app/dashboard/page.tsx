@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { listThreads } from "@/lib/chat/actions"
-import { ContractsRepo } from "@/components/home/contracts-repo"
+import { DealRepo } from "@/components/home/deal-repo"
 
 export const dynamic = "force-dynamic"
 
@@ -22,16 +22,9 @@ export default async function DashboardPage() {
     loadError = err instanceof Error && err.message ? err.message : "Please refresh and try again."
   }
 
-  const { data: profile } = await supabase
-    .from("business_profiles")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle()
-  const setupNeeded = !profile
-
   return (
     <div className="flex flex-1 min-h-0 flex-col bg-background">
-      <ContractsRepo threads={threads} loadError={loadError} setupNeeded={setupNeeded} />
+      <DealRepo deals={threads} loadError={loadError} />
     </div>
   )
 }
