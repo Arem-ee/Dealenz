@@ -7,5 +7,5 @@ export default async function BillingLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <AppShell bare>{children}</AppShell>
+  return <AppShell>{children}</AppShell>
 }

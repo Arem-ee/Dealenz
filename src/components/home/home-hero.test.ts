@@ -49,16 +49,17 @@ describe("Home workspace", () => {
     expect(fs.existsSync(path.join(process.cwd(), "src/components/home/contracts-repo.tsx"))).toBe(false)
   })
 
-  it("sidebar holds only Home and Library, account menu holds the rest", () => {
+  it("no sidebar survives the discard — navigation returns with the rebuild", () => {
     const nav = fs.readFileSync(path.join(process.cwd(), "src/lib/nav.ts"), "utf-8")
-    expect(nav).toContain('href: "/dashboard"')
-    expect(nav).toContain('href: "/library"')
-    expect(nav).not.toContain('href: "/vault"')
+    expect(nav).toContain("export const PRIMARY_NAV: NavEntry[] = []")
     expect(nav).toContain('href: "/settings"')
     expect(nav).toContain('href: "/billing"')
     expect(nav).toContain('href: "/help"')
+    expect(fs.existsSync(path.join(process.cwd(), "src/components/sidebar-nav.tsx"))).toBe(false)
+    expect(fs.existsSync(path.join(process.cwd(), "src/components/top-nav.tsx"))).toBe(false)
+    const shell = fs.readFileSync(path.join(process.cwd(), "src/components/app-shell-client.tsx"), "utf-8")
+    expect(shell).not.toContain("SidebarNav")
     const layout = fs.readFileSync(path.join(process.cwd(), "src/app/dashboard/layout.tsx"), "utf-8")
     expect(layout).not.toContain("TopNav")
-    expect(fs.existsSync(path.join(process.cwd(), "src/components/top-nav.tsx"))).toBe(false)
   })
 })

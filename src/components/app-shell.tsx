@@ -41,14 +41,12 @@ async function getShellData() {
   const creditBalance = balanceSettled.status === "fulfilled" ? (balanceSettled.value as number | null) : null
 
   let threads: SidebarThread[] = []
-  let openIssues = 0
   if (threadsSettled.status === "fulfilled") {
     const rows = threadsSettled.value
     threads = rows.map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, status: t.status ?? null, riskLevel: t.riskLevel ?? null }))
-    openIssues = rows.reduce((s, t) => s + (typeof t.openIssues === "number" ? t.openIssues : 0), 0)
   }
 
-  return { user, emailConfirmed: true, email, businessName, isLawyer, creditBalance, threads, openIssues }
+  return { user, emailConfirmed: true, email, businessName, isLawyer, creditBalance, threads }
 }
 
 /** Loading skeleton while the shell data resolves. */
@@ -57,7 +55,6 @@ function ShellSkeleton() {
     <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-40 h-12 shrink-0 border-b border-border/60 bg-background/95 backdrop-blur" />
       <div className="flex flex-1 min-h-0">
-        <aside className="hidden md:flex md:flex-col w-12 shrink-0 border-r border-border/60 bg-background md:sticky md:top-12 md:h-[calc(100dvh-3rem)]" />
         <div className="flex flex-1 flex-col min-w-0 bg-background">
           <main className="flex flex-1 flex-col min-h-0 overflow-hidden bg-background">
             <div className="h-4 w-full animate-pulse bg-muted/60" />
@@ -76,7 +73,7 @@ function ShellSkeleton() {
  * (no client JS for the shell frame) while the interactive layer hydrates
  * with collapse/persist logic.
  */
-export async function AppShell({ children, bare = false }: { children: React.ReactNode; bare?: boolean }) {
+export async function AppShell({ children }: { children: React.ReactNode }) {
   const shellData = await getShellData()
 
   if (!shellData.emailConfirmed) {
@@ -126,8 +123,6 @@ export async function AppShell({ children, bare = false }: { children: React.Rea
         isLawyer={shellData.isLawyer}
         creditBalance={shellData.creditBalance}
         threads={shellData.threads}
-        openIssues={shellData.openIssues}
-        bare={bare}
       >
         {children}
       </ChromeShell>

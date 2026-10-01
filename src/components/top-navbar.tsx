@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Bell, LogOut, Menu, Plus, Scale, Search } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Logo } from "@/components/logo"
@@ -15,8 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { cn } from "@/lib/utils"
-import { ACCOUNT_NAV, PRIMARY_NAV, filterThreads, isActiveEntry, threadDate, type SidebarThread } from "@/lib/nav"
+import { ACCOUNT_NAV, filterThreads, threadDate, type SidebarThread } from "@/lib/nav"
 
 interface TopNavbarProps {
   email: string
@@ -35,7 +34,6 @@ interface TopNavbarProps {
  */
 export function TopNavbar({ email, businessName, isLawyer = false, creditBalance = null, threads = [] }: TopNavbarProps) {
   const router = useRouter()
-  const pathname = usePathname()
   const supabase = createClient()
   const displayName = businessName ?? email
   const initials = displayName.charAt(0).toUpperCase()
@@ -104,29 +102,6 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
                 <span>Notifications</span>
               </Link>
             </div>
-            <nav className="mt-2 flex flex-col gap-1" aria-label="Primary">
-              {PRIMARY_NAV.map((item) => {
-                const Icon = item.icon
-                const isActive = isActiveEntry(pathname, item.href)
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMenuOpen(false)}
-                    aria-current={isActive ? "page" : undefined}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors",
-                      isActive
-                        ? "bg-primary/10 font-semibold text-primary"
-                        : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                )
-              })}
-            </nav>
             <Link
               href="/audit/new"
               onClick={() => setMenuOpen(false)}

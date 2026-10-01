@@ -1,5 +1,5 @@
 import type { ComponentType } from "react"
-import { FileText, Inbox, LayoutDashboard, Library, PenLine, ShieldCheck, Settings, ReceiptText, LifeBuoy } from "lucide-react"
+import { Settings, ReceiptText, LifeBuoy } from "lucide-react"
 
 export interface NavEntry {
   label: string
@@ -8,22 +8,11 @@ export interface NavEntry {
 }
 
 /**
- * Single customer information architecture — deal control room.
- * Deal analysis is the deal inbox (composer, portfolio, deadlines). Inbox is
- * Gmail intake (read threads, import deals). Drafts holds every generated
- * document across deals. Signing tracks signature ceremonies in flight.
- * Tracker is everything after signing that requires watching. Library holds
- * search and standing rules. The account menu lives solely in the top
- * navbar. Ask is just the composer (classifier), not a destination.
+ * Navigation is rebuilt tab by tab. No primary tabs exist yet — entries
+ * return here as each tab is built. The account menu lives solely in the
+ * top navbar. Ask is just the composer (classifier), not a destination.
  */
-export const PRIMARY_NAV: NavEntry[] = [
-  { label: "Deal analysis", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Inbox", href: "/inbox", icon: Inbox },
-  { label: "Drafts", href: "/drafts", icon: FileText },
-  { label: "Signing", href: "/signing", icon: PenLine },
-  { label: "Tracker", href: "/guarded", icon: ShieldCheck },
-  { label: "Library", href: "/library", icon: Library },
-]
+export const PRIMARY_NAV: NavEntry[] = []
 
 export const SECONDARY_NAV: NavEntry[] = []
 
