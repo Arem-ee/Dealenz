@@ -1,5 +1,5 @@
 import type { ComponentType } from "react"
-import { BarChart3, CalendarClock, ClipboardCheck, Columns2, FilePlus2, FileText, FlaskConical, Inbox, LayoutDashboard, PenLine, ScrollText, Settings, ReceiptText, LifeBuoy, Users } from "lucide-react"
+import { BarChart3, CalendarClock, ClipboardCheck, Columns2, FilePlus2, FileText, FlaskConical, Inbox, LayoutDashboard, PenLine, ScrollText, Settings as SettingsIcon, ReceiptText, LifeBuoy, Users } from "lucide-react"
 
 export interface NavEntry {
   label: string
@@ -31,8 +31,14 @@ export const PRIMARY_NAV: NavEntry[] = [
 
 export const SECONDARY_NAV: NavEntry[] = []
 
+// Account-level entry, pinned to the sidebar bottom below a divider —
+// never counted among the workflow tabs.
+export const SETTINGS_NAV: NavEntry[] = [
+  { label: "Settings", href: "/settings", icon: SettingsIcon },
+]
+
 export const ACCOUNT_NAV: NavEntry[] = [
-  { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Settings", href: "/settings", icon: SettingsIcon },
   { label: "Billing", href: "/billing", icon: ReceiptText },
   { label: "Get help", href: "/help", icon: LifeBuoy },
 ]
