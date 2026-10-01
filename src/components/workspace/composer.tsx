@@ -21,8 +21,8 @@ export function Composer() {
           <Plus className="h-4 w-4" />
         </button>
         <input
-          aria-label="Describe the deal"
-          placeholder="Paste the contract, or say what happened…"
+          aria-label="Ask about the deal"
+          placeholder="Ask"
           autoComplete="off"
           className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
