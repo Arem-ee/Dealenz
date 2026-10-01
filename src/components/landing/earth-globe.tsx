@@ -93,6 +93,7 @@ export function EarthGlobe() {
     let disposed = false
     let dots: Dot[] = fibonacciDots(DOT_COUNT).map((d) => ({ ...d, land: false }))
     let mapsReady = false
+    let userTilt = 0
     const rot = { lon: -30, vel: 0 }
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
@@ -126,14 +127,14 @@ export function EarthGlobe() {
         // Offline or missing asset: abstract sphere fallback.
       })
 
-    function project(lon: number, lat: number, radius: number, cx: number, cy: number) {
+    function project(lon: number, lat: number, radius: number, cx: number, cy: number, tilt: number) {
       const lambda = ((lon + rot.lon) * Math.PI) / 180
       const phi = (lat * Math.PI) / 180
       const x = Math.cos(phi) * Math.sin(lambda)
       const y0 = Math.sin(phi)
       const z0 = Math.cos(phi) * Math.cos(lambda)
-      const y = y0 * Math.cos(TILT) - z0 * Math.sin(TILT)
-      const z = y0 * Math.sin(TILT) + z0 * Math.cos(TILT)
+      const y = y0 * Math.cos(tilt) - z0 * Math.sin(tilt)
+      const z = y0 * Math.sin(tilt) + z0 * Math.cos(tilt)
       return { x: cx + x * radius, y: cy - y * radius, z }
     }
 
@@ -160,23 +161,14 @@ export function EarthGlobe() {
       const radius = side * 0.42
       const cx = side / 2
       const cy = side / 2
+      // Slow nod on top of the spin so the sphere tumbles in every
+      // direction instead of turning on a single axis.
+      const tilt = TILT + Math.sin(time / 9000) * 0.22 + userTilt
       // Fixed key light from the upper left sculpts the spherical volume.
       const lx = -0.55
       const ly = -0.65
       const lz = 0.52
       ctx.clearRect(0, 0, side, side)
-
-      // Cast shadow: stacked flat ellipses falling lower-left, like the
-      // study's ground shadow. Drawn first so the sphere sits on it.
-      const shX = cx - radius * 0.55
-      const shY = cy + radius * 1.04
-      const shW = radius * 1.5
-      for (const [wScale, alpha] of [[1, 0.05], [0.8, 0.05], [0.6, 0.06]] as const) {
-        ctx.beginPath()
-        ctx.ellipse(shX, shY, (shW * wScale) / 2, radius * 0.09, -0.06, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(10,11,13,${alpha})`
-        ctx.fill()
-      }
 
       ctx.beginPath()
       ctx.arc(cx, cy, radius, 0, Math.PI * 2)
@@ -185,7 +177,7 @@ export function EarthGlobe() {
       ctx.stroke()
 
       for (const d of dots) {
-        const p = project(d.lon, d.lat, radius, cx, cy)
+        const p = project(d.lon, d.lat, radius, cx, cy, tilt)
         if (p.z < -0.08) continue
         const depth = Math.max(0, Math.min(1, (p.z + 0.08) / 1.08))
         // Diffuse term from the dot's rotated surface normal.
@@ -194,8 +186,8 @@ export function EarthGlobe() {
         const nx = Math.cos(phi) * Math.sin(lambda)
         const ny0 = Math.sin(phi)
         const nz0 = Math.cos(phi) * Math.cos(lambda)
-        const ny = ny0 * Math.cos(TILT) - nz0 * Math.sin(TILT)
-        const nz = ny0 * Math.sin(TILT) + nz0 * Math.cos(TILT)
+        const ny = ny0 * Math.cos(tilt) - nz0 * Math.sin(tilt)
+        const nz = ny0 * Math.sin(tilt) + nz0 * Math.cos(tilt)
         const diffuse = Math.max(0, nx * lx + -ny * ly + nz * lz)
         // Pencil-study ramp: eased highlight, deep terminator, faint
         // reflected lift just past the dark edge so the limb stays round.
@@ -204,17 +196,15 @@ export function EarthGlobe() {
         // Rim light kisses the limb so the disc edge reads round.
         const rim = Math.max(0, 1 - Math.abs(p.z) * 4) * 0.3
         const light = Math.min(1, eased * 0.92 + bounce + rim * (1 - eased))
-        const r = (d.land ? 0.8 : 0.6) + depth * (d.land ? 2.6 : 1.5)
+        const s = (d.land ? 0.8 : 0.6) + depth * (d.land ? 2.6 : 1.5)
         if (d.land) {
-          ctx.fillStyle = `rgba(4,120,87,${0.06 + depth * 0.94 * (0.2 + 0.8 * light)})`
+          ctx.fillStyle = `rgba(4,120,87,${(0.06 + depth * 0.94) * (0.2 + 0.8 * light)})`
         } else {
           ctx.fillStyle = mapsReady
             ? `rgba(10,11,13,${(0.015 + depth * 0.1) * (0.25 + 0.75 * light)})`
             : `rgba(10,11,13,${(0.03 + depth * 0.16) * (0.25 + 0.75 * light)})`
         }
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
-        ctx.fill()
+        ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s)
       }
 
       // Soft specular bloom upper-left of the disc, clipped to the sphere.
@@ -234,7 +224,7 @@ export function EarthGlobe() {
 
       ctx.font = "600 11px 'Mona Sans Variable', sans-serif"
       for (const n of NODES) {
-        const p = project(n.lon, n.lat, radius, cx, cy)
+        const p = project(n.lon, n.lat, radius, cx, cy, tilt)
         if (p.z < 0.05) continue
         const phase = ((time / 2200 + n.lon / 360) % 1 + 1) % 1
         ctx.beginPath()
@@ -242,10 +232,8 @@ export function EarthGlobe() {
         ctx.strokeStyle = `rgba(5,150,105,${0.5 * (1 - phase)})`
         ctx.lineWidth = 1.5
         ctx.stroke()
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2)
         ctx.fillStyle = "#059669"
-        ctx.fill()
+        ctx.fillRect(p.x - 3, p.y - 3, 6, 6)
         const label = n.label
         const w = ctx.measureText(label).width
         ctx.fillStyle = "rgba(247,246,243,0.85)"
@@ -275,18 +263,23 @@ export function EarthGlobe() {
 
     let dragging = false
     let lastX = 0
+    let lastY = 0
     const onDown = (e: PointerEvent) => {
       dragging = true
       lastX = e.clientX
+      lastY = e.clientY
       canvas.setPointerCapture(e.pointerId)
       canvas.style.cursor = "grabbing"
     }
     const onMove = (e: PointerEvent) => {
       if (!dragging) return
       const dx = e.clientX - lastX
+      const dy = e.clientY - lastY
       lastX = e.clientX
+      lastY = e.clientY
       rot.lon += dx * 0.25
       rot.vel = dx * 0.02
+      userTilt = Math.max(-0.6, Math.min(0.6, userTilt + dy * 0.003))
     }
     const onUp = () => {
       dragging = false

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
+import { Reveal } from "@/components/landing/reveal"
 
 const INDUSTRIES = [
   {
@@ -43,7 +44,7 @@ const INDUSTRIES = [
 export function Industries() {
   return (
     <section className="bg-paper py-28 text-neutral-900 lg:py-40">
-      <div className="mx-auto max-w-6xl px-6 lg:px-8">
+      <Reveal className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="max-w-3xl">
           <h2 className="display-h mt-0 text-[30px] text-neutral-900 sm:text-[40px]">
             Explore by industry
@@ -85,7 +86,7 @@ export function Industries() {
             </Link>
           ))}
         </div>
-      </div>
+      </Reveal>
     </section>
   )
 }

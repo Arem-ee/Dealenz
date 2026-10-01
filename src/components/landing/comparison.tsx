@@ -1,4 +1,5 @@
 import { Check, X } from "lucide-react"
+import { Reveal } from "@/components/landing/reveal"
 
 export function Comparison() {
   const rows: Array<{
@@ -41,7 +42,7 @@ export function Comparison() {
 
   return (
     <section id="solutions" className="bg-paper py-28 text-neutral-900 lg:py-40">
-      <div className="mx-auto max-w-6xl px-6 lg:px-8">
+      <Reveal className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="max-w-2xl">
           <h2 className="display-h text-[30px] leading-[1.12] text-neutral-900 sm:text-[40px]">
             Deal & Contract Intelligence engineered for enterprise certainty.
@@ -82,7 +83,7 @@ export function Comparison() {
           </table>
         </div>
         <p className="mt-3 text-center text-[11px] text-neutral-400">Illustrated comparison of capabilities, not measured outcomes</p>
-      </div>
+      </Reveal>
     </section>
   )
 }

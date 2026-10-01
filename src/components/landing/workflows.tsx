@@ -1,9 +1,10 @@
 import { EarthGlobe } from "@/components/landing/earth-globe"
+import { Reveal } from "@/components/landing/reveal"
 
 export function Workflows() {
   return (
     <section className="bg-paper py-28 text-neutral-900 lg:py-40">
-      <div className="mx-auto max-w-6xl px-6 lg:px-8">
+      <Reveal className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="max-w-xl">
           <h2 className="display-h text-[24px] leading-[1.15] text-neutral-900 sm:text-[32px]">
             Experience every solution worldwide under a unified contract
@@ -23,7 +24,7 @@ export function Workflows() {
             Live coverage map. Illustrated positions.
           </p>
         </div>
-      </div>
+      </Reveal>
     </section>
   )
 }

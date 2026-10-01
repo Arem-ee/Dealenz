@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { FileUp, FileText, Check, ShieldCheck, PenLine, PenTool } from "lucide-react"
+import { Reveal } from "@/components/landing/reveal"
 
 const TABS = [
   { label: "Intake", icon: <FileUp className="h-3.5 w-3.5" /> },
@@ -147,7 +148,7 @@ export function Advantage() {
 
   return (
     <section id="workflows" className="bg-paper py-28 text-neutral-900 lg:py-40">
-      <div className="mx-auto max-w-6xl px-6 lg:px-8">
+      <Reveal className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="flex flex-nowrap justify-start gap-2 overflow-x-auto pb-3">
           {TABS.map((tab, idx) => (
             <button
@@ -180,7 +181,7 @@ export function Advantage() {
           {PANELS[activeTab]!.mockup}
           <p className="mt-3 text-center text-[11px] text-neutral-400">Illustrated example</p>
         </div>
-      </div>
+      </Reveal>
     </section>
   )
 }

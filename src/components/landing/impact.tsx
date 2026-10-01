@@ -1,4 +1,5 @@
 import { BellRing, Check } from "lucide-react"
+import { Reveal } from "@/components/landing/reveal"
 
 export function Impact() {
   const deadlines = [
@@ -9,7 +10,7 @@ export function Impact() {
 
   return (
     <section className="bg-ink py-28 text-white lg:py-40">
-      <div className="mx-auto max-w-6xl px-6 lg:px-8">
+      <Reveal className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="max-w-2xl">
           <h2 className="display-h text-[30px] leading-[1.12] text-white sm:text-[40px]">
             Track corporate value from each deal.
@@ -53,7 +54,7 @@ export function Impact() {
           </div>
           <p className="mt-3 text-center text-[11px] text-white/40">Illustrated example</p>
         </div>
-      </div>
+      </Reveal>
     </section>
   )
 }

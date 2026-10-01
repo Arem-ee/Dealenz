@@ -1,5 +1,6 @@
 import React from "react"
 import { ShieldCheck, FileSearch, PenLine, BellRing, Lock, FileCheck2 } from "lucide-react"
+import { Reveal } from "@/components/landing/reveal"
 
 export function TrustStrip() {
   const markers = [
@@ -13,7 +14,7 @@ export function TrustStrip() {
 
   return (
     <section className="relative z-10 border-y border-white/10 bg-ink py-12 text-white">
-      <div className="mx-auto max-w-6xl px-6 lg:px-8">
+      <Reveal className="mx-auto max-w-6xl px-6 lg:px-8">
         <p className="text-center text-[12px] text-white/40">
           Built for teams who sign for a living
         </p>
@@ -29,7 +30,7 @@ export function TrustStrip() {
             </div>
           ))}
         </div>
-      </div>
+      </Reveal>
     </section>
   )
 }
