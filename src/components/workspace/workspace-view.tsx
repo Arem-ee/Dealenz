@@ -10,8 +10,8 @@ import { Composer } from "@/components/workspace/composer"
 export function WorkspaceView() {
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-      <section aria-label="Conversation" className="flex min-h-0 min-w-0 flex-1 flex-col border-b border-border lg:border-b-0 lg:border-r">
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-12 text-center">
+      <section aria-label="Conversation" className="relative flex min-h-0 min-w-0 flex-1 flex-col border-b border-border lg:border-b-0 lg:border-r">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 pb-20 pt-12 text-center">
           <FileText className="h-6 w-6 text-muted-foreground" />
           <p className="mt-2 text-sm font-medium">Drop the paper here</p>
           <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
