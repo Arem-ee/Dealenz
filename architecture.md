@@ -9,7 +9,7 @@ This document describes the **target full-product architecture** for Dealenz, di
 ## Stack
 
 - **Framework:** Next.js 16 (App Router), React 19, TypeScript (strict mode)
-- **Styling:** Tailwind CSS v4, custom brand tokens (dark burgundy/oxblood primary via OKLCH, separate risk-severity palette)
+- **Styling:** Tailwind CSS v4, monochrome ink tokens with a reserved green for verified states
 - **UI primitives:** Radix UI + lucide-react + class-variance-authority
 - **Database & Auth:** Supabase (Postgres + Supabase Auth, via `@supabase/ssr`)
 - **Document generation:** `@react-pdf/renderer` for PDF export, `pdf-parse` / `mammoth` for reading uploaded PDFs/DOCX
@@ -154,7 +154,7 @@ Do not expand primary nav into a CRM (no lead stages, funnels, scoring, pipeline
 
 ## Visual Language
 
-- **Accent:** one burgundy/oxblood (OKLCH) used sparingly; risk-severity palette is separate
+- **Accent:** none chromatic. Ink carries emphasis; a reserved green marks verified, success, and alive states only. Risk severity reads through text labels and border weight, never hue
 - **UI text:** Mona Sans Variable, everywhere including work content and code-like text
   (the serif/mono utilities remain as aliases)
 - **Display:** Bodoni Moda for headlines (`font-display` utility)
@@ -480,7 +480,7 @@ No stated targets exist beyond "works for a handful of founders and small busine
 
 ### Design Principles (Stated, Apply Across the Product)
 
-- **Accent:** one burgundy/oxblood, used sparingly
+- **Accent:** monochrome discipline (see Visual Language above)
 - **UI text:** Mona Sans Variable for controls, labels, and interface
 - **Display:** Bodoni Moda for headlines
 - Clean, minimal, professional, document/work-oriented

@@ -180,10 +180,10 @@ export default function CounterpartyNewPage() {
                 aria-checked={pickedId === c.id}
                 disabled={busy || step === "done"}
                 onClick={() => setPickedId(c.id)}
-                className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left text-sm transition-colors disabled:opacity-70 ${pickedId === c.id ? "border-burgundy bg-burgundy/[0.06]" : "border-input bg-background hover:bg-muted/50"}`}
+                className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left text-sm transition-colors disabled:opacity-70 ${pickedId === c.id ? "border-primary bg-primary/[0.06]" : "border-input bg-background hover:bg-muted/50"}`}
               >
-                <span aria-hidden className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${pickedId === c.id ? "border-burgundy" : "border-muted-foreground/40"}`}>
-                  {pickedId === c.id && <span className="h-2 w-2 rounded-full bg-burgundy" />}
+                <span aria-hidden className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${pickedId === c.id ? "border-primary" : "border-muted-foreground/40"}`}>
+                  {pickedId === c.id && <span className="h-2 w-2 rounded-full bg-primary" />}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{c.label}</span>

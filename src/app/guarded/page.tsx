@@ -154,7 +154,7 @@ export default async function GuardedPage() {
   return (
     <div className="h-full min-h-0 overflow-y-auto bg-background">
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:py-8">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--burgundy)]">After signing</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">After signing</p>
       <h1 className="mt-1.5  text-[28px] font-semibold leading-tight tracking-[-0.01em]">Tracker</h1>
 
       {loadError ? (
@@ -208,7 +208,6 @@ export default async function GuardedPage() {
               const dueDays = d.nextDue && !overdue
                 ? Math.floor((new Date(d.nextDue + "T00:00:00Z").getTime() - new Date(todayKey + "T00:00:00Z").getTime()) / 86400000)
                 : null
-              const dueSoon = dueDays !== null && dueDays <= 30
               const kind = typeLabel(d.nextType)
               const notice = (d.nextType === "renewal" || d.nextType === "expiration") && d.nextDue
                 ? d.obligations.find((o) => o.type === "notice_period" && o.due && o.due <= (d.nextDue as string)) ?? null
@@ -226,12 +225,12 @@ export default async function GuardedPage() {
                       <p className="min-w-0 flex-1 text-xs text-muted-foreground">
                         Next{kind ? ` (${kind})` : ""}: <span className="font-medium text-foreground">{d.nextTitle}</span> ·{" "}
                         {notice && (
-                          <span className="font-medium tabular-nums text-amber-700">
+                          <span className="font-medium tabular-nums text-foreground">
                             Notice by {new Date(notice.due + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} ·{" "}
                           </span>
                         )}
-                        <span className={`font-medium tabular-nums ${overdue ? "text-red-700" : dueSoon ? "text-amber-700" : ""}`}>
-                          {overdue ? "Overdue · " : dueSoon ? `Due in ${dueDays}d · ` : ""}{new Date(d.nextDue + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        <span className={`font-medium tabular-nums ${overdue ? "font-bold text-foreground" : ""}`}>
+                          {overdue ? "Overdue · " : dueDays !== null ? `Due in ${dueDays}d · ` : ""}{new Date(d.nextDue + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                         </span>
                       </p>
                       {d.obligations[0] && (

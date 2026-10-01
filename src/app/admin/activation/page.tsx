@@ -9,7 +9,7 @@ function Bar({ value, max }: { value: number; max: number }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0
   return (
     <span className="block h-1.5 w-32 overflow-hidden rounded-full bg-muted" aria-hidden>
-      <span className="block h-full rounded-full bg-[var(--burgundy)]" style={{ width: `${pct}%` }} />
+      <span className="block h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
     </span>
   )
 }
@@ -43,7 +43,7 @@ export default async function ActivationPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--burgundy)]">Founder metrics</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Founder metrics</p>
       <h1 className="mt-1.5 text-[28px] font-semibold tracking-[-0.01em]">Activation</h1>
       <p className="mt-1 text-xs text-muted-foreground">
         First-party tables only — counts, never content. Signup → first analysis → second analysis is the funnel that matters.

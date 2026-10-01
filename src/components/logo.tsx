@@ -54,7 +54,7 @@ export function Logo({
             <span
               className={cn(
                 "mt-0.5 text-[8.5px] font-bold uppercase tracking-[0.16em]",
-                dark ? "text-amber-400" : "text-amber-600 dark:text-amber-400"
+                dark ? "text-white/50" : "text-neutral-500 dark:text-white/50"
               )}
             >
               Deal Intelligence

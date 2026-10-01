@@ -39,21 +39,21 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
                 className={cn(
                   "flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] transition-colors",
                   isActive
-                    ? "bg-burgundy/10 font-semibold text-burgundy"
+                    ? "bg-primary/10 font-semibold text-primary"
                     : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                 )}
               >
                 <span className="relative shrink-0">
                   <Icon className="h-4 w-4" />
                   {badge !== null && (
-                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-burgundy px-0.5 text-[9px] font-bold text-white group-hover/nav:hidden" aria-label={`${badge} open issues`}>
+                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold text-white group-hover/nav:hidden" aria-label={`${badge} open issues`}>
                       {badge > 99 ? "99+" : badge}
                     </span>
                   )}
                 </span>
                 <span className="flex-1 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/nav:opacity-100">{item.label}</span>
                 {badge !== null && (
-                  <span className="hidden h-5 min-w-5 items-center justify-center rounded-full bg-burgundy px-1.5 text-[10px] font-bold text-white group-hover/nav:flex" aria-hidden>
+                  <span className="hidden h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-white group-hover/nav:flex" aria-hidden>
                     {badge > 99 ? "99+" : badge}
                   </span>
                 )}
@@ -77,7 +77,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
                     className={cn(
                       "flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] transition-colors",
                       isActive
-                        ? "bg-burgundy/10 font-semibold text-burgundy"
+                        ? "bg-primary/10 font-semibold text-primary"
                         : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                     )}
                   >
@@ -107,12 +107,12 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
                       className={cn(
                         "flex items-center gap-2 rounded-lg px-3 py-1 text-[13px] transition-colors",
                         isActive
-                          ? "bg-burgundy/10 font-semibold text-burgundy"
+                          ? "bg-primary/10 font-semibold text-primary"
                           : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                       )}
                     >
                       {needsAttention && (
-                        <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-burgundy" />
+                        <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                       )}
                       <span className="min-w-0 flex-1 truncate">{t.title || "Untitled"}</span>
                     </Link>
@@ -124,7 +124,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
         )}
         {showTopUp && (
           <div className="mt-auto hidden shrink-0 px-1 pb-1 pt-3 group-hover/nav:block">
-            <div className="rounded-2xl bg-burgundy p-3 text-white">
+            <div className="rounded-2xl bg-primary p-3 text-white">
               <p className="flex items-center gap-1.5 text-[13px] font-bold">
                 <Zap className="h-3.5 w-3.5" />
                 Low credits
@@ -134,7 +134,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
               </p>
               <Link
                 href="/billing"
-                className="mt-2 flex h-8 items-center justify-center rounded-full bg-white text-[12px] font-semibold text-burgundy transition-colors hover:bg-white/90"
+                className="mt-2 flex h-8 items-center justify-center rounded-full bg-white text-[12px] font-semibold text-primary transition-colors hover:bg-white/90"
               >
                 Top up
               </Link>

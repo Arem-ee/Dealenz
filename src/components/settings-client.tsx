@@ -279,7 +279,7 @@ function AppearanceSection() {
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-xl border px-2 py-3 text-xs transition-colors",
                   active
-                    ? "border-burgundy bg-burgundy/10 font-semibold text-burgundy"
+                    ? "border-primary bg-primary/10 font-semibold text-primary"
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 )}
               >

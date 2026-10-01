@@ -16,12 +16,12 @@ export interface DealOverviewItem {
 }
 
 const MOMENT_TONE: Record<DealMoment, string> = {
-  "needs-action": "text-red-700",
-  negotiating: "text-amber-700",
-  "ready-to-sign": "text-emerald-700",
-  signed: "text-emerald-700",
-  guarded: "text-emerald-700",
-  "needs-attention": "text-red-700",
+  "needs-action": "text-foreground",
+  negotiating: "text-foreground",
+  "ready-to-sign": "text-foreground",
+  signed: "text-foreground",
+  guarded: "text-foreground",
+  "needs-attention": "text-foreground",
   draft: "text-muted-foreground",
   unknown: "text-muted-foreground",
 }

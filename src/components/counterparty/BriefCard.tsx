@@ -19,7 +19,7 @@ export function BriefCard({ brief, creditsCharged }: { brief: CounterpartyBrief;
             "rounded-full border px-2 py-0.5 text-[11px] font-medium",
             brief.liveVerified
               ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-700"
-              : "border-amber-500/30 bg-amber-500/5 text-amber-700"
+              : "border-border bg-muted/40 text-muted-foreground"
           )}
         >
           {brief.liveVerified ? "Registry-verified" : "Unverified — details only"}

@@ -48,7 +48,7 @@ function queueOf(row: SigningRow): Exclude<QueueFilter, "all"> {
 function pillTone(status: string): string {
   if (status === "signed") return "bg-emerald-500/10 text-emerald-700"
   if (status === "declined" || status === "revoked" || status === "expired") return "bg-muted text-muted-foreground"
-  return "bg-amber-500/10 text-amber-700"
+  return "bg-muted text-foreground"
 }
 
 function pillLabel(row: SigningRow): string {
@@ -159,7 +159,7 @@ export default async function SigningPage({ searchParams }: { searchParams?: Pro
   return (
     <div className="h-full min-h-0 overflow-y-auto bg-background">
       <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:py-8">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--burgundy)]">Signatures in flight</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Signatures in flight</p>
         <h1 className="mt-1.5 text-[28px] font-semibold leading-tight tracking-[-0.01em]">Signing</h1>
 
         {loadError ? (
@@ -244,10 +244,10 @@ export default async function SigningPage({ searchParams }: { searchParams?: Pro
                     <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
                       {r.auditTitle}{r.signedAt ? ` · signed ${formatDate(r.signedAt)}` : age !== null ? ` · waiting ${age}d` : ""}
                       {expiring !== null && expiring <= 0 && (
-                        <span className="font-medium text-red-700"> · expired</span>
+                        <span className="font-medium text-foreground"> · expired</span>
                       )}
                       {expiring !== null && expiring > 0 && expiring <= 7 && (
-                        <span className="font-medium text-amber-700"> · expiring in {expiring}d</span>
+                        <span className="font-medium text-foreground"> · expiring in {expiring}d</span>
                       )}
                     </span>
                   </span>

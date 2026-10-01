@@ -89,7 +89,7 @@ function ThreadRow({
         className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
       >
         {thread.unread && (
-          <span aria-label="Unread" title="Unread" className="h-2 w-2 shrink-0 rounded-full bg-burgundy" />
+          <span aria-label="Unread" title="Unread" className="h-2 w-2 shrink-0 rounded-full bg-foreground" />
         )}
         <span className="min-w-0 flex-1">
           <span className={cn("block truncate text-sm", thread.unread ? "font-semibold" : "font-medium")}>{thread.subject ?? "(no subject)"}</span>
@@ -398,7 +398,7 @@ export function InboxView() {
   if (status === "unconnected") {
     return (
       <div className="rounded-2xl border border-dashed p-8 text-center">
-        <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-burgundy/10 text-burgundy">
+        <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
           <MailCheck className="h-5 w-5" />
         </span>
         <p className="mt-3 text-sm font-semibold">See your deals where they arrive</p>

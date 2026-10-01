@@ -33,7 +33,7 @@ function versionStatus(version: DraftRow): { label: string; tone: string } {
   if (s === "fully_signed" || s === "locked") return { label: "signed", tone: "bg-emerald-500/10 text-emerald-700" }
   if (s === "superseded") return { label: "superseded", tone: "bg-muted text-muted-foreground" }
   if (s === "owner_signed" || s === "counterparty_pending" || s === "sent" || s === "ready_to_sign" || s === "ready_to_send") {
-    return { label: "in signing", tone: "bg-amber-500/10 text-amber-700" }
+    return { label: "in signing", tone: "bg-muted text-foreground" }
   }
   return { label: "draft", tone: "bg-muted text-muted-foreground" }
 }
@@ -156,7 +156,7 @@ export default async function DraftsPage({ searchParams }: { searchParams?: Prom
   return (
     <div className="h-full min-h-0 overflow-y-auto bg-background">
       <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:py-8">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--burgundy)]">Your work, ready to send</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Your work, ready to send</p>
         <h1 className="mt-1.5 text-[28px] font-semibold leading-tight tracking-[-0.01em]">Drafts</h1>
 
         {loadError ? (

@@ -96,7 +96,7 @@ function NewAuditContent() {
         </p>
         {error && <p className="text-sm text-destructive">{error}</p>}
         {attachError && createdThreadId && (
-          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] leading-relaxed text-red-800">
+          <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-[13px] leading-relaxed text-foreground">
             <p>{attachError}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button size="sm" onClick={() => router.push("/billing")}>

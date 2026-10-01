@@ -718,9 +718,9 @@ export function ChatThread({ threadId, auditId, initialMessages }: { threadId: s
               <div className="mt-1 space-y-3">
                 {(
                   [
-                    ["Resolved", findingDelta.resolved, "text-emerald-700"],
-                    ["Still open", findingDelta.stillOpen, "text-amber-700"],
-                    ["New", findingDelta.newIssues, "text-red-700"],
+                    ["Resolved", findingDelta.resolved, "text-foreground"],
+                    ["Still open", findingDelta.stillOpen, "text-foreground"],
+                    ["New", findingDelta.newIssues, "text-foreground"],
                   ] as const
                 ).map(
                   ([label, items, tone]) =>

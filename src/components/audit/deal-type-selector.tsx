@@ -10,12 +10,12 @@ interface DealTypeSelectorProps {
 }
 
 const CAPABILITY: Record<DealType, { label: string; tone: string }> = {
-  founder: { label: "Limited draft", tone: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
-  partnership: { label: "Limited draft", tone: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
-  purchase_sale: { label: "Limited draft", tone: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
-  lease: { label: "Limited draft", tone: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
-  employment: { label: "Limited draft", tone: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
-  freelance: { label: "Full documents", tone: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
+  founder: { label: "Limited draft", tone: "bg-muted text-muted-foreground border-border" },
+  partnership: { label: "Limited draft", tone: "bg-muted text-muted-foreground border-border" },
+  purchase_sale: { label: "Limited draft", tone: "bg-muted text-muted-foreground border-border" },
+  lease: { label: "Limited draft", tone: "bg-muted text-muted-foreground border-border" },
+  employment: { label: "Limited draft", tone: "bg-muted text-muted-foreground border-border" },
+  freelance: { label: "Full documents", tone: "bg-foreground text-background border-foreground" },
   generic: { label: "Analysis only", tone: "bg-muted text-muted-foreground border-border" },
 }
 

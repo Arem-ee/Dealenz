@@ -11,7 +11,7 @@ export function HeroMockup() {
         <div className="flex min-h-[420px] flex-col justify-center gap-5 p-8 lg:p-10">
           <div className="rounded-none border border-neutral-200 p-6">
             <div className="flex items-center gap-2">
-              <span className="rounded-none bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+              <span className="rounded-none bg-foreground px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-background">
                 Critical
               </span>
               <p className="text-[13px] font-semibold">Section 8.4 — Uncapped indemnity</p>

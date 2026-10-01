@@ -119,7 +119,7 @@ export default async function BillingPage({
   return (
     <div className="h-full min-h-0 overflow-y-auto bg-background">
     <div className="px-4 sm:px-6 py-5 sm:py-7 max-w-3xl mx-auto">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-burgundy">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
         Billing · No subscriptions
       </p>
       <h1 className="mt-1 text-[26px] font-bold leading-tight tracking-tight sm:text-[30px]">
@@ -139,7 +139,7 @@ export default async function BillingPage({
       )}
 
       {/* Balance hero: what you hold, what it buys, one action. */}
-      <div className="mt-5 rounded-3xl bg-burgundy p-6 text-white shadow-sm sm:p-7">
+      <div className="mt-5 rounded-3xl bg-primary p-6 text-white shadow-sm sm:p-7">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">
@@ -159,7 +159,7 @@ export default async function BillingPage({
           </div>
           <a
             href="#buy-credits"
-            className="inline-flex h-11 items-center rounded-full bg-white px-6 text-sm font-semibold text-burgundy transition-colors hover:bg-white/90"
+            className="inline-flex h-11 items-center rounded-full bg-white px-6 text-sm font-semibold text-primary transition-colors hover:bg-white/90"
           >
             Buy credits
           </a>

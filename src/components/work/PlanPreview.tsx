@@ -74,7 +74,7 @@ export function PlanPreview({
       )}
       {plan.status === "needs_input" && onResume && (
         <div className="mt-4 flex gap-2">
-          <button onClick={() => void run("resume", onResume)} disabled={pending !== null} className="rounded-full bg-amber-600 px-4 py-2 text-sm text-white disabled:opacity-50">
+          <button onClick={() => void run("resume", onResume)} disabled={pending !== null} className="rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50">
             {pending === "resume" ? "Resuming…" : "Resume — provide missing info and continue"}
           </button>
           <button onClick={() => void run("reject", onReject)} disabled={pending !== null} className="rounded-full border px-4 py-2 text-sm disabled:opacity-50">

@@ -17,16 +17,16 @@ export function AnalysisStagesList({ stages, title }: { stages: AnalysisStage[];
             <span
               className={`h-1.5 w-1.5 rounded-full ${
                 stage.state === "done"
-                  ? "bg-green-500"
+                  ? "bg-success"
                   : stage.state === "failed"
-                    ? "bg-red-500"
+                    ? "bg-foreground"
                     : stage.state === "active"
-                      ? "bg-blue-500 animate-pulse"
+                      ? "bg-foreground animate-pulse"
                       : "bg-muted"
               }`}
             />
             <span className={stage.state === "pending" ? "text-muted-foreground" : "text-foreground"}>{stage.label}</span>
-            {stage.state === "failed" && <span className="text-xs text-red-600">failed</span>}
+            {stage.state === "failed" && <span className="text-xs text-foreground">failed</span>}
           </li>
         ))}
       </ul>
@@ -82,7 +82,7 @@ export function ExecutionProgress({ execution, steps, auditId }: { execution: Wo
         {steps.map((s, i) => (
           <li key={s.id}>
             <span className="flex items-center gap-2 text-sm">
-              <span className={`h-2 w-2 shrink-0 rounded-full ${s.status === "succeeded" ? "bg-green-500" : s.status === "failed" ? "bg-red-500" : s.status === "running" ? "bg-blue-500 animate-pulse" : s.status === "needs_input" ? "bg-amber-500" : "bg-muted"}`} />
+              <span className={`h-2 w-2 shrink-0 rounded-full ${s.status === "succeeded" ? "bg-success" : s.status === "failed" ? "bg-foreground" : s.status === "running" ? "bg-foreground animate-pulse" : s.status === "needs_input" ? "bg-muted-foreground" : "bg-muted"}`} />
               <span className="text-xs tabular-nums text-muted-foreground">{i + 1}.</span>
               <span>{friendlyOperation(s.operation)}</span>
               <span className="text-xs text-muted-foreground">

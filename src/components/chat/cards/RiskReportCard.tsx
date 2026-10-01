@@ -42,7 +42,7 @@ export function RiskReportCard({ payload, onAskFinding, auditId }: { payload: Re
             : "We checked what you shared and nothing stands out as needing a fix before signing."}
         </p>
         {riskDegraded && (
-          <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs leading-relaxed text-amber-700">
+          <p className="mt-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-foreground">
             Heuristic assessment only: AI analysis was unavailable, so even this clean result comes from deterministic checks. Re-run when service recovers for a full review.
           </p>
         )}
@@ -71,7 +71,7 @@ export function RiskReportCard({ payload, onAskFinding, auditId }: { payload: Re
       {(riskDegraded || rulesDegraded) && (
         <div className="px-4 pt-3 space-y-2">
           {riskDegraded && (
-            <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs leading-relaxed text-amber-700">
+            <p role="status" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-foreground">
               Heuristic assessment: AI analysis was unavailable when this ran, so the rating above comes from deterministic checks only. The findings below still stand.
             </p>
           )}

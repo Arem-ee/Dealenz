@@ -120,16 +120,16 @@ export function ContextConfirmCard({ payload, onConfirm }: { payload: Record<str
                       setCustomOpen(false)
                     }}
                     className={`flex w-full items-center gap-3 rounded-lg border px-3.5 py-2.5 text-left text-sm transition-colors ${
-                      selected ? "border-burgundy bg-burgundy/[0.06]" : "border-input bg-background hover:bg-muted/50"
+                      selected ? "border-primary bg-primary/[0.06]" : "border-input bg-background hover:bg-muted/50"
                     }`}
                   >
                     <span
                       aria-hidden
                       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                        selected ? "border-burgundy" : "border-muted-foreground/40"
+                        selected ? "border-primary" : "border-muted-foreground/40"
                       }`}
                     >
-                      {selected && <span className="h-2 w-2 rounded-full bg-burgundy" />}
+                      {selected && <span className="h-2 w-2 rounded-full bg-primary" />}
                     </span>
                     <span className="font-medium">{optionLabel(opt)}</span>
                   </button>

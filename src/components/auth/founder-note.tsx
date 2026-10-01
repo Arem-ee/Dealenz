@@ -20,7 +20,7 @@ export function FounderNote() {
 
   return (
     <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-background p-8 lg:p-10">
-      <div className="absolute -left-24 -top-24 h-[380px] w-[380px] rounded-full bg-burgundy/10 blur-[70px]" aria-hidden />
+      <div className="absolute -left-24 -top-24 h-[380px] w-[380px] rounded-full bg-primary/10 blur-[70px]" aria-hidden />
       <div className="absolute -bottom-20 -right-20 h-[420px] w-[420px] rounded-full bg-foreground/[0.04] blur-[70px]" aria-hidden />
 
       <div className="relative w-full max-w-[420px]">
@@ -56,7 +56,7 @@ export function FounderNote() {
               onError={() => setPhotoOk(false)}
             />
           ) : (
-            <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-burgundy/10 text-sm font-bold text-burgundy">
+            <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
               T
             </span>
           )}

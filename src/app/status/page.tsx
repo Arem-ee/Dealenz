@@ -9,7 +9,7 @@ export const metadata = {
 
 function tone(status: CheckState): string {
   if (status === "ok") return "bg-emerald-500/10 text-emerald-700"
-  if (status === "degraded" || status === "unavailable") return "bg-red-500/10 text-red-700"
+  if (status === "degraded") return "bg-muted text-foreground"
   return "bg-muted text-muted-foreground"
 }
 
@@ -30,7 +30,7 @@ export default async function StatusPage() {
         </Link>
         <div className="mt-8 flex items-center gap-3">
           <span
-            className={`h-2.5 w-2.5 rounded-full ${allOk ? "bg-emerald-500" : health.status === "degraded" ? "bg-amber-500" : "bg-red-500"}`}
+            className={`h-2.5 w-2.5 rounded-full ${allOk ? "bg-emerald-500" : health.status === "degraded" ? "bg-foreground" : "bg-muted-foreground"}`}
             aria-hidden
           />
           <h1 className="text-3xl font-semibold">

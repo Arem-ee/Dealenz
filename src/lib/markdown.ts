@@ -200,7 +200,7 @@ function renderInline(nodes: InlineNode[]): React.ReactNode {
         {
           key: i,
           title: `To complete: ${node.name}`,
-          className: "mx-0.5 inline-block rounded border border-dashed border-amber-500/60 bg-amber-50 px-1.5 py-px text-[0.85em] font-medium text-amber-800",
+          className: "mx-0.5 inline-block rounded border border-dashed border-foreground/30 bg-muted px-1.5 py-px text-[0.85em] font-medium text-foreground",
         },
         node.name || "to complete"
       )

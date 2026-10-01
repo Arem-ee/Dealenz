@@ -30,8 +30,6 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
-  --color-burgundy: var(--burgundy);
-  --color-burgundy-foreground: var(--burgundy-foreground);
   --color-star: var(--star);
   --color-risk-low: var(--risk-low);
   --color-risk-low-foreground: var(--risk-low-foreground);
@@ -52,8 +50,6 @@
   --color-surface: var(--surface);
   --color-surface-hover: var(--surface-hover);
   --color-surface-elevated: var(--surface-elevated);
-  --color-brand-red: var(--brand-red);
-  --color-brand-red-hover: var(--brand-red-hover);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
   --color-border-subtle: var(--border-subtle);
@@ -86,8 +82,7 @@
   /* Dealenz visual system (UX architecture pass).
    * Star white is the foundation; surfaces step down in strict order:
    * page (star) -> card (#FFFFFF) -> sunken (#F5F4F2). No greige defaults.
-   * Ink is the default action color. Burgundy is the brand color: active
-   * nav, counts, primary CTAs, key highlights, executed seal. */
+   * Ink is the default action color.
 
   --star: #FAFAF8;
 
@@ -107,9 +102,6 @@
   --accent: #EDEBE7;
   --accent-foreground: #1C1917;
 
-  --burgundy: oklch(0.34 0.10 18);
-  --burgundy-foreground: oklch(0.97 0 0);
-
   --background: var(--star);
   --foreground: #1C1917;
   --card: #FFFFFF;
@@ -124,37 +116,32 @@
   --input: rgba(28, 25, 23, 0.16);
   --ring: rgba(28, 25, 23, 0.28);
 
-  --destructive: oklch(0.55 0.23 25);
-  --destructive-foreground: oklch(0.97 0 0);
+  --destructive: #1C1917;
+  --destructive-foreground: #FAFAF8;
 
   --success: oklch(0.55 0.15 150);
   --success-foreground: oklch(0.97 0 0);
-  --warning: oklch(0.74 0.16 70);
-  --warning-foreground: oklch(0.30 0.10 50);
-  --info: oklch(0.62 0.12 240);
-  --info-foreground: oklch(0.97 0 0);
+  --warning: #1C1917;
+  --warning-foreground: #1C1917;
+  --info: #1C1917;
+  --info-foreground: #1C1917;
 
-  /* Shared surface/brand tokens. Historically these lived only under
-   * .landing-theme while the utilities were global, which silently broke
-   * every bg-brand-red/text-brand-red/surface consumer outside that
-   * wrapper (invisible CTA text). Single source lives here now. */
+  /* Shared surface tokens. Single source lives here now. */
   --surface: #FFFFFF;
   --surface-hover: #F1EFEC;
   --surface-elevated: #FFFFFF;
-  --brand-red: var(--burgundy);
-  --brand-red-hover: oklch(0.46 0.14 22);
   --text-secondary: #1C1917;
   --text-muted: rgba(28, 25, 23, 0.55);
   --border-subtle: rgba(28, 25, 23, 0.06);
 
-  --risk-low: oklch(0.87 0.02 240);
-  --risk-low-foreground: oklch(0.35 0.04 240);
-  --risk-medium: oklch(0.74 0.16 70);
-  --risk-medium-foreground: oklch(0.30 0.10 50);
-  --risk-high: oklch(0.55 0.20 25);
-  --risk-high-foreground: oklch(0.97 0 0);
-  --risk-critical: oklch(0.48 0.26 28);
-  --risk-critical-foreground: oklch(1 0 0);
+  --risk-low: #F1EFEC;
+  --risk-low-foreground: #57534E;
+  --risk-medium: #E4E1DC;
+  --risk-medium-foreground: #1C1917;
+  --risk-high: #3A3532;
+  --risk-high-foreground: #FAFAF8;
+  --risk-critical: #1C1917;
+  --risk-critical-foreground: #FAFAF8;
 
   --sidebar-background: var(--star);
   --sidebar-foreground: #1C1917;
@@ -167,8 +154,7 @@
 }
 
 /* Dark theme. Every product surface reads semantic tokens, so flipping the
- * variables flips the app. Brand colors (burgundy, ink cards) keep their
- * hue; only their weight shifts for contrast on dark ground. */
+ * variables flips the app. */
 .dark {
   color-scheme: dark;
 
@@ -194,9 +180,21 @@
   --input: rgba(255, 255, 255, 0.22);
   --ring: rgba(255, 255, 255, 0.3);
 
-  --burgundy: oklch(0.55 0.13 22);
-  --burgundy-foreground: #FFFFFF;
-  --brand-red-hover: oklch(0.62 0.13 22);
+  --destructive: #EDE8E1;
+  --destructive-foreground: #1C1917;
+  --warning: #EDE8E1;
+  --warning-foreground: #EDE8E1;
+  --info: #EDE8E1;
+  --info-foreground: #EDE8E1;
+
+  --risk-low: #2A2521;
+  --risk-low-foreground: #A8A094;
+  --risk-medium: #3A3532;
+  --risk-medium-foreground: #F4F1EC;
+  --risk-high: #A8A094;
+  --risk-high-foreground: #1C1917;
+  --risk-critical: #EDE8E1;
+  --risk-critical-foreground: #1C1917;
 
   --surface: #1E1A16;
   --surface-hover: #2A2521;
@@ -233,8 +231,6 @@
   --surface: #FFFFFF;
   --surface-hover: #F1EFEC;
   --surface-elevated: #FFFFFF;
-  --brand-red: var(--burgundy);
-  --brand-red-hover: oklch(0.46 0.14 22);
   --text-secondary: #1C1917;
   --text-muted: rgba(28, 25, 23, 0.55);
   --border-subtle: rgba(28, 25, 23, 0.06);

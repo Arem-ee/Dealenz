@@ -100,7 +100,7 @@ export default function RegisterPage() {
           <h1 className="mt-8 text-[22px] font-semibold tracking-[-0.02em]">Create an account</h1>
           <p className="mt-1.5 text-[13px] leading-relaxed text-foreground/55">Get started in minutes. No credit card required.</p>
           {hasPendingDeal && (
-            <p role="status" className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-[13px] leading-relaxed text-emerald-800">
+            <p role="status" className="mt-3 rounded-xl border border-border bg-muted/40 px-3.5 py-2.5 text-[13px] leading-relaxed text-foreground">
               Your deal text is saved — it will be waiting in the composer after you sign in.
             </p>
           )}
@@ -153,11 +153,11 @@ export default function RegisterPage() {
           </form>
 
           {error && (
-            <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-[13px] leading-relaxed text-red-800">
+            <p role="alert" className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-3 text-[13px] leading-relaxed text-foreground">
               {error.startsWith("EXISTS:") ? (
                 <>
                   {error.slice("EXISTS:".length)}{" "}
-                  <Link href="/login" className="font-medium underline decoration-red-800/30 underline-offset-4 hover:decoration-red-800/60">
+                  <Link href="/login" className="font-medium underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground/60">
                     Sign in instead
                   </Link>
                 </>

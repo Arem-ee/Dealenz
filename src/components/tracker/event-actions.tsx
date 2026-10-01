@@ -51,7 +51,7 @@ export function EventStatusButtons({ auditId, eventId, status }: { auditId: stri
           onClick={() => void setStatus("completed")}
           disabled={busy !== null}
           aria-label="Mark obligation done"
-          className="rounded-full border border-emerald-500/30 bg-emerald-500/5 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/10 disabled:opacity-50"
+          className="rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-muted/60 disabled:opacity-50"
         >
           {busy === "completed" ? "Working…" : "Done"}
         </button>

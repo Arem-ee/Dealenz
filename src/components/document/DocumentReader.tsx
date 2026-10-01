@@ -170,7 +170,7 @@ export function DocumentReader({
           <span className="ml-auto flex min-w-0 items-center gap-2 truncate text-xs text-muted-foreground">
             <FileText className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{selected?.documentType ?? "document"} v{selected?.versionNumber ?? "-"}</span>
             {executed && <span className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success"><Check className="h-3 w-3" /> Executed</span>}
-            {!executed && isFinal && <span className="ml-1 shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700">Final — pending signatures</span>}
+            {!executed && isFinal && <span className="ml-1 shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-foreground">Final — pending signatures</span>}
             {selected && (
               <a
                 href={`/api/document/${auditId}/pdf?versionId=${selected.id}`}
@@ -215,9 +215,9 @@ export function DocumentReader({
                         key={idx}
                         className={
                           l.type === "add"
-                            ? "whitespace-pre-wrap bg-emerald-500/10 px-3 py-0.5 text-emerald-900"
+                            ? "whitespace-pre-wrap bg-foreground/[0.07] px-3 py-0.5 text-foreground"
                             : l.type === "del"
-                              ? "whitespace-pre-wrap bg-red-500/10 px-3 py-0.5 text-red-900"
+                              ? "whitespace-pre-wrap bg-muted px-3 py-0.5 text-muted-foreground line-through"
                               : "whitespace-pre-wrap px-3 py-0.5 text-muted-foreground"
                         }
                       >
@@ -344,7 +344,7 @@ export function DocumentReader({
                       <img src={signatureImages[s.id]} alt={`Signature of ${s.name}`} className="mt-1.5 h-10 w-auto rounded border border-border/60 bg-white px-2" />
                     )}
                   </div>
-                  <span className={`text-[10px] rounded-full px-2 py-1 font-medium capitalize ${s.status === "signed" ? "bg-success/10 text-success" : s.status === "pending" ? "bg-amber-500/10 text-amber-700" : "bg-muted text-muted-foreground"}`}>
+                  <span className={`text-[10px] rounded-full px-2 py-1 font-medium capitalize ${s.status === "signed" ? "bg-success/10 text-success" : s.status === "pending" ? "bg-muted text-foreground" : "bg-muted text-muted-foreground"}`}>
                     {s.status === "signed" ? <><Check className="h-3 w-3 inline mr-1" />signed</> : s.status}
                   </span>
                 </div>
@@ -420,7 +420,7 @@ export function DocumentReader({
               <div className="mt-3 border-t border-border/60 pt-3 text-[11px] text-muted-foreground">
                 {seal ? (
                   seal.tampered ? (
-                    <p className="font-medium text-red-700">Content differs from the sealed copy — treat this version as untrusted and re-issue it.</p>
+                      <p className="font-medium text-foreground">Content differs from the sealed copy — treat this version as untrusted and re-issue it.</p>
                   ) : (
                     <>
                       <p>

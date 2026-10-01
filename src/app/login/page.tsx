@@ -252,7 +252,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={handleForgotPassword}
                   disabled={resetCooldown}
-                  className="text-[12px] font-medium text-[var(--burgundy)] hover:underline disabled:opacity-50 disabled:no-underline"
+                  className="text-[12px] font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
                 >
                   {resetCooldown ? "Check your inbox for the reset link" : "Forgot password?"}
                 </button>
@@ -267,12 +267,12 @@ export default function LoginPage() {
           </form>
 
           {error && (
-            <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-[13px] leading-relaxed text-red-800">
+            <p role="alert" className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-3 text-[13px] leading-relaxed text-foreground">
               {error}
             </p>
           )}
           {notice && (
-            <p role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-[13px] leading-relaxed text-emerald-800">
+            <p role="status" className="mt-4 rounded-xl border border-border bg-muted/40 px-3.5 py-3 text-[13px] leading-relaxed text-foreground">
               {notice}
             </p>
           )}

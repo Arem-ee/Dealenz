@@ -114,7 +114,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
                     className={cn(
                       "flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors",
                       isActive
-                        ? "bg-burgundy/10 font-semibold text-burgundy"
+                        ? "bg-primary/10 font-semibold text-primary"
                         : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                     )}
                   >
@@ -127,7 +127,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
             <Link
               href="/audit/new"
               onClick={() => setMenuOpen(false)}
-              className="mt-4 inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-burgundy px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              className="mt-4 inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
             >
               <Plus className="h-4 w-4" />
               New deal

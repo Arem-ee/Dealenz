@@ -131,7 +131,7 @@ export function DocumentViewerModal({
               <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-border/60 bg-muted/40 p-4 text-sm leading-relaxed">
                 <p className="whitespace-pre-wrap">
                   {excerpt.before}
-                  <mark className="rounded-sm bg-amber-200 px-0.5 text-inherit">
+                  <mark className="rounded-sm bg-foreground/10 px-0.5 text-inherit">
                     {view.text.slice(view.offset, view.offset + highlightLength)}
                   </mark>
                   {excerpt.after}

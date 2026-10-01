@@ -18,10 +18,10 @@ interface DocumentDraftCardProps {
 
 function ProvenanceBadge({ source, confidence }: { source: "extracted" | "context" | "fact" | "inferred"; confidence: number }) {
   const config = {
-    extracted: { label: "From deal", color: "bg-green-100 text-green-700", icon: CheckCircle2 },
-    context: { label: "From context", color: "bg-blue-100 text-blue-700", icon: CheckCircle2 },
-    fact: { label: "From fact", color: "bg-purple-100 text-purple-700", icon: CheckCircle2 },
-    inferred: { label: "Inferred", color: "bg-amber-100 text-amber-700", icon: HelpCircle },
+    extracted: { label: "From deal", color: "bg-muted text-foreground", icon: CheckCircle2 },
+    context: { label: "From context", color: "bg-muted text-foreground", icon: CheckCircle2 },
+    fact: { label: "From fact", color: "bg-muted text-foreground", icon: CheckCircle2 },
+    inferred: { label: "Inferred", color: "bg-muted text-foreground", icon: HelpCircle },
   }[source]
 
   const Icon = config.icon
@@ -60,7 +60,7 @@ function VariableInputRow({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={`Enter ${label.toLowerCase()}`}
-          className="h-8 rounded-md border border-dashed bg-amber-50 px-2 text-sm text-amber-900 placeholder-amber-500"
+          className="h-8 rounded-md border border-dashed bg-muted/40 px-2 text-sm text-foreground placeholder:text-muted-foreground"
         />
       </div>
     )
@@ -76,13 +76,13 @@ function VariableInputRow({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`h-8 rounded-md border bg-background px-2 text-sm ${
-          prov?.source === "inferred" 
-            ? "border-amber-200 bg-amber-50" 
-            : prov?.source === "extracted" || prov?.source === "context" || prov?.source === "fact"
-              ? "border-green-200 bg-green-50" 
-              : ""
-        }`}
+          className={`h-8 rounded-md border bg-background px-2 text-sm ${
+            prov?.source === "inferred" 
+              ? "border-foreground" 
+              : prov?.source === "extracted" || prov?.source === "context" || prov?.source === "fact"
+                ? "border-border bg-muted/40" 
+                : ""
+          }`}
       />
       {prov?.observationKey && (
         <p className="text-[11px] text-muted-foreground">From: {prov.observationKey}</p>

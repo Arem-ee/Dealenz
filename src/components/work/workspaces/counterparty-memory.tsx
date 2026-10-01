@@ -114,7 +114,7 @@ export function CounterpartyMemorySection({ auditId }: { auditId: string | null 
               </p>
               {d.resolved.length > 0 && (
                 <div className="mt-1.5">
-                  <p className="text-[11px] font-medium text-emerald-700">Pushed back and resolved last time:</p>
+                  <p className="text-[11px] font-medium text-foreground">Pushed back and resolved last time:</p>
                   <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-[11px] text-muted-foreground">
                     {d.resolved.slice(0, 4).map((r) => (
                       <li key={r.ruleKey}>{r.summary || r.ruleKey}</li>

@@ -267,7 +267,7 @@ export function LibraryView() {
             className={cn(
               "rounded-xl px-4 py-2.5 text-left transition-colors",
               mode === m.key
-                ? "bg-burgundy/10 text-burgundy"
+                ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
@@ -362,7 +362,7 @@ export function LibraryView() {
                                 ) : (
                                   <>
                                     <p className="text-sm leading-relaxed">{r.text}</p>
-                                    <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-emerald-700">
+                                    <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                                       {r.dealTypes.length === 0 ? "Applied to every deal" : `Applies to ${r.dealTypes.map((t) => t.replace("_", " ")).join(", ")}`}
                                     </p>
                                   </>

@@ -27,7 +27,7 @@ export function SignReview({ version, parties, assumptions, missing, onApprove, 
       {missing.length > 0 && (
         <div className="mt-3">
           <h4 className="font-medium text-sm">Important unresolved items</h4>
-          <ul className="text-sm list-disc pl-5 text-amber-700">
+          <ul className="text-sm list-disc pl-5 text-foreground">
             {missing.map((m) => (
               <li key={m}>{m}</li>
             ))}

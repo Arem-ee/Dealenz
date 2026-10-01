@@ -49,9 +49,9 @@ function RiskAuditMockup() {
         <ShieldCheck className="h-4 w-4" />
         <p className="text-[11px] font-bold uppercase tracking-wider">Risk audit</p>
       </div>
-      <div className="mt-5 rounded-none border border-red-200 bg-red-50/50 p-6">
+      <div className="mt-5 rounded-none border border-neutral-200 bg-neutral-100/60 p-6">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-none bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+          <span className="rounded-none bg-foreground px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-background">
             Critical
           </span>
           <p className="text-[13px] font-semibold text-neutral-800">
@@ -77,7 +77,7 @@ function RedlineMockup() {
         <p className="text-[11px] font-bold uppercase tracking-wider">Redline</p>
       </div>
       <div className="mt-5 space-y-3 font-mono text-[13px] leading-relaxed">
-        <p className="rounded-none bg-red-50 px-4 py-3 text-red-700 line-through">
+        <p className="rounded-none bg-muted px-4 py-3 text-muted-foreground line-through">
           Vendor indemnifies Customer without cap.
         </p>
         <p className="rounded-none bg-pine-700/10 px-4 py-3 text-pine-900">

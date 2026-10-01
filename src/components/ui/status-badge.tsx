@@ -1,20 +1,19 @@
 import { cn } from "@/lib/utils"
 
-type Tone = "neutral" | "info" | "success" | "warning" | "error" | "burgundy"
+type Tone = "neutral" | "info" | "success" | "warning" | "error"
 
 const tones: Record<Tone, string> = {
   neutral: "bg-muted text-foreground",
   info: "bg-info/10 text-info",
   success: "bg-success/10 text-success",
   warning: "bg-warning/15 text-warning-foreground",
-  error: "bg-destructive/10 text-destructive",
-  // Burgundy is reserved for meaningful brand emphasis (e.g. executed seal).
-  burgundy: "bg-burgundy/10 text-burgundy",
+  error: "bg-foreground text-background",
 }
 
 /**
- * Single status badge. Semantic tones map to the token system; never use
- * burgundy as a generic "active" color.
+ * Single status badge. Tones map to the token system: neutral/info/warning
+ * render monochrome (ink tints), success keeps the reserved green, and error
+ * is solid ink. No chromatic severity colors anywhere.
  */
 export function StatusBadge({
   tone = "neutral",
