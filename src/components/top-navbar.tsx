@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Bell, LogOut, Menu, Plus, Scale, Search } from "lucide-react"
@@ -37,19 +37,11 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
   const supabase = createClient()
   const displayName = businessName ?? email
   const initials = displayName.charAt(0).toUpperCase()
-  const [searchOpen, setSearchOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault()
-        setSearchOpen(true)
-      }
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [])
+  const focusSearch = () => {
+    document.getElementById("topbar-search")?.focus()
+  }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -86,7 +78,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
                 type="button"
                 onClick={() => {
                   setMenuOpen(false)
-                  setSearchOpen(true)
+                  focusSearch()
                 }}
                 className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
               >
@@ -116,18 +108,10 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
           <Logo />
         </Link>
         </div>
-        {/* Center: search bar, truly centered */}
+        {/* Center: inline search — typing happens in the pill, results
+            drop down beneath it. No modal, no popup dialog. */}
         <div className="flex min-w-0 flex-1 items-center justify-center px-2">
-        <button
-          type="button"
-          onClick={() => setSearchOpen(true)}
-          aria-label="Search deals"
-          className="flex h-9 w-full max-w-md items-center gap-2 rounded-full border border-border/60 bg-muted/60 px-3.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
-        >
-          <Search className="h-3.5 w-3.5 shrink-0" />
-          <span className="min-w-0 flex-1 truncate text-left">Search...</span>
-          <kbd className="hidden shrink-0 rounded border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium sm:inline">Ctrl K</kbd>
-        </button>
+          <InlineSearch threads={threads} />
         </div>
         {/* Right: credits, notifications, account */}
         <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
@@ -188,25 +172,50 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
         </DropdownMenu>
         </div>
       </div>
-      {searchOpen && <ThreadSearch threads={threads} onClose={() => setSearchOpen(false)} />}
     </header>
   )
 }
 
-function ThreadSearch({ threads, onClose }: { threads: SidebarThread[]; onClose: () => void }) {
+function InlineSearch({ threads }: { threads: SidebarThread[] }) {
   const router = useRouter()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const [query, setQuery] = useState("")
+  const [open, setOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const results = useMemo(() => filterThreads(threads, query), [threads, query])
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault()
+        inputRef.current?.focus()
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
+
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("pointerdown", onDown)
+    return () => document.removeEventListener("pointerdown", onDown)
+  }, [])
+
   const go = (id: string) => {
-    onClose()
+    setQuery("")
+    setOpen(false)
+    setSelectedIndex(-1)
+    inputRef.current?.blur()
     router.push(`/chat/${id}`)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
-      onClose()
+      setOpen(false)
+      inputRef.current?.blur()
       return
     }
     if (e.key === "ArrowDown") {
@@ -233,24 +242,36 @@ function ThreadSearch({ threads, onClose }: { threads: SidebarThread[]; onClose:
   }
 
   return (
-    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Search deals">
-      <button aria-label="Close search" className="absolute inset-0 cursor-default bg-black/40" onClick={onClose} />
-      <div className="relative mx-auto mt-24 w-[calc(100%-2rem)] max-w-lg overflow-hidden rounded-xl border border-border bg-background shadow-xl">
+    <div ref={wrapRef} className="relative w-full max-w-md">
+      <div className="flex h-9 w-full items-center gap-2 rounded-full border border-border/60 bg-muted/60 px-3.5 text-[13px] text-muted-foreground transition-colors focus-within:border-border focus-within:bg-background focus-within:text-foreground">
+        <Search className="h-3.5 w-3.5 shrink-0" />
         <input
-          autoFocus
+          ref={inputRef}
+          id="topbar-search"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setOpen(true)
+            setSelectedIndex(-1)
+          }}
+          onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Search deals…"
+          placeholder="Search..."
           aria-label="Search deals"
           role="combobox"
           aria-autocomplete="list"
           aria-activedescendant={selectedIndex >= 0 ? `search-result-${selectedIndex}` : undefined}
-          aria-controls="search-results"
-          aria-expanded={results.length > 0}
-          className="w-full border-b border-border/60 bg-transparent px-4 py-3 text-sm outline-none placeholder:text-muted-foreground/60"
+          aria-controls="topbar-search-results"
+          aria-expanded={open}
+          autoComplete="off"
+          className="min-w-0 flex-1 truncate bg-transparent text-left outline-none placeholder:text-muted-foreground/70"
         />
-        <div id="search-results" className="max-h-72 overflow-y-auto p-1.5" role="listbox">
+        {query === "" && (
+          <kbd className="hidden shrink-0 rounded border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium sm:inline">Ctrl K</kbd>
+        )}
+      </div>
+      {open && (
+        <div id="topbar-search-results" className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-border bg-background p-1.5 shadow-xl" role="listbox" aria-label="Search deals">
           {results.length > 0 ? (
             results.map((t, i) => (
               <button
@@ -260,7 +281,7 @@ function ThreadSearch({ threads, onClose }: { threads: SidebarThread[]; onClose:
                 onMouseEnter={() => setSelectedIndex(i)}
                 role="option"
                 aria-selected={i === selectedIndex}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition-colors ${
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                   i === selectedIndex ? "bg-muted/80" : "hover:bg-muted/80"
                 }`}
               >
@@ -270,11 +291,11 @@ function ThreadSearch({ threads, onClose }: { threads: SidebarThread[]; onClose:
             ))
           ) : (
             <p className="px-3 py-4 text-center text-sm text-muted-foreground">
-              {threads.length === 0 ? "No threads yet — start from Home." : "No matching threads."}
+              {threads.length === 0 ? "No deals yet — start from Home." : "No matching deals."}
             </p>
           )}
         </div>
-      </div>
+      )}
     </div>
   )
 }
