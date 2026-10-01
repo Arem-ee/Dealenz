@@ -14,9 +14,20 @@ interface EcoNode {
 
 const NODES: EcoNode[] = [
   { label: "Gmail intake", lon: -73.9, lat: 40.7 },
-  { label: "Signing", lon: 4.9, lat: 52.4 },
-  { label: "Monitoring", lon: -122, lat: 37 },
-  { label: "Billing", lon: -0.1, lat: 51.5 },
+  { label: "Risk audit", lon: -0.1, lat: 51.5 },
+  { label: "Drafts", lon: 30, lat: 55 },
+  { label: "Clauses", lon: 60, lat: 28 },
+  { label: "Signing", lon: 105, lat: 33 },
+  { label: "Tracker", lon: -122, lat: 37 },
+  { label: "Approvals", lon: 150, lat: -25 },
+  { label: "Billing", lon: -20, lat: -35 },
+]
+
+// Interconnections between feature nodes (indices into NODES): a ring
+// plus cross-links so every capability reads as wired to the rest.
+const ARCS: Array<[number, number]> = [
+  [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 0],
+  [0, 4], [1, 5], [2, 6], [3, 7],
 ]
 
 const DOT_COUNT = 1500
@@ -170,11 +181,34 @@ export function EarthGlobe() {
       const lz = 0.52
       ctx.clearRect(0, 0, side, side)
 
+      // Green halo behind the sphere on the dark stage.
+      const halo = ctx.createRadialGradient(cx, cy, radius * 0.6, cx, cy, radius * 1.7)
+      halo.addColorStop(0, "rgba(16,185,129,0.22)")
+      halo.addColorStop(0.55, "rgba(16,185,129,0.07)")
+      halo.addColorStop(1, "rgba(16,185,129,0)")
+      ctx.fillStyle = halo
+      ctx.fillRect(0, 0, side, side)
+
+      // Dark disc so the sphere reads as a glowing body, not a hole.
+      const disc = ctx.createRadialGradient(
+        cx - radius * 0.4, cy - radius * 0.45, radius * 0.1,
+        cx, cy, radius
+      )
+      disc.addColorStop(0, "#12241D")
+      disc.addColorStop(1, "#070B0A")
       ctx.beginPath()
       ctx.arc(cx, cy, radius, 0, Math.PI * 2)
-      ctx.strokeStyle = "rgba(10,11,13,0.28)"
-      ctx.lineWidth = 1
+      ctx.fillStyle = disc
+      ctx.fill()
+
+      ctx.beginPath()
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+      ctx.strokeStyle = "rgba(52,211,153,0.55)"
+      ctx.lineWidth = 1.5
+      ctx.shadowColor = "rgba(16,185,129,0.8)"
+      ctx.shadowBlur = 22
       ctx.stroke()
+      ctx.shadowBlur = 0
 
       for (const d of dots) {
         const p = project(d.lon, d.lat, radius, cx, cy, tilt)
@@ -198,16 +232,16 @@ export function EarthGlobe() {
         const light = Math.min(1, eased * 0.92 + bounce + rim * (1 - eased))
         const s = (d.land ? 0.8 : 0.6) + depth * (d.land ? 2.6 : 1.5)
         if (d.land) {
-          ctx.fillStyle = `rgba(4,120,87,${(0.06 + depth * 0.94) * (0.2 + 0.8 * light)})`
+          ctx.fillStyle = `rgba(52,211,153,${(0.12 + depth * 0.88) * (0.25 + 0.75 * light)})`
         } else {
           ctx.fillStyle = mapsReady
-            ? `rgba(10,11,13,${(0.015 + depth * 0.1) * (0.25 + 0.75 * light)})`
-            : `rgba(10,11,13,${(0.03 + depth * 0.16) * (0.25 + 0.75 * light)})`
+            ? `rgba(52,211,153,${(0.02 + depth * 0.12) * (0.25 + 0.75 * light)})`
+            : `rgba(52,211,153,${(0.04 + depth * 0.2) * (0.25 + 0.75 * light)})`
         }
         ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s)
       }
 
-      // Soft specular bloom upper-left of the disc, clipped to the sphere.
+      // Soft green bloom upper-left of the disc, clipped to the sphere.
       ctx.save()
       ctx.beginPath()
       ctx.arc(cx, cy, radius, 0, Math.PI * 2)
@@ -216,11 +250,49 @@ export function EarthGlobe() {
         cx - radius * 0.45, cy - radius * 0.5, radius * 0.05,
         cx - radius * 0.45, cy - radius * 0.5, radius * 0.85
       )
-      bloom.addColorStop(0, "rgba(255,255,255,0.20)")
-      bloom.addColorStop(1, "rgba(255,255,255,0)")
+      bloom.addColorStop(0, "rgba(52,211,153,0.28)")
+      bloom.addColorStop(1, "rgba(52,211,153,0)")
       ctx.fillStyle = bloom
       ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2)
       ctx.restore()
+
+      // Interconnections: lifted arcs between feature nodes, marching
+      // dashes for flow. Segments behind the limb are skipped.
+      ctx.save()
+      ctx.setLineDash([5, 7])
+      ctx.lineDashOffset = -(time / 60)
+      ctx.lineWidth = 1.25
+      for (const [ai, bi] of ARCS) {
+        const a = NODES[ai]!
+        const b = NODES[bi]!
+        const pa = project(a.lon, a.lat, radius, cx, cy, tilt)
+        const pb = project(b.lon, b.lat, radius, cx, cy, tilt)
+        if (pa.z < 0.02 || pb.z < 0.02) continue
+        const steps = 36
+        ctx.beginPath()
+        let pen = false
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps
+          const lon = a.lon + (b.lon - a.lon) * t
+          const lat = a.lat + (b.lat - a.lat) * t
+          const lift = Math.sin(Math.PI * t) * radius * 0.28
+          const p = project(lon, lat, radius + lift, cx, cy, tilt)
+          if (p.z < 0.02) {
+            pen = false
+            continue
+          }
+          if (!pen) {
+            ctx.moveTo(p.x, p.y)
+            pen = true
+          } else {
+            ctx.lineTo(p.x, p.y)
+          }
+        }
+        ctx.strokeStyle = "rgba(52,211,153,0.55)"
+        ctx.stroke()
+      }
+      ctx.restore()
+      ctx.setLineDash([])
 
       ctx.font = "600 11px 'Mona Sans Variable', sans-serif"
       for (const n of NODES) {
@@ -232,13 +304,16 @@ export function EarthGlobe() {
         ctx.strokeStyle = `rgba(5,150,105,${0.5 * (1 - phase)})`
         ctx.lineWidth = 1.5
         ctx.stroke()
-        ctx.fillStyle = "#059669"
+        ctx.fillStyle = "#34D399"
         ctx.fillRect(p.x - 3, p.y - 3, 6, 6)
         const label = n.label
         const w = ctx.measureText(label).width
-        ctx.fillStyle = "rgba(247,246,243,0.85)"
+        ctx.fillStyle = "rgba(7,11,10,0.88)"
         ctx.fillRect(p.x + 5, p.y - 5, w + 8, 15)
-        ctx.fillStyle = "rgba(28,25,23,0.9)"
+        ctx.strokeStyle = "rgba(52,211,153,0.35)"
+        ctx.lineWidth = 1
+        ctx.strokeRect(p.x + 5, p.y - 5, w + 8, 15)
+        ctx.fillStyle = "rgba(250,250,248,0.92)"
         ctx.fillText(label, p.x + 9, p.y + 6)
       }
     }
@@ -306,7 +381,7 @@ export function EarthGlobe() {
 
   return (
     <div ref={wrapRef} className="flex items-center justify-center">
-      <canvas ref={canvasRef} role="img" aria-label="Rotating globe showing worldwide integration coverage" />
+      <canvas ref={canvasRef} role="img" aria-label="Glowing sphere showing Dealenz features interconnected" />
     </div>
   )
 }
