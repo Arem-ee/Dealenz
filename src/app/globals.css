@@ -463,7 +463,30 @@ html:has(.landing-anchor-scroll) {
   animation: slide-in-right 0.35s ease-out;
 }
 
+@keyframes hero-rise {
+  from { opacity: 0; transform: translateY(110%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Hero line-mask entrance: each line rises from behind its mask on load.
+ * Orthogonal easing — single smooth rise, no bounce, no rotation. */
+.hero-mask {
+  display: block;
+  overflow: hidden;
+}
+.hero-line {
+  display: block;
+  animation: hero-rise 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.hero-fade {
+  animation: fade-in 0.9s ease both;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .hero-line,
+  .hero-fade {
+    animation: none;
+  }
   .animate-slide-in-right {
     animation: none;
   }

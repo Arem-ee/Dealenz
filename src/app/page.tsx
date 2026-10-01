@@ -59,26 +59,26 @@ export default function Home() {
           <Reveal className="relative z-10 mx-auto max-w-7xl px-6 text-center lg:px-8">
 
             <h1 className="display-h mx-auto max-w-7xl text-balance text-[42px] font-normal leading-[1.16] text-white sm:text-[66px] sm:leading-[1.14] lg:text-[80px]" style={{ letterSpacing: "0em" }} aria-label="Harness automated deal intelligence to turn contracts into a strategic advantage.">
-              <span className="block lg:whitespace-nowrap">Harness automated deal</span>
-              <span className="block lg:whitespace-nowrap">intelligence to turn contracts</span>
-              <span className="block lg:whitespace-nowrap">into a strategic advantage.</span>
+              <span className="hero-mask lg:whitespace-nowrap"><span className="hero-line" style={{ animationDelay: "0.05s" }}>Harness automated deal</span></span>
+              <span className="hero-mask lg:whitespace-nowrap"><span className="hero-line" style={{ animationDelay: "0.16s" }}>intelligence to turn contracts</span></span>
+              <span className="hero-mask lg:whitespace-nowrap"><span className="hero-line" style={{ animationDelay: "0.27s" }}>into a strategic advantage.</span></span>
             </h1>
 
-            <p className="mx-auto mt-6 max-w-2xl text-[15px] leading-relaxed text-white/75 sm:text-[17px]">
+            <p className="hero-fade mx-auto mt-6 max-w-2xl text-[15px] leading-relaxed text-white/75 sm:text-[17px]" style={{ animationDelay: "0.45s" }}>
               The enterprise deal platform that extracts risk, enforces deterministic playbooks, automates counter-drafts, and guards contractual obligations across your agreement lifecycle.
             </p>
 
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link href="/register" className="btn-paper">
+            <div className="hero-fade mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row" style={{ animationDelay: "0.58s" }}>
+              <Link href="/register" className="btn-paper group">
                 <span>Get Started Free</span>
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
               </Link>
               <Link href="#platform" className="btn-ghost-dark">
                 <span>Explore Platform</span>
               </Link>
             </div>
 
-            <div id="platform" className="mt-8">
+            <div id="platform" className="hero-fade mt-8" style={{ animationDelay: "0.72s" }}>
               <HeroMockup />
               <p className="mx-auto mt-3 max-w-4xl text-center text-[11px] text-white/40">
                 Illustrated example. A freelance analysis can produce this exact report, with every finding traced to its source clause.

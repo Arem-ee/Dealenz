@@ -32,7 +32,7 @@ const ARCS: Array<[number, number]> = [
 
 const DOT_COUNT = 1500
 const TILT = (23.4 * Math.PI) / 180
-const BASE_SPIN = 0.0028
+const BASE_SPIN = 0.0075
 
 function inRing(lon: number, lat: number, ring: LonLat[]): boolean {
   let inside = false
@@ -181,10 +181,11 @@ export function EarthGlobe() {
       const lz = 0.52
       ctx.clearRect(0, 0, side, side)
 
-      // Green halo behind the sphere on the dark stage.
-      const halo = ctx.createRadialGradient(cx, cy, radius * 0.6, cx, cy, radius * 1.7)
-      halo.addColorStop(0, "rgba(16,185,129,0.22)")
-      halo.addColorStop(0.55, "rgba(16,185,129,0.07)")
+      // Green halo behind the sphere. Fully contained: alpha reaches zero
+      // well inside the canvas edge, so no container rectangle can show.
+      const halo = ctx.createRadialGradient(cx, cy, radius * 0.5, cx, cy, radius * 1.16)
+      halo.addColorStop(0, "rgba(16,185,129,0.20)")
+      halo.addColorStop(0.6, "rgba(16,185,129,0.07)")
       halo.addColorStop(1, "rgba(16,185,129,0)")
       ctx.fillStyle = halo
       ctx.fillRect(0, 0, side, side)
@@ -203,10 +204,10 @@ export function EarthGlobe() {
 
       ctx.beginPath()
       ctx.arc(cx, cy, radius, 0, Math.PI * 2)
-      ctx.strokeStyle = "rgba(52,211,153,0.55)"
-      ctx.lineWidth = 1.5
-      ctx.shadowColor = "rgba(16,185,129,0.8)"
-      ctx.shadowBlur = 22
+      ctx.strokeStyle = "rgba(52,211,153,0.38)"
+      ctx.lineWidth = 1
+      ctx.shadowColor = "rgba(16,185,129,0.65)"
+      ctx.shadowBlur = 34
       ctx.stroke()
       ctx.shadowBlur = 0
 
@@ -380,8 +381,14 @@ export function EarthGlobe() {
   }, [])
 
   return (
-    <div ref={wrapRef} className="flex items-center justify-center">
-      <canvas ref={canvasRef} role="img" aria-label="Glowing sphere showing Dealenz features interconnected" />
+    <div ref={wrapRef} className="relative flex items-center justify-center">
+      {/* Ambient glow lives in CSS behind the canvas: blurred, edgeless,
+          it breathes past the canvas bounds where paint cannot. */}
+      <div
+        aria-hidden
+        className="absolute left-1/2 top-1/2 aspect-square w-[130%] max-w-none -translate-x-1/2 -translate-y-1/2 rounded-full bg-pine-500/10 blur-3xl"
+      />
+      <canvas ref={canvasRef} role="img" aria-label="Glowing sphere showing Dealenz features interconnected" className="relative" />
     </div>
   )
 }

@@ -6,7 +6,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger"
 
 gsap.registerPlugin(ScrollTrigger)
 
-export function Reveal({ children, className }: { children: ReactNode; className?: string }) {
+export function Reveal({ children, className, delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
   const ref = useRef<HTMLDivElement | null>(null)
 
   useLayoutEffect(() => {
@@ -15,15 +15,16 @@ export function Reveal({ children, className }: { children: ReactNode; className
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
     const ctx = gsap.context(() => {
       gsap.from(el, {
-        y: 24,
+        y: 32,
         opacity: 0,
-        duration: 0.7,
-        ease: "power2.out",
+        duration: 0.9,
+        delay,
+        ease: "power3.out",
         scrollTrigger: { trigger: el, start: "top 88%", once: true },
       })
     }, el)
     return () => ctx.revert()
-  }, [])
+  }, [delay])
 
   return (
     <div ref={ref} className={className}>
