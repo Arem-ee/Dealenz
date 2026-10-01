@@ -11,8 +11,8 @@ export function Composer() {
   const [modelOpen, setModelOpen] = useState(false)
 
   return (
-    <div className="shrink-0 border-t border-border bg-background p-3">
-      <div className="flex items-center gap-1 border border-border bg-background px-2 py-2">
+    <div className="shrink-0 border-t border-border bg-background px-3 py-2">
+      <div className="flex items-center gap-1">
         <button
           type="button"
           aria-label="Attach files"
