@@ -25,15 +25,21 @@ export function Sidebar() {
               aria-current={isActive ? "page" : undefined}
               title={item.label}
               className={cn(
-                "flex items-center gap-2 px-3 py-2 text-[13px] transition-colors",
+                "flex items-stretch gap-0 text-[13px] transition-colors",
                 isActive
-                  ? "bg-foreground font-semibold text-background"
+                  ? "bg-muted font-semibold text-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
-              <Icon className="h-4 w-4 shrink-0" />
-              <span className="whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/nav:opacity-100">
-                {item.label}
+              <span
+                aria-hidden
+                className={cn("w-0.5 shrink-0 self-stretch", isActive ? "bg-foreground" : "bg-transparent")}
+              />
+              <span className="flex min-w-0 items-center gap-2 px-2.5 py-2">
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/nav:opacity-100">
+                  {item.label}
+                </span>
               </span>
             </Link>
           )
