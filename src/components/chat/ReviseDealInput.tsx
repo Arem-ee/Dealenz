@@ -67,13 +67,13 @@ export function ReviseDealInput({ auditId, threadId, initialText, onPlanReady, o
         type="button"
         onClick={openEditor}
         aria-expanded={open}
-        className="inline-flex items-center gap-1 rounded-full border bg-muted px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/80"
+        className="inline-flex items-center gap-1 rounded-none border bg-muted px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/80"
       >
         <PencilLine className="h-3 w-3" />
         <span>Revise input</span>
       </button>
       {open && (
-        <div className="mt-2 rounded-2xl border border-border bg-card p-4" aria-label="Revise deal input">
+        <div className="mt-2 rounded-none border border-border bg-card p-4" aria-label="Revise deal input">
           <p className="text-sm text-muted-foreground">
             Edit the deal text, then approve the fresh analysis to see what changed: resolved, still open, and new findings.
           </p>
@@ -83,7 +83,7 @@ export function ReviseDealInput({ auditId, threadId, initialText, onPlanReady, o
             rows={8}
             disabled={saving}
             aria-label="Revised deal input"
-            className="mt-3 min-h-[160px] w-full resize-y rounded-xl border border-input bg-background px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/60 disabled:opacity-60"
+            className="mt-3 min-h-[160px] w-full resize-y rounded-none border border-input bg-background px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/60 disabled:opacity-60"
           />
           <div className="mt-3 flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">

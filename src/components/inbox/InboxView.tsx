@@ -612,7 +612,7 @@ export function InboxView() {
         </div>
       )}
       {showKeys && (
-        <div aria-label="Keyboard shortcuts" className="rounded-2xl border border-border bg-card p-4">
+        <div aria-label="Keyboard shortcuts" className="border border-border bg-card p-4">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">Keyboard triage</p>
             <button

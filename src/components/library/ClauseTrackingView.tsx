@@ -22,7 +22,7 @@ function StatusPill({ status }: { status: ClauseTrackStatus }) {
   return (
     <span
       className={cn(
-        "shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+        "shrink-0 rounded-none border px-2 py-0.5 text-[11px] font-medium",
         status === "signed"
           ? "border-green-700/40 bg-green-700/10 text-green-700 dark:text-green-400"
           : status === "needs_input"
@@ -123,7 +123,7 @@ export function ClauseTrackingView() {
           value={dealFilter}
           onChange={(e) => setDealFilter(e.target.value)}
           aria-label="Filter by deal type"
-          className="h-8 rounded-full border border-border bg-background px-3 text-xs"
+          className="h-8 rounded-none border border-border bg-background px-3 text-xs"
         >
           <option value="all">Every deal type</option>
           {dealTypes.map((t) => (
@@ -139,7 +139,7 @@ export function ClauseTrackingView() {
             onClick={() => setStatusFilter(s)}
             aria-pressed={statusFilter === s}
             className={cn(
-              "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
+              "h-8 rounded-none border px-3 text-xs font-medium transition-colors",
               statusFilter === s
                 ? "border-primary/40 bg-primary/10 text-primary"
                 : "border-border text-muted-foreground hover:text-foreground"
@@ -151,7 +151,7 @@ export function ClauseTrackingView() {
       </div>
 
       {visible.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-6 text-center">
+        <div className="rounded-none border border-dashed p-6 text-center">
           <FileText className="mx-auto h-5 w-5 text-muted-foreground/60" />
           <p className="mt-2 text-sm font-medium">No clauses match</p>
           <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
@@ -171,7 +171,7 @@ export function ClauseTrackingView() {
             </Link>
             <ul className="mt-2 space-y-1.5">
               {d.clauses.map((c) => (
-                <li key={c.clauseId} className="rounded-xl border bg-card px-3.5 py-2.5">
+                <li key={c.clauseId} className="rounded-none border bg-card px-3.5 py-2.5">
                   <div className="flex items-center gap-2">
                     <p className="min-w-0 flex-1 truncate text-[13px] font-medium">{c.title}</p>
                     <StatusPill status={c.status} />
@@ -198,7 +198,7 @@ export function ClauseTrackingView() {
         </p>
         <ul className="mt-2 space-y-1.5">
           {library.map((c) => (
-            <li key={c.id} className="rounded-xl border px-3.5 py-2.5">
+            <li key={c.id} className="rounded-none border px-3.5 py-2.5">
               <p className="text-[13px] font-medium">{c.title}</p>
               <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{c.purpose}</p>
               <p className="mt-1 text-[11px] text-muted-foreground">

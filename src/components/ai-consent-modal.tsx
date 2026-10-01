@@ -15,7 +15,7 @@ interface AiConsentModalProps {
 export function AiConsentModal({ open, onConsent, onClose, consenting }: AiConsentModalProps) {
   if (!open) return null
   return (
-    <div className="rounded-2xl border border-border bg-card p-5" aria-label="AI analysis consent">
+    <div className="rounded-none border border-border bg-card p-5" aria-label="AI analysis consent">
       <h2 className="text-base font-semibold">
         AI Analysis Consent
       </h2>

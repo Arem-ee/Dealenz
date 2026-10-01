@@ -23,7 +23,7 @@ export default async function DashboardPage() {
         </div>
         <Link
           href="/audit/new"
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-none bg-primary px-4 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
         >
           <Plus className="h-3.5 w-3.5" />
           New deal

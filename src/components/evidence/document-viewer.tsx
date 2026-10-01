@@ -87,7 +87,7 @@ export function DocumentViewer({
   const excerpt = view ? excerptAround(view.text, view.offset, highlightLength) : null
 
   return (
-    <div className="rounded-xl border border-border bg-background p-5" aria-label="Document source">
+    <div className="rounded-none border border-border bg-background p-5" aria-label="Document source">
       <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold">Source document</h2>
@@ -108,10 +108,10 @@ export function DocumentViewer({
             <p
               className={
                 result.status === "EXACT"
-                  ? "inline-block rounded-full bg-success/10 px-2.5 py-1 text-[11px] font-medium text-success"
+                  ? "inline-block rounded-none bg-success/10 px-2.5 py-1 text-[11px] font-medium text-success"
                   : result.status === "APPROXIMATE"
-                    ? "inline-block rounded-full bg-warning/15 px-2.5 py-1 text-[11px] font-medium text-warning-foreground"
-                    : "inline-block rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                    ? "inline-block rounded-none bg-warning/15 px-2.5 py-1 text-[11px] font-medium text-warning-foreground"
+                    : "inline-block rounded-none bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
               }
             >
               {result.status === "EXACT"
@@ -122,10 +122,10 @@ export function DocumentViewer({
             </p>
 
             {excerpt && view ? (
-              <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-border/60 bg-muted/40 p-4 text-sm leading-relaxed">
+              <div className="max-h-[50vh] overflow-y-auto rounded-none border border-border/60 bg-muted/40 p-4 text-sm leading-relaxed">
                 <p className="whitespace-pre-wrap">
                   {excerpt.before}
-                  <mark className="rounded-sm bg-foreground/10 px-0.5 text-inherit">
+                  <mark className="rounded-none bg-foreground/10 px-0.5 text-inherit">
                     {view.text.slice(view.offset, view.offset + highlightLength)}
                   </mark>
                   {excerpt.after}
@@ -134,7 +134,7 @@ export function DocumentViewer({
             ) : null}
 
             {result.quote && result.status !== "UNAVAILABLE" ? (
-              <div className="rounded-lg border border-border/60 p-3">
+              <div className="rounded-none border border-border/60 p-3">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Observed quote</p>
                 <p className="mt-1 text-sm">“{result.quote}”</p>
               </div>

@@ -62,7 +62,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
               type="button"
               aria-label="Open navigation menu"
               aria-expanded={menuOpen}
-              className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:hidden"
+              className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-none p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:hidden"
             >
               <Menu className="h-4 w-4" />
             </button>
@@ -80,7 +80,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
                   setMenuOpen(false)
                   focusSearch()
                 }}
-                className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+                className="flex items-center gap-3 rounded-none px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
               >
                 <Search className="h-4 w-4" />
                 <span>Search deals</span>
@@ -88,7 +88,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
               <Link
                 href="/dashboard/activity"
                 onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+                className="flex items-center gap-3 rounded-none px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
               >
                 <Bell className="h-4 w-4" />
                 <span>Notifications</span>
@@ -97,7 +97,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
             <Link
               href="/audit/new"
               onClick={() => setMenuOpen(false)}
-              className="mt-4 inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              className="mt-4 inline-flex h-11 items-center justify-center gap-1.5 rounded-none bg-primary px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
             >
               <Plus className="h-4 w-4" />
               New deal
@@ -125,7 +125,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
         <Link
           href="/dashboard/activity"
           aria-label="Notifications"
-            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:flex"
+            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-none p-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:flex"
         >
           <Bell className="h-3.5 w-3.5" />
         </Link>
@@ -133,7 +133,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
           <DropdownMenuTrigger asChild>
             <button
               aria-label="Account menu"
-              className="flex h-8 w-8 shrink-0 items-center rounded-lg p-1 transition-colors hover:bg-muted/80"
+              className="flex h-8 w-8 shrink-0 items-center rounded-none p-1 transition-colors hover:bg-muted/80"
             >
               <Avatar className="h-6 w-6">
                 <AvatarFallback className="text-[10px] font-medium">{initials}</AvatarFallback>
@@ -243,7 +243,7 @@ function InlineSearch({ threads }: { threads: SidebarThread[] }) {
 
   return (
     <div ref={wrapRef} className="relative w-full max-w-md">
-      <div className="flex h-9 w-full items-center gap-2 rounded-full border border-border/60 bg-muted/60 px-3.5 text-[13px] text-muted-foreground transition-colors focus-within:border-border focus-within:bg-background focus-within:text-foreground">
+      <div className="flex h-9 w-full items-center gap-2 rounded-none border border-border/60 bg-muted/60 px-3.5 text-[13px] text-muted-foreground transition-colors focus-within:border-border focus-within:bg-background focus-within:text-foreground">
         <Search className="h-3.5 w-3.5 shrink-0" />
         <input
           ref={inputRef}
@@ -271,7 +271,7 @@ function InlineSearch({ threads }: { threads: SidebarThread[] }) {
         )}
       </div>
       {open && (
-        <div id="topbar-search-results" className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-border bg-background p-1.5 shadow-xl" role="listbox" aria-label="Search deals">
+        <div id="topbar-search-results" className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-72 overflow-y-auto rounded-none border border-border bg-background p-1.5" role="listbox" aria-label="Search deals">
           {results.length > 0 ? (
             results.map((t, i) => (
               <button
@@ -281,7 +281,7 @@ function InlineSearch({ threads }: { threads: SidebarThread[] }) {
                 onMouseEnter={() => setSelectedIndex(i)}
                 role="option"
                 aria-selected={i === selectedIndex}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                className={`flex w-full items-center gap-3 rounded-none px-3 py-2.5 text-left text-sm transition-colors ${
                   i === selectedIndex ? "bg-muted/80" : "hover:bg-muted/80"
                 }`}
               >
