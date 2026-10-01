@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Plus, ShieldCheck } from "lucide-react"
+import { CalendarClock, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type Filter = "all" | "obligations" | "renewals" | "deadlines"
@@ -53,7 +53,7 @@ export function TrackerView() {
       </div>
 
       <div className="border border-dashed px-4 py-12 text-center">
-        <ShieldCheck className="mx-auto h-6 w-6 text-muted-foreground" />
+        <CalendarClock className="mx-auto h-6 w-6 text-muted-foreground" />
         <p className="mt-2 text-sm font-medium">Nothing being tracked</p>
         <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
           Obligations, renewals, and deadlines from your signed deals appear here with due dates. Monitoring and alerts wire up with this tab&apos;s functions.

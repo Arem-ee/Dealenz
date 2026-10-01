@@ -1,5 +1,5 @@
 import type { ComponentType } from "react"
-import { FileText, Inbox, LayoutDashboard, PenLine, ShieldCheck, Settings, ReceiptText, LifeBuoy } from "lucide-react"
+import { CalendarClock, FileText, Inbox, LayoutDashboard, PenLine, Settings, ReceiptText, LifeBuoy } from "lucide-react"
 
 export interface NavEntry {
   label: string
@@ -17,7 +17,7 @@ export const PRIMARY_NAV: NavEntry[] = [
   { label: "Inbox", href: "/inbox", icon: Inbox },
   { label: "Drafts", href: "/drafts", icon: FileText },
   { label: "Signing", href: "/signing", icon: PenLine },
-  { label: "Tracker", href: "/tracker", icon: ShieldCheck },
+  { label: "Tracker", href: "/tracker", icon: CalendarClock },
 ]
 
 export const SECONDARY_NAV: NavEntry[] = []
