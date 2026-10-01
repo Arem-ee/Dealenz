@@ -149,6 +149,7 @@ export function Advantage() {
   return (
     <section id="workflows" className="bg-paper py-28 text-neutral-900 lg:py-40">
       <Reveal className="mx-auto max-w-6xl px-6 lg:px-8">
+        <Reveal>
         <div className="flex flex-nowrap justify-start gap-2 overflow-x-auto pb-3">
           {TABS.map((tab, idx) => (
             <button
@@ -167,7 +168,9 @@ export function Advantage() {
             </button>
           ))}
         </div>
+        </Reveal>
 
+        <Reveal delay={0.1}>
         <div key={activeTab} className="animate-slide-in-right mt-10 max-w-2xl">
           <h2 className="display-h text-[30px] leading-[1.12] text-neutral-900 sm:text-[40px]">
             {PANELS[activeTab]!.headline}
@@ -176,11 +179,14 @@ export function Advantage() {
             {PANELS[activeTab]!.sub}
           </p>
         </div>
+        </Reveal>
 
+        <Reveal delay={0.2}>
         <div key={`panel-${activeTab}`} className="animate-slide-in-right mx-auto mt-10 max-w-5xl">
           {PANELS[activeTab]!.mockup}
           <p className="mt-3 text-center text-[11px] text-neutral-400">Illustrated example</p>
         </div>
+        </Reveal>
       </Reveal>
     </section>
   )

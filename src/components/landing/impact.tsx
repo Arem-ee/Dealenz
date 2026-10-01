@@ -11,6 +11,7 @@ export function Impact() {
   return (
     <section className="bg-ink py-28 text-white lg:py-40">
       <Reveal className="mx-auto max-w-6xl px-6 lg:px-8">
+        <Reveal className="max-w-2xl">
         <div className="max-w-2xl">
           <h2 className="display-h text-[30px] leading-[1.12] text-white sm:text-[40px]">
             Track corporate value from each deal.
@@ -20,7 +21,9 @@ export function Impact() {
             visibility into revenue commitments, renewal deadlines, and counterparty exposure.
           </p>
         </div>
+        </Reveal>
 
+        <Reveal delay={0.15}>
         <div className="mx-auto mt-10 max-w-5xl">
           <div className="border border-white/20 bg-white/[0.03] p-8 lg:p-10">
             <div className="flex items-center gap-2 text-pine-400">
@@ -53,6 +56,7 @@ export function Impact() {
           </div>
           <p className="mt-3 text-center text-[11px] text-white/40">Illustrated example</p>
         </div>
+        </Reveal>
       </Reveal>
     </section>
   )

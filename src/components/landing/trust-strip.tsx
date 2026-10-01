@@ -20,14 +20,15 @@ export function TrustStrip() {
         </p>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 md:gap-x-12">
-          {markers.map((marker) => (
+          {markers.map((marker, i) => (
+            <Reveal key={marker.name} delay={Math.min(i * 0.06, 0.3)}>
             <div
-              key={marker.name}
               className="flex items-center gap-2 text-white/40 transition-colors duration-200 hover:text-white/80"
             >
               {marker.icon}
               <span className="text-[12px] font-bold tracking-[0.08em]">{marker.name}</span>
             </div>
+            </Reveal>
           ))}
         </div>
       </Reveal>

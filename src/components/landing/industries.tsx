@@ -52,11 +52,11 @@ export function Industries() {
         </div>
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {INDUSTRIES.map((ind) => (
+          {INDUSTRIES.map((ind, i) => (
+            <Reveal key={ind.slug} delay={Math.min(i * 0.09, 0.3)} className="h-full">
             <Link
-              key={ind.slug}
               href={`/insights/${ind.slug}`}
-              className="group flex flex-col border border-neutral-200 bg-white transition-colors hover:border-neutral-900"
+              className="group flex h-full flex-col border border-neutral-200 bg-white transition-colors hover:border-neutral-900"
               aria-label={`${ind.title} — read how Dealenz matters for this industry`}
             >
               <div className="relative h-44 w-full overflow-hidden bg-neutral-200">
@@ -84,6 +84,7 @@ export function Industries() {
                 </p>
               </div>
             </Link>
+            </Reveal>
           ))}
         </div>
       </Reveal>
