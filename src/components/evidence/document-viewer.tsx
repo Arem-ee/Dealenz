@@ -1,11 +1,12 @@
-// Document viewer modal (Phase 8).
+// Inline document source viewer (Phase 8).
 //
-// Renders the result of server-side source inspection: the located document
-// with the matched quote highlighted, plus an honest status label. Exact
-// spans highlight the verified offsets; approximate matches highlight the
-// located quote inside a clearly labeled approximate banner; unavailable
-// sources show the explanation and nothing else. No AI, no credits, no
-// location ever invented client-side.
+// Renders the result of server-side source inspection in-flow beneath the
+// finding: the located document with the matched quote highlighted, plus an
+// honest status label. No popup, no overlay. Exact spans highlight the
+// verified offsets; approximate matches highlight the located quote inside a
+// clearly labeled approximate banner; unavailable sources show the
+// explanation and nothing else. No AI, no credits, no location ever
+// invented client-side.
 
 "use client"
 
@@ -26,7 +27,7 @@ function excerptAround(text: string, offset: number, length: number): { before: 
   }
 }
 
-export function DocumentViewerModal({
+export function DocumentViewer({
   auditId,
   evidence,
   onClose,
@@ -86,15 +87,8 @@ export function DocumentViewerModal({
   const excerpt = view ? excerptAround(view.text, view.offset, highlightLength) : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-[8vh]">
-      <div className="fixed inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Document source"
-        className="relative w-full max-w-2xl rounded-xl border border-border bg-background p-5 shadow-lg"
-      >
-        <div className="mb-3 flex items-start justify-between gap-3">
+    <div className="rounded-xl border border-border bg-background p-5" aria-label="Document source">
+      <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold">Source document</h2>
             {result?.documentLabel && (
@@ -149,7 +143,6 @@ export function DocumentViewerModal({
             <p className="text-xs leading-relaxed text-muted-foreground">{result.message}</p>
           </div>
         )}
-      </div>
     </div>
   )
 }

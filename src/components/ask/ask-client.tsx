@@ -23,7 +23,7 @@ import type { ConversationResponse, HistoryTurn } from "@/lib/conversation/reque
 import type { Evidence } from "@/lib/evidence/schema"
 import { EvidenceLine } from "@/components/evidence/evidence-line"
 import { LegalCitationLine } from "@/components/evidence/legal-citation-line"
-import { DocumentViewerModal } from "@/components/evidence/document-viewer"
+import { DocumentViewer } from "@/components/evidence/document-viewer"
 import { Markdown } from "@/components/chat/Markdown"
 
 interface ChatMessage {
@@ -709,7 +709,7 @@ export function AskClient({
           Quick questions cost {CREDIT_PRICE_QUICK} credit; longer questions cost {CREDIT_PRICE_BRIEF}/{CREDIT_PRICE_STANDARD}/{CREDIT_PRICE_EXTENDED} by length (brief/standard/extended). The quote is a ceiling — concise answers settle lower. <Link href="/billing" className="underline">Billing</Link>
         </p>
         {viewer ? (
-          <DocumentViewerModal
+          <DocumentViewer
             auditId={viewer.auditId}
             evidence={viewer.evidence}
             onClose={() => setViewer(null)}
