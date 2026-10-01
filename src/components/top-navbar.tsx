@@ -7,13 +7,6 @@ import { Bell, LogOut, Menu, Plus, Scale, Search } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Logo } from "@/components/logo"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ACCOUNT_NAV, filterThreads, threadDate, type SidebarThread } from "@/lib/nav"
 
@@ -38,6 +31,23 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
   const displayName = businessName ?? email
   const initials = displayName.charAt(0).toUpperCase()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
+  const accountWrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      if (accountWrapRef.current && !accountWrapRef.current.contains(e.target as Node)) setAccountOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAccountOpen(false)
+    }
+    document.addEventListener("pointerdown", onDown)
+    window.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("pointerdown", onDown)
+      window.removeEventListener("keydown", onKey)
+    }
+  }, [])
 
   const focusSearch = () => {
     document.getElementById("topbar-search")?.focus()
@@ -129,47 +139,53 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
         >
           <Bell className="h-3.5 w-3.5" />
         </Link>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              aria-label="Account menu"
-              className="flex h-8 w-8 shrink-0 items-center rounded-none p-1 transition-colors hover:bg-muted/80"
-            >
-              <Avatar className="h-6 w-6">
-                <AvatarFallback className="text-[10px] font-medium">{initials}</AvatarFallback>
-              </Avatar>
-            </button>
-          </DropdownMenuTrigger>          <DropdownMenuContent className="w-52" align="end">
-            <div className="max-w-full truncate px-2 py-1.5 text-xs text-muted-foreground">{displayName}</div>
-            <DropdownMenuSeparator />
-            {ACCOUNT_NAV.map((item) => {
-              const Icon = item.icon
-              return (
-                <DropdownMenuItem key={item.href} asChild>
-                  <Link href={item.href} className="w-full">
+        <div className="relative shrink-0" ref={accountWrapRef}>
+          <button
+            aria-label="Account menu"
+            aria-expanded={accountOpen}
+            onClick={() => setAccountOpen((v) => !v)}
+            className="flex h-8 w-8 items-center rounded-none p-1 transition-colors hover:bg-muted/80"
+          >
+            <Avatar className="h-6 w-6">
+              <AvatarFallback className="text-[10px] font-medium">{initials}</AvatarFallback>
+            </Avatar>
+          </button>
+          {accountOpen && (
+            <div className="absolute right-0 top-full z-50 mt-1.5 w-52 border border-border bg-background" aria-label="Account menu">
+              <div className="max-w-full truncate px-3 py-2 text-xs text-muted-foreground">{displayName}</div>
+              <div className="border-t border-border/60" />
+              {ACCOUNT_NAV.map((item) => {
+                const Icon = item.icon
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setAccountOpen(false)}
+                    className="flex w-full items-center px-3 py-2.5 text-sm transition-colors hover:bg-muted/80"
+                  >
                     <Icon className="mr-2 h-4 w-4" />
                     {item.label}
                   </Link>
-                </DropdownMenuItem>
-              )
-            })}
-            {isLawyer && (
-              <DropdownMenuItem asChild>
-                <Link href="/lawyer" className="w-full">
+                )
+              })}
+              {isLawyer && (
+                <Link
+                  href="/lawyer"
+                  onClick={() => setAccountOpen(false)}
+                  className="flex w-full items-center px-3 py-2.5 text-sm transition-colors hover:bg-muted/80"
+                >
                   <Scale className="mr-2 h-4 w-4" />
                   Lawyer workspace
                 </Link>
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <button className="w-full" onClick={handleSignOut}>
+              )}
+              <div className="border-t border-border/60" />
+              <button onClick={() => void handleSignOut()} className="flex w-full items-center px-3 py-2.5 text-sm transition-colors hover:bg-muted/80">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign out
               </button>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </div>
+          )}
+        </div>
         </div>
       </div>
     </header>
