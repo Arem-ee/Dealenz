@@ -70,7 +70,7 @@ describe("proxy middleware — auth redirects", () => {
     mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null })
     mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: null })
 
-    for (const path of ["/dashboard", "/inbox", "/drafts", "/signing", "/tracker", "/clauses", "/templates", "/compare"]) {
+    for (const path of ["/dashboard", "/inbox", "/drafts", "/signing", "/tracker", "/clauses", "/templates", "/compare", "/approvals"]) {
       const res = await proxy(mockRequest(`http://localhost:3000${path}`))
       expect(res.status).toBe(307)
       expect(res.headers.get("location")).toBe("http://localhost:3000/login")
