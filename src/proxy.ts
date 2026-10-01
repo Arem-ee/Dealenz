@@ -63,6 +63,19 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // App routes return tab by tab with the rebuild; each guarded prefix is
+  // added here as its tab lands. API routes authenticate themselves.
+  if (!user && pathname.startsWith("/dashboard")) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/login"
+    await logEventWithClient(supabase, {
+      phase: "auth_redirect",
+      status: "success",
+      error_message: "Unauthenticated user redirected to /login",
+    })
+    return NextResponse.redirect(url)
+  }
+
   return supabaseResponse
 }
 

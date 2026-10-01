@@ -56,7 +56,7 @@ describe("proxy middleware — auth redirects", () => {
     expect(res.headers.get("location")).toBe("http://localhost:3000/")
   })
 
-  it("lets unauthenticated users through everywhere — no app routes left to guard", async () => {
+  it("lets unauthenticated users through everywhere except guarded app tabs", async () => {
     mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null })
     mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: null })
 
@@ -64,6 +64,16 @@ describe("proxy middleware — auth redirects", () => {
       const res = await proxy(mockRequest(`http://localhost:3000${path}`))
       expect(res.status).toBe(200)
     }
+  })
+
+  it("redirects unauthenticated users on guarded app tabs to /login", async () => {
+    mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null })
+    mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: null })
+
+    const res = await proxy(mockRequest("http://localhost:3000/dashboard"))
+
+    expect(res.status).toBe(307)
+    expect(res.headers.get("location")).toBe("http://localhost:3000/login")
   })
 
   it("allows unauthenticated access to /login", async () => {

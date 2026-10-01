@@ -2,8 +2,9 @@ import { describe, it, expect } from "vitest"
 import { PRIMARY_NAV, SECONDARY_NAV, ACCOUNT_NAV, isActiveEntry, titleFor, backTargetFor, filterThreads } from "./nav"
 
 describe("customer navigation IA (single source)", () => {
-  it("holds no primary tabs until the tab-by-tab rebuild adds them", () => {
-    expect(PRIMARY_NAV).toEqual([])
+  it("holds the built tabs only — Tab 1 is Home", () => {
+    expect(PRIMARY_NAV.map((n) => n.label)).toEqual(["Home"])
+    expect(PRIMARY_NAV.map((n) => n.href)).toEqual(["/dashboard"])
   })
 
   it("keeps secondary destinations out of primary navigation", () => {

@@ -1,5 +1,5 @@
 import type { ComponentType } from "react"
-import { Settings, ReceiptText, LifeBuoy } from "lucide-react"
+import { LayoutDashboard, Settings, ReceiptText, LifeBuoy } from "lucide-react"
 
 export interface NavEntry {
   label: string
@@ -8,11 +8,12 @@ export interface NavEntry {
 }
 
 /**
- * Navigation is rebuilt tab by tab. No primary tabs exist yet — entries
- * return here as each tab is built. The account menu lives solely in the
- * top navbar. Ask is just the composer (classifier), not a destination.
+ * Navigation is rebuilt tab by tab — entries return here as each tab is
+ * built. Tab 1: Home. The account menu lives solely in the top bar.
  */
-export const PRIMARY_NAV: NavEntry[] = []
+export const PRIMARY_NAV: NavEntry[] = [
+  { label: "Home", href: "/dashboard", icon: LayoutDashboard },
+]
 
 export const SECONDARY_NAV: NavEntry[] = []
 
