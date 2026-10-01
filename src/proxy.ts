@@ -65,7 +65,7 @@ export async function proxy(request: NextRequest) {
 
   // App routes return tab by tab with the rebuild; each guarded prefix is
   // added here as its tab lands. API routes authenticate themselves.
-  if (!user && pathname.startsWith("/dashboard")) {
+  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/inbox"))) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     await logEventWithClient(supabase, {
