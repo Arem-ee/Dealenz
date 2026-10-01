@@ -25,7 +25,7 @@ export function SigningView() {
       <div className="flex shrink-0 items-end justify-between gap-3 pb-4 pt-6">
         <h1 className="text-[28px] font-bold tracking-tight text-foreground">Signing</h1>
         <Link
-          href="/audit/new"
+          href="/chat/new"
           className="inline-flex h-9 shrink-0 items-center gap-1.5 bg-primary px-4 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
         >
           <Plus className="h-3.5 w-3.5" />

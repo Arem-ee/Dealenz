@@ -84,7 +84,7 @@ export function TopBar({ email, businessName, creditBalance = null, threads = []
                 })}
               </nav>
               <Link
-                href="/audit/new"
+                href="/chat/new"
                 onClick={() => setMenuOpen(false)}
                 className="mt-4 inline-flex h-11 items-center justify-center gap-1.5 bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
               >
