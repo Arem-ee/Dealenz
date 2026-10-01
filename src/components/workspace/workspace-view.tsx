@@ -15,7 +15,7 @@ export function WorkspaceView() {
           <FileText className="h-6 w-6 text-muted-foreground" />
           <p className="mt-2 text-sm font-medium">Drop the paper here</p>
           <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-            Paste the contract, attach files, or say what happened — the classifier routes it and work appears on the right.
+            Attach the contract or Ask below — analysis lands on the right.
           </p>
         </div>
         <Composer />
