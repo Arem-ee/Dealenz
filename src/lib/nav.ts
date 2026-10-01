@@ -1,5 +1,5 @@
 import type { ComponentType } from "react"
-import { FileText, Inbox, LayoutDashboard, Settings, ReceiptText, LifeBuoy } from "lucide-react"
+import { FileText, Inbox, LayoutDashboard, PenLine, Settings, ReceiptText, LifeBuoy } from "lucide-react"
 
 export interface NavEntry {
   label: string
@@ -9,13 +9,14 @@ export interface NavEntry {
 
 /**
  * Navigation is rebuilt tab by tab — entries return here as each tab is
- * built. Tab 1: Home. Tab 2: Inbox. Tab 3: Drafts. The account menu lives
- * solely in the top bar.
+ * built. Tab 1: Home. Tab 2: Inbox. Tab 3: Drafts. Tab 4: Signing.
+ * The account menu lives solely in the top bar.
  */
 export const PRIMARY_NAV: NavEntry[] = [
   { label: "Home", href: "/dashboard", icon: LayoutDashboard },
   { label: "Inbox", href: "/inbox", icon: Inbox },
   { label: "Drafts", href: "/drafts", icon: FileText },
+  { label: "Signing", href: "/signing", icon: PenLine },
 ]
 
 export const SECONDARY_NAV: NavEntry[] = []
