@@ -17,6 +17,7 @@ import { MAX_STANDING_RULES } from "@/lib/standing/rules"
 import { RULE_DEAL_TYPES } from "@/lib/standing/rules"
 import { cn } from "@/lib/utils"
 import { Markdown } from "@/components/chat/Markdown"
+import { ClauseTrackingView } from "@/components/library/ClauseTrackingView"
 
 interface LibraryTurn {
   id: string
@@ -111,10 +112,10 @@ export function LibraryView() {
   const [sending, setSending] = useState(false)
   // Deep-linkable mode (?mode=rules). Client-only read keeps this SSR-safe
   // without a Suspense boundary. Gmail import lives at /inbox now, not here.
-  const [mode, setMode] = useState<"search" | "rules">(() => {
+  const [mode, setMode] = useState<"search" | "rules" | "clauses">(() => {
     try {
       const m = new URLSearchParams(window.location.search).get("mode")
-      if (m === "rules") return m
+      if (m === "rules" || m === "clauses") return m
     } catch {
       // Non-browser render: fall through to default.
     }
@@ -167,7 +168,7 @@ export function LibraryView() {
     }
   }
 
-  function switchMode(m: "search" | "rules") {
+  function switchMode(m: "search" | "rules" | "clauses") {
     setMode(m)
     if (m === "rules" && rules === null && !rulesLoading) void refreshRules()
   }
@@ -231,6 +232,7 @@ export function LibraryView() {
   const MODES = [
     { key: "search" as const, label: "Search deals", desc: "Find any deal in plain words" },
     { key: "rules" as const, label: "Rules", desc: "Standing rules for every deal" },
+    { key: "clauses" as const, label: "Clauses", desc: "Track every clause, every deal" },
   ]
 
   const conversation = (
@@ -277,7 +279,11 @@ export function LibraryView() {
         ))}
       </aside>
       <div className="flex min-h-0 flex-1 flex-col">
-      {mode === "rules" ? (
+      {mode === "clauses" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto py-2">
+          <ClauseTrackingView />
+        </div>
+      ) : mode === "rules" ? (
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
           <div className="mx-auto w-full max-w-2xl space-y-3">
             <div>
