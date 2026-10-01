@@ -55,9 +55,9 @@ async function getShellData() {
 function ShellSkeleton() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-40 h-11 shrink-0 border-b border-border/60 bg-background/90 backdrop-blur" />
+      <header className="sticky top-0 z-40 h-12 shrink-0 border-b border-border/60 bg-background/95 backdrop-blur" />
       <div className="flex flex-1 min-h-0">
-        <aside className="hidden md:flex md:flex-col w-12 shrink-0 border-r border-border/60 bg-background md:sticky md:top-11 md:h-[calc(100dvh-2.75rem)]" />
+        <aside className="hidden md:flex md:flex-col w-12 shrink-0 border-r border-border/60 bg-background md:sticky md:top-12 md:h-[calc(100dvh-3rem)]" />
         <div className="flex flex-1 flex-col min-w-0 bg-background">
           <main className="flex flex-1 flex-col min-h-0 overflow-hidden bg-background">
             <div className="h-4 w-full animate-pulse bg-muted/60" />

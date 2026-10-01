@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Bell, ChevronUp, LogOut, Menu, Plus, Scale, Search } from "lucide-react"
+import { Bell, LogOut, Menu, Plus, Scale, Search } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Logo } from "@/components/logo"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -28,11 +28,12 @@ interface TopNavbarProps {
 }
 
 /**
- * Slim app-wide top navbar: logo + thread search on the left; credit
+ * Fixed app-wide top navbar: logo on the left, search bar centered, credit
  * balance (always visible, plain), notifications entry, and the single
- * account menu on the right. The sidebar carries no account row.
+ * account menu on the right. Always pinned to the top — no hover reveal.
+ * The sidebar carries no account row.
  */
-export function TopNavbar({ email, businessName, isLawyer = false, creditBalance = null, threads = [], onHideTopbar }: TopNavbarProps) {
+export function TopNavbar({ email, businessName, isLawyer = false, creditBalance = null, threads = [] }: TopNavbarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
@@ -59,8 +60,10 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
   }
 
   return (
-    <header className="sticky top-0 z-40 h-11 shrink-0 border-b border-border/60 bg-background/90 backdrop-blur">
-      <div className="flex h-full items-center gap-1 px-2 sm:gap-1.5">
+    <header className="sticky top-0 z-40 h-12 shrink-0 border-b border-border/60 bg-background/95 backdrop-blur">
+      <div className="flex h-full items-center gap-2 px-2 sm:px-3">
+        {/* Left: mobile menu + logo */}
+        <div className="flex min-w-0 shrink-0 items-center gap-1">
         {/* Mobile web nav: top-anchored drawer, not a bottom app tab bar.
             The sidebar toggle below stays desktop-only. */}
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -137,17 +140,22 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
         <Link href="/dashboard" aria-label="Home" className="hidden shrink-0 min-[420px]:block">
           <Logo />
         </Link>
+        </div>
+        {/* Center: search bar, truly centered */}
+        <div className="flex min-w-0 flex-1 items-center justify-center px-2">
         <button
           type="button"
           onClick={() => setSearchOpen(true)}
           aria-label="Search deals"
-          className="hidden h-8 min-w-0 items-center gap-2 rounded-lg px-2 py-1 text-[13px] text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:flex"
+          className="flex h-9 w-full max-w-md items-center gap-2 rounded-full border border-border/60 bg-muted/60 px-3.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
         >
           <Search className="h-3.5 w-3.5 shrink-0" />
-          <span className="hidden truncate lg:inline">Search deals</span>
-          <kbd className="hidden shrink-0 rounded border border-border/60 bg-muted/60 px-1 text-[10px] font-medium sm:inline">⌘K</kbd>
+          <span className="min-w-0 flex-1 truncate text-left">Search...</span>
+          <kbd className="hidden shrink-0 rounded border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium sm:inline">Ctrl K</kbd>
         </button>
-        <div className="min-w-0 flex-1" />
+        </div>
+        {/* Right: credits, notifications, account */}
+        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
         <Link
           href="/billing"
           title="Credit balance — see Billing for what credits pay for"
@@ -203,17 +211,7 @@ export function TopNavbar({ email, businessName, isLawyer = false, creditBalance
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        {onHideTopbar && (
-          <button
-            type="button"
-            onClick={onHideTopbar}
-            aria-label="Hide header"
-            title="Hide header for more room"
-          className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground md:flex"
-          >
-            <ChevronUp className="h-4 w-4" />
-          </button>
-        )}
+        </div>
       </div>
       {searchOpen && <ThreadSearch threads={threads} onClose={() => setSearchOpen(false)} />}
     </header>

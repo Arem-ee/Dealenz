@@ -7,12 +7,12 @@ import { cn } from "@/lib/utils"
 import { LOW_CREDIT_THRESHOLD } from "@/lib/credits/pricing"
 import { PRIMARY_NAV, SECONDARY_NAV, isActiveEntry, type SidebarThread } from "@/lib/nav"
 
-// Hover-expand brand sidebar: a slim icon rail at rest that widens on hover,
+// Fixed brand sidebar: a slim icon rail in normal flow that widens on hover,
 // no manual collapse button — the standard auto-rail pattern. Labels and the
 // recent list fade in only when expanded; the collapsed rail keeps icons
 // (and the open-issue badge) glanceable. Desktop only; mobile navigates from
 // the top navbar drawer.
-export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [], flushTop = false }: {
+export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [] }: {
   openIssues?: number
   creditBalance?: number | null
   threads?: SidebarThread[]
@@ -23,7 +23,7 @@ export function SidebarNav({ openIssues = 0, creditBalance = null, threads = [],
   const recent = [...(threads ?? [])].slice(0, 5)
 
   return (
-    <aside className={`group/nav hidden md:flex md:flex-col shrink-0 border-r border-border/60 bg-background w-12 hover:w-52 transition-[width] duration-200 overflow-hidden ${flushTop ? "md:top-0 md:h-[100dvh]" : "md:top-11 md:h-[calc(100dvh-2.75rem)]"} md:sticky`}>
+    <aside className="group/nav hidden w-12 shrink-0 overflow-hidden border-r border-border/60 bg-background transition-[width] duration-200 hover:w-52 md:sticky md:top-12 md:h-[calc(100dvh-3rem)] md:flex md:flex-col">
       <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-1.5" aria-label="Primary">
         <div className="shrink-0 space-y-0.5">
           {PRIMARY_NAV.map((item) => {
