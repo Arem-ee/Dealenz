@@ -31,7 +31,7 @@ function formatDate(date: string): string {
 }
 
 function riskTone(risk: DealRisk): string {
-  if (risk === "Critical") return "border-foreground bg-foreground text-background"
+  if (risk === "Critical") return "border-foreground bg-muted font-semibold text-foreground"
   if (risk === "Material") return "border-border bg-muted text-foreground"
   return "border-border text-muted-foreground"
 }
@@ -60,7 +60,7 @@ function ChipRow<T extends string>({ label, options, active, counts, onToggle, f
             className={cn(
               "border px-2.5 py-1 text-xs font-medium tabular-nums transition-colors disabled:opacity-40",
               on
-                ? "border-foreground bg-foreground text-background"
+                ? "border-foreground bg-muted font-semibold text-foreground"
                 : "border-border text-muted-foreground hover:text-foreground"
             )}
           >

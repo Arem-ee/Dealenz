@@ -49,7 +49,7 @@ export function InboxView() {
             className={cn(
               "border px-2.5 py-1 text-xs font-medium transition-colors",
               filter === f.key
-                ? "border-foreground bg-foreground text-background"
+                ? "border-foreground bg-muted font-semibold text-foreground"
                 : "border-border text-muted-foreground hover:text-foreground"
             )}
           >
