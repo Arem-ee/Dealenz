@@ -159,6 +159,28 @@ AI synthesis (model-logged) → approval gate → work product → audit trail
 - Evidence: EXACT/APPROXIMATE/UNAVAILABLE preserved; no offsets invented.
 - Unknown stays unknown — the system asks or qualifies, never guesses.
 
+## Server-Side Doctrine
+
+Browser renders and captures input. Every decision, secret, and cent
+stays server-side — verdicts, keys, credits, and audit integrity can
+never live in the client, because anything the client decides, the
+client can forge. Tenant isolation is a data-layer guarantee (RLS per
+`auth.uid()` + workspace membership), never an app-layer promise.
+
+Server Actions carry fast mutations only. They dispatch sequentially,
+cannot abort, and die under platform timeouts — so anything long,
+parallel, or cancellable runs on the worker layer instead: enqueue →
+worker executes with retries → progress via polling/SSE → audit trail
+records each step. Analysis runs, folder batches, and monitoring sweeps
+are worker workloads; single-record mutations stay in actions.
+
+Enterprise identity and evidence roadmap (before the first regulated
+customer): SSO (SAML/OIDC) + SCIM provisioning, MFA, append-only
+exportable audit logs (SIEM streaming; admins cannot delete them), data
+residency, SOC 2/ISO evidence. Deployment stays multi-tenant SaaS; worker
+code lives in portable `lib/` modules so dedicated-tenant/VPC stays an
+option, never a rewrite.
+
 ## Batch Workers
 
 Not agents: bounded operations with approval gates. Manifest (N files,
@@ -224,3 +246,5 @@ foregrounds stand as of this writing; functions begin at the workspace
 7. Formal data-retention policy.
 8. Error tracking / uptime / alerting vendor picks.
 9. Dependency patch cadence (post-wipe baseline audit due).
+10. SSO provider scope (SAML + OIDC minimum) and SCIM sequencing.
+11. SIEM export format and retention policy for audit streams.
