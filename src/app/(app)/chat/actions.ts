@@ -2,9 +2,14 @@
 
 import { randomUUID } from "node:crypto"
 import { createClient } from "@/lib/supabase/server"
-import { classifyOperation, inferIntent, isGreeting } from "@/lib/conversation/classify"
+import { classifyOperation, inferIntent, isGreeting, DETERMINISTIC_GREETING } from "@/lib/conversation/classify"
 import { addMessage, createConversation, getConversation, listMessages } from "@/lib/conversation/store"
 import { analyzeDeterministic, summarizeAnalysis } from "@/lib/deals/analyze"
+import { callAIForSurface } from "@/lib/ai/providers"
+import { AIProviderError } from "@/lib/ai/errors"
+import { detectFindingConflicts, type ClaimedStatus } from "@/lib/rules/result"
+import type { RuleResult } from "@/lib/rules/result"
+import { checkRateLimit } from "@/lib/rate-limit"
 import {
   deriveTitle,
   fitMessage,
@@ -33,11 +38,11 @@ async function authedUserId() {
 async function ownedAudit(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, auditId: string) {
   const { data } = await supabase
     .from("audits")
-    .select("id, title, deal_type, raw_input, updated_at")
+    .select("id, title, deal_type, raw_input, structured_data, updated_at")
     .eq("id", auditId)
     .eq("user_id", userId)
     .maybeSingle()
-  return (data as { id: string; title: string | null; deal_type: string | null; raw_input: string | null; updated_at: string } | null) ?? null
+  return (data as { id: string; title: string | null; deal_type: string | null; raw_input: string | null; structured_data?: unknown; updated_at: string } | null) ?? null
 }
 
 /**
@@ -406,4 +411,221 @@ function detectMime(name: string, buffer: Buffer): string {
   if (ext === "pdf") return "application/pdf"
   if (ext === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   return "text/plain"
+}
+
+const ASK_HISTORY_TURNS = 6
+const ASK_PROMPT_CHARS = 4000
+const ASK_MATERIAL_CHARS = 12000
+
+interface AskFinding {
+  ruleKey: string
+  status: string
+  severity: string
+  summary: string
+  guidance: string | null
+  evidenceQuote: string | null
+}
+
+export function buildAskPrompt(input: {  question: string
+  dealType: string
+  material: string
+  findings: AskFinding[]
+  history: Array<{ role: string; text: string }>
+}): { systemPrompt: string; userContent: string } {
+  const findingLines = input.findings.map(
+    (f) => `- [${f.ruleKey}] (${f.severity}) ${f.summary}${f.guidance ? ` Guidance: ${f.guidance}` : ""}${f.evidenceQuote ? ` Quote: “${f.evidenceQuote}”` : ""}`
+  )
+  const historyLines = input.history.map((t) => `${t.role === "user" ? "User" : "Dealenz"}: ${t.text}`)
+  const systemPrompt = [
+    "You answer questions about the user's own deal. Dealenz works for the user, never for closing the deal.",
+    "Rules you must obey:",
+    "1. Answer ONLY from the deal material and findings below. Never invent terms, parties, dates, or law.",
+    "2. Quote findings by rule key when you rely on them. Every material claim traces to a finding or a quote.",
+    "3. Never contradict a deterministic finding: a FAIL stays a FAIL. If the user pushes toward an unsafe reading, say so plainly with the finding as reason.",
+    "4. When evidence runs out, ask ONE targeted question instead of guessing — then stop. Do not answer around the gap.",
+    "5. Plain complete sentences, concise by default, no sycophancy, no commercial bias.",
+    "6. End your response with exactly one machine line listing every verdict you asserted, or [[CLAIMS none]] if you asserted none.",
+    'Format: [[CLAIMS ruleKey1:FAIL, ruleKey2:PASS]] using statuses PASS, FAIL, or UNKNOWN only.',
+  ].join("\n")
+  const userContent = [
+    `Deal type: ${input.dealType}`,
+    "",
+    "FINDINGS (deterministic, authoritative):",
+    findingLines.length > 0 ? findingLines.join("\n") : "(no findings recorded)",
+    "",
+    "DEAL MATERIAL (excerpt):",
+    input.material,
+    ...(historyLines.length > 0 ? ["", "RECENT TURNS:", ...historyLines] : []),
+    "",
+    `QUESTION: ${input.question}`,
+  ].join("\n")
+  return { systemPrompt, userContent }
+}
+
+export function parseClaimsBlock(text: string): { claims: ClaimedStatus[]; clean: string } {
+  const match = text.match(/\[\[CLAIMS\s+([^\]]*)\]\]\s*$/)
+  if (!match) return { claims: [], clean: text.trim() }
+  const raw = (match[1] ?? "").trim().toLowerCase()
+  if (raw === "" || raw === "none") return { claims: [], clean: text.slice(0, match.index).trim() }
+  const claims: ClaimedStatus[] = []
+  for (const part of raw.split(",")) {
+    const [key, status] = part.split(":").map((s) => s.trim())
+    if (!key || (status !== "pass" && status !== "fail" && status !== "unknown")) continue
+    claims.push({ ruleKey: key, assertedStatus: status.toUpperCase() as "PASS" | "FAIL" | "UNKNOWN" })
+  }
+  return { claims, clean: text.slice(0, match.index).trim() }
+}
+
+/**
+ * Ask a question about the deal. Grounded answers with cited sources;
+ * verdicts validated against deterministic findings (flips are retried
+ * once, then fall back to deterministic truth). Rate-capped per day —
+ * abuse control, never a price. Provider failures post honestly.
+ */
+export async function askQuestion(input: { threadId: string; text: string }): Promise<
+  ActionOk<{ answer: string }> | ActionFail
+> {
+  const authed = await authedUserId()
+  if (!authed) return { ok: false, error: "You must be signed in." }
+  const { supabase, userId } = authed
+
+  const question = input.text.trim()
+  if (!question) return { ok: false, error: "Ask a question first." }
+  const thread = await getConversation(supabase as never, userId, input.threadId).catch(() => null)
+  if (!thread?.attached_audit_id) return { ok: false, error: "That thread has no deal attached." }
+  const audit = await ownedAudit(supabase, userId, thread.attached_audit_id)
+  if (!audit) return { ok: false, error: "Deal not found." }
+
+  const operation = classifyOperation(question, true)
+  const intent = inferIntent(question, operation)
+
+  const postUserTurn = async () => {
+    const fitted = fitMessage(question)
+    await addMessage(supabase as never, {
+      conversationId: thread.id,
+      userId,
+      role: "user",
+      content: fitted.content,
+      operation,
+      intent,
+      metadata: fitted.truncated ? { truncated: true } : {},
+    })
+  }
+
+  // Deterministic greeting: no AI, no cap consumed, no findings lookup.
+  if (isGreeting(question)) {
+    await postUserTurn()
+    await addMessage(supabase as never, {
+      conversationId: thread.id,
+      userId,
+      role: "assistant",
+      content: DETERMINISTIC_GREETING,
+      operation,
+      intent,
+      metadata: { type: "ask_answer", deterministic: true },
+    })
+    return { ok: true, answer: DETERMINISTIC_GREETING }
+  }
+
+  const cap = await checkRateLimit("ask_turn")
+  if (!cap.allowed) {
+    await postUserTurn()
+    const msg = cap.error ?? "You've reached today's question limit. Please try again tomorrow."
+    await addMessage(supabase as never, {
+      conversationId: thread.id,
+      userId,
+      role: "assistant",
+      content: msg,
+      operation,
+      intent,
+      metadata: { type: "ask_rate_limited" },
+    })
+    return { ok: true, answer: msg }
+  }
+
+  const rawFindings = (audit.structured_data as { deterministicFindings?: unknown } | null | undefined)?.deterministicFindings
+  const stored = (Array.isArray(rawFindings) ? rawFindings : []) as RuleResult[]
+  const valid = (r: RuleResult) => r.status === "FAIL" || r.status === "PASS" || r.status === "UNKNOWN"
+  const fails = stored.filter((r) => r.status === "FAIL")
+  const findings: AskFinding[] = fails.slice(0, 8).map((r) => ({
+    ruleKey: r.ruleKey,
+    status: r.status,
+    severity: r.finding?.severity ?? "attention",
+    summary: r.finding?.summary ?? r.ruleKey,
+    guidance: r.finding?.guidance ?? null,
+    evidenceQuote: r.finding?.evidence?.[0]?.quote?.slice(0, 200) ?? null,
+  }))
+  const historyRows = await listMessages(supabase as never, userId, thread.id, ASK_HISTORY_TURNS + 1).catch(() => [])
+  const history = historyRows
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .slice(-ASK_HISTORY_TURNS)
+    .map((m) => ({ role: m.role, text: m.content.slice(0, 1000) }))
+
+  await postUserTurn()
+
+  const material = (audit.raw_input ?? "").trim().slice(0, ASK_MATERIAL_CHARS)
+  const dealType = audit.deal_type ?? "generic"
+  const attempt = async (correction?: string) => {
+    const { systemPrompt, userContent } = buildAskPrompt({
+      question: correction ? `${question}\n\nCorrection to apply: ${correction}` : question,
+      dealType,
+      material: material || "(no material recorded yet)",
+      findings,
+      history,
+    })
+    const res = await callAIForSurface("authenticated", {
+      systemPrompt,
+      userContent: userContent.slice(0, ASK_MATERIAL_CHARS + ASK_PROMPT_CHARS),
+      temperature: 0.2,
+      maxTokens: 1200,
+    })
+    return { text: res.text, model: res.meta.primary.model, provider: res.meta.primary.provider }
+  }
+
+  let answer: string
+  let model = "(unknown)"
+  try {
+    const first = await attempt()
+    model = first.model
+    const parsed = parseClaimsBlock(first.text)
+    const conflicts = detectFindingConflicts(stored.filter(valid), parsed.claims)
+    if (conflicts.length === 0) {
+      answer = parsed.clean || first.text.trim()
+    } else {
+      const second = await attempt(`Your verdicts conflict with the deterministic findings: ${conflicts.join(" ")} Restate without contradicting them, or ask one targeted question.`)
+      model = second.model
+      const reparsed = parseClaimsBlock(second.text)
+      const stillBad = detectFindingConflicts(stored.filter(valid), reparsed.claims)
+      answer = stillBad.length === 0
+        ? (reparsed.clean || second.text.trim())
+        : `I couldn't verify that against your deal's findings, so here is what they do say:\n${fails.slice(0, 5).map((f) => `• ${f.finding?.summary ?? f.ruleKey}`).join("\n") || "No risky patterns recorded."}`
+    }
+  } catch (err) {
+    const msg = err instanceof AIProviderError
+      ? err.category === "config" || err.category === "auth"
+        ? "Ask is unavailable right now — the AI service isn't configured. Your deal and findings are intact; please try again later."
+        : "I couldn't reach the AI service. Your question is saved — ask again to retry."
+      : "Ask failed. Your question is saved — try again."
+    await addMessage(supabase as never, {
+      conversationId: thread.id,
+      userId,
+      role: "assistant",
+      content: msg,
+      operation,
+      intent,
+      metadata: { type: "ask_failed" },
+    })
+    return { ok: true, answer: msg }
+  }
+
+  await addMessage(supabase as never, {
+    conversationId: thread.id,
+    userId,
+    role: "assistant",
+    content: answer,
+    operation,
+    intent,
+    metadata: { type: "ask_answer", model, operation, intent },
+  })
+  return { ok: true, answer }
 }

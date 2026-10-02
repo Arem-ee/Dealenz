@@ -13,6 +13,7 @@ export type RateLimitedAction =
   | "document_send"
   | "upload_version"
   | "verification_resend"
+  | "ask_turn"
 
 const LIMITS: Record<RateLimitedAction, number> = {
   generateProtectionPackage: 10,
@@ -31,6 +32,9 @@ const LIMITS: Record<RateLimitedAction, number> = {
   // credits — storage-only, so the rate cap is the abuse bound (20/day).
   upload_version: 20,
   verification_resend: 5,
+  // Ask turns: abuse guard until the allowance backend lands. No per-action
+  // prices anywhere — this cap counts turns, never charges them.
+  ask_turn: 30,
 }
 
 /** Single source for daily usage limits shown in the UI. Analyses are not

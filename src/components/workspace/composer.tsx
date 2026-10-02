@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowUp, Loader2, Mic, MicOff, Plus, RotateCcw, X } from "lucide-react"
-import { appendMaterial, attachFiles, createDeal, mintUploadUrls } from "@/app/(app)/chat/actions"
+import { appendMaterial, askQuestion, attachFiles, createDeal, mintUploadUrls } from "@/app/(app)/chat/actions"
 import {
   ACCEPT_STRING,
   MAX_INTAKE_FILES,
@@ -218,6 +218,14 @@ export function Composer({ mode }: { mode: ComposerMode }) {
         router.refresh()
       } else {
         if (!mode.auditId) throw new Error("That thread has no deal attached.")
+        // Short turns Ask; long pastes are material (they also re-run analysis).
+        if (ready.length === 0 && text.trim().length <= 500) {
+          const asked = await askQuestion({ threadId: mode.threadId, text: text.trim() })
+          if (!asked.ok) throw new Error(asked.error)
+          setText("")
+          router.refresh()
+          return
+        }
         if (text.trim()) {
           const appended = await appendMaterial({ threadId: mode.threadId, text: text.trim() })
           if (!appended.ok) throw new Error(appended.error)
