@@ -18,7 +18,7 @@ export function WorkspaceView() {
             Attach the contract or Ask below — analysis lands on the right.
           </p>
         </div>
-        <Composer />
+        <Composer mode={{ kind: "new" }} />
       </section>
       <section aria-label="Work surface" className="hidden min-h-0 min-w-0 flex-[1.4] flex-col bg-muted/20 lg:flex">
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-12 text-center">

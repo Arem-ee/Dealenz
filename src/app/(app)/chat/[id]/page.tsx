@@ -1,13 +1,17 @@
-import { WorkspaceView } from "@/components/workspace/workspace-view"
+import { notFound } from "next/navigation"
+import { ThreadView } from "@/components/workspace/thread-view"
+import { getThread } from "@/app/(app)/chat/actions"
 
 export const dynamic = "force-dynamic"
 
-// Deal thread: same workspace, scoped to a deal once threads exist.
-// Functions land here with the workspace wiring.
-export default async function DealWorkspacePage() {
+export default async function DealWorkspacePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const res = await getThread(id)
+  if (!res.ok) notFound()
+
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
-      <WorkspaceView />
+      <ThreadView initial={res.thread} />
     </div>
   )
 }
