@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto"
 import { createClient } from "@/lib/supabase/server"
 import { classifyOperation, inferIntent, isGreeting } from "@/lib/conversation/classify"
 import { addMessage, createConversation, getConversation, listMessages } from "@/lib/conversation/store"
+import { analyzeDeterministic, summarizeAnalysis } from "@/lib/deals/analyze"
 import {
   deriveTitle,
   fitMessage,
@@ -40,10 +41,81 @@ async function ownedAudit(supabase: Awaited<ReturnType<typeof createClient>>, us
 }
 
 /**
+ * Automatic deterministic analysis. Runs on material — never gated, never
+ * billed per action. Findings persist to the audit and post as an
+ * assistant message. Failures post honestly instead of staying silent.
+ */
+async function runAnalysisForAudit(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  audit: { id: string; deal_type: string | null; raw_input: string | null },
+  threadId: string | null
+): Promise<void> {
+  const raw = (audit.raw_input ?? "").trim()
+  if (raw.length < 20) return
+  let resolvedThreadId = threadId
+  if (!resolvedThreadId) {
+    const { data } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("attached_audit_id", audit.id)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    resolvedThreadId = (data as { id: string } | null)?.id ?? null
+  }
+  try {
+    const evaluatedAt = new Date().toISOString()
+    const out = analyzeDeterministic(audit.deal_type ?? "generic", raw, audit.id, evaluatedAt)
+    const { data: current } = await supabase
+      .from("audits")
+      .select("structured_data")
+      .eq("id", audit.id)
+      .eq("user_id", userId)
+      .maybeSingle()
+    const existing = ((current as { structured_data?: unknown } | null)?.structured_data ?? {}) as Record<string, unknown>
+    await supabase
+      .from("audits")
+      .update({ structured_data: { ...existing, deterministicFindings: out.results, analysisEvaluatedAt: evaluatedAt } })
+      .eq("id", audit.id)
+      .eq("user_id", userId)
+    if (resolvedThreadId) {
+      await addMessage(supabase as never, {
+        conversationId: resolvedThreadId,
+        userId,
+        role: "assistant",
+        content: summarizeAnalysis(out),
+        operation: "document_analysis",
+        intent: "review",
+        metadata: {
+          type: "analysis_complete",
+          failCount: out.fails.length,
+          unknownCount: out.unknowns.length,
+          evaluatedAt,
+        },
+      })
+    }
+  } catch {
+    if (resolvedThreadId) {
+      await addMessage(supabase as never, {
+        conversationId: resolvedThreadId,
+        userId,
+        role: "assistant",
+        content: "Analysis couldn't run on that material — your text is saved. New material retries it automatically.",
+        operation: "document_analysis",
+        intent: "review",
+        metadata: { type: "analysis_failed" },
+      }).catch(() => undefined)
+    }
+  }
+}
+
+/**
  * Slice-one creation: text (and optionally a confirmed deal type) mints an
  * audit plus its thread and first messages. The assistant message records
  * the classifier's visible shot — operation, intent, proposed type — with
- * one-tap correction in the thread. Nothing analyzes yet.
+ * one-tap correction in the thread. Analysis runs automatically next.
  */
 export async function createDeal(input: { text: string; dealType?: string }): Promise<
   | ActionOk<{ threadId: string; auditId: string; operation: string; intent: string; dealType: IntakeDealType }>
@@ -87,11 +159,12 @@ export async function createDeal(input: { text: string; dealType?: string }): Pr
       conversationId: thread.id,
       userId,
       role: "assistant",
-      content: `Looks like ${operation} · ${dealType}. Correct it below if I read it wrong — analysis starts once you confirm.`,
+      content: `Looks like ${operation} · ${dealType}. Correct it below if I read it wrong — analysis runs automatically.`,
       operation,
       intent,
       metadata: { type: "routing_shot", operation, intent, dealType },
     })
+    await runAnalysisForAudit(supabase, userId, { id: auditId, deal_type: dealType, raw_input: raw }, thread.id)
     return { ok: true, threadId: thread.id, auditId, operation, intent, dealType }
   } catch {
     await supabase.from("audits").delete().eq("id", auditId).eq("user_id", userId)
@@ -125,6 +198,7 @@ export async function appendMaterial(input: { threadId: string; text: string }):
     content: fitted.content,
     metadata: fitted.truncated ? { truncated: true, appended: true } : { appended: true },
   })
+  await runAnalysisForAudit(supabase, userId, { id: audit.id, deal_type: audit.deal_type, raw_input: combined }, thread.id)
   return { ok: true, auditId: audit.id }
 }
 
@@ -138,7 +212,18 @@ export async function correctDealType(input: { auditId: string; dealType: string
   if (!isIntakeDealType(input.dealType)) return { ok: false, error: "Unknown deal type." }
   const { error } = await supabase.from("audits").update({ deal_type: input.dealType }).eq("id", input.auditId).eq("user_id", userId)
   if (error) return { ok: false, error: "We couldn't save that. Please try again." }
+  const updated = await ownedAudit(supabase, userId, input.auditId)
+  if (updated) {
+    await runAnalysisForAudit(supabase, userId, { id: updated.id, deal_type: updated.deal_type, raw_input: updated.raw_input }, null)
+  }
   return { ok: true, saved: true }
+}
+
+export interface FindingView {
+  ruleKey: string
+  severity: string
+  summary: string
+  guidance: string | null
 }
 
 export interface ThreadView {
@@ -148,6 +233,7 @@ export interface ThreadView {
   dealType: string | null
   operation: string | null
   intent: string | null
+  findings: FindingView[]
   messages: Array<{ id: string; role: "user" | "assistant"; content: string; created_at: string; metadata: Record<string, unknown> }>
 }
 
@@ -160,12 +246,29 @@ export async function getThread(threadId: string): Promise<ActionOk<{ thread: Th
   const thread = await getConversation(supabase as never, userId, threadId).catch(() => null)
   if (!thread) return { ok: false, error: "Thread not found." }
   const messages = await listMessages(supabase as never, userId, threadId, 50).catch(() => [])
-  let audit: { id: string; title: string | null; deal_type: string | null } | null = null
+  type AuditThreadRow = { id: string; title: string | null; deal_type: string | null; structured_data?: unknown }
+  let audit: AuditThreadRow | null = null
   if (thread.attached_audit_id) {
-    audit = await ownedAudit(supabase, userId, thread.attached_audit_id)
+    const { data } = await supabase
+      .from("audits")
+      .select("id, title, deal_type, structured_data")
+      .eq("id", thread.attached_audit_id)
+      .eq("user_id", userId)
+      .maybeSingle()
+    audit = (data as AuditThreadRow | null) ?? null
   }
   const shot = [...messages].reverse().find((m) => (m.metadata as Record<string, unknown>)?.type === "routing_shot")
   const shotMeta = (shot?.metadata ?? {}) as Record<string, unknown>
+  const rawFindings = ((audit?.structured_data ?? {}) as { deterministicFindings?: unknown }).deterministicFindings
+  const findings: FindingView[] = (Array.isArray(rawFindings) ? rawFindings : [])
+    .filter((r): r is { ruleKey: string; status: string; finding?: { severity?: string; summary?: string; guidance?: string } } =>
+      typeof r === "object" && r !== null && (r as { status?: string }).status === "FAIL")
+    .map((r) => ({
+      ruleKey: r.ruleKey,
+      severity: r.finding?.severity ?? "attention",
+      summary: r.finding?.summary ?? r.ruleKey,
+      guidance: r.finding?.guidance ?? null,
+    }))
   return {
     ok: true,
     thread: {
@@ -175,6 +278,7 @@ export async function getThread(threadId: string): Promise<ActionOk<{ thread: Th
       dealType: audit?.deal_type ?? (typeof shotMeta.dealType === "string" ? shotMeta.dealType : null),
       operation: typeof shotMeta.operation === "string" ? shotMeta.operation : null,
       intent: typeof shotMeta.intent === "string" ? shotMeta.intent : null,
+      findings,
       messages: messages.map((m) => ({
         id: m.id,
         role: m.role,
@@ -289,6 +393,7 @@ export async function attachFiles(input: {
   if (additions.length > 0) {
     const combined = `${audit.raw_input ?? ""}${additions.join("")}`.slice(-MAX_RAW_INPUT_CHARS)
     await supabase.from("audits").update({ raw_input: combined }).eq("id", audit.id).eq("user_id", userId)
+    await runAnalysisForAudit(supabase, userId, { id: audit.id, deal_type: audit.deal_type, raw_input: combined }, null)
   }
   return { ok: true, results }
 }

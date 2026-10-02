@@ -90,12 +90,40 @@ export function ThreadView({ initial }: { initial: ThreadData }) {
             </div>
             {correctError && <p role="alert" className="mt-2 text-xs text-destructive">{correctError}</p>}
           </div>
-          <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 text-center">
-            <p className="text-sm font-medium">Work appears here</p>
-            <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-              Analysis runs next — findings, drafts, and redlines land in this panel.
-            </p>
-          </div>
+          {initial.findings.length > 0 ? (
+            <section aria-label="Findings" className="border border-border bg-background">
+              <p className="border-b border-border px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Findings · {initial.findings.length}
+              </p>
+              <ul className="divide-y divide-border">
+                {initial.findings.map((f) => (
+                  <li key={f.ruleKey} className="px-4 py-3">
+                    <p className="flex items-center gap-2 text-[13px] font-medium">
+                      <span className={cn(
+                        "border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide",
+                        f.severity === "critical"
+                          ? "border-brick-700/40 bg-brick-700/10 text-brick-700"
+                          : "border-border text-muted-foreground"
+                      )}>
+                        {f.severity}
+                      </span>
+                      {f.summary}
+                    </p>
+                    {f.guidance && (
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{f.guidance}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 text-center">
+              <p className="text-sm font-medium">Work appears here</p>
+              <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+                Analysis runs automatically — findings land in this panel.
+              </p>
+            </div>
+          )}
         </div>
       </section>
     </div>
