@@ -14,6 +14,8 @@ export interface AnthropicCallParams {
   temperature?: number
   maxTokens?: number
   model?: string
+  // BYOK override: a user-held key for this call only. Falls back to env.
+  apiKey?: string
 }
 
 const ANTHROPIC_VERSION = "2023-06-01"
@@ -102,7 +104,7 @@ function extractText(result: unknown): string {
 
 export async function callAnthropicProvider(params: AnthropicCallParams): Promise<ProviderResult> {
   const { systemPrompt, userContent, temperature, maxTokens, model: modelOverride } = params
-  const apiKey = resolveApiKey()
+  const apiKey = params.apiKey ?? resolveApiKey()
   const model = resolveModel(modelOverride)
   const url = `${resolveBaseUrl()}/v1/messages`
 

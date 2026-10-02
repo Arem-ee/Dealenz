@@ -482,7 +482,7 @@ export function parseClaimsBlock(text: string): { claims: ClaimedStatus[]; clean
  * once, then fall back to deterministic truth). Rate-capped per day —
  * abuse control, never a price. Provider failures post honestly.
  */
-export async function askQuestion(input: { threadId: string; text: string }): Promise<
+export async function askQuestion(input: { threadId: string; text: string; modelChoice?: { keyId: string; model: string } | null }): Promise<
   ActionOk<{ answer: string }> | ActionFail
 > {
   const authed = await authedUserId()
@@ -565,6 +565,31 @@ export async function askQuestion(input: { threadId: string; text: string }): Pr
 
   const material = (audit.raw_input ?? "").trim().slice(0, ASK_MATERIAL_CHARS)
   const dealType = audit.deal_type ?? "generic"
+
+  // BYOK choice: resolve the user's key (owned, unrevoked, model allowlisted
+  // on the key) and run the call against it. Anything off returns an honest
+  // error before any provider traffic — never a silent system-model swap.
+  let byok: { provider: "anthropic" | "openai_compatible" | "gemini"; apiKey: string; model: string; baseUrl: string | null; keyId: string } | null = null
+  if (input.modelChoice) {
+    const { loadActiveKey } = await import("@/lib/models/store")
+    try {
+      const resolved = await loadActiveKey(supabase as never, userId, input.modelChoice.keyId)
+      const wanted = input.modelChoice.model.trim()
+      if (!resolved.models.includes(wanted)) {
+        return { ok: false, error: "That model isn't enabled on the chosen key — check it in Settings." }
+      }
+      byok = { provider: resolved.provider, apiKey: resolved.apiKey, model: wanted, baseUrl: resolved.base_url, keyId: resolved.id }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : "That key isn't available." }
+    }
+  }
+
+  const markKey = async (error: string | null) => {
+    if (!byok) return
+    const { touchKeyUsed } = await import("@/lib/models/store")
+    await touchKeyUsed(supabase as never, userId, byok.keyId, error)
+  }
+
   const attempt = async (correction?: string) => {
     const { systemPrompt, userContent } = buildAskPrompt({
       question: correction ? `${question}\n\nCorrection to apply: ${correction}` : question,
@@ -573,20 +598,37 @@ export async function askQuestion(input: { threadId: string; text: string }): Pr
       findings,
       history,
     })
+    if (byok) {
+      const { runWithUserKey } = await import("@/lib/models/run")
+      const res = await runWithUserKey({
+        provider: byok.provider,
+        apiKey: byok.apiKey,
+        model: byok.model,
+        baseUrl: byok.baseUrl,
+        systemPrompt,
+        userContent: userContent.slice(0, ASK_MATERIAL_CHARS + ASK_PROMPT_CHARS),
+        temperature: 0.2,
+        maxTokens: 1200,
+      })
+      return { text: res.text, model: `${res.provider}/${res.model} (your key)`, provider: res.provider, usage: res.usage }
+    }
     const res = await callAIForSurface("authenticated", {
       systemPrompt,
       userContent: userContent.slice(0, ASK_MATERIAL_CHARS + ASK_PROMPT_CHARS),
       temperature: 0.2,
       maxTokens: 1200,
     })
-    return { text: res.text, model: res.meta.primary.model, provider: res.meta.primary.provider }
+    return { text: res.text, model: res.meta.primary.model, provider: res.meta.primary.provider, usage: res.meta.usage }
   }
 
   let answer: string
   let model = "(unknown)"
+  let measuredUsage: { inputTokens: number; outputTokens: number } | undefined
+  const turnStart = Date.now()
   try {
     const first = await attempt()
     model = first.model
+    measuredUsage = first.usage
     const parsed = parseClaimsBlock(first.text)
     const conflicts = detectFindingConflicts(stored.filter(valid), parsed.claims)
     if (conflicts.length === 0) {
@@ -594,6 +636,12 @@ export async function askQuestion(input: { threadId: string; text: string }): Pr
     } else {
       const second = await attempt(`Your verdicts conflict with the deterministic findings: ${conflicts.join(" ")} Restate without contradicting them, or ask one targeted question.`)
       model = second.model
+      if (second.usage) {
+        measuredUsage = {
+          inputTokens: (measuredUsage?.inputTokens ?? 0) + second.usage.inputTokens,
+          outputTokens: (measuredUsage?.outputTokens ?? 0) + second.usage.outputTokens,
+        }
+      }
       const reparsed = parseClaimsBlock(second.text)
       const stillBad = detectFindingConflicts(stored.filter(valid), reparsed.claims)
       answer = stillBad.length === 0
@@ -601,11 +649,17 @@ export async function askQuestion(input: { threadId: string; text: string }): Pr
         : `I couldn't verify that against your deal's findings, so here is what they do say:\n${fails.slice(0, 5).map((f) => `• ${f.finding?.summary ?? f.ruleKey}`).join("\n") || "No risky patterns recorded."}`
     }
   } catch (err) {
-    const msg = err instanceof AIProviderError
-      ? err.category === "config" || err.category === "auth"
-        ? "Ask is unavailable right now — the AI service isn't configured. Your deal and findings are intact; please try again later."
-        : "I couldn't reach the AI service. Your question is saved — ask again to retry."
-      : "Ask failed. Your question is saved — try again."
+    const isKeyAuth = byok && err instanceof AIProviderError && (err.category === "auth" || err.category === "config")
+    if (byok) {
+      await markKey(err instanceof Error ? err.message.slice(0, 200) : "call failed").catch(() => undefined)
+    }
+    const msg = isKeyAuth
+      ? "That key was rejected by its provider — check it in Settings, or ask again on Auto."
+      : err instanceof AIProviderError
+        ? err.category === "config" || err.category === "auth"
+          ? "Ask is unavailable right now — the AI service isn't configured. Your deal and findings are intact; please try again later."
+          : "I couldn't reach the AI service. Your question is saved — ask again to retry."
+        : "Ask failed. Your question is saved — try again."
     await addMessage(supabase as never, {
       conversationId: thread.id,
       userId,
@@ -627,5 +681,25 @@ export async function askQuestion(input: { threadId: string; text: string }): Pr
     intent,
     metadata: { type: "ask_answer", model, operation, intent },
   })
+  if (byok) {
+    await markKey(null).catch(() => undefined)
+  }
+  // Internal metering for the future allowance pool: measured tokens only,
+  // never a user-facing price.
+  {
+    const { logEvent } = await import("@/lib/logger")
+    await logEvent({
+      audit_id: thread.attached_audit_id,
+      user_id: userId,
+      phase: "ask_turn",
+      status: "success",
+      duration_ms: Date.now() - turnStart,
+      metadata: {
+        model,
+        inputTokens: measuredUsage?.inputTokens ?? -1,
+        outputTokens: measuredUsage?.outputTokens ?? -1,
+      },
+    }).catch(() => undefined)
+  }
   return { ok: true, answer }
 }

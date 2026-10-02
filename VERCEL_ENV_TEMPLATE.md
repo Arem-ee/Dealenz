@@ -68,6 +68,12 @@ Do not commit real values. All values below are names only.
 | `STRIPE_WEBHOOK_SECRET` | Stripe Dashboard → Developers → Webhooks → endpoint secret | Server-only. Verified with Stripe's timestamped scheme (300s tolerance). Unset fails closed per route. |
 | `PAYSTACK_WEBHOOK_SECRET` | Paystack Dashboard → Settings → API Keys & Webhooks | Server-only. HMAC-SHA512 verification. Unset fails closed per route. |
 
+### User model keys / BYOK (required before keys can be saved)
+
+| Variable | Where to obtain | Notes |
+|---|---|---|
+| `MODEL_KEYS_ENCRYPTION_KEY` | Generate with `openssl rand -hex 32` (64 hex chars) | Server-only. AES-256-GCM master key for user-held provider keys. Unset fails closed on save/decrypt — keys can never be stored or read. Apply migration `00092_user_model_keys.sql` first. |
+
 All other variables (`PADDLE_ENVIRONMENT`, `LEGAL_RESEARCH_LIVE`, `LEGAL_SEARCH_API_KEY`, `OPS_ALERT_WEBHOOK`, `GEMINI_*`) are optional. Prompt caching is always on for `claude-sonnet-5` via `src/lib/ai/providers/anthropic.ts:123` (`anthropic-beta: prompt-caching-2024-07-31` + cached `system` block `cache_control: ephemeral`); no env flag needed. System prompts per vertical (`src/lib/ai/prompts.ts:18` `EXTRACTION_SYSTEM_PROMPT`, `src/lib/ai/prompts.ts:44` `RISK_ANALYSIS_SYSTEM_PROMPT`, etc.) are ~300-520 tokens each and benefit after first call per vertical (cached input 90% off: $0.30 vs $3.00 per 1M).
 
 ## Checklist

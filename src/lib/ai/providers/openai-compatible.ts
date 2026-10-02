@@ -7,6 +7,11 @@ export interface OpenAICompatibleCallParams {
   temperature?: number
   maxTokens?: number
   model?: string
+  // BYOK overrides for this call only: a user-held key and optionally
+  // their own endpoint (defaults to api.openai.com when blank so a plain
+  // OpenAI key works without configuration). Fall back to env.
+  apiKey?: string
+  baseUrl?: string
 }
 
 function resolveKey(): string {
@@ -68,8 +73,8 @@ export interface OpenAIResolvedRequest {
 // attribution headers, or temperature).
 export function resolveOpenAIRequest(params: OpenAICompatibleCallParams): OpenAIResolvedRequest {
   const { systemPrompt, userContent, temperature, maxTokens, model: modelOverride } = params
-  const apiKey = resolveKey()
-  const baseUrl = resolveBaseUrl()
+  const apiKey = params.apiKey ?? resolveKey()
+  const baseUrl = (params.baseUrl?.trim() || undefined) ?? resolveBaseUrl()
   const onOpenRouter = isOpenRouterHost(baseUrl)
   const model = onOpenRouter ? resolveOpenRouterModel(modelOverride) : resolveModel(modelOverride)
   const url = buildUrl(baseUrl)

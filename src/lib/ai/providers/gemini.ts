@@ -6,6 +6,8 @@ export interface GeminiCallParams {
   temperature?: number
   maxTokens?: number
   model?: string
+  // BYOK override: a user-held key for this call only. Falls back to env.
+  apiKey?: string
 }
 
 
@@ -40,7 +42,7 @@ function extractUsage(result: unknown): TokenUsage | undefined {
 
 export async function callGeminiProvider(params: GeminiCallParams): Promise<ProviderResult> {
   const { systemPrompt, userContent, temperature, maxTokens, model: modelOverride } = params
-  const apiKey = resolveGeminiKey()
+  const apiKey = params.apiKey ?? resolveGeminiKey()
   const model = resolveGeminiModel(modelOverride)
   const baseUrl = resolveGeminiBaseUrl()
 

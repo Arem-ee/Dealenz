@@ -1,14 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { addKey, listKeys, revokeKey, rotateKey } from "@/app/(app)/settings/actions"
+import type { ModelKeyRow } from "@/lib/models/store"
 
 const SECTIONS = ["Profile", "Language", "Models", "Billing", "Notifications"] as const
 type Section = (typeof SECTIONS)[number]
 
 // Settings foreground: personal layer only. Values display where readable;
-// edits wire up with backend functions. Destructive actions live only in
-// the danger zone with intent-proving confirmation.
+// key management is fully wired (encrypted storage, revoke, rotate).
+// Other edits wire up with backend functions. Destructive actions live
+// only in the danger zone with intent-proving confirmation.
 export function SettingsView({ email }: { email: string }) {
   const [section, setSection] = useState<Section>("Profile")
 
@@ -77,14 +81,7 @@ export function SettingsView({ email }: { email: string }) {
           )}
 
           {section === "Models" && (
-            <section aria-label="Model keys">
-              <h2 className="text-sm font-semibold">Model keys</h2>
-              <p className="mt-1 text-xs text-muted-foreground">Bring your own keys. Secrets are encrypted and never displayed — not even to you.</p>
-              <div className="mt-3 border border-dashed px-4 py-8 text-center">
-                <p className="text-sm font-medium">No keys added</p>
-                <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">Add, rotate, and revoke keys here once storage lands.</p>
-              </div>
-            </section>
+            <ModelsSection />
           )}
 
           {section === "Billing" && (
@@ -130,5 +127,245 @@ export function SettingsView({ email }: { email: string }) {
         <p className="mt-1 text-xs text-muted-foreground">Cancel subscription and delete workspace live here alone — each with intent-proving confirmation. Nothing destructive exists anywhere else in Settings.</p>
       </section>
     </div>
+  )
+}
+
+function ModelsSection() {
+  const [keys, setKeys] = useState<ModelKeyRow[] | null>(null)
+  const [storageReady, setStorageReady] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [provider, setProvider] = useState("anthropic")
+  const [label, setLabel] = useState("")
+  const [secret, setSecret] = useState("")
+  const [models, setModels] = useState("")
+  const [baseUrl, setBaseUrl] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [rotatingId, setRotatingId] = useState<string | null>(null)
+  const [rotateSecret, setRotateSecret] = useState("")
+
+  const refresh = async () => {
+    try {
+      const res = await listKeys()
+      if (!res.ok) {
+        setLoadError(res.error)
+        setKeys([])
+        return
+      }
+      setKeys(res.keys)
+      setStorageReady(res.storageReady)
+    } catch {
+      setLoadError("We couldn't load your keys.")
+      setKeys([])
+    }
+  }
+
+  useEffect(() => {
+    let live = true
+    listKeys()
+      .then((res) => {
+        if (!live) return
+        if (!res.ok) {
+          setLoadError(res.error)
+          setKeys([])
+          return
+        }
+        setKeys(res.keys)
+        setStorageReady(res.storageReady)
+      })
+      .catch(() => {
+        if (!live) return
+        setLoadError("We couldn't load your keys.")
+        setKeys([])
+      })
+    return () => {
+      live = false
+    }
+  }, [])
+
+  async function add() {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await addKey({ provider, label, secret, models, baseUrl })
+      if (!res.ok) throw new Error(res.error)
+      setLabel("")
+      setSecret("")
+      setModels("")
+      setBaseUrl("")
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save that key.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function revoke(id: string) {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await revokeKey({ id })
+      if (!res.ok) throw new Error(res.error)
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't revoke that key.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function rotate(id: string) {
+    if (busy || !rotateSecret.trim()) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await rotateKey({ id, secret: rotateSecret })
+      if (!res.ok) throw new Error(res.error)
+      setRotateSecret("")
+      setRotatingId(null)
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't rotate that key.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section aria-label="Model keys">
+      <h2 className="text-sm font-semibold">Model keys</h2>
+      <p className="mt-1 text-xs text-muted-foreground">Bring your own keys. Encrypted at rest, decrypted only for the live call, never displayed — not even to you. Revoking kills use immediately.</p>
+
+      {keys === null ? (
+        <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading keys…
+        </p>
+      ) : (
+        <>
+          {!storageReady && (
+            <p role="alert" className="mt-3 border border-destructive/30 bg-destructive/5 px-2.5 py-2 text-xs text-destructive">
+              Key storage isn&apos;t set up yet (migration 00092) — keys can&apos;t be saved until it is.
+            </p>
+          )}
+          {loadError && (
+            <p role="alert" className="mt-3 border border-destructive/30 bg-destructive/5 px-2.5 py-2 text-xs text-destructive">{loadError}</p>
+          )}
+          {keys.length === 0 ? (
+            <div className="mt-3 border border-dashed px-4 py-8 text-center">
+              <p className="text-sm font-medium">No keys added</p>
+              <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">Add one below — it appears in the composer&apos;s Model menu.</p>
+            </div>
+          ) : (
+            <ul className="mt-3 space-y-1.5">
+              {keys.map((k) => (
+                <li key={k.id} className="border border-border px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-medium">{k.label}</p>
+                      <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                        {k.provider} · {k.models.length > 0 ? k.models.join(", ") : "no models"}
+                        {k.last_error ? ` · needs attention: ${k.last_error.slice(0, 80)}` : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void revoke(k.id)}
+                      disabled={busy}
+                      className="shrink-0 px-2 py-1 text-[11px] font-medium text-destructive hover:underline disabled:opacity-50"
+                    >
+                      Revoke
+                    </button>
+                  </div>
+                  {rotatingId === k.id ? (
+                    <div className="mt-2 flex gap-1.5">
+                      <input
+                        value={rotateSecret}
+                        onChange={(e) => setRotateSecret(e.target.value)}
+                        type="password"
+                        autoComplete="off"
+                        placeholder="New secret"
+                        aria-label={`New secret for ${k.label}`}
+                        className="h-8 min-w-0 flex-1 border border-input bg-background px-2 text-xs outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void rotate(k.id)}
+                        disabled={busy || !rotateSecret.trim()}
+                        className="h-8 shrink-0 bg-primary px-3 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRotatingId(null)
+                          setRotateSecret("")
+                        }}
+                        className="h-8 shrink-0 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setRotatingId(k.id)}
+                      className="mt-1 px-0 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      Rotate secret
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="mt-4 border border-border p-3" aria-label="Add a key">
+            <p className="text-[13px] font-medium">Add a key</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label className="block text-[11px] text-muted-foreground">
+                Provider
+                <select value={provider} onChange={(e) => setProvider(e.target.value)} disabled={busy || !storageReady} className="mt-1 h-9 w-full border border-input bg-background px-2 text-xs text-foreground disabled:opacity-60">
+                  <option value="anthropic">Anthropic</option>
+                  <option value="openai_compatible">OpenAI-compatible</option>
+                  <option value="gemini">Gemini</option>
+                </select>
+              </label>
+              <label className="block text-[11px] text-muted-foreground">
+                Name
+                <input value={label} onChange={(e) => setLabel(e.target.value)} disabled={busy || !storageReady} placeholder="e.g. Team Claude key" autoComplete="off" className="mt-1 h-9 w-full border border-input bg-background px-2 text-xs text-foreground outline-none disabled:opacity-60" />
+              </label>
+              <label className="block text-[11px] text-muted-foreground sm:col-span-2">
+                Secret
+                <input value={secret} onChange={(e) => setSecret(e.target.value)} type="password" disabled={busy || !storageReady} autoComplete="off" className="mt-1 h-9 w-full border border-input bg-background px-2 text-xs text-foreground outline-none disabled:opacity-60" />
+              </label>
+              <label className="block text-[11px] text-muted-foreground sm:col-span-2">
+                Models, comma-separated
+                <input value={models} onChange={(e) => setModels(e.target.value)} disabled={busy || !storageReady} placeholder="claude-sonnet-4-5-20250929" autoComplete="off" className="mt-1 h-9 w-full border border-input bg-background px-2 text-xs text-foreground outline-none disabled:opacity-60" />
+              </label>
+              {provider === "openai_compatible" && (
+                <label className="block text-[11px] text-muted-foreground sm:col-span-2">
+                  Endpoint <span className="font-normal">(blank means api.openai.com)</span>
+                  <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} disabled={busy || !storageReady} placeholder="https://api.openai.com/v1" autoComplete="off" className="mt-1 h-9 w-full border border-input bg-background px-2 text-xs text-foreground outline-none disabled:opacity-60" />
+                </label>
+              )}
+            </div>
+            {error && <p role="alert" className="mt-2 border border-destructive/30 bg-destructive/5 px-2.5 py-2 text-xs text-destructive">{error}</p>}
+            <button
+              type="button"
+              onClick={() => void add()}
+              disabled={busy || !storageReady}
+              className="mt-2 inline-flex h-9 items-center bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+            >
+              {busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              Save key
+            </button>
+          </div>
+        </>
+      )}
+    </section>
   )
 }

@@ -57,6 +57,8 @@ export function Composer({ mode }: { mode: ComposerMode }) {
   const [text, setText] = useState("")
   const [staged, setStaged] = useState<Staged[]>([])
   const [modelOpen, setModelOpen] = useState(false)
+  const [modelKeys, setModelKeys] = useState<Array<{ id: string; provider: string; label: string; models: string[] }>>([])
+  const [modelChoice, setModelChoice] = useState<{ keyId: string; model: string; label: string } | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -80,6 +82,20 @@ export function Composer({ mode }: { mode: ComposerMode }) {
       // Stopping an idle recognizer throws in some browsers; harmless.
     }
   }, [])
+
+  const toggleModelMenu = async () => {
+    const next = !modelOpen
+    setModelOpen(next)
+    if (next && modelKeys.length === 0) {
+      try {
+        const { listKeys } = await import("@/app/(app)/settings/actions")
+        const res = await listKeys()
+        if (res.ok) setModelKeys(res.keys)
+      } catch {
+        // Keys menu degrades to Auto; the picker never blocks sending.
+      }
+    }
+  };
 
   const toggleDictation = () => {
     if (listening) {
@@ -220,7 +236,11 @@ export function Composer({ mode }: { mode: ComposerMode }) {
         if (!mode.auditId) throw new Error("That thread has no deal attached.")
         // Short turns Ask; long pastes are material (they also re-run analysis).
         if (ready.length === 0 && text.trim().length <= 500) {
-          const asked = await askQuestion({ threadId: mode.threadId, text: text.trim() })
+          const asked = await askQuestion({
+            threadId: mode.threadId,
+            text: text.trim(),
+            modelChoice: modelChoice ? { keyId: modelChoice.keyId, model: modelChoice.model } : null,
+          })
           if (!asked.ok) throw new Error(asked.error)
           setText("")
           router.refresh()
@@ -363,18 +383,46 @@ export function Composer({ mode }: { mode: ComposerMode }) {
         <div className="relative shrink-0" ref={modelWrapRef}>
           <button
             type="button"
-            onClick={() => setModelOpen((v) => !v)}
+            onClick={() => void toggleModelMenu()}
             aria-expanded={modelOpen}
             aria-label="Choose model"
-            className="flex h-8 items-center px-2 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+            className="flex h-8 max-w-[140px] items-center px-2 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
           >
-            Model
-            <span aria-hidden className="ml-1 text-[10px]">▾</span>
+            <span className="truncate">{modelChoice ? modelChoice.label : "Model"}</span>
+            <span aria-hidden className="ml-1 shrink-0 text-[10px]">▾</span>
           </button>
           {modelOpen && (
-            <div className="absolute bottom-full right-0 z-50 mb-1.5 w-44 border border-border bg-background" aria-label="Model options">
-              <p className="px-3 py-2 text-[13px] font-medium">Auto <span className="text-muted-foreground">(recommended)</span></p>
-              <p className="border-t border-border px-3 py-2 text-[11px] text-muted-foreground">More models wire up with functions.</p>
+            <div className="absolute bottom-full right-0 z-50 mb-1.5 max-h-64 w-56 overflow-y-auto border border-border bg-background" aria-label="Model options">
+              <button
+                type="button"
+                onClick={() => {
+                  setModelChoice(null)
+                  setModelOpen(false)
+                }}
+                className="block w-full px-3 py-2 text-left text-[13px] font-medium hover:bg-muted"
+              >
+                Auto <span className="text-muted-foreground">(recommended)</span>
+              </button>
+              {modelKeys.flatMap((k) =>
+                k.models.map((m) => (
+                  <button
+                    key={`${k.id}:${m}`}
+                    type="button"
+                    onClick={() => {
+                      setModelChoice({ keyId: k.id, model: m, label: m })
+                      setModelOpen(false)
+                    }}
+                    className="block w-full truncate border-t border-border px-3 py-2 text-left text-[13px] hover:bg-muted"
+                    title={`${k.label} · ${m}`}
+                  >
+                    <span className="block truncate">{m}</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">{k.label} · your key</span>
+                  </button>
+                ))
+              )}
+              {modelKeys.length === 0 && (
+                <p className="border-t border-border px-3 py-2 text-[11px] text-muted-foreground">Add keys in Settings to choose models.</p>
+              )}
             </div>
           )}
         </div>

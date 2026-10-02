@@ -326,10 +326,12 @@ describe("adversarial: provider and model selection ignore user content", () => 
     vi.unstubAllEnvs()
   })
 
-  it("no client component can pass a user-chosen model (static boundary)", () => {
-    // Ask UI was wiped in the rebuild; the boundary now scans the surviving
-    // client-component tree. Server actions and lib code may name models
-    // (they resolve them); only client components are forbidden.
+  it("clients never touch providers or keys directly (static boundary)", () => {
+    // Model *selection* in the UI is sanctioned: the composer passes a
+    // keyId+model to a server action, which validates ownership, allowlist,
+    // and revocation before any provider traffic. What stays forbidden is
+    // any client importing provider modules, provider hosts, or key env —
+    // the server alone resolves models and holds secrets.
     const offenders: string[] = []
     const walk = (dir: string): void => {
       for (const entry of readdirSync(dir)) {
@@ -337,7 +339,9 @@ describe("adversarial: provider and model selection ignore user content", () => 
         if (statSync(full).isDirectory()) { walk(full); continue }
         if (!/\.(ts|tsx)$/.test(entry) || /\.test\./.test(entry)) continue
         const source = readFileSync(full, "utf8")
-        if (/model\s*:/.test(source)) offenders.push(full)
+        if (/lib\/ai\/providers/.test(source)) offenders.push(full)
+        if (/api\.anthropic\.com|generativelanguage\.googleapis|chat\/completions/.test(source)) offenders.push(full)
+        if (/ANTHROPIC_API_KEY|AI_API_KEY|GEMINI_API_KEY|MODEL_KEYS_ENCRYPTION_KEY/.test(source)) offenders.push(full)
       }
     }
     walk(join(process.cwd(), "src", "components"))
