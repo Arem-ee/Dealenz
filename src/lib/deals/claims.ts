@@ -18,6 +18,7 @@ export function buildAskPrompt(input: {  question: string
   material: string
   findings: AskFinding[]
   history: Array<{ role: string; text: string }>
+  standing?: string | null
 }): { systemPrompt: string; userContent: string } {
   const findingLines = input.findings.map(
     (f) => `- [${f.ruleKey}] (${f.severity}) ${f.summary}${f.guidance ? ` Guidance: ${f.guidance}` : ""}${f.evidenceQuote ? ` Quote: “${f.evidenceQuote}”` : ""}`
@@ -37,6 +38,7 @@ export function buildAskPrompt(input: {  question: string
   const userContent = [
     `Deal type: ${input.dealType}`,
     "",
+    ...(input.standing ? ["Standing positions (the user's workspace playbook — apply to this deal, quote when used):", input.standing, ""] : []),
     "FINDINGS (deterministic, authoritative):",
     findingLines.length > 0 ? findingLines.join("\n") : "(no findings recorded)",
     "",

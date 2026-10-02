@@ -634,6 +634,24 @@ export async function askQuestion(input: { threadId: string; text: string; model
   const material = (audit.raw_input ?? "").trim().slice(0, ASK_MATERIAL_CHARS)
   const dealType = audit.deal_type ?? "generic"
 
+  // Standing positions: the workspace playbook, scoped to this deal.
+  // Applied to every answer and quoted when used — never silent.
+  let standingBlock: string | null = null
+  try {
+    const { data: positionRows } = await supabase
+      .from("standing_instructions")
+      .select("text, deal_types")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true })
+    const standing = await import("@/lib/standing/rules")
+    const scoped = ((positionRows ?? []) as Array<{ text: string; deal_types: unknown }>)
+      .filter((r) => standing.ruleAppliesToDeal(standing.normalizeRuleDealTypes(r.deal_types), dealType))
+      .map((r) => r.text)
+    standingBlock = standing.formatStandingBlock(scoped)
+  } catch {
+    standingBlock = null
+  }
+
   // BYOK choice: resolve the user's key (owned, unrevoked, model allowlisted
   // on the key) and run the call against it. Anything off returns an honest
   // error before any provider traffic — never a silent system-model swap.
@@ -665,6 +683,7 @@ export async function askQuestion(input: { threadId: string; text: string; model
       material: material || "(no material recorded yet)",
       findings,
       history,
+      standing: standingBlock,
     })
     if (byok) {
       const { runWithUserKey } = await import("@/lib/models/run")
