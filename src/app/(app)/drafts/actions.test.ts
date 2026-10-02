@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { kindOfFamily } from "./actions"
+import { kindOfFamily } from "@/lib/documents/kinds"
 
 describe("kindOfFamily", () => {
   it("sorts families into Agreements, Terms, and Schedules", () => {

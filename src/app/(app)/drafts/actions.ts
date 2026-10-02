@@ -9,16 +9,6 @@ import type { RuleResult } from "@/lib/rules/result"
 type ActionOk<T> = { ok: true } & T
 type ActionFail = { ok: false; error: string }
 
-/** Draft kind for the Drafts tab filter chips. */
-export type DraftKind = "Agreements" | "Terms" | "Schedules"
-
-export function kindOfFamily(familyId: string): DraftKind {
-  const id = familyId.toLowerCase()
-  if (id.endsWith("-agreement") || id === "contract") return "Agreements"
-  if (id.includes("schedule")) return "Schedules"
-  return "Terms"
-}
-
 export interface DraftVersionRow {
   id: string
   auditId: string

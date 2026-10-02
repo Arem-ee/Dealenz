@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { FileText, Loader2, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { kindOfFamily, listDrafts, type DraftKind, type DraftVersionRow } from "@/app/(app)/drafts/actions"
+import { kindOfFamily, type DraftKind } from "@/lib/documents/kinds"
+import { listDrafts, type DraftVersionRow } from "@/app/(app)/drafts/actions"
 import { useToast } from "@/components/ui/toast"
 
 const KINDS: DraftKind[] = ["Agreements", "Terms", "Schedules"]
