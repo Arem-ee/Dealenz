@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildAskPrompt, parseClaimsBlock } from "./actions"
+import { buildAskPrompt, parseClaimsBlock } from "./claims"
 
 describe("parseClaimsBlock", () => {
   it("extracts verdict claims and strips the block", () => {
