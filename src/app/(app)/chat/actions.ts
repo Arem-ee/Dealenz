@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { classifyOperation, inferIntent, isGreeting, DETERMINISTIC_GREETING } from "@/lib/conversation/classify"
 import { addMessage, createConversation, getConversation, listMessages } from "@/lib/conversation/store"
 import { analyzeDeterministic, summarizeAnalysis } from "@/lib/deals/analyze"
+import { findCorpusConflicts, segmentClauses, type CorpusClause, type CorpusConflict } from "@/lib/corpus/conflicts"
 import { callAIForSurface } from "@/lib/ai/providers"
 import { AIProviderError } from "@/lib/ai/errors"
 import { detectFindingConflicts } from "@/lib/rules/result"
@@ -46,6 +47,92 @@ async function ownedAudit(supabase: Awaited<ReturnType<typeof createClient>>, us
   return (data as { id: string; title: string | null; deal_type: string | null; raw_input: string | null; structured_data?: unknown; updated_at: string } | null) ?? null
 }
 
+const LOCKED_VERSION_STATUSES = ["locked", "fully_signed", "superseded"]
+
+/**
+ * Indexes a deal's signed versions into the corpus (idempotent per
+ * version). Best-effort: a missing table (migration 00093 unapplied) or
+ * any failure skips silently and analysis proceeds without corpus
+ * coverage — never blocking, never loud about infrastructure.
+ */
+async function indexDealCorpus(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  auditId: string
+): Promise<void> {
+  try {
+    const { data: versions, error } = await supabase
+      .from("document_versions")
+      .select("id, content")
+      .eq("audit_id", auditId)
+      .eq("user_id", userId)
+      .in("status", LOCKED_VERSION_STATUSES)
+    if (error || !versions) return
+    const rows = versions as Array<{ id: string; content: string | null }>
+    if (rows.length === 0) return
+    const { data: existing } = await supabase
+      .from("corpus_clauses")
+      .select("version_id")
+      .eq("audit_id", auditId)
+      .eq("user_id", userId)
+    const done = new Set(((existing ?? []) as Array<{ version_id: string | null }>).map((r) => r.version_id))
+    const inserts: Array<Record<string, unknown>> = []
+    for (const v of rows) {
+      if (done.has(v.id) || typeof v.content !== "string" || v.content.length < 20) continue
+      for (const s of segmentClauses(v.content)) {
+        inserts.push({
+          user_id: userId,
+          audit_id: auditId,
+          version_id: v.id,
+          clause_key: s.key,
+          title: s.title,
+          quote: s.quote,
+          text_hash: s.textHash,
+        })
+      }
+    }
+    if (inserts.length === 0) return
+    await supabase.from("corpus_clauses").insert(inserts)
+  } catch {
+    // Corpus indexing never breaks analysis.
+  }
+}
+
+async function loadCorpusFor(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  excludeAuditId: string
+): Promise<CorpusClause[]> {
+  try {
+    const { data, error } = await supabase
+      .from("corpus_clauses")
+      .select("audit_id, clause_key, title, quote")
+      .eq("user_id", userId)
+      .neq("audit_id", excludeAuditId)
+      .order("created_at", { ascending: false })
+      .limit(200)
+    if (error || !data) return []
+    const rows = data as Array<{ audit_id: string; clause_key: string; title: string; quote: string }>
+    const titles = new Map<string, string>()
+    const ids = [...new Set(rows.map((r) => r.audit_id))]
+    if (ids.length > 0) {
+      const { data: audits } = await supabase.from("audits").select("id, title").eq("user_id", userId).in("id", ids)
+      for (const a of ((audits ?? []) as Array<{ id: string; title: string | null }>)) {
+        titles.set(a.id, a.title?.trim() ? a.title : "Untitled")
+      }
+    }
+    return rows.map((r) => ({
+      auditId: r.audit_id,
+      auditTitle: titles.get(r.audit_id) ?? "Untitled",
+      clauseKey: r.clause_key,
+      title: r.title,
+      quote: r.quote,
+    }))
+  } catch {
+    return []
+  }
+}
+
 /**
  * Automatic deterministic analysis. Runs on material — never gated, never
  * billed per action. Findings persist to the audit and post as an
@@ -74,6 +161,9 @@ async function runAnalysisForAudit(
   try {
     const evaluatedAt = new Date().toISOString()
     const out = analyzeDeterministic(audit.deal_type ?? "generic", raw, audit.id, evaluatedAt)
+    await indexDealCorpus(supabase, userId, audit.id)
+    const corpus = await loadCorpusFor(supabase, userId, audit.id)
+    const conflicts: CorpusConflict[] = findCorpusConflicts(raw, corpus, audit.id)
     const { data: current } = await supabase
       .from("audits")
       .select("structured_data")
@@ -83,21 +173,25 @@ async function runAnalysisForAudit(
     const existing = ((current as { structured_data?: unknown } | null)?.structured_data ?? {}) as Record<string, unknown>
     await supabase
       .from("audits")
-      .update({ structured_data: { ...existing, deterministicFindings: out.results, analysisEvaluatedAt: evaluatedAt } })
+      .update({ structured_data: { ...existing, deterministicFindings: out.results, corpusConflicts: conflicts, analysisEvaluatedAt: evaluatedAt } })
       .eq("id", audit.id)
       .eq("user_id", userId)
     if (resolvedThreadId) {
+      const summary = conflicts.length > 0
+        ? `${summarizeAnalysis(out)} Plus ${conflicts.length} cross-contract conflict${conflicts.length === 1 ? "" : "s"} against your other deals — see below.`
+        : summarizeAnalysis(out)
       await addMessage(supabase as never, {
         conversationId: resolvedThreadId,
         userId,
         role: "assistant",
-        content: summarizeAnalysis(out),
+        content: summary,
         operation: "document_analysis",
         intent: "review",
         metadata: {
           type: "analysis_complete",
           failCount: out.fails.length,
           unknownCount: out.unknowns.length,
+          conflictCount: conflicts.length,
           evaluatedAt,
         },
       })
@@ -225,6 +319,15 @@ export async function correctDealType(input: { auditId: string; dealType: string
   return { ok: true, saved: true }
 }
 
+export interface CorpusConflictView {
+  type: string
+  message: string
+  auditId: string
+  auditTitle: string
+  clauseTitle: string
+  quote: string
+}
+
 export interface FindingView {
   ruleKey: string
   severity: string
@@ -240,6 +343,7 @@ export interface ThreadView {
   operation: string | null
   intent: string | null
   findings: FindingView[]
+  corpusConflicts: CorpusConflictView[]
   messages: Array<{ id: string; role: "user" | "assistant"; content: string; created_at: string; metadata: Record<string, unknown> }>
 }
 
@@ -275,6 +379,18 @@ export async function getThread(threadId: string): Promise<ActionOk<{ thread: Th
       summary: r.finding?.summary ?? r.ruleKey,
       guidance: r.finding?.guidance ?? null,
     }))
+  const rawConflicts = ((audit?.structured_data ?? {}) as { corpusConflicts?: unknown }).corpusConflicts
+  const corpusConflicts: CorpusConflictView[] = (Array.isArray(rawConflicts) ? rawConflicts : [])
+    .filter((c): c is { type: string; message: string; auditId: string; auditTitle: string; clauseTitle: string; quote: string } =>
+      typeof c === "object" && c !== null && typeof (c as { message?: unknown }).message === "string")
+    .map((c) => ({
+      type: c.type,
+      message: c.message,
+      auditId: c.auditId,
+      auditTitle: c.auditTitle,
+      clauseTitle: c.clauseTitle,
+      quote: c.quote,
+    }))
   return {
     ok: true,
     thread: {
@@ -285,6 +401,7 @@ export async function getThread(threadId: string): Promise<ActionOk<{ thread: Th
       operation: typeof shotMeta.operation === "string" ? shotMeta.operation : null,
       intent: typeof shotMeta.intent === "string" ? shotMeta.intent : null,
       findings,
+      corpusConflicts,
       messages: messages.map((m) => ({
         id: m.id,
         role: m.role,

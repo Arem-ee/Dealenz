@@ -125,6 +125,28 @@ export function ThreadView({ initial }: { initial: ThreadData }) {
               </p>
             </div>
           )}
+          {initial.corpusConflicts.length > 0 && (
+            <section aria-label="Cross-contract conflicts" className="border border-brick-700/40 bg-background">
+              <p className="border-b border-brick-700/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-brick-700">
+                Against your other deals · {initial.corpusConflicts.length}
+              </p>
+              <ul className="divide-y divide-border">
+                {initial.corpusConflicts.map((c, i) => (
+                  <li key={`${c.auditId}-${c.clauseTitle}-${i}`} className="px-4 py-3">
+                    <p className="text-[13px] leading-relaxed">{c.message}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {c.auditTitle} — {c.clauseTitle}
+                    </p>
+                    {c.quote && (
+                      <p className="mt-1 border-l-2 border-brick-700/40 pl-2 text-[11px] leading-relaxed text-muted-foreground">
+                        “{c.quote}”
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {initial.auditId && <GenerateDraft auditId={initial.auditId} />}
         </div>
       </section>
