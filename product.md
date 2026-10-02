@@ -142,7 +142,7 @@ Usage-based credits, not feature-gated tiers. Credits pay for computation
 and never buy conclusions — model choice affects prose quality only, since
 verdicts are rule-determined. Folder batches estimate cost up front and run
 only on approval. The ledger (`credit_ledger`) stays append-mostly,
-idempotent, auditable. Software billing runs on Paddle; professional-service
+idempotent, auditable. Paddle is the software billing provider; Lemon Squeezy rows are historical data only. Professional-service
 payments (where applicable) run through connected accounts, never the
 ledger. Credits never become money.
 

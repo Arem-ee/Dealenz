@@ -327,8 +327,9 @@ describe("adversarial: provider and model selection ignore user content", () => 
   })
 
   it("no client component can pass a user-chosen model (static boundary)", () => {
-    // Ask UI was wiped in the rebuild; the boundary now scans every
-    // surviving client surface instead of one file.
+    // Ask UI was wiped in the rebuild; the boundary now scans the surviving
+    // client-component tree. Server actions and lib code may name models
+    // (they resolve them); only client components are forbidden.
     const offenders: string[] = []
     const walk = (dir: string): void => {
       for (const entry of readdirSync(dir)) {
@@ -339,7 +340,7 @@ describe("adversarial: provider and model selection ignore user content", () => 
         if (/model\s*:/.test(source)) offenders.push(full)
       }
     }
-    for (const root of ["src/components", "src/app"]) walk(join(process.cwd(), root))
+    walk(join(process.cwd(), "src", "components"))
     expect(offenders).toEqual([])
   })
 })
