@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Composer } from "@/components/workspace/composer"
+import { GenerateDraft } from "@/components/workspace/generate-draft"
 import { correctDealType, type ThreadView as ThreadData } from "@/app/(app)/chat/actions"
 import { INTAKE_DEAL_TYPES } from "@/lib/deals/intake"
 
@@ -117,13 +118,14 @@ export function ThreadView({ initial }: { initial: ThreadData }) {
               </ul>
             </section>
           ) : (
-            <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 text-center">
+            <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
               <p className="text-sm font-medium">Work appears here</p>
               <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
                 Analysis runs automatically — findings land in this panel.
               </p>
             </div>
           )}
+          {initial.auditId && <GenerateDraft auditId={initial.auditId} />}
         </div>
       </section>
     </div>
