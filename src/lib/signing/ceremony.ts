@@ -2,10 +2,41 @@ import { createHash, randomBytes } from "node:crypto"
 import { assertSigningTransition, type SigningStatus } from "@/lib/signing/transitions"
 
 // Ceremony rules — pure. Owner signs first, counterparties follow in
-// parallel; completion is derived (no pending + at least one signed),
-// never declared. No I/O, no clock reads except via explicit inputs.
+// parallel by default (same step) or in ordered steps; completion is
+// derived (no pending + at least one signed), never declared. No I/O,
+// no clock reads except via explicit inputs.
 
 export const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
+
+// Invitation expiry bounds, in days. Mirrors the legacy invite route
+// (1–120) so old and new ceremonies read identically.
+export const EXPIRY_DAYS_DEFAULT = 30
+export const EXPIRY_DAYS_MIN = 1
+export const EXPIRY_DAYS_MAX = 120
+
+/** Normalize an expiry-days input; null when out of bounds or malformed. */
+export function normalizeExpiryDays(input: unknown): number | null {
+  if (input === null || input === undefined || input === "") return EXPIRY_DAYS_DEFAULT
+  const n = typeof input === "string" ? Number(input) : input
+  if (typeof n !== "number" || !Number.isInteger(n)) return null
+  if (n < EXPIRY_DAYS_MIN || n > EXPIRY_DAYS_MAX) return null
+  return n
+}
+
+/** Absolute expiry timestamp for an invitation sent now. */
+export function expiryTimestamp(days: number, now: number = Date.now()): string {
+  return new Date(now + days * 86_400_000).toISOString()
+}
+
+/**
+ * Step numbers for counterparties, in recipient order. Parallel assigns
+ * every counterparty to step 1 (all sign together after the owner);
+ * sequential walks 1..n (each step unlocks when the previous signs).
+ * The owner always holds step 0.
+ */
+export function assignSignOrder(count: number, sequential: boolean): number[] {
+  return Array.from({ length: count }, (_, i) => (sequential ? i + 1 : 1))
+}
 
 export interface RecipientInput {
   name: string
@@ -33,11 +64,13 @@ export function mintSignerToken(): string {
 export interface SignerState {
   id: string
   isOwner: boolean
-  status: "pending" | "signed" | "declined" | "revoked"
+  status: "pending" | "signed" | "declined" | "revoked" | "expired"
 }
 
 export function ceremonyProgress(signers: SignerState[]): { signed: number; total: number; complete: boolean; blocked: boolean } {
-  const active = signers.filter((s) => s.status === "signed" || s.status === "pending")
+  // Expired invitations stay outstanding (never silently complete): the
+  // owner resolves them by resending or revoking. Revoked resolved out.
+  const active = signers.filter((s) => s.status === "signed" || s.status === "pending" || s.status === "expired")
   const signed = active.filter((s) => s.status === "signed").length
   const total = active.length
   const declined = signers.some((s) => s.status === "declined")
@@ -47,6 +80,17 @@ export function ceremonyProgress(signers: SignerState[]): { signed: number; tota
     complete: total > 0 && signed === total && !declined,
     blocked: declined,
   }
+}
+
+export interface OrderedSignerState extends SignerState {
+  signOrder: number
+}
+
+/** True when a pending signer on an earlier step blocks this signer. */
+export function waitingOnEarlier(signers: OrderedSignerState[], signerId: string): boolean {
+  const me = signers.find((s) => s.id === signerId)
+  if (!me || me.status !== "pending") return false
+  return signers.some((s) => s.status === "pending" && (s.signOrder ?? 0) < (me.signOrder ?? 0))
 }
 
 /**

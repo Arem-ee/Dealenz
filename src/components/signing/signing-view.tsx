@@ -1,18 +1,24 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Check, Copy, PenLine, Plus, Trash2, X } from "lucide-react"
+import { ArrowDown, ArrowUp, Check, Copy, PenLine, Plus, Send, Trash2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/toast"
 import {
   addSigner,
   listCeremonies,
+  reorderSigner,
+  resendSigner,
   revokeSigner,
+  setAllowForward,
   signAsOwnerAction,
   startCeremony,
   type Ceremony,
+  type MailSummary,
 } from "@/app/(app)/signing/actions"
 import { listDrafts, type DraftVersionRow } from "@/app/(app)/drafts/actions"
+import { SignaturePad } from "@/components/sign/signature-pad"
+import type { SignatureMethod } from "@/lib/signatures/validate"
 
 type StatusFilter = "all" | "active" | "signed"
 
@@ -32,10 +38,78 @@ function copyLink(path: string) {
   }
 }
 
-// Signing: ceremonies with progress, token links, owner signing,
-// correct-after-send (add/revoke), and the sealed certificate.
+function expiryLabel(expiresAt: string | null): { text: string; lapsed: boolean } {
+  if (!expiresAt) return { text: "No expiry", lapsed: false }
+  const t = new Date(expiresAt).getTime()
+  if (Number.isNaN(t)) return { text: "No expiry", lapsed: false }
+  if (t <= Date.now()) return { text: `Expired ${formatDate(expiresAt)}`, lapsed: true }
+  return { text: `Expires ${formatDate(expiresAt)}`, lapsed: false }
+}
+
+// Owner signature panel: adopt a drawn or typed signature, confirm the
+// electronic-signature disclosure, then record. The image saves
+// artifact-first server-side, so no owner signature lands without one.
+function OwnerSignPanel({ signerId, onDone }: { signerId: string; onDone: () => Promise<void> }) {
+  const [imageData, setImageData] = useState<string | null>(null)
+  const [method, setMethod] = useState<SignatureMethod>("drawn")
+  const [consent, setConsent] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function sign() {
+    if (busy || !imageData || !consent) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await signAsOwnerAction({ signerId, consent, imageData, method })
+      if (!res.ok) throw new Error(res.error)
+      await onDone()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't record that signature.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-2 border border-border p-2.5" aria-label="Owner signature">
+      <SignaturePad
+        disabled={busy}
+        onChange={(data, m) => {
+          setImageData(data)
+          setMethod(m)
+        }}
+      />
+      <label className="mt-2 flex cursor-pointer items-start gap-2 text-[11px]">
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          disabled={busy}
+          className="mt-0.5 h-3.5 w-3.5 accent-foreground"
+        />
+        <span className="text-muted-foreground">
+          I agree to sign electronically — my signature carries the same legal effect as a handwritten one.
+        </span>
+      </label>
+      {error && <p role="alert" className="mt-2 border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">{error}</p>}
+      <button
+        type="button"
+        onClick={() => void sign()}
+        disabled={busy || !imageData || !consent}
+        className="mt-2 inline-flex h-8 items-center bg-primary px-3 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
+      >
+        {busy ? "Recording…" : "Sign as owner"}
+      </button>
+    </div>
+  )
+}
+
+// Signing: ceremonies with progress, token links, expiry, ordered steps,
+// owner drawn/typed signatures, correct-after-send (add/revoke/reorder/
+// resend), forwarding control, and the sealed certificate.
 export function SigningView() {
-  const { showError } = useToast()
+  const { showError, showSuccess } = useToast()
   const [ceremonies, setCeremonies] = useState<Ceremony[] | null>(null)
   const [status, setStatus] = useState<StatusFilter>("all")
   const [setupOpen, setSetupOpen] = useState(false)
@@ -43,10 +117,15 @@ export function SigningView() {
   const [versionId, setVersionId] = useState("")
   const [recipients, setRecipients] = useState<Array<{ name: string; email: string }>>([{ name: "", email: "" }])
   const [message, setMessage] = useState("")
+  const [expiryDays, setExpiryDays] = useState("30")
+  const [sequential, setSequential] = useState(false)
+  const [allowForwardSetup, setAllowForwardSetup] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [rowBusy, setRowBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [ownerPadFor, setOwnerPadFor] = useState<string | null>(null)
   const [addRow, setAddRow] = useState<Record<string, { name: string; email: string }>>({})
 
   const refresh = async () => {
@@ -86,6 +165,19 @@ export function SigningView() {
     }
   }, [showError])
 
+  function mailNotice(mail: MailSummary) {
+    if (mail.emailed.length > 0) {
+      showSuccess(`Invited by email: ${mail.emailed.join(", ")}`)
+    }
+    if (mail.needsCopy.length > 0) {
+      showError(
+        mail.gmailConnected
+          ? `Email failed for ${mail.needsCopy.join(", ")} — copy the links below.`
+          : `Gmail isn't connected — copy the links below to invite ${mail.needsCopy.join(", ")}.`
+      )
+    }
+  }
+
   async function openSetup() {
     setSetupOpen(true)
     setError(null)
@@ -112,29 +204,21 @@ export function SigningView() {
         versionId,
         signers: recipients.filter((r) => r.name.trim() || r.email.trim()),
         message,
+        expiresInDays: expiryDays.trim() === "" ? undefined : Number(expiryDays),
+        sequential,
+        allowForward: allowForwardSetup,
       })
       if (!res.ok) throw new Error(res.error)
+      mailNotice(res.mail)
       setSetupOpen(false)
       setRecipients([{ name: "", email: "" }])
       setMessage("")
+      setExpiryDays("30")
+      setSequential(false)
+      setAllowForwardSetup(true)
       await refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't start signing.")
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function ownerSign(signerId: string) {
-    setBusy(true)
-    setError(null)
-    try {
-      const res = await signAsOwnerAction({ signerId })
-      if (!res.ok) throw new Error(res.error)
-      await refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't record that signature.")
-      showError(err instanceof Error ? err.message : "Couldn't record that signature.")
     } finally {
       setBusy(false)
     }
@@ -148,6 +232,7 @@ export function SigningView() {
     try {
       const res = await addSigner({ versionId: versionIdValue, name: row.name, email: row.email })
       if (!res.ok) throw new Error(res.error)
+      mailNotice(res.mail)
       setAddRow((prev) => ({ ...prev, [versionIdValue]: { name: "", email: "" } }))
       await refresh()
     } catch (err) {
@@ -168,6 +253,49 @@ export function SigningView() {
       showError(err instanceof Error ? err.message : "Couldn't revoke that invitation.")
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function resend(signerId: string) {
+    if (rowBusy) return
+    setRowBusy(signerId)
+    try {
+      const res = await resendSigner({ signerId })
+      if (!res.ok) throw new Error(res.error)
+      if (res.mailed) showSuccess("Invitation re-sent by email.")
+      else showError(res.reason === "gmail_not_connected" ? "Gmail isn't connected — copy the link instead." : (res.reason ?? "Email failed — copy the link instead."))
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't re-send that invitation.")
+    } finally {
+      setRowBusy(null)
+    }
+  }
+
+  async function reorder(signerId: string, direction: "earlier" | "later") {
+    if (rowBusy) return
+    setRowBusy(signerId)
+    try {
+      const res = await reorderSigner({ signerId, direction })
+      if (!res.ok) throw new Error(res.error)
+      setCeremonies((prev) => prev?.map((c) => (c.signers.some((s) => s.id === signerId) ? res.ceremony : c)) ?? null)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't reorder that step.")
+    } finally {
+      setRowBusy(null)
+    }
+  }
+
+  async function flipForward(versionIdValue: string, allow: boolean) {
+    if (rowBusy) return
+    setRowBusy(versionIdValue)
+    try {
+      const res = await setAllowForward({ versionId: versionIdValue, allow })
+      if (!res.ok) throw new Error(res.error)
+      setCeremonies((prev) => prev?.map((c) => (c.versionId === versionIdValue ? res.ceremony : c)) ?? null)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't change forwarding.")
+    } finally {
+      setRowBusy(null)
     }
   }
 
@@ -253,6 +381,47 @@ export function SigningView() {
               + Add another counterparty
             </button>
           </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div>
+              <label className="block text-[11px] font-medium text-muted-foreground" htmlFor="ceremony-expiry">
+                Links expire after
+              </label>
+              <div className="mt-1 flex items-center gap-1.5">
+                <input
+                  id="ceremony-expiry"
+                  value={expiryDays}
+                  onChange={(e) => setExpiryDays(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
+                  disabled={busy}
+                  inputMode="numeric"
+                  aria-label="Link expiry in days"
+                  className="h-9 w-16 border border-input bg-background px-2 text-sm outline-none disabled:opacity-60"
+                />
+                <span className="text-xs text-muted-foreground">days (1–120)</span>
+              </div>
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={sequential}
+                onChange={(e) => setSequential(e.target.checked)}
+                disabled={busy}
+                className="h-3.5 w-3.5 accent-foreground"
+              />
+              <span className="text-muted-foreground">Sign in order <span className="text-muted-foreground/70">(off = all at once)</span></span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={allowForwardSetup}
+                onChange={(e) => setAllowForwardSetup(e.target.checked)}
+                disabled={busy}
+                className="h-3.5 w-3.5 accent-foreground"
+              />
+              <span className="text-muted-foreground">Invitees may forward to a colleague</span>
+            </label>
+          </div>
+
           <label className="mt-3 block text-[11px] font-medium text-muted-foreground" htmlFor="ceremony-message">
             Message <span className="font-normal">(optional)</span>
           </label>
@@ -341,78 +510,140 @@ export function SigningView() {
                 <div className="border-t border-border px-3.5 py-3">
                   {c.message && <p className="text-xs text-muted-foreground">“{c.message}”</p>}
                   <ul className="mt-2 space-y-1.5">
-                    {c.signers.map((s) => (
-                      <li key={s.id} className="flex items-center gap-2 text-[13px]">
-                        <span className="min-w-0 flex-1 truncate">
-                          {s.name} <span className="text-muted-foreground">· {s.isOwner ? "owner" : s.email} · {s.status}</span>
-                          {s.signedAt && <span className="text-muted-foreground"> · {formatDate(s.signedAt)}</span>}
-                        </span>
-                        {s.status === "pending" && s.link && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              copyLink(s.link!)
-                              setCopied(s.id)
-                              window.setTimeout(() => setCopied((prev) => (prev === s.id ? null : prev)), 1500)
-                            }}
-                            aria-label={`Copy signing link for ${s.name}`}
-                            className="flex shrink-0 items-center gap-1 text-muted-foreground hover:text-foreground"
-                          >
-                            {copied === s.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                            <span className="text-[11px]">{copied === s.id ? "Copied" : "Copy link"}</span>
-                          </button>
-                        )}
-                        {s.status === "pending" && s.isOwner && (
-                          <button
-                            type="button"
-                            onClick={() => void ownerSign(s.id)}
-                            disabled={busy}
-                            className="shrink-0 bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
-                          >
-                            Sign
-                          </button>
-                        )}
-                        {s.status === "pending" && !s.isOwner && (
-                          <button
-                            type="button"
-                            onClick={() => void revoke(s.id)}
-                            disabled={busy}
-                            aria-label={`Revoke invitation for ${s.name}`}
-                            className="shrink-0 p-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </li>
-                    ))}
+                    {c.signers.map((s) => {
+                      const expiry = expiryLabel(s.expiresAt)
+                      return (
+                        <li key={s.id} className="text-[13px]">
+                          <div className="flex items-center gap-2">
+                            <span className="min-w-0 flex-1 truncate">
+                              {s.isOwner ? null : <span className="mr-1 inline-block w-10 shrink-0 text-[11px] tabular-nums text-muted-foreground">Step {s.signOrder}</span>}
+                              {s.name} <span className="text-muted-foreground">· {s.isOwner ? "owner" : s.email} · {s.status}</span>
+                              {s.signedAt && <span className="text-muted-foreground"> · {formatDate(s.signedAt)}</span>}
+                              {s.status === "signed" && s.hasSignatureImage && <span className="text-muted-foreground"> · signature on file</span>}
+                            </span>
+                            {(s.status === "pending" || s.status === "expired") && (
+                              <span className={cn("shrink-0 text-[11px] tabular-nums", expiry.lapsed || s.status === "expired" ? "font-semibold text-destructive" : "text-muted-foreground")}>
+                                {s.status === "expired" ? `Expired ${formatDate(s.expiresAt)}` : expiry.text}
+                              </span>
+                            )}
+                            {s.status === "pending" && s.waitingOnEarlier && (
+                              <span className="shrink-0 text-[11px] text-muted-foreground" title="Earlier steps sign first">waiting</span>
+                            )}
+                            {s.status === "pending" && s.link && !s.isOwner && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => void reorder(s.id, "earlier")}
+                                  disabled={rowBusy !== null}
+                                  aria-label={`Move ${s.name} earlier`}
+                                  className="shrink-0 p-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                                >
+                                  <ArrowUp className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void reorder(s.id, "later")}
+                                  disabled={rowBusy !== null}
+                                  aria-label={`Move ${s.name} later`}
+                                  className="shrink-0 p-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                                >
+                                  <ArrowDown className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void resend(s.id)}
+                                  disabled={rowBusy !== null}
+                                  aria-label={`Re-send invitation to ${s.name}`}
+                                  title="Re-send invitation email"
+                                  className="shrink-0 p-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                                >
+                                  <Send className="h-3.5 w-3.5" />
+                                </button>
+                              </>
+                            )}
+                            {(s.status === "pending" || s.status === "expired") && s.link && !s.isOwner && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  copyLink(s.link!)
+                                  setCopied(s.id)
+                                  window.setTimeout(() => setCopied((prev) => (prev === s.id ? null : prev)), 1500)
+                                }}
+                                aria-label={`Copy signing link for ${s.name}`}
+                                className="flex shrink-0 items-center gap-1 text-muted-foreground hover:text-foreground"
+                              >
+                                {copied === s.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                                <span className="text-[11px]">{copied === s.id ? "Copied" : "Copy link"}</span>
+                              </button>
+                            )}
+                            {s.status === "pending" && s.isOwner && ownerPadFor !== s.id && (
+                              <button
+                                type="button"
+                                onClick={() => setOwnerPadFor(s.id)}
+                                disabled={busy}
+                                className="shrink-0 bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
+                              >
+                                Sign
+                              </button>
+                            )}
+                            {(s.status === "pending" || s.status === "expired") && !s.isOwner && (
+                              <button
+                                type="button"
+                                onClick={() => void revoke(s.id)}
+                                disabled={busy}
+                                aria-label={`Revoke invitation for ${s.name}`}
+                                className="shrink-0 p-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                          {s.status === "pending" && s.isOwner && ownerPadFor === s.id && (
+                            <OwnerSignPanel signerId={s.id} onDone={async () => { setOwnerPadFor(null); await refresh() }} />
+                          )}
+                        </li>
+                      )
+                    })}
                   </ul>
 
                   {!["locked", "fully_signed", "superseded"].includes(c.status) && (
-                    <div className="mt-2 flex gap-1.5">
-                      <input
-                        value={addRow[c.versionId]?.name ?? ""}
-                        onChange={(e) => setAddRow((prev) => ({ ...prev, [c.versionId]: { name: e.target.value, email: prev[c.versionId]?.email ?? "" } }))}
-                        placeholder="Name"
-                        aria-label="New signer name"
-                        autoComplete="off"
-                        className="h-8 min-w-0 flex-1 border border-input bg-background px-2 text-xs outline-none"
-                      />
-                      <input
-                        value={addRow[c.versionId]?.email ?? ""}
-                        onChange={(e) => setAddRow((prev) => ({ ...prev, [c.versionId]: { name: prev[c.versionId]?.name ?? "", email: e.target.value } }))}
-                        placeholder="email@example.com"
-                        aria-label="New signer email"
-                        autoComplete="off"
-                        className="h-8 min-w-0 flex-1 border border-input bg-background px-2 text-xs outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void add(c.versionId)}
-                        disabled={busy}
-                        className="h-8 shrink-0 border border-border px-2.5 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
-                      >
-                        Add
-                      </button>
+                    <div className="mt-3 border-t border-border pt-2.5">
+                      <label className="flex cursor-pointer items-center gap-2 text-[11px]">
+                        <input
+                          type="checkbox"
+                          checked={c.allowForward}
+                          onChange={(e) => void flipForward(c.versionId, e.target.checked)}
+                          disabled={rowBusy !== null}
+                          className="h-3.5 w-3.5 accent-foreground"
+                        />
+                        <span className="text-muted-foreground">Invitees may forward to a colleague</span>
+                      </label>
+                      <div className="mt-2 flex gap-1.5">
+                        <input
+                          value={addRow[c.versionId]?.name ?? ""}
+                          onChange={(e) => setAddRow((prev) => ({ ...prev, [c.versionId]: { name: e.target.value, email: prev[c.versionId]?.email ?? "" } }))}
+                          placeholder="Name"
+                          aria-label="New signer name"
+                          autoComplete="off"
+                          className="h-8 min-w-0 flex-1 border border-input bg-background px-2 text-xs outline-none"
+                        />
+                        <input
+                          value={addRow[c.versionId]?.email ?? ""}
+                          onChange={(e) => setAddRow((prev) => ({ ...prev, [c.versionId]: { name: prev[c.versionId]?.name ?? "", email: e.target.value } }))}
+                          placeholder="email@example.com"
+                          aria-label="New signer email"
+                          autoComplete="off"
+                          className="h-8 min-w-0 flex-1 border border-input bg-background px-2 text-xs outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void add(c.versionId)}
+                          disabled={busy}
+                          className="h-8 shrink-0 border border-border px-2.5 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
+                        >
+                          Add
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -429,7 +660,7 @@ export function SigningView() {
         </ul>
       )}
       <p className="mt-2 text-[11px] tabular-nums text-muted-foreground">
-        Drawn signatures arrive next — typed full names sign today. Links never expire yet; revoke instead.
+        Invitations email from your connected Gmail when available — otherwise copy the link. Every link carries its expiry; re-send or revoke lapsed invitations.
       </p>
     </div>
   )

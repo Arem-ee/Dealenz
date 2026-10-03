@@ -608,3 +608,52 @@ describe("00083 credit purchase revocation statuses (static)", () => {
     expect(mig).toMatch(/DROP CONSTRAINT IF EXISTS credit_purchases_status_check/)
   })
 })
+
+describe("00094 signing order and forwarding (static)", () => {
+  const mig = code(sql("00094_signing_order_forward.sql"))
+
+  it("adds sign_order with a default that preserves parallel semantics", () => {
+    expect(mig).toMatch(/ADD COLUMN IF NOT EXISTS sign_order INTEGER NOT NULL DEFAULT 0/)
+    expect(mig).toMatch(/idx_document_signers_version_order/)
+  })
+
+  it("gates both sign paths on earlier pending steps with clean messages", () => {
+    expect(mig).toMatch(/signing_order_clear/)
+    expect(mig).toMatch(/Earlier signers must sign first/)
+    expect(mig).toMatch(/This signing invitation has expired/)
+    expect(mig).toMatch(/pg_advisory_xact_lock/)
+  })
+
+  it("keeps owner binding and version advancement intact", () => {
+    expect(mig).toMatch(/party_label NOT IN/)
+    expect(mig).toMatch(/owner_signed/)
+    expect(mig).toMatch(/NOT IN \('owner_signed', 'counterparty_pending'/)
+  })
+
+  it("forwards without duplicating signature power or extending deadlines", () => {
+    expect(mig).toMatch(/forward_invite/)
+    expect(mig).toMatch(/allowForward/)
+    expect(mig).toMatch(/invite_forwarded/)
+    expect(mig).toMatch(/GRANT EXECUTE ON FUNCTION forward_invite\(TEXT, TEXT, TEXT\) TO anon, authenticated/)
+  })
+
+  it("writes invitee signature images only through token-gated verification", () => {
+    expect(mig).toMatch(/save_signature_artifact/)
+    expect(mig).toMatch(/ON CONFLICT \(signer_id\) DO UPDATE/)
+    expect(mig).toMatch(/GRANT EXECUTE ON FUNCTION save_signature_artifact\(TEXT, TEXT, TEXT, TEXT\) TO anon, authenticated/)
+  })
+
+  it("widens the invitee view additively with queue position, no PII", () => {
+    expect(mig).toMatch(/expires_at TIMESTAMPTZ/)
+    expect(mig).toMatch(/earlier_pending INTEGER/)
+    expect(mig).toMatch(/allow_forward BOOLEAN/)
+    expect(mig).toMatch(/total_signers INTEGER/)
+  })
+
+  it("is forward-only and safely re-runnable", () => {
+    expect(mig).toMatch(/CREATE OR REPLACE FUNCTION/)
+    expect(mig).toMatch(/IF NOT EXISTS/)
+    expect(mig).not.toMatch(/DROP TABLE/)
+    expect(mig).not.toMatch(/DELETE FROM/)
+  })
+})

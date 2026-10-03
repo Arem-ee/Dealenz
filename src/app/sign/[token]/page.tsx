@@ -42,6 +42,11 @@ export default async function SignTokenPage({ params }: { params: Promise<{ toke
             <p className="text-sm font-medium">This invitation is no longer valid.</p>
             <p className="mt-1 text-xs text-muted-foreground">Contact the sender for a fresh link.</p>
           </div>
+        ) : view.status === "expired" ? (
+          <div className="mt-4 border border-destructive/30 bg-destructive/5 p-4" role="status">
+            <p className="text-sm font-medium text-destructive">This invitation expired{view.expiresAt ? ` on ${new Date(view.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Contact the sender for a fresh link.</p>
+          </div>
         ) : view.superseded ? (
           <div className="mt-4 border border-border p-4" role="status">
             <p className="text-sm font-medium">A newer version exists — signing is paused.</p>
@@ -49,7 +54,18 @@ export default async function SignTokenPage({ params }: { params: Promise<{ toke
           </div>
         ) : (
           <div className="mt-4">
-            <InviteeSignForm token={token} invitedName={view.name} invitedEmail={view.email} />
+            {view.expiresAt && (
+              <p className="mb-2 text-[11px] tabular-nums text-muted-foreground">
+                This link expires on {new Date(view.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}.
+              </p>
+            )}
+            <InviteeSignForm
+              token={token}
+              invitedName={view.name}
+              invitedEmail={view.email}
+              earlierPending={view.earlierPending}
+              allowForward={view.allowForward}
+            />
           </div>
         )}
 
