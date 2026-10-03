@@ -56,7 +56,7 @@ export function Comparison() {
         </Reveal>
 
         <Reveal delay={0.15}>
-        <div className="mx-auto mt-14 max-w-5xl overflow-x-auto border border-neutral-900 bg-white">
+        <div className="mx-auto mt-14 max-w-5xl overflow-x-auto border border-neutral-900 bg-white shadow-raised">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead>
               <tr className="bg-pine-900 text-[11px] uppercase tracking-[0.08em] text-white">

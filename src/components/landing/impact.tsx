@@ -25,7 +25,7 @@ export function Impact() {
 
         <Reveal delay={0.15}>
         <div className="mx-auto mt-10 max-w-5xl">
-          <div className="border border-white/20 bg-white/[0.03] p-8 lg:p-10">
+          <div className="border border-white/20 bg-white/[0.03] p-8 lg:p-10 shadow-raised">
             <div className="flex items-center gap-2 text-pine-400">
               <BellRing className="h-4 w-4 text-white" />
               <p className="text-[11px] font-bold uppercase tracking-wider">Upcoming deadlines</p>

@@ -56,7 +56,7 @@ export function Industries() {
             <Reveal key={ind.slug} delay={Math.min(i * 0.09, 0.3)} className="h-full">
             <Link
               href={`/insights/${ind.slug}`}
-              className="group flex h-full flex-col border border-neutral-200 bg-white transition-colors hover:border-neutral-900"
+              className="group flex h-full flex-col border border-neutral-200 bg-white shadow-raised transition-colors hover:border-neutral-900 hover:shadow-surface"
               aria-label={`${ind.title} — read how Dealenz matters for this industry`}
             >
               <div className="relative h-44 w-full overflow-hidden bg-neutral-200">

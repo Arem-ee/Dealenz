@@ -12,7 +12,7 @@ import { ViewPricing } from "@/components/landing/view-pricing"
 import { FinalCta } from "@/components/landing/final-cta"
 import { SiteFooter } from "@/components/landing/site-footer"
 import { Reveal } from "@/components/landing/reveal"
-import { MultiLineTypewriter } from "@/components/landing/typewriter"
+import { LineReveal } from "@/components/landing/word-reveal"
 
 export const metadata = {
   title: "Dealenz — Enterprise Contract & Deal Intelligence Platform",
@@ -60,14 +60,14 @@ export default function Home() {
           <Reveal className="relative z-10 mx-auto max-w-7xl px-6 text-center lg:px-8">
 
             <h1 className="display-h mx-auto max-w-7xl text-balance text-[42px] font-normal leading-[1.16] text-white sm:text-[66px] sm:leading-[1.14] lg:text-[80px]" style={{ letterSpacing: "0em" }} aria-label="Harness automated deal intelligence to turn contracts into a strategic advantage.">
-              <MultiLineTypewriter
+              <LineReveal
                 lines={[
                   "Harness automated deal",
                   "intelligence to turn contracts",
                   "into a strategic advantage."
                 ]}
-                charSpeed={22}
-                lineDelay={350}
+                stagger={0.14}
+                delay={0.1}
               />
             </h1>
 

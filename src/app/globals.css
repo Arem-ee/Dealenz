@@ -485,8 +485,12 @@ html:has(.landing-anchor-scroll) {
 @media (prefers-reduced-motion: reduce) {
   .hero-line,
   .hero-fade,
-  .typewriter-cursor {
+  .typewriter-cursor,
+  .word-reveal-word,
+  .line-reveal-line {
     animation: none;
+    opacity: 1 !important;
+    transform: none !important;
   }
   .animate-slide-in-right {
     animation: none;
@@ -511,6 +515,37 @@ html:has(.landing-anchor-scroll) {
 .typewriter-line {
   display: block;
   white-space: pre-wrap;
+}
+
+/* Word reveal: each word fades up smoothly */
+.word-reveal-word {
+  display: inline-block;
+  margin-right: 0.25em;
+  opacity: 0;
+  transform: translateY(1.2em);
+  animation: word-reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes word-reveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Line reveal: each line fades up smoothly */
+.line-reveal-line {
+  display: block;
+  opacity: 0;
+  transform: translateY(1.5em);
+  animation: line-reveal 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes line-reveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Landing primitives (S0): one button language, one eyebrow, one display

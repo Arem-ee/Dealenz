@@ -13,7 +13,7 @@ const TABS = [
 
 function IntakeMockup() {
   return (
-    <div className="rounded-none border border-neutral-200 bg-white p-8 lg:p-10">
+    <div className="rounded-none border border-neutral-200 bg-white p-8 lg:p-10 shadow-raised">
       <div className="flex items-center gap-2 text-pine-700">
         <FileUp className="h-4 w-4" />
         <p className="text-[11px] font-bold uppercase tracking-wider">Intake</p>
@@ -44,7 +44,7 @@ function IntakeMockup() {
 
 function RiskAuditMockup() {
   return (
-    <div className="rounded-none border border-neutral-200 bg-white p-8 lg:p-10">
+    <div className="rounded-none border border-neutral-200 bg-white p-8 lg:p-10 shadow-raised">
       <div className="flex items-center gap-2 text-pine-700">
         <ShieldCheck className="h-4 w-4" />
         <p className="text-[11px] font-bold uppercase tracking-wider">Risk audit</p>
@@ -71,7 +71,7 @@ function RiskAuditMockup() {
 
 function RedlineMockup() {
   return (
-    <div className="rounded-none border border-neutral-200 bg-white p-8 lg:p-10">
+    <div className="rounded-none border border-neutral-200 bg-white p-8 lg:p-10 shadow-raised">
       <div className="flex items-center gap-2 text-pine-700">
         <PenLine className="h-4 w-4" />
         <p className="text-[11px] font-bold uppercase tracking-wider">Redline</p>
@@ -93,7 +93,7 @@ function RedlineMockup() {
 
 function SignTrackMockup() {
   return (
-    <div className="rounded-none border border-neutral-200 bg-white p-8 lg:p-10">
+    <div className="rounded-none border border-neutral-200 bg-white p-8 lg:p-10 shadow-raised">
       <div className="flex items-center gap-2 text-pine-700">
         <PenTool className="h-4 w-4" />
         <p className="text-[11px] font-bold uppercase tracking-wider">Sign & track</p>
