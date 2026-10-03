@@ -484,12 +484,33 @@ html:has(.landing-anchor-scroll) {
 
 @media (prefers-reduced-motion: reduce) {
   .hero-line,
-  .hero-fade {
+  .hero-fade,
+  .typewriter-cursor {
     animation: none;
   }
   .animate-slide-in-right {
     animation: none;
   }
+}
+
+/* Typewriter cursor blink */
+.typewriter-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: currentColor;
+  margin-left: 2px;
+  animation: typewriter-blink 1s step-end infinite;
+}
+
+@keyframes typewriter-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.typewriter-line {
+  display: block;
+  white-space: pre-wrap;
 }
 
 /* Landing primitives (S0): one button language, one eyebrow, one display

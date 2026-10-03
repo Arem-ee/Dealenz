@@ -12,6 +12,7 @@ import { ViewPricing } from "@/components/landing/view-pricing"
 import { FinalCta } from "@/components/landing/final-cta"
 import { SiteFooter } from "@/components/landing/site-footer"
 import { Reveal } from "@/components/landing/reveal"
+import { MultiLineTypewriter } from "@/components/landing/typewriter"
 
 export const metadata = {
   title: "Dealenz — Enterprise Contract & Deal Intelligence Platform",
@@ -45,7 +46,7 @@ export default function Home() {
       <SiteHeader />
 
       <main>
-        <section className="relative flex min-h-[92svh] flex-col justify-center overflow-hidden pt-20 pb-28 lg:pt-28 lg:pb-40">
+        <section className="relative flex min-h-[92svh] flex-col justify-center overflow-hidden pt-12 pb-28 lg:pt-16 lg:pb-40">
           <svg
             className="pointer-events-none absolute inset-x-0 bottom-0 h-40 w-full"
             viewBox="0 0 1440 160"
@@ -59,9 +60,15 @@ export default function Home() {
           <Reveal className="relative z-10 mx-auto max-w-7xl px-6 text-center lg:px-8">
 
             <h1 className="display-h mx-auto max-w-7xl text-balance text-[42px] font-normal leading-[1.16] text-white sm:text-[66px] sm:leading-[1.14] lg:text-[80px]" style={{ letterSpacing: "0em" }} aria-label="Harness automated deal intelligence to turn contracts into a strategic advantage.">
-              <span className="hero-mask lg:whitespace-nowrap"><span className="hero-line" style={{ animationDelay: "0.05s" }}>Harness automated deal</span></span>
-              <span className="hero-mask lg:whitespace-nowrap"><span className="hero-line" style={{ animationDelay: "0.16s" }}>intelligence to turn contracts</span></span>
-              <span className="hero-mask lg:whitespace-nowrap"><span className="hero-line" style={{ animationDelay: "0.27s" }}>into a strategic advantage.</span></span>
+              <MultiLineTypewriter
+                lines={[
+                  "Harness automated deal",
+                  "intelligence to turn contracts",
+                  "into a strategic advantage."
+                ]}
+                charSpeed={22}
+                lineDelay={350}
+              />
             </h1>
 
             <p className="hero-fade mx-auto mt-6 max-w-2xl text-[15px] leading-relaxed text-white/75 sm:text-[17px]" style={{ animationDelay: "0.45s" }}>
