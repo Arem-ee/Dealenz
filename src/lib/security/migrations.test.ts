@@ -653,6 +653,9 @@ describe("00094 signing order and forwarding (static)", () => {
   it("is forward-only and safely re-runnable", () => {
     expect(mig).toMatch(/CREATE OR REPLACE FUNCTION/)
     expect(mig).toMatch(/IF NOT EXISTS/)
+    expect(mig).toMatch(/DROP FUNCTION IF EXISTS get_signer_view\(TEXT\)/)
+    expect(mig).toMatch(/DROP FUNCTION IF EXISTS sign_as_invitee\(TEXT, TEXT, TEXT\)/)
+    expect(mig).toMatch(/DROP FUNCTION IF EXISTS sign_as_owner\(UUID\)/)
     expect(mig).not.toMatch(/DROP TABLE/)
     expect(mig).not.toMatch(/DELETE FROM/)
   })

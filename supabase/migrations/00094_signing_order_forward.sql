@@ -51,6 +51,10 @@ $$;
 -- sign_as_invitee with the owner-first gate (otherwise identical to the
 -- 00070 revision: same token/email/version checks, same grants), plus the
 -- order gate and a clean expiry message ahead of the 00090 trigger.
+-- DROP first: widened checks keep the signature, but the companion
+-- get_signer_view below changes its return type, which OR REPLACE
+-- forbids (42P13). Grants are re-issued after each definition.
+DROP FUNCTION IF EXISTS sign_as_invitee(TEXT, TEXT, TEXT);
 CREATE OR REPLACE FUNCTION sign_as_invitee(
   p_token TEXT,
   p_name TEXT,
@@ -192,6 +196,7 @@ GRANT EXECUTE ON FUNCTION sign_as_invitee(TEXT, TEXT, TEXT) TO anon, authenticat
 -- binding, same version advancement, same grants) plus the clean expiry
 -- message ahead of the 00090 trigger. The owner holds order 0, so the
 -- order gate passes trivially and is not re-checked here.
+DROP FUNCTION IF EXISTS sign_as_owner(UUID);
 CREATE OR REPLACE FUNCTION sign_as_owner(p_signer_id UUID)
 RETURNS TABLE (success BOOLEAN, message TEXT)
 LANGUAGE plpgsql
@@ -262,6 +267,9 @@ GRANT EXECUTE ON FUNCTION sign_as_owner(UUID) TO authenticated;
 -- earlier_pending counts live pending signers on earlier steps and
 -- allow_forward mirrors the ceremony flag — both are counts/flags, so no
 -- identities leak.
+-- DROP first: four columns are appended to the return type, which
+-- CREATE OR REPLACE forbids on an existing function (42P13).
+DROP FUNCTION IF EXISTS get_signer_view(TEXT);
 CREATE OR REPLACE FUNCTION get_signer_view(p_token TEXT)
 RETURNS TABLE (
   signer_name TEXT,
