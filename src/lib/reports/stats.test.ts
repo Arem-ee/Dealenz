@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { dailyCounts, daysBetween, formatDays, median, medianDays, toCsv } from "./stats"
+import { dailyCounts, daysBetween, formatDays, median, medianDays, monthBuckets, toCsv } from "./stats"
 
 describe("median", () => {
   it("takes the middle value, averaging even counts, null when empty", () => {
@@ -41,5 +41,17 @@ describe("formatDays/toCsv", () => {
     expect(formatDays(0)).toBe("<1 day")
     expect(formatDays(5)).toBe("5 days")
     expect(toCsv(["a", "b"], [["x", 'say "hi", ok'], ["y", "z"]])).toBe('a,b\nx,"say ""hi"", ok"\ny,z')
+  })
+})
+
+describe("monthBuckets", () => {
+  it("buckets by calendar month, zero-filled oldest-first", () => {
+    const now = Date.parse("2026-03-15T12:00:00Z")
+    const out = monthBuckets(["2026-03-02T00:00:00Z", "2026-01-20T00:00:00Z", "2026-01-21T00:00:00Z"], 3, now)
+    expect(out).toEqual([
+      { month: "2026-01", count: 2 },
+      { month: "2026-02", count: 0 },
+      { month: "2026-03", count: 1 },
+    ])
   })
 })

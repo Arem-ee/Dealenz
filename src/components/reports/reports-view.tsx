@@ -108,6 +108,8 @@ export function ReportsView() {
   const maxActivity = Math.max(1, ...data.activity.byType.map((t) => t.count))
   const maxSpend = Math.max(1, ...data.spend.byOperation.map((t) => t.credits))
   const maxDaily = Math.max(1, ...data.activity.daily.map((d) => d.count))
+  const maxSealed = Math.max(1, ...data.signed.sealedPerMonth.map((m) => m.count))
+  const maxRule = Math.max(1, ...data.signed.topRules.map((t) => t.deals))
 
   const stats: Array<[string, string]> = [
     ["Total deals", String(data.pipeline.total)],
@@ -278,6 +280,77 @@ export function ReportsView() {
           </p>
         </div>
       )}
+
+      <div className="mt-4">
+        <Section
+          title="Signed portfolio"
+          desc={`${data.signed.sealedTotal} sealed deals · post-signature renewals, fulfillment, and clause landscape.`}
+          filename="signed-portfolio.csv"
+          csv={toCsv(
+            ["month", "sealed"],
+            data.signed.sealedPerMonth.filter((m) => m.count > 0).map((m) => [m.month, String(m.count)])
+          )}
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sealed per month · 12 mo</p>
+              <div className="mt-2 flex h-20 items-end gap-px" aria-hidden="true">
+                {data.signed.sealedPerMonth.map((m) => (
+                  <span
+                    key={m.month}
+                    title={`${m.month}: ${m.count}`}
+                    className={cn("min-w-0 flex-1", m.count > 0 ? "bg-foreground" : "bg-muted")}
+                    style={{ height: `${Math.max(4, Math.round((m.count / maxSealed) * 100))}%` }}
+                  />
+                ))}
+              </div>
+              <div className="mt-2 flex items-center justify-between text-[13px]">
+                <span className="text-muted-foreground">Fulfillment on signed deals</span>
+                <span className="tabular-nums font-semibold">
+                  {data.signed.fulfillment.rate === null ? "—" : `${data.signed.fulfillment.rate}%`}
+                  <span className="ml-1 text-[11px] font-normal text-muted-foreground">
+                    {data.signed.fulfillment.completed} done · {data.signed.fulfillment.outstanding} open
+                  </span>
+                </span>
+              </div>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Renewal queue{data.signed.renewalsOverdue > 0 && <span className="ml-1 font-semibold text-destructive">{data.signed.renewalsOverdue} overdue</span>}
+              </p>
+              {data.signed.renewalQueue.length === 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">No dated renewals on file — extraction adds them when signed text carries dates.</p>
+              ) : (
+                <ul className="mt-2 space-y-1.5">
+                  {data.signed.renewalQueue.slice(0, 5).map((r, i) => (
+                    <li key={i} className="flex items-center justify-between gap-2 text-[13px]">
+                      <span className="min-w-0 truncate">{r.title} <span className="text-muted-foreground">· {r.dealTitle}</span></span>
+                      <span className={cn("shrink-0 text-[11px] tabular-nums", r.dueDate && r.dueDate <= new Date().toISOString().slice(0, 10) ? "font-semibold text-destructive" : "text-muted-foreground")}>
+                        {r.dueDate ?? "No date"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+          {data.signed.topRules.length > 0 && (
+            <div className="mt-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Recurring flags across sealed deals</p>
+              <div className="mt-2 space-y-1.5">
+                {data.signed.topRules.slice(0, 5).map((t) => (
+                  <Bar key={t.rule} label={t.rule.replaceAll("_", " ")} value={t.deals} max={maxRule} />
+                ))}
+              </div>
+              {data.signed.topConflicts.length > 0 && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Cross-contract friction: {data.signed.topConflicts.map((c) => `${c.type.replaceAll("_", " ")} ×${c.count}`).join(" · ")}
+                </p>
+              )}
+            </div>
+          )}
+        </Section>
+      </div>
     </div>
   )
 }

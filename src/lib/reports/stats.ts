@@ -52,6 +52,26 @@ export function formatDays(d: number | null): string {
   return `${d} day${d === 1 ? "" : "s"}`
 }
 
+/** Counts per calendar month over trailing months (oldest first), zero-filled. Labels as YYYY-MM. */
+export function monthBuckets(stamps: string[], months = 12, now: number = Date.now()): Array<{ month: string; count: number }> {
+  const nowDate = new Date(now)
+  const keys: string[] = []
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(nowDate.getFullYear(), nowDate.getMonth() - i, 1)
+    keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`)
+  }
+  const out = keys.map((month) => ({ month, count: 0 }))
+  const byMonth = new Map(out.map((m) => [m.month, m]))
+  for (const s of stamps) {
+    const t = new Date(s).getTime()
+    if (Number.isNaN(t)) continue
+    const d = new Date(t)
+    const slot = byMonth.get(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`)
+    if (slot) slot.count += 1
+  }
+  return out
+}
+
 /** Minimal CSV: header + rows, quoted when needed. */
 export function toCsv(header: string[], rows: string[][]): string {
   const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replaceAll('"', '""')}"` : v)
