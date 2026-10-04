@@ -129,6 +129,15 @@ export function getPlan(planId: string): SubscriptionPlan | null {
   return SUBSCRIPTION_PLANS.find((p) => p.id === planId) ?? null
 }
 
+// Overage rate per credit in minor units, by settlement currency.
+// Starting numbers (about $0.10/credit); the Paddle products behind
+// PADDLE_OVERAGE_* must equal these amounts, same contract as packs.
+export const OVERAGE_RATES: Record<Currency, number> = {
+  USD: 10,
+  GBP: 8,
+  EUR: 9,
+}
+
 export function priceForPlan(plan: SubscriptionPlan, currency: Currency): number {
   return plan.prices[currency]
 }

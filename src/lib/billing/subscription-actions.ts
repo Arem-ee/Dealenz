@@ -19,6 +19,8 @@ export interface BillingSubscription {
   currency: string
   monthly_allowance: number
   used_allowance: number
+  overage_credits: number
+  overage_allowed: boolean
   period_end: string
   renews: boolean
 }
@@ -31,13 +33,14 @@ export async function getBillingState() {
 
     const { data: subs } = await supabase
       .from("subscriptions")
-      .select("id, plan_id, status, currency, monthly_allowance, current_period_start, current_period_end")
+      .select("id, plan_id, status, currency, monthly_allowance, overage_allowed, current_period_start, current_period_end, period_start_balance")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(5)
     const rows = ((subs ?? []) as Array<{
       id: string; plan_id: string; status: string; currency: string;
-      monthly_allowance: number; current_period_start: string; current_period_end: string;
+      monthly_allowance: number; overage_allowed: boolean;
+      current_period_start: string; current_period_end: string; period_start_balance: number;
     }>)
     const live = rows.find((r) => ["active", "trialing", "past_due", "paused"].includes(r.status)) ?? null
 
@@ -80,6 +83,22 @@ export async function getBillingState() {
     let subscription: BillingSubscription | null = null
     if (live) {
       const plan = getPlan(live.plan_id)
+      // Uncapped period usage + live overage: overage = consumption minus
+      // ALL period grants minus starting positive balance (same formula
+      // the invoicing pass uses).
+      const { data: periodRows } = await supabase
+        .from("credit_ledger")
+        .select("entry_type, amount, status")
+        .eq("user_id", user.id)
+        .gte("created_at", live.current_period_start)
+        .limit(5000)
+      let consumed = 0
+      let granted = 0
+      for (const r of ((periodRows ?? []) as Array<{ entry_type: string; amount: number; status: string }>)) {
+        if (r.entry_type === "consumption" && r.status === "finalized") consumed += Math.abs(r.amount)
+        else if (r.entry_type === "grant" && r.status === "finalized") granted += r.amount
+      }
+      const overage = Math.max(0, consumed - granted - Math.max(0, live.period_start_balance))
       subscription = {
         id: live.id,
         plan_id: live.plan_id,
@@ -87,7 +106,9 @@ export async function getBillingState() {
         status: live.status,
         currency: live.currency,
         monthly_allowance: live.monthly_allowance,
-        used_allowance: Math.min(used, live.monthly_allowance),
+        used_allowance: used,
+        overage_credits: overage,
+        overage_allowed: live.overage_allowed,
         period_end: live.current_period_end,
         renews: live.status !== "canceled",
       }
@@ -168,5 +189,112 @@ export async function cancelSubscription() {
     return { ok: true as const, endsAtPeriodEnd: true }
   } catch (e) {
     return toActionFailure(e, "Could not cancel. Your subscription is unchanged — try again or cancel in Paddle.") as never
+  }
+}
+
+export interface OverageInvoiceView {
+  id: string
+  period_start: string
+  period_end: string
+  overage_credits: number
+  amount_minor: number
+  currency: string
+  status: string
+  paddle_transaction_id: string | null
+}
+
+/** Overage opt-in/out: explicit user action only, never automatic. */
+export async function setOverageAllowed(optIn: boolean) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false as const, error: "Verify your email first." }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) return { ok: false as const, error: "Service not configured." }
+    const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+    const svc = createServiceClient(url, key)
+    const { data: sub } = await svc
+      .from("subscriptions")
+      .select("id")
+      .eq("user_id", user.id)
+      .in("status", ["active", "trialing", "past_due"])
+      .maybeSingle()
+    if (!sub) return { ok: false as const, error: "No live subscription to change." }
+    const { error } = await svc
+      .from("subscriptions")
+      .update({ overage_allowed: optIn, updated_at: new Date().toISOString() })
+      .eq("id", (sub as { id: string }).id)
+      .eq("user_id", user.id)
+    if (error) throw new Error(error.message)
+    try {
+      const { createNotification } = await import("@/lib/notifications/store")
+      await createNotification(svc, {
+        userId: user.id,
+        type: "status",
+        title: optIn ? "Overage billing on" : "Overage billing off",
+        body: optIn
+          ? "Work continues past your allowance and overage invoices each period. Turn it off anytime."
+          : "Hard cap restored — work pauses when the balance runs out.",
+        link: "/settings",
+      })
+    } catch {
+      // The flag stands regardless; the notification is best-effort.
+    }
+    return { ok: true as const, overageAllowed: optIn }
+  } catch (e) {
+    return toActionFailure(e, "Could not change overage billing.") as never
+  }
+}
+
+export async function listOverageInvoices() {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const { data, error } = await supabase
+      .from("overage_invoices")
+      .select("id, period_start, period_end, overage_credits, amount_minor, currency, status, paddle_transaction_id")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20)
+    if (error) {
+      if (error.message.includes("overage_invoices")) return { ok: true as const, invoices: [] as OverageInvoiceView[] }
+      throw new Error(error.message)
+    }
+    return { ok: true as const, invoices: ((data ?? []) as OverageInvoiceView[]) }
+  } catch (e) {
+    return toActionFailure(e, "Could not load invoices.") as never
+  }
+}
+
+/** Pay one pending invoice now (auto-settle at rollover already tried). */
+export async function settleOverageInvoiceAction(invoiceId: string) {
+  try {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(invoiceId)) {
+      return { ok: false as const, error: "Invalid invoice." }
+    }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false as const, error: "Verify your email first." }
+    const { data: invoice } = await supabase
+      .from("overage_invoices")
+      .select("id, user_id, status")
+      .eq("id", invoiceId)
+      .eq("user_id", user.id)
+      .maybeSingle()
+    if (!invoice) return { ok: false as const, error: "Invoice not found." }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) return { ok: false as const, error: "Service not configured." }
+    const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+    const svc = createServiceClient(url, key)
+    const { settleOverageInvoice } = await import("@/lib/billing/subscriptions")
+    const res = await settleOverageInvoice(svc, invoiceId)
+    return { ok: true as const, ...res }
+  } catch (e) {
+    return toActionFailure(e, "Payment failed — the invoice is unchanged, try again.") as never
   }
 }

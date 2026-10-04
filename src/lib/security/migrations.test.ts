@@ -609,6 +609,20 @@ describe("00083 credit purchase revocation statuses (static)", () => {
   })
 })
 
+describe("00102 overage billing (static)", () => {
+  const mig102 = code(sql("00102_overage_billing.sql"))
+
+  it("invoices metered overage without touching the hard-cap default", () => {
+    expect(mig102).toMatch(/CREATE TABLE IF NOT EXISTS overage_invoices/)
+    expect(mig102).toMatch(/period_start_balance INTEGER NOT NULL DEFAULT 0/)
+    expect(mig102).toMatch(/overage_allowed = true/)
+    expect(mig102).toMatch(/Users read own overage invoices/)
+    expect(mig102).not.toMatch(/FOR INSERT/)
+    expect(mig102).not.toMatch(/FOR UPDATE/)
+    expect(mig102).not.toMatch(/FOR DELETE/)
+  })
+})
+
 describe("00101 approval steps (static)", () => {
   const mig101 = code(sql("00101_approval_steps.sql"))
 

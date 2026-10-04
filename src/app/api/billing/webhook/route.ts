@@ -34,7 +34,6 @@ export async function POST(req: NextRequest) {
   if (isSubscription) {
     return handleSubscriptionEvent(body, signature, webhookSecret, adapter)
   }
-
   let event: {
     type: string
     providerTransactionId: string
@@ -44,9 +43,11 @@ export async function POST(req: NextRequest) {
     userId: string
     status: string
   }
+  let verifiedRaw: unknown = null
   try {
     const verified = await adapter.verifyWebhook({ body, signature, secret: webhookSecret ?? "" })
     event = verified as never
+    verifiedRaw = (verified as unknown as { raw?: unknown }).raw ?? null
   } catch (e) {
     try {
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -62,6 +63,46 @@ export async function POST(req: NextRequest) {
     } catch {
     }
     return NextResponse.json({ error: e instanceof Error ? e.message : "Invalid webhook signature" }, { status: 400 })
+  }
+
+  // Overage settlement: a transaction carrying custom_data.overage_invoice_id
+  // pays a period invoice — mark paid, grant NOTHING (the work already ran).
+  // Branched before pack pricing (overage prices are unknown to packs).
+  {
+    const raw = verifiedRaw as {
+      data?: { custom_data?: { overage_invoice_id?: unknown; user_id?: unknown } }
+    } | null
+    const custom = raw?.data?.custom_data
+    const overageInvoiceId = typeof custom?.overage_invoice_id === "string" ? custom.overage_invoice_id : ""
+    if (overageInvoiceId !== "") {
+      const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (!serviceUrl || !serviceKey) {
+        return NextResponse.json({ error: "Service role not configured" }, { status: 503 })
+      }
+      try {
+        const service = createServiceClient(serviceUrl, serviceKey)
+        const { data: invoice } = await service
+          .from("overage_invoices")
+          .select("id, user_id, status")
+          .eq("id", overageInvoiceId)
+          .maybeSingle()
+        const inv = invoice as { id: string; user_id: string; status: string } | null
+        if (!inv) return NextResponse.json({ error: "Unknown overage invoice" }, { status: 400 })
+        if (typeof custom?.user_id === "string" && custom.user_id !== inv.user_id) {
+          return NextResponse.json({ error: "Invoice user mismatch" }, { status: 400 })
+        }
+        if (inv.status === "paid") return NextResponse.json({ received: true, idempotent: true }, { status: 200 })
+        await service
+          .from("overage_invoices")
+          .update({ status: "paid", paddle_transaction_id: event.providerTransactionId })
+          .eq("id", inv.id)
+          .in("status", ["pending", "invoiced"])
+        return NextResponse.json({ received: true, overage_paid: true }, { status: 200 })
+      } catch {
+        return NextResponse.json({ error: "Overage settlement failed" }, { status: 500 })
+      }
+    }
   }
 
   // Refunds and disputes: money returned means credits return too. Support

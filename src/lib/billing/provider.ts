@@ -143,6 +143,43 @@ export function isSubscriptionCheckoutConfigured(): boolean {
   return ["studio", "firm"].every((id) => planPriceId(id, "USD") !== null)
 }
 
+// Overage settlement price ids (PADDLE_OVERAGE_USD/GBP/EUR): per-credit
+// metered prices matching OVERAGE_RATES in the catalog.
+export function overagePriceId(currency: string): string | null {
+  if (currency !== "USD" && currency !== "GBP" && currency !== "EUR") return null
+  const id = (process.env[`PADDLE_OVERAGE_${currency}`] ?? "").trim()
+  return id.length > 0 ? id : null
+}
+
+/** One Paddle transaction for an overage invoice. Attribution rides
+ * custom_data (overage_invoice_id + user_id) so the webhook maps payment
+ * back exactly — no fuzzy subscription matching. No credits are granted
+ * for it; the work already ran. */
+export async function createOverageTransaction(input: {
+  customerId: string
+  priceId: string
+  quantity: number
+  currency: string
+  customData: Record<string, string>
+}): Promise<{ transactionId: string }> {
+  const apiKey = paddleApiKey()
+  if (!apiKey) throw new Error("Paddle is not configured (API key missing)")
+  if (!Number.isInteger(input.quantity) || input.quantity <= 0) throw new Error("Invalid overage quantity")
+  if (input.currency !== "USD" && input.currency !== "GBP" && input.currency !== "EUR") {
+    throw new Error("Unsupported currency")
+  }
+  const paddle = new Paddle(apiKey, { environment: paddleEnvironment() })
+  const txn = (await paddle.transactions.create({
+    customerId: input.customerId,
+    items: [{ priceId: input.priceId, quantity: input.quantity }],
+    currencyCode: input.currency,
+    customData: input.customData,
+  })) as unknown as Record<string, unknown>
+  const id = typeof txn?.id === "string" ? (txn.id as string) : ""
+  if (!id) throw new Error("Paddle did not return a transaction id")
+  return { transactionId: id }
+}
+
 /** Buyer currencies where every active package has a resolvable price. */
 export function enabledCurrencies(activePackageIds: string[]): string[] {
   return PRICE_CURRENCIES.filter((currency) =>

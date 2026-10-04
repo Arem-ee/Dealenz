@@ -380,10 +380,10 @@ function loadPaddle(): Promise<PaddleCheckout> {
   })
 }
 
-// Billing: live subscription state, allowance usage, plan switching,
-// cancellation at period end, and pack history. Hard cap, stated
-// plainly: work pauses when the balance runs out; packs top up anytime.
-// Overage billing is not built yet — nothing here pretends otherwise.
+// Billing: live subscription state, allowance usage, overage opt-in with
+// per-period invoices, cancellation at period end, and pack history.
+// Hard cap by default, stated plainly; overage meters past it when opted
+// in, bounded at one allowance, invoiced and settled through Paddle.
 function BillingSection() {
   const [state, setState] = useState<{
     subscription: {
@@ -394,6 +394,8 @@ function BillingSection() {
       currency: string
       monthly_allowance: number
       used_allowance: number
+      overage_credits: number
+      overage_allowed: boolean
       period_end: string
       renews: boolean
     } | null
@@ -402,6 +404,16 @@ function BillingSection() {
     checkoutConfigured: boolean
     purchases: Array<{ package_id: string; currency: string; amount_minor: number; credits: number; status: string; created_at: string }>
   } | null>(null)
+  const [invoices, setInvoices] = useState<Array<{
+    id: string
+    period_start: string
+    period_end: string
+    overage_credits: number
+    amount_minor: number
+    currency: string
+    status: string
+    paddle_transaction_id: string | null
+  }>>([])
   const [loadError, setLoadError] = useState<string | null>(null)
   const [currency, setCurrency] = useState("USD")
   const [busy, setBusy] = useState(false)
@@ -411,7 +423,7 @@ function BillingSection() {
 
   const refresh = async () => {
     try {
-      const { getBillingState } = await import("@/lib/billing/subscription-actions")
+      const { getBillingState, listOverageInvoices } = await import("@/lib/billing/subscription-actions")
       const res = await getBillingState()
       if (!res.ok) {
         setLoadError(res.error)
@@ -424,6 +436,8 @@ function BillingSection() {
         checkoutConfigured: res.checkoutConfigured,
         purchases: res.purchases,
       })
+      const inv = await listOverageInvoices()
+      if (inv.ok) setInvoices(inv.invoices)
     } catch {
       setLoadError("We couldn't load billing.")
     }
@@ -432,8 +446,8 @@ function BillingSection() {
   useEffect(() => {
     let live = true
     import("@/lib/billing/subscription-actions")
-      .then(({ getBillingState }) => getBillingState())
-      .then((res) => {
+      .then(({ getBillingState, listOverageInvoices }) => Promise.all([getBillingState(), listOverageInvoices()]))
+      .then(([res, inv]) => {
         if (!live) return
         if (!res.ok) {
           setLoadError(res.error)
@@ -446,6 +460,7 @@ function BillingSection() {
           checkoutConfigured: res.checkoutConfigured,
           purchases: res.purchases,
         })
+        if (inv.ok) setInvoices(inv.invoices)
       })
       .catch(() => {
         if (!live) return
@@ -506,6 +521,43 @@ function BillingSection() {
     }
   }
 
+  async function flipOverage(optIn: boolean) {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const { setOverageAllowed } = await import("@/lib/billing/subscription-actions")
+      const res = await setOverageAllowed(optIn)
+      if (!res.ok) throw new Error(res.error)
+      setNotice(optIn ? "Overage billing is on — metered past allowance, invoiced each period." : "Overage billing is off — hard cap restored.")
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't change overage billing.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function payInvoice(id: string) {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const { settleOverageInvoiceAction, listOverageInvoices } = await import("@/lib/billing/subscription-actions")
+      const res = await settleOverageInvoiceAction(id)
+      if (!res.ok) throw new Error(res.error)
+      setNotice("Payment started — the invoice flips to paid when Paddle confirms.")
+      const inv = await listOverageInvoices()
+      if (inv.ok) setInvoices(inv.invoices)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Payment failed — the invoice is unchanged.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const sub = state?.subscription ?? null
 
   return (
@@ -536,7 +588,60 @@ function BillingSection() {
                   </span>
                   <span className="mt-1 block text-xs tabular-nums text-muted-foreground">
                     {sub.used_allowance} of {sub.monthly_allowance} credits
+                    {sub.overage_credits > 0 && (
+                      <> · <span className="font-semibold text-destructive">+{sub.overage_credits} overage</span></>
+                    )}
                   </span>
+                </dd>
+              </div>
+            )}
+            {sub && (
+              <div>
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Overage billing</dt>
+                <dd className="mt-1.5">
+                  <label className="flex cursor-pointer items-start gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={sub.overage_allowed}
+                      onChange={(e) => void flipOverage(e.target.checked)}
+                      disabled={busy}
+                      className="mt-0.5 h-3.5 w-3.5 accent-foreground"
+                    />
+                    <span className="text-muted-foreground">
+                      Keep working past my allowance and bill the overage each period
+                      (per-credit rate, metered to one allowance past zero, hard stop after).
+                      Off means work pauses at zero.
+                    </span>
+                  </label>
+                </dd>
+              </div>
+            )}
+            {invoices.length > 0 && (
+              <div>
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Overage invoices</dt>
+                <dd className="mt-0.5 text-sm">
+                  <ul className="space-y-1.5">
+                    {invoices.map((inv) => (
+                      <li key={inv.id} className="flex items-center gap-2 text-xs tabular-nums text-muted-foreground">
+                        <span className="min-w-0 flex-1">
+                          {inv.overage_credits} credits · {(inv.amount_minor / 100).toFixed(2)} {inv.currency} · {inv.status} ·{" "}
+                          {new Date(inv.period_start).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          {" → "}
+                          {new Date(inv.period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        </span>
+                        {(inv.status === "pending" || inv.status === "failed") && (
+                          <button
+                            type="button"
+                            onClick={() => void payInvoice(inv.id)}
+                            disabled={busy}
+                            className="shrink-0 border border-border px-2 py-1 text-[11px] hover:text-foreground disabled:opacity-50"
+                          >
+                            Pay now
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </dd>
               </div>
             )}

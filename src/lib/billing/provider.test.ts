@@ -5,6 +5,7 @@ import {
   createPaddleAdapter,
   enabledCurrencies,
   isSubscriptionCheckoutConfigured,
+  overagePriceId,
   parsePaddleSubscriptionEvent,
   parsePaddleTransactionEvent,
   planPriceId,
@@ -242,5 +243,12 @@ describe("subscription plans and events", () => {
     const noPrice = subscriptionBody()
     ;((noPrice.data as Record<string, unknown>).items as unknown[]) = [{ price: {} }]
     expect(() => parsePaddleSubscriptionEvent(noPrice)).toThrow(/price id/)
+  })
+
+  it("resolves overage prices per currency and fails closed otherwise", () => {
+    process.env.PADDLE_OVERAGE_USD = "pri_overage_usd"
+    expect(overagePriceId("USD")).toBe("pri_overage_usd")
+    expect(overagePriceId("GBP")).toBeNull()
+    expect(overagePriceId("JPY")).toBeNull()
   })
 })
