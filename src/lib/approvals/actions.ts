@@ -32,6 +32,34 @@ export interface ApprovalRequestRow {
   requester_email?: string | null
   group_name?: string | null
   covered_for?: string | null
+  steps?: ApprovalStepView[]
+}
+
+export interface ApprovalStepView {
+  no: number
+  verdict: "pending" | "approved" | "rejected" | "skipped"
+  route: string
+  decided_by: string | null
+}
+
+export interface ApprovalLeg {
+  userId?: string
+  groupId?: string
+}
+
+const MAX_LEGS = 5
+
+function legError(legs: ApprovalLeg[] | undefined): string | null {
+  if (!legs || legs.length === 0) return "Add at least one approval step."
+  if (legs.length > MAX_LEGS) return `At most ${MAX_LEGS} steps — split longer chains across requests.`
+  for (const [i, leg] of legs.entries()) {
+    const named = !!leg.userId
+    const grouped = !!leg.groupId
+    if ((named && grouped) || (!named && !grouped)) return `Step ${i + 1} routes to one person or one group — not both, not neither.`
+    if (named && !UUID_RE.test(leg.userId as string)) return `Step ${i + 1} names an invalid approver.`
+    if (grouped && !UUID_RE.test(leg.groupId as string)) return `Step ${i + 1} names an invalid group.`
+  }
+  return null
 }
 
 async function serviceClient() {
@@ -130,6 +158,40 @@ export async function listApprovalQueue() {
     const attachCover = (r: ApprovalRequestRow): ApprovalRequestRow => {
       const delegator = coveredBy.get(r.id)
       return { ...r, covered_for: delegator ? (emails.get(delegator) ?? null) : null }
+    }
+    // Step ledger for display: route labels resolved from the maps above.
+    try {
+      const ids = withEmails.map((r) => r.id)
+      if (ids.length > 0) {
+        const { data: stepRows } = await supabase
+          .from("approval_steps")
+          .select("request_id, step_no, approver_user_id, approver_group_id, verdict")
+          .in("request_id", ids)
+          .order("step_no", { ascending: true })
+          .limit(500)
+        const byRequest = new Map<string, ApprovalStepView[]>()
+        for (const s of ((stepRows ?? []) as Array<{
+          request_id: string; step_no: number; approver_user_id: string | null;
+          approver_group_id: string | null; verdict: string;
+        }>)) {
+          if (!byRequest.has(s.request_id)) byRequest.set(s.request_id, [])
+          const route = s.approver_group_id
+            ? (groupNames.get(s.approver_group_id) ?? "Group")
+            : (s.approver_user_id ? (emails.get(s.approver_user_id) ?? "Approver") : "—")
+          byRequest.get(s.request_id)!.push({
+            no: s.step_no,
+            verdict: (s.verdict === "approved" || s.verdict === "rejected" || s.verdict === "skipped" ? s.verdict : "pending"),
+            route,
+            decided_by: null,
+          })
+        }
+        for (const r of withEmails) {
+          const legs = byRequest.get(r.id)
+          if (legs && legs.length > 0) r.steps = legs
+        }
+      }
+    } catch {
+      // Steps are display-only; the queue works without them.
     }
     // Delegated legs: rows I cover through a live grant (incoming) or
     // covered through any grant ever held (decided history). Grants are
@@ -367,47 +429,58 @@ export async function listApprovers() {
   }
 }
 
-export async function requestApprovalDecision(input: { planId: string; approverUserId?: string; approverGroupId?: string; title?: string; detail?: string }) {
+export async function requestApprovalDecision(input: { planId: string; approverUserId?: string; approverGroupId?: string; legs?: ApprovalLeg[]; title?: string; detail?: string }) {
   try {
-    const named = typeof input.approverUserId === "string" && input.approverUserId !== ""
-    const grouped = typeof input.approverGroupId === "string" && input.approverGroupId !== ""
-    // Named-XOR-group, mirroring the database CHECK.
-    if ((named && grouped) || (!named && !grouped)) {
-      return { ok: false as const, error: "Route to one approver or one group — not both, not neither." }
-    }
+    // Legs (ordered steps) subsume the single-route inputs: one leg keeps
+    // the old call shape working, several build a chain. The parent row
+    // always mirrors the first leg.
+    const legs: ApprovalLeg[] = input.legs && input.legs.length > 0
+      ? input.legs
+      : input.approverUserId
+        ? [{ userId: input.approverUserId }]
+        : input.approverGroupId
+          ? [{ groupId: input.approverGroupId }]
+          : []
+    const legsProblem = legError(legs)
+    if (legsProblem) return { ok: false as const, error: legsProblem }
+    const first = legs[0] as ApprovalLeg
+    const named = !!first.userId
     if (!UUID_RE.test(input.planId)) return { ok: false as const, error: "Invalid plan." }
-    if (named && !UUID_RE.test(input.approverUserId as string)) return { ok: false as const, error: "Invalid approver." }
-    if (grouped && !UUID_RE.test(input.approverGroupId as string)) {
-      return { ok: false as const, error: "Invalid group." }
-    }
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false as const, error: "You must be signed in." }
     if (!user.email_confirmed_at) return { ok: false as const, error: VERIFY_REQUIRED_ERROR }
-    if (named && input.approverUserId === user.id) {
-      return { ok: false as const, error: "You can't route approvals to yourself — approve directly instead." }
-    }
 
     const svc = await serviceClient()
     if (!svc) return { ok: false as const, error: "Service not configured." }
-    if (named && !(await approverEligible(svc, user.id, input.approverUserId as string))) {
-      return { ok: false as const, error: "Approvers must be an owner or admin of an organization you belong to." }
-    }
-    if (grouped) {
-      const { data: group } = await svc
-        .from("permission_groups")
-        .select("id, org_id, name")
-        .eq("id", input.approverGroupId)
-        .maybeSingle()
-      const g = group as { id: string; org_id: string; name: string } | null
-      if (!g) return { ok: false as const, error: "Group not found." }
-      const { data: membership } = await svc
-        .from("organization_members")
-        .select("org_id")
-        .eq("org_id", g.org_id)
-        .eq("user_id", user.id)
-        .maybeSingle()
-      if (!membership) return { ok: false as const, error: "You can only route to groups of your own organizations." }
+    // Every leg validates like a standalone route: named legs need an
+    // owner/admin approver, group legs need a same-org group, nobody
+    // routes any leg to themselves (the DB CHECK pins the first; the
+    // app pins the rest).
+    for (const [i, leg] of legs.entries()) {
+      if (leg.userId) {
+        if (leg.userId === user.id) {
+          return { ok: false as const, error: `Step ${i + 1} routes to you — approve directly instead.` }
+        }
+        if (!(await approverEligible(svc, user.id, leg.userId))) {
+          return { ok: false as const, error: `Step ${i + 1}: approvers must be an owner or admin of an organization you belong to.` }
+        }
+      } else if (leg.groupId) {
+        const { data: group } = await svc
+          .from("permission_groups")
+          .select("id, org_id, name")
+          .eq("id", leg.groupId)
+          .maybeSingle()
+        const g = group as { id: string; org_id: string; name: string } | null
+        if (!g) return { ok: false as const, error: `Step ${i + 1}: group not found.` }
+        const { data: membership } = await svc
+          .from("organization_members")
+          .select("org_id")
+          .eq("org_id", g.org_id)
+          .eq("user_id", user.id)
+          .maybeSingle()
+        if (!membership) return { ok: false as const, error: `Step ${i + 1}: you can only route to groups of your own organizations.` }
+      }
     }
 
     const { data: plan } = await supabase
@@ -445,8 +518,8 @@ export async function requestApprovalDecision(input: { planId: string; approverU
       .from("approval_requests")
       .insert({
         user_id: user.id,
-        approver_user_id: named ? (input.approverUserId as string) : null,
-        approver_group_id: grouped ? (input.approverGroupId as string) : null,
+        approver_user_id: named ? (first.userId as string) : null,
+        approver_group_id: !named ? (first.groupId as string) : null,
         subject_type: "plan",
         subject_id: planRow.id,
         title,
@@ -458,29 +531,51 @@ export async function requestApprovalDecision(input: { planId: string; approverU
       if (error?.message?.includes("approval_requests")) {
         return { ok: false as const, error: "Approvals need a database update (migration 00096). Please try again after migrating." }
       }
-      return { ok: false as const, error: "We couldn't file that request." }
+      return { ok: false, error: "We couldn't file that request." }
+    }
+    const requestId = (created as { id: string }).id
+    // Step rows mirror the legs; later legs wait their turn. Insert
+    // failures roll the request back — a request without its chain is a
+    // lie about who must decide.
+    const stepRows = legs.map((leg, i) => ({
+      request_id: requestId,
+      step_no: i,
+      approver_user_id: leg.userId ?? null,
+      approver_group_id: leg.groupId ?? null,
+    }))
+    const { error: stepError } = await supabase.from("approval_steps").insert(stepRows)
+    if (stepError) {
+      try {
+        await svc.from("approval_requests").delete().eq("id", requestId).eq("verdict", "pending")
+      } catch {
+        // Rollback is best-effort; the unique live-subject guard bounds damage.
+      }
+      if (stepError.message?.includes("approval_steps")) {
+        return { ok: false as const, error: "Approvals need a database update (migration 00101). Please try again after migrating." }
+      }
+      return { ok: false, error: "We couldn't file that request." }
     }
 
     try {
-      if (grouped) {
-        await notifyGroup(svc, input.approverGroupId as string, user.id, {
+      if (!named) {
+        await notifyGroup(svc, first.groupId as string, user.id, {
           title: "Approval requested",
-          body: `${user.email ?? "A teammate"} asked your group to decide: ${title}`,
+          body: `${user.email ?? "A teammate"} asked your group to decide: ${title}${legs.length > 1 ? ` (step 1 of ${legs.length})` : ""}`,
         })
       } else {
         const { createNotification } = await import("@/lib/notifications/store")
         await createNotification(supabase, {
-          userId: input.approverUserId as string,
+          userId: first.userId as string,
           type: "approval",
           title: "Approval requested",
-          body: `${user.email ?? "A teammate"} asked you to decide: ${title}`,
+          body: `${user.email ?? "A teammate"} asked you to decide: ${title}${legs.length > 1 ? ` (step 1 of ${legs.length})` : ""}`,
           link: "/approvals",
         })
       }
     } catch {
       // The request stands regardless; the notification is best-effort.
     }
-    return { ok: true as const, id: (created as { id: string }).id }
+    return { ok: true as const, id: requestId }
   } catch (e) {
     return toActionFailure(e, "Could not file that request.") as never
   }
@@ -574,10 +669,103 @@ export async function decideApprovalRequest(input: { requestId: string; verdict:
       return { ok: false as const, error: `That plan already moved to ${planRow.status} — nothing left to decide.` }
     }
 
+    // Step ledger: which leg is live. Legacy single-leg requests (filed
+    // before steps existed) carry no rows — the parent routing IS the
+    // only leg and the flow below behaves exactly as before.
+    const { data: stepRows } = await svc
+      .from("approval_steps")
+      .select("id, step_no, approver_user_id, approver_group_id, verdict")
+      .eq("request_id", reqRow.id)
+      .order("step_no", { ascending: true })
+    const steps = ((stepRows ?? []) as Array<{
+      id: string; step_no: number; approver_user_id: string | null; approver_group_id: string | null; verdict: string;
+    }>)
+    const liveStep = steps.find((s) => s.verdict === "pending") ?? null
+    const totalSteps = steps.length
+    const stepPosition = liveStep ? steps.filter((s) => s.step_no < liveStep.step_no && s.verdict === "approved").length + 1 : steps.length
+    // Sanity: the live leg must match the parent cursor. A mismatch means
+    // concurrent writers crossed — refuse rather than advance blindly.
+    if (liveStep && (
+      (liveStep.approver_user_id ?? null) !== reqRow.approver_user_id ||
+      (liveStep.approver_group_id ?? null) !== reqRow.approver_group_id
+    )) {
+      return { ok: false, error: "That request changed mid-decision — reload and try again." }
+    }
+
     const now = new Date().toISOString()
     // First-writer-wins: the pending pin means exactly one decider lands.
     // A 0-row update is a lost race (or a double-click), never success —
     // report it instead of duplicating side-effects below.
+    if (input.verdict === "approved" && liveStep && steps.some((s) => s.step_no > liveStep.step_no)) {
+      // Middle of the chain: record the leg, advance the cursor, keep the
+      // parent pending. The plan does not move until the last leg lands.
+      const { error: legError } = await svc
+        .from("approval_steps")
+        .update({ verdict: "approved", comment: comment || null, decided_by: user.id, decided_at: now })
+        .eq("id", liveStep.id)
+        .eq("verdict", "pending")
+      if (legError) return { ok: false, error: "We couldn't record that decision." }
+      const next = steps.filter((s) => s.step_no > liveStep.step_no).sort((a, b) => a.step_no - b.step_no)[0]!
+      const { error: advanceError } = await svc
+        .from("approval_requests")
+        .update({ approver_user_id: next.approver_user_id, approver_group_id: next.approver_group_id })
+        .eq("id", reqRow.id)
+        .eq("verdict", "pending")
+      if (advanceError) return { ok: false, error: "Step recorded, but the handoff failed — reload the queue." }
+      try {
+        await svc.from("activity_events").insert({
+          user_id: planRow.user_id,
+          audit_id: planRow.deal_id,
+          event_type: "plan_step_approved",
+          payload: {
+            plan_id: planRow.id,
+            request_id: reqRow.id,
+            step_no: liveStep.step_no,
+            steps_total: totalSteps,
+            decided_by: user.id,
+            on_behalf_of: cover ? cover.delegator : null,
+            comment: comment || null,
+          },
+        })
+      } catch {
+        // Audit is best-effort; the frozen rows are the record.
+      }
+      try {
+        if (next.approver_group_id) {
+          await notifyGroup(svc, next.approver_group_id, planRow.user_id, {
+            title: "Approval requested",
+            body: `Step ${stepPosition + 1} of ${totalSteps} is yours: ${reqRow.title}`,
+          })
+        } else if (next.approver_user_id) {
+          const { createNotification } = await import("@/lib/notifications/store")
+          await createNotification(svc, {
+            userId: next.approver_user_id,
+            type: "approval",
+            title: "Approval requested",
+            body: `Step ${stepPosition + 1} of ${totalSteps} is yours: ${reqRow.title}`,
+            link: "/approvals",
+          })
+        }
+      } catch {
+        // The advance stands regardless; the notification is best-effort.
+      }
+      return { ok: true as const, verdict: "approved" as const, advanced: true as const, step: stepPosition, stepsTotal: totalSteps }
+    }
+
+    if (input.verdict === "rejected" && liveStep) {
+      // A rejection ends the whole chain: void the legs that never ran.
+      try {
+        await svc
+          .from("approval_steps")
+          .update({ verdict: "skipped" })
+          .eq("request_id", reqRow.id)
+          .eq("verdict", "pending")
+          .neq("id", liveStep.id)
+      } catch {
+        // Cosmetic; the parent verdict below is the record.
+      }
+    }
+
     const { data: decided, error: decideError } = await supabase
       .from("approval_requests")
       .update({
@@ -590,9 +778,20 @@ export async function decideApprovalRequest(input: { requestId: string; verdict:
       .eq("id", reqRow.id)
       .eq("verdict", "pending")
       .select("id")
-    if (decideError) return { ok: false as const, error: "We couldn't record that decision." }
+    if (decideError) return { ok: false, error: "We couldn't record that decision." }
     if (!decided || (Array.isArray(decided) && decided.length === 0)) {
-      return { ok: false as const, error: "Someone decided first — this request is already settled." }
+      return { ok: false, error: "Someone decided first — this request is already settled." }
+    }
+    if (liveStep) {
+      try {
+        await svc
+          .from("approval_steps")
+          .update({ verdict: input.verdict, comment: comment || null, decided_by: user.id, decided_at: now })
+          .eq("id", liveStep.id)
+          .eq("verdict", "pending")
+      } catch {
+        // Parent verdict above is the record; the leg row follows best-effort.
+      }
     }
 
     // Move the plan exactly like the self-flow's approve/reject, as the

@@ -609,6 +609,19 @@ describe("00083 credit purchase revocation statuses (static)", () => {
   })
 })
 
+describe("00101 approval steps (static)", () => {
+  const mig101 = code(sql("00101_approval_steps.sql"))
+
+  it("chains ordered legs with the parent as cursor", () => {
+    expect(mig101).toMatch(/CREATE TABLE IF NOT EXISTS approval_steps/)
+    expect(mig101).toMatch(/UNIQUE \(request_id, step_no\)/)
+    expect(mig101).toMatch(/Step parties read steps/)
+    expect(mig101).toMatch(/Requesters file steps/)
+    expect(mig101).not.toMatch(/FOR UPDATE/)
+    expect(mig101).not.toMatch(/FOR DELETE/)
+  })
+})
+
 describe("00100 deal value (static)", () => {
   const mig100 = code(sql("00100_deal_value.sql"))
 

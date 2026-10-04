@@ -28,6 +28,19 @@ function verdictLabel(v: ApprovalRequestRow["verdict"]): string {
   return "Pending"
 }
 
+function StepLine({ steps }: { steps: ApprovalRequestRow["steps"] }) {
+  if (!steps || steps.length <= 1) return null
+  const done = steps.filter((s) => s.verdict === "approved").length
+  const live = steps.find((s) => s.verdict === "pending")
+  return (
+    <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">
+      Step {live ? steps.indexOf(live) + 1 : steps.length} of {steps.length}
+      {live ? ` · awaiting ${live.route}` : ""}
+      {done > 0 && ` · ${done} approved`}
+    </p>
+  )
+}
+
 // Approvals queue: route a batch plan to an Owner/Admin of a shared org,
 // decide with a frozen audit row (rejections carry a reason), and execute
 // on a live approved verdict through the same version/hash seal as
@@ -42,10 +55,8 @@ export function ApprovalsView() {
   const [plans, setPlans] = useState<Array<{ id: string; objective: string; estimated_credits: number; version: number; status: string; conversation_id: string | null }>>([])
   const [approvers, setApprovers] = useState<Array<{ userId: string; email: string; orgId: string }>>([])
   const [groups, setGroups] = useState<Array<{ groupId: string; name: string; orgId: string; members: number }>>([])
-  const [routeKind, setRouteKind] = useState<"person" | "group">("person")
   const [planId, setPlanId] = useState("")
-  const [approverId, setApproverId] = useState("")
-  const [groupId, setGroupId] = useState("")
+  const [legs, setLegs] = useState<Array<{ kind: "person" | "group"; id: string }>>([{ kind: "person", id: "" }])
   const [busy, setBusy] = useState(false)
   const [rowBusy, setRowBusy] = useState<string | null>(null)
   const [rejectFor, setRejectFor] = useState<string | null>(null)
@@ -106,13 +117,13 @@ export function ApprovalsView() {
       }
       if (a.ok) {
         setApprovers(a.approvers)
-        if (a.approvers.length > 0 && !approverId) setApproverId(a.approvers[0]!.userId)
+        setLegs((prev) => prev.map((l) => (l.kind === "person" && !l.id && a.approvers.length > 0 ? { ...l, id: a.approvers[0]!.userId } : l)))
       } else {
         showError(a.error)
       }
       if (g.ok) {
         setGroups(g.groups)
-        if (g.groups.length > 0 && !groupId) setGroupId(g.groups[0]!.groupId)
+        setLegs((prev) => prev.map((l) => (l.kind === "group" && !l.id && g.groups.length > 0 ? { ...l, id: g.groups[0]!.groupId } : l)))
       } else {
         showError(g.error)
       }
@@ -122,18 +133,18 @@ export function ApprovalsView() {
   }
 
   async function file() {
-    const target = routeKind === "group" ? groupId : approverId
-    if (busy || !planId || !target) return
+    const clean = legs.filter((l) => l.id)
+    if (busy || !planId || clean.length === 0) return
     setBusy(true)
     try {
-      const res = await requestApprovalDecision(
-        routeKind === "group"
-          ? { planId, approverGroupId: groupId }
-          : { planId, approverUserId: approverId }
-      )
+      const res = await requestApprovalDecision({
+        planId,
+        legs: clean.map((l) => (l.kind === "person" ? { userId: l.id } : { groupId: l.id })),
+      })
       if (!res.ok) throw new Error(res.error)
-      showSuccess("Routed for decision.")
+      showSuccess(clean.length > 1 ? `Routed through ${clean.length} steps.` : "Routed for decision.")
       setRequestOpen(false)
+      setLegs([{ kind: "person", id: "" }])
       await refresh()
     } catch (err) {
       showError(err instanceof Error ? err.message : "Couldn't file that request.")
@@ -152,7 +163,11 @@ export function ApprovalsView() {
     try {
       const res = await decideApprovalRequest({ requestId: id, verdict, comment: rejectComment })
       if (!res.ok) throw new Error(res.error)
-      showSuccess(verdict === "approved" ? "Approved." : "Rejected with reason.")
+      if ("advanced" in res && res.advanced) {
+        showSuccess(`Step recorded — moved to step ${res.step + 1} of ${res.stepsTotal}.`)
+      } else {
+        showSuccess(verdict === "approved" ? "Approved." : "Rejected with reason.")
+      }
       setRejectFor(null)
       setRejectComment("")
       await refresh()
@@ -189,30 +204,10 @@ export function ApprovalsView() {
 
       {requestOpen && (
         <div className="mb-4 border border-border bg-background p-4" aria-label="Request approval">
-          <p className="text-sm font-semibold">Route a plan to an approver</p>
+          <p className="text-sm font-semibold">Route a plan through approvers</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            One person decides, or any member of a group does. One live request per plan.
+            Steps run in order — each approves before the next is asked. One person or one group per step, up to 5.
           </p>
-          <div className="mt-2 flex gap-1.5" role="tablist" aria-label="Route to">
-            {(["person", "group"] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                role="tab"
-                aria-selected={routeKind === k}
-                onClick={() => setRouteKind(k)}
-                disabled={busy}
-                className={cn(
-                  "border px-2.5 py-1 text-xs font-medium capitalize transition-colors disabled:opacity-50",
-                  routeKind === k
-                    ? "border-foreground bg-muted font-semibold text-foreground"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {k === "person" ? "Person" : "Group"}
-              </button>
-            ))}
-          </div>
           <label className="mt-2 block text-[11px] font-medium text-muted-foreground" htmlFor="approval-plan">Batch plan</label>
           <select
             id="approval-plan"
@@ -228,57 +223,94 @@ export function ApprovalsView() {
               </option>
             ))}
           </select>
-          {routeKind === "person" ? (
-            <>
-              <label className="mt-2 block text-[11px] font-medium text-muted-foreground" htmlFor="approval-approver">Approver</label>
-              <select
-                id="approval-approver"
-                value={approverId}
-                onChange={(e) => setApproverId(e.target.value)}
+          <div className="mt-2 space-y-1.5" aria-label="Approval steps">
+            {legs.map((leg, i) => (
+              <div key={i} className="flex gap-1.5">
+                <span className="flex h-9 w-14 shrink-0 items-center text-[11px] tabular-nums text-muted-foreground">Step {i + 1}</span>
+                <div className="flex min-w-0 flex-1 gap-1.5">
+                  {(["person", "group"] as const).map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      aria-pressed={leg.kind === k}
+                      aria-label={`Step ${i + 1} route to ${k}`}
+                      onClick={() => setLegs((prev) => prev.map((x, j) => (j === i ? { kind: k, id: "" } : x)))}
+                      disabled={busy}
+                      className={cn(
+                        "h-9 shrink-0 border px-2 text-[11px] font-medium capitalize transition-colors disabled:opacity-50",
+                        leg.kind === k
+                          ? "border-foreground bg-muted font-semibold text-foreground"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {k === "person" ? "Person" : "Group"}
+                    </button>
+                  ))}
+                  {leg.kind === "person" ? (
+                    <select
+                      value={leg.id}
+                      onChange={(e) => setLegs((prev) => prev.map((x, j) => (j === i ? { ...x, id: e.target.value } : x)))}
+                      disabled={busy}
+                      aria-label={`Step ${i + 1} approver`}
+                      className="h-9 min-w-0 flex-1 border border-input bg-background px-2 text-xs disabled:opacity-60"
+                    >
+                      <option value="">Pick an approver…</option>
+                      {approvers.map((a) => (
+                        <option key={a.userId} value={a.userId}>{a.email || a.userId}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      value={leg.id}
+                      onChange={(e) => setLegs((prev) => prev.map((x, j) => (j === i ? { ...x, id: e.target.value } : x)))}
+                      disabled={busy}
+                      aria-label={`Step ${i + 1} group`}
+                      className="h-9 min-w-0 flex-1 border border-input bg-background px-2 text-xs disabled:opacity-60"
+                    >
+                      <option value="">Pick a group…</option>
+                      {groups.map((g) => (
+                        <option key={g.groupId} value={g.groupId}>{g.name} · {g.members} member{g.members === 1 ? "" : "s"}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                {legs.length > 1 && (
+                  <button
+                    type="button"
+                    aria-label={`Remove step ${i + 1}`}
+                    onClick={() => setLegs((prev) => prev.filter((_, j) => j !== i))}
+                    disabled={busy}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+            {legs.length < 5 && (
+              <button
+                type="button"
+                onClick={() => setLegs((prev) => [...prev, { kind: "person", id: "" }])}
                 disabled={busy}
-                className="mt-1 h-9 w-full border border-input bg-background px-2 text-sm disabled:opacity-60"
+                className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"
               >
-                <option value="">Pick an approver…</option>
-                {approvers.map((a) => (
-                  <option key={a.userId} value={a.userId}>{a.email || a.userId}</option>
-                ))}
-              </select>
-              {approvers.length === 0 && (
-                <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  No eligible approvers — join an organization with an owner or admin first.
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <label className="mt-2 block text-[11px] font-medium text-muted-foreground" htmlFor="approval-group">Group — any member decides</label>
-              <select
-                id="approval-group"
-                value={groupId}
-                onChange={(e) => setGroupId(e.target.value)}
-                disabled={busy}
-                className="mt-1 h-9 w-full border border-input bg-background px-2 text-sm disabled:opacity-60"
-              >
-                <option value="">Pick a group…</option>
-                {groups.map((g) => (
-                  <option key={g.groupId} value={g.groupId}>{g.name} · {g.members} member{g.members === 1 ? "" : "s"}</option>
-                ))}
-              </select>
-              {groups.length === 0 && (
-                <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  No groups yet — owners and admins create them in the Team tab.
-                </p>
-              )}
-            </>
+                + Add another step
+              </button>
+            )}
+          </div>
+          {(approvers.length === 0 && groups.length === 0) && (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              No approvers or groups — join an organization first (owners create groups in the Team tab).
+            </p>
           )}
           <div className="mt-3 flex gap-2">
             <button
               type="button"
               onClick={() => void file()}
-              disabled={busy || !planId || (routeKind === "group" ? !groupId : !approverId)}
+              disabled={busy || !planId || legs.every((l) => !l.id)}
               className="inline-flex h-9 items-center bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
             >
-              {busy ? "Routing…" : "Route for decision"}
+              {busy ? "Routing…" : legs.filter((l) => l.id).length > 1 ? `Route ${legs.filter((l) => l.id).length} steps` : "Route for decision"}
             </button>
             <button
               type="button"
@@ -328,6 +360,7 @@ export function ApprovalsView() {
                         </span>
                       )}
                     </p>
+                    <StepLine steps={r.steps} />
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       from {r.requester_email || "a teammate"}{r.group_name ? ` · routed to ${r.group_name}` : ""} · {r.detail}
                     </p>
