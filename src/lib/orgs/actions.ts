@@ -11,6 +11,155 @@ export interface OrgMembership {
   role: OrgRole
 }
 
+export interface OrgGroup {
+  groupId: string
+  orgId: string
+  orgName: string
+  name: string
+  members: Array<{ userId: string; email: string }>
+  canManage: boolean
+}
+
+/** Groups across the caller's orgs, with member emails for management. */
+export async function listOrgGroups(): Promise<{ ok: true; groups: OrgGroup[] } | { ok: false; error: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) return { ok: false as const, error: "Service not configured." }
+    const svc = createServiceClient(url, key)
+    const { data: mine } = await svc.from("organization_members").select("org_id, role").eq("user_id", user.id)
+    const myOrgs = ((mine ?? []) as Array<{ org_id: string; role: string }>)
+    if (myOrgs.length === 0) return { ok: true as const, groups: [] }
+    const roleByOrg = new Map(myOrgs.map((m) => [m.org_id, m.role]))
+    const { data: orgs } = await svc.from("organizations").select("id, name").in("id", [...roleByOrg.keys()])
+    const orgNames = new Map(((orgs ?? []) as Array<{ id: string; name: string }>).map((o) => [o.id, o.name]))
+    const { data: groups } = await svc
+      .from("permission_groups")
+      .select("id, org_id, name")
+      .in("org_id", [...roleByOrg.keys()])
+      .order("name", { ascending: true })
+      .limit(100)
+    const groupRows = ((groups ?? []) as Array<{ id: string; org_id: string; name: string }>)
+    if (groupRows.length === 0) return { ok: true as const, groups: [] }
+    const { data: members } = await svc
+      .from("permission_group_members")
+      .select("group_id, user_id")
+      .in("group_id", groupRows.map((g) => g.id))
+      .limit(500)
+    const emails = new Map<string, string>()
+    try {
+      const { data: listed } = await svc.auth.admin.listUsers({ page: 1, perPage: 200 })
+      for (const u of ((listed as { users?: Array<{ id: string; email?: string }> } | null)?.users ?? [])) {
+        emails.set(u.id, u.email ?? "")
+      }
+    } catch {
+      // Emails are display-only; management works on ids.
+    }
+    const byGroup = new Map<string, Array<{ userId: string; email: string }>>()
+    for (const m of ((members ?? []) as Array<{ group_id: string; user_id: string }>)) {
+      if (!byGroup.has(m.group_id)) byGroup.set(m.group_id, [])
+      byGroup.get(m.group_id)!.push({ userId: m.user_id, email: emails.get(m.user_id) ?? "" })
+    }
+    return {
+      ok: true as const,
+      groups: groupRows.map((g) => ({
+        groupId: g.id,
+        orgId: g.org_id,
+        orgName: orgNames.get(g.org_id) ?? "Organization",
+        name: g.name,
+        members: byGroup.get(g.id) ?? [],
+        canManage: roleByOrg.get(g.org_id) === "owner" || roleByOrg.get(g.org_id) === "admin",
+      })),
+    }
+  } catch (e) {
+    return toActionFailure(e, "We couldn't load groups.") as never
+  }
+}
+
+export async function createOrgGroup(
+  orgId: string,
+  name: string
+): Promise<{ ok: true; groupId: string } | { ok: false; error: string }> {
+  try {
+    if (!isUUID(orgId)) return { ok: false as const, error: "Invalid organization." }
+    const clean = name.trim().slice(0, 120)
+    if (!clean) return { ok: false as const, error: "Name the group first." }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false as const, error: "Please verify your email address first." }
+    const { data, error } = await supabase.rpc("create_permission_group", { p_org_id: orgId, p_name: clean })
+    if (error) {
+      if (error.message.includes("permission_group")) {
+        return { ok: false as const, error: "Groups need a database update (migration 00098). Please try again after migrating." }
+      }
+      return { ok: false as const, error: "We couldn't create that group. Please try again." }
+    }
+    const row = (Array.isArray(data) ? data[0] : data) as { id?: string } | null
+    if (!row?.id) return { ok: false as const, error: "We couldn't create that group. Please try again." }
+    return { ok: true as const, groupId: String(row.id) }
+  } catch (e) {
+    return toActionFailure(e, "We couldn't create that group.") as never
+  }
+}
+
+export async function addOrgGroupMember(
+  groupId: string,
+  email: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    if (!isUUID(groupId)) return { ok: false as const, error: "Invalid group." }
+    const clean = email.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) return { ok: false as const, error: "Enter a valid email." }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false as const, error: "Please verify your email address first." }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) return { ok: false as const, error: "Service not configured." }
+    const svc = createServiceClient(url, key)
+    const { data: listed, error: listError } = await svc.auth.admin.listUsers({ page: 1, perPage: 200 })
+    if (listError) return { ok: false as const, error: "We couldn't find that account. Please try again." }
+    const target = ((((listed as unknown as { users?: Array<{ id: string; email?: string }> }).users) ?? []).find((u) => (u.email ?? "").toLowerCase() === clean))
+    if (!target) return { ok: false as const, error: "No Dealenz account uses that email yet. They need to register and join the organization first." }
+    const { data, error } = await supabase.rpc("add_permission_group_member", { p_group_id: groupId, p_user_id: target.id })
+    if (error) {
+      if (error.message.includes("permission_group")) {
+        return { ok: false as const, error: "Groups need a database update (migration 00098). Please try again after migrating." }
+      }
+      return { ok: false as const, error: "We couldn't add that member. Please try again." }
+    }
+    const row = (Array.isArray(data) ? data[0] : data) as { success?: boolean; message?: string } | null
+    if (!row?.success) return { ok: false as const, error: row?.message ?? "We couldn't add that member." }
+    return { ok: true as const }
+  } catch (e) {
+    return toActionFailure(e, "We couldn't add that member.") as never
+  }
+}
+
+export async function removeOrgGroupMember(
+  groupId: string,
+  userId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    if (!isUUID(groupId) || !isUUID(userId)) return { ok: false as const, error: "Invalid member." }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const { data, error } = await supabase.rpc("remove_permission_group_member", { p_group_id: groupId, p_user_id: userId })
+    if (error) return { ok: false as const, error: "We couldn't remove that member." }
+    const row = (Array.isArray(data) ? data[0] : data) as { success?: boolean; message?: string } | null
+    if (!row?.success) return { ok: false as const, error: row?.message ?? "We couldn't remove that member." }
+    return { ok: true as const }
+  } catch (e) {
+    return toActionFailure(e, "We couldn't remove that member.") as never
+  }
+}
+
 function isUUID(v: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 }

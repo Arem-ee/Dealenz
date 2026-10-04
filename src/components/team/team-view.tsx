@@ -1,6 +1,16 @@
 "use client"
 
-import { Check, Plus, Users } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Check, Plus, Trash2, Users } from "lucide-react"
+import { useToast } from "@/components/ui/toast"
+import {
+  addOrgGroupMember,
+  createOrgGroup,
+  listMyOrganizations,
+  listOrgGroups,
+  removeOrgGroupMember,
+  type OrgGroup,
+} from "@/lib/orgs/actions"
 
 const ROLE_COLUMNS = ["Owner", "Admin", "Member", "Viewer"] as const
 
@@ -43,9 +53,118 @@ const MATRIX: Array<{ group: string; rows: Array<{ label: string; desc: string; 
   },
 ]
 
-// Team foreground: layout and states only. Invites, groups, role changes,
-// and enforcement wire up when the tab gets its functions.
+// Team foreground: roles matrix plus live groups. Groups are the routing
+// fabric — approvals go to a group and any member decides. Owners and
+// admins manage; members see.
 export function TeamView() {
+  const { showError, showSuccess } = useToast()
+  const [groups, setGroups] = useState<OrgGroup[] | null>(null)
+  const [orgs, setOrgs] = useState<Array<{ orgId: string; orgName: string; role: string }>>([])
+  const [createOpen, setCreateOpen] = useState(false)
+  const [newOrgId, setNewOrgId] = useState("")
+  const [newName, setNewName] = useState("")
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [addEmail, setAddEmail] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+
+  const refresh = async () => {
+    try {
+      const [g, o] = await Promise.all([listOrgGroups(), listMyOrganizations()])
+      if (!g.ok) {
+        showError(g.error)
+        setGroups([])
+      } else {
+        setGroups(g.groups)
+      }
+      if (o.ok) {
+        setOrgs(o.orgs)
+        if (o.orgs.length > 0 && !newOrgId) {
+          const manageable = o.orgs.find((x) => x.role === "owner" || x.role === "admin")
+          setNewOrgId((manageable ?? o.orgs[0]!).orgId)
+        }
+      }
+    } catch {
+      showError("Team failed to load")
+      setGroups([])
+    }
+  }
+
+  useEffect(() => {
+    let live = true
+    Promise.all([listOrgGroups(), listMyOrganizations()])
+      .then(([g, o]) => {
+        if (!live) return
+        if (!g.ok) {
+          showError(g.error)
+          setGroups([])
+        } else {
+          setGroups(g.groups)
+        }
+        if (o.ok) {
+          setOrgs(o.orgs)
+          const manageable = o.orgs.find((x) => x.role === "owner" || x.role === "admin")
+          if (manageable) setNewOrgId(manageable.orgId)
+          else if (o.orgs.length > 0) setNewOrgId(o.orgs[0]!.orgId)
+        }
+      })
+      .catch(() => {
+        if (!live) return
+        showError("Team failed to load")
+        setGroups([])
+      })
+    return () => {
+      live = false
+    }
+  }, [showError])
+
+  async function create() {
+    if (busy || !newOrgId || !newName.trim()) return
+    setBusy(true)
+    try {
+      const res = await createOrgGroup(newOrgId, newName)
+      if (!res.ok) throw new Error(res.error)
+      showSuccess("Group created.")
+      setCreateOpen(false)
+      setNewName("")
+      await refresh()
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't create that group.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function add(groupId: string) {
+    const email = (addEmail[groupId] ?? "").trim()
+    if (busy || !email) return
+    setBusy(true)
+    try {
+      const res = await addOrgGroupMember(groupId, email)
+      if (!res.ok) throw new Error(res.error)
+      showSuccess("Added to group.")
+      setAddEmail((prev) => ({ ...prev, [groupId]: "" }))
+      await refresh()
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't add that member.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove(groupId: string, userId: string) {
+    if (busy) return
+    setBusy(true)
+    try {
+      const res = await removeOrgGroupMember(groupId, userId)
+      if (!res.ok) throw new Error(res.error)
+      await refresh()
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't remove that member.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col overflow-y-auto px-4 pb-6 sm:px-6">
       <div className="flex shrink-0 items-end justify-between gap-3 pb-4 pt-6">
@@ -73,15 +192,144 @@ export function TeamView() {
       </section>
 
       <section aria-label="Groups" className="mt-6 shrink-0">
-        <h2 className="text-sm font-semibold">Groups</h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Reusable sets of people — approvals and access go to groups, not individuals.
-        </p>
-        <div className="mt-2 border border-dashed px-4 py-10 text-center">
-          <p className="text-sm font-medium">No groups yet</p>
-          <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-            Finance, Legal, Founders — group once, assign everywhere. Groups wire up with this tab&apos;s functions.
-          </p>
+        <div className="flex items-end justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold">Groups</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Reusable sets of people — approvals go to a group and any member decides.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCreateOpen((v) => !v)}
+            className="inline-flex h-8 shrink-0 items-center gap-1 border border-border px-3 text-[11px] font-medium hover:bg-muted"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            New group
+          </button>
+        </div>
+
+        {createOpen && (
+          <div className="mt-2 border border-border bg-background p-3" aria-label="Create a group">
+            <label className="block text-[11px] font-medium text-muted-foreground" htmlFor="group-org">Organization</label>
+            <select
+              id="group-org"
+              value={newOrgId}
+              onChange={(e) => setNewOrgId(e.target.value)}
+              disabled={busy}
+              className="mt-1 h-9 w-full border border-input bg-background px-2 text-sm disabled:opacity-60"
+            >
+              <option value="">Pick an organization…</option>
+              {orgs.map((o) => (
+                <option key={o.orgId} value={o.orgId}>{o.orgName} · {o.role}</option>
+              ))}
+            </select>
+            <label className="mt-2 block text-[11px] font-medium text-muted-foreground" htmlFor="group-name">
+              Group name
+            </label>
+            <div className="mt-1 flex gap-1.5">
+              <input
+                id="group-name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                disabled={busy}
+                autoComplete="off"
+                placeholder="Finance, Legal, Founders…"
+                className="h-9 min-w-0 flex-1 border border-input bg-background px-2 text-sm outline-none disabled:opacity-60"
+              />
+              <button
+                type="button"
+                onClick={() => void create()}
+                disabled={busy || !newOrgId || !newName.trim()}
+                className="h-9 shrink-0 bg-primary px-3 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
+              >
+                Create
+              </button>
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">Owners and admins only — enforced server-side.</p>
+          </div>
+        )}
+
+        <div className="mt-2">
+          {groups === null ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Loading groups…</p>
+          ) : groups.length === 0 ? (
+            <div className="border border-dashed px-4 py-10 text-center">
+              <p className="text-sm font-medium">No groups yet</p>
+              <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+                Finance, Legal, Founders — group once, route approvals to the group forever.
+              </p>
+            </div>
+          ) : (
+            <ul className="space-y-1.5">
+              {groups.map((g) => (
+                <li key={g.groupId} className="border border-border bg-background">
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((prev) => (prev === g.groupId ? null : g.groupId))}
+                    aria-expanded={expanded === g.groupId}
+                    className="flex w-full items-center gap-3 px-3.5 py-3 text-left"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">{g.name}</span>
+                      <span className="mt-0.5 block text-[11px] tabular-nums text-muted-foreground">
+                        {g.orgName} · {g.members.length} member{g.members.length === 1 ? "" : "s"}
+                      </span>
+                    </span>
+                  </button>
+                  {expanded === g.groupId && (
+                    <div className="border-t border-border px-3.5 py-3">
+                      {g.members.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">Empty — add the first decider below.</p>
+                      ) : (
+                        <ul className="space-y-1.5">
+                          {g.members.map((m) => (
+                            <li key={m.userId} className="flex items-center gap-2 text-[13px]">
+                              <span className="min-w-0 flex-1 truncate">{m.email || m.userId}</span>
+                              {g.canManage && (
+                                <button
+                                  type="button"
+                                  onClick={() => void remove(g.groupId, m.userId)}
+                                  disabled={busy}
+                                  aria-label={`Remove ${m.email || m.userId} from ${g.name}`}
+                                  className="shrink-0 p-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {g.canManage ? (
+                        <div className="mt-2 flex gap-1.5">
+                          <input
+                            value={addEmail[g.groupId] ?? ""}
+                            onChange={(e) => setAddEmail((prev) => ({ ...prev, [g.groupId]: e.target.value }))}
+                            disabled={busy}
+                            placeholder="colleague@example.com"
+                            aria-label={`Add member email for ${g.name}`}
+                            autoComplete="off"
+                            className="h-8 min-w-0 flex-1 border border-input bg-background px-2 text-xs outline-none disabled:opacity-60"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void add(g.groupId)}
+                            disabled={busy || !(addEmail[g.groupId] ?? "").trim()}
+                            className="h-8 shrink-0 border border-border px-2.5 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-[11px] text-muted-foreground">Only owners and admins manage groups.</p>
+                      )}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 

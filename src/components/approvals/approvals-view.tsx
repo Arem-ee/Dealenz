@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/toast"
 import {
   decideApprovalRequest,
+  listApprovalGroups,
   listApprovalQueue,
   listApprovers,
   listRequestablePlans,
@@ -40,8 +41,11 @@ export function ApprovalsView() {
   const [requestOpen, setRequestOpen] = useState(false)
   const [plans, setPlans] = useState<Array<{ id: string; objective: string; estimated_credits: number; version: number; status: string; conversation_id: string | null }>>([])
   const [approvers, setApprovers] = useState<Array<{ userId: string; email: string; orgId: string }>>([])
+  const [groups, setGroups] = useState<Array<{ groupId: string; name: string; orgId: string; members: number }>>([])
+  const [routeKind, setRouteKind] = useState<"person" | "group">("person")
   const [planId, setPlanId] = useState("")
   const [approverId, setApproverId] = useState("")
+  const [groupId, setGroupId] = useState("")
   const [busy, setBusy] = useState(false)
   const [rowBusy, setRowBusy] = useState<string | null>(null)
   const [rejectFor, setRejectFor] = useState<string | null>(null)
@@ -93,7 +97,7 @@ export function ApprovalsView() {
   async function openRequest() {
     setRequestOpen(true)
     try {
-      const [p, a] = await Promise.all([listRequestablePlans(), listApprovers()])
+      const [p, a, g] = await Promise.all([listRequestablePlans(), listApprovers(), listApprovalGroups()])
       if (p.ok) {
         setPlans(p.plans)
         if (p.plans.length > 0 && !planId) setPlanId(p.plans[0]!.id)
@@ -106,16 +110,27 @@ export function ApprovalsView() {
       } else {
         showError(a.error)
       }
+      if (g.ok) {
+        setGroups(g.groups)
+        if (g.groups.length > 0 && !groupId) setGroupId(g.groups[0]!.groupId)
+      } else {
+        showError(g.error)
+      }
     } catch {
       // Request validates server-side; pickers are best-effort.
     }
   }
 
   async function file() {
-    if (busy || !planId || !approverId) return
+    const target = routeKind === "group" ? groupId : approverId
+    if (busy || !planId || !target) return
     setBusy(true)
     try {
-      const res = await requestApprovalDecision({ planId, approverUserId: approverId })
+      const res = await requestApprovalDecision(
+        routeKind === "group"
+          ? { planId, approverGroupId: groupId }
+          : { planId, approverUserId: approverId }
+      )
       if (!res.ok) throw new Error(res.error)
       showSuccess("Routed for decision.")
       setRequestOpen(false)
@@ -176,8 +191,28 @@ export function ApprovalsView() {
         <div className="mb-4 border border-border bg-background p-4" aria-label="Request approval">
           <p className="text-sm font-semibold">Route a plan to an approver</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Approvers are owners and admins of organizations you belong to. One live request per plan.
+            One person decides, or any member of a group does. One live request per plan.
           </p>
+          <div className="mt-2 flex gap-1.5" role="tablist" aria-label="Route to">
+            {(["person", "group"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="tab"
+                aria-selected={routeKind === k}
+                onClick={() => setRouteKind(k)}
+                disabled={busy}
+                className={cn(
+                  "border px-2.5 py-1 text-xs font-medium capitalize transition-colors disabled:opacity-50",
+                  routeKind === k
+                    ? "border-foreground bg-muted font-semibold text-foreground"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {k === "person" ? "Person" : "Group"}
+              </button>
+            ))}
+          </div>
           <label className="mt-2 block text-[11px] font-medium text-muted-foreground" htmlFor="approval-plan">Batch plan</label>
           <select
             id="approval-plan"
@@ -193,29 +228,54 @@ export function ApprovalsView() {
               </option>
             ))}
           </select>
-          <label className="mt-2 block text-[11px] font-medium text-muted-foreground" htmlFor="approval-approver">Approver</label>
-          <select
-            id="approval-approver"
-            value={approverId}
-            onChange={(e) => setApproverId(e.target.value)}
-            disabled={busy}
-            className="mt-1 h-9 w-full border border-input bg-background px-2 text-sm disabled:opacity-60"
-          >
-            <option value="">Pick an approver…</option>
-            {approvers.map((a) => (
-              <option key={a.userId} value={a.userId}>{a.email || a.userId}</option>
-            ))}
-          </select>
-          {approvers.length === 0 && (
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
-              No eligible approvers — join an organization with an owner or admin first.
-            </p>
+          {routeKind === "person" ? (
+            <>
+              <label className="mt-2 block text-[11px] font-medium text-muted-foreground" htmlFor="approval-approver">Approver</label>
+              <select
+                id="approval-approver"
+                value={approverId}
+                onChange={(e) => setApproverId(e.target.value)}
+                disabled={busy}
+                className="mt-1 h-9 w-full border border-input bg-background px-2 text-sm disabled:opacity-60"
+              >
+                <option value="">Pick an approver…</option>
+                {approvers.map((a) => (
+                  <option key={a.userId} value={a.userId}>{a.email || a.userId}</option>
+                ))}
+              </select>
+              {approvers.length === 0 && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  No eligible approvers — join an organization with an owner or admin first.
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <label className="mt-2 block text-[11px] font-medium text-muted-foreground" htmlFor="approval-group">Group — any member decides</label>
+              <select
+                id="approval-group"
+                value={groupId}
+                onChange={(e) => setGroupId(e.target.value)}
+                disabled={busy}
+                className="mt-1 h-9 w-full border border-input bg-background px-2 text-sm disabled:opacity-60"
+              >
+                <option value="">Pick a group…</option>
+                {groups.map((g) => (
+                  <option key={g.groupId} value={g.groupId}>{g.name} · {g.members} member{g.members === 1 ? "" : "s"}</option>
+                ))}
+              </select>
+              {groups.length === 0 && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  No groups yet — owners and admins create them in the Team tab.
+                </p>
+              )}
+            </>
           )}
           <div className="mt-3 flex gap-2">
             <button
               type="button"
               onClick={() => void file()}
-              disabled={busy || !planId || !approverId}
+              disabled={busy || !planId || (routeKind === "group" ? !groupId : !approverId)}
               className="inline-flex h-9 items-center bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
             >
               {busy ? "Routing…" : "Route for decision"}
@@ -262,7 +322,7 @@ export function ApprovalsView() {
                   <li key={r.id} className="border border-border bg-background px-3.5 py-3">
                     <p className="text-sm font-medium">{r.title}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      from {r.requester_email || "a teammate"} · {r.detail}
+                      from {r.requester_email || "a teammate"}{r.group_name ? ` · routed to ${r.group_name}` : ""} · {r.detail}
                     </p>
                     {rejectFor === r.id ? (
                       <div className="mt-2">
@@ -332,7 +392,7 @@ export function ApprovalsView() {
                   <li key={r.id} className="border border-border bg-background px-3.5 py-3">
                     <p className="text-sm font-medium">{r.title}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      awaiting {r.approver_email || "your approver"} · {r.detail}
+                      awaiting {r.group_name ? `${r.group_name} (any member)` : (r.approver_email || "your approver")} · {r.detail}
                     </p>
                   </li>
                 ))}
@@ -353,7 +413,7 @@ export function ApprovalsView() {
                       </span>
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {r.requester_email || "teammate"} → {r.approver_email || "approver"} · frozen
+                      {r.requester_email || "teammate"} → {r.group_name ?? r.approver_email ?? "approver"} · frozen
                       at plan v{r.plan_version ?? "?"}{r.comment ? ` · “${r.comment}”` : ""}
                     </p>
                   </li>

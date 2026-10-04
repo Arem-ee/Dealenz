@@ -609,6 +609,27 @@ describe("00083 credit purchase revocation statuses (static)", () => {
   })
 })
 
+describe("00098 approval groups (static)", () => {
+  const mig98 = code(sql("00098_approval_groups.sql"))
+
+  it("creates org-scoped groups with RPC-gated writes", () => {
+    expect(mig98).toMatch(/CREATE TABLE IF NOT EXISTS permission_groups/)
+    expect(mig98).toMatch(/CREATE TABLE IF NOT EXISTS permission_group_members/)
+    expect(mig98).toMatch(/create_permission_group/)
+    expect(mig98).toMatch(/add_permission_group_member/)
+    expect(mig98).toMatch(/remove_permission_group_member/)
+    expect(mig98).not.toMatch(/ON permission_groups FOR (INSERT|UPDATE|DELETE)/)
+    expect(mig98).not.toMatch(/ON permission_group_members FOR (INSERT|UPDATE|DELETE)/)
+  })
+
+  it("relaxes routing to named-XOR-group with group queue policies", () => {
+    expect(mig98).toMatch(/DROP CONSTRAINT IF EXISTS approval_requests_check/)
+    expect(mig98).toMatch(/approval_requests_routing_check/)
+    expect(mig98).toMatch(/permission_group_members gm/)
+    expect(mig98).toMatch(/Approvers decide pending requests/)
+  })
+})
+
 describe("00097 subscriptions (static)", () => {
   const mig = code(sql("00097_subscriptions.sql"))
 
