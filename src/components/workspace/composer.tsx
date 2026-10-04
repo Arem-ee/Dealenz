@@ -62,6 +62,8 @@ export function Composer({ mode }: { mode: ComposerMode }) {
   const [dragOver, setDragOver] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [valueAmount, setValueAmount] = useState("")
+  const [valueCurrency, setValueCurrency] = useState("USD")
   const [listening, setListening] = useState(false)
   const [dictationUnsupported, setDictationUnsupported] = useState(false)
   const recognitionRef = useRef<{ stop: () => void } | null>(null)
@@ -210,7 +212,10 @@ export function Composer({ mode }: { mode: ComposerMode }) {
       const ready = staged.filter((s) => !s.problem && s.status !== "attached")
       if (mode.kind === "new") {
         const body = text.trim() || `Review attached file(s): ${ready.map((s) => s.file.name).join(", ")}`
-        const created = await createDeal({ text: body })
+        const created = await createDeal({
+          text: body,
+          ...(valueAmount.trim() !== "" ? { valueAmount: valueAmount.trim(), valueCurrency } : {}),
+        })
         if (!created.ok) throw new Error(created.error)
         if (ready.length > 0) {
           const paths = await uploadStaged(created.auditId, ready, update)
@@ -330,6 +335,31 @@ export function Composer({ mode }: { mode: ComposerMode }) {
         <p role="alert" className="mb-2 border border-destructive/30 bg-destructive/5 px-2.5 py-2 text-xs text-destructive">
           {error}
         </p>
+      )}
+      {mode.kind === "new" && (
+        <div className="mb-2 flex items-center gap-1.5" aria-label="Deal value (optional)">
+          <input
+            value={valueAmount}
+            onChange={(e) => setValueAmount(e.target.value.replace(/[^0-9.,\s]/g, ""))}
+            disabled={busy}
+            inputMode="decimal"
+            placeholder="Deal value (optional)"
+            aria-label="Deal value amount"
+            autoComplete="off"
+            className="h-8 w-36 border border-input bg-background px-2 text-xs outline-none placeholder:text-muted-foreground/60 disabled:opacity-60"
+          />
+          <select
+            value={valueCurrency}
+            onChange={(e) => setValueCurrency(e.target.value)}
+            disabled={busy}
+            aria-label="Deal value currency"
+            className="h-8 border border-input bg-background px-1.5 text-xs disabled:opacity-60"
+          >
+            {["USD", "GBP", "EUR", "NGN"].map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
       )}
       <div
         className="flex items-center gap-1"

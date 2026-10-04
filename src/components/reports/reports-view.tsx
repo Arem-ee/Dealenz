@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/toast"
 import { getReports, type ReportsData } from "@/app/(app)/reports/actions"
 import { formatDays, toCsv } from "@/lib/reports/stats"
+import { formatDealValue } from "@/lib/deals/value"
 
 function downloadCsv(filename: string, csv: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
@@ -117,6 +118,7 @@ export function ReportsView() {
     ["Sealed this month", String(data.pipeline.sealedThisMonth)],
     ["Credits used · 30d", String(data.spend.total30d)],
   ]
+  const portfolioEmpty = data.portfolio.byCurrency.length === 0
 
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col overflow-y-auto px-4 pb-6 sm:px-6">
@@ -280,6 +282,31 @@ export function ReportsView() {
           </p>
         </div>
       )}
+
+      <div className="mt-4">
+        <Section
+          title="Portfolio value"
+          desc={`${data.portfolio.withValue} of ${data.portfolio.total} deals carry a value — sums by currency, no conversion.`}
+          filename="portfolio-value.csv"
+          csv={toCsv(
+            ["currency", "total_minor", "deals"],
+            data.portfolio.byCurrency.map((p) => [p.currency, String(p.total), String(p.deals)])
+          )}
+        >
+          {portfolioEmpty ? (
+            <p className="text-xs text-muted-foreground">No values on file — add one per deal in its workspace. History stays blank, never zero.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {data.portfolio.byCurrency.map((p) => (
+                <div key={p.currency} className="flex items-center justify-between gap-2 text-[13px]">
+                  <span className="text-muted-foreground">{p.currency} · {p.deals} deal{p.deals === 1 ? "" : "s"}</span>
+                  <span className="tabular-nums font-semibold">{formatDealValue(p.total, p.currency)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Section>
+      </div>
 
       <div className="mt-4">
         <Section

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { buildRepoRows, countBy } from "@/lib/deals/repo"
 import type { RuleResult } from "@/lib/rules/result"
 import { dailyCounts, medianDays, monthBuckets } from "@/lib/reports/stats"
+import { sumByCurrency } from "@/lib/deals/value"
 
 // Reports aggregates — read-only across owned rows, bounded everywhere.
 // Stage and risk reuse the Home derivation over the same queries, so the
@@ -32,6 +33,7 @@ export interface ReportsData {
   }
   obligations: { open: number; overdue: number; completed: number; dismissed: number }
   spend: { byOperation: Array<{ operation: string; credits: number }>; total30d: number }
+  portfolio: { byCurrency: Array<{ currency: string; total: number; deals: number }>; withValue: number; total: number }
   signed: {
     sealedPerMonth: Array<{ month: string; count: number }>
     sealedTotal: number
@@ -56,7 +58,7 @@ export async function getReports(): Promise<{ ok: true; data: ReportsData } | { 
   const today = new Date().toISOString().slice(0, 10)
 
   const [auditsRes, versionsRes, signersRes, decisionsRes, eventsRes, obligationsRes, ledgerRes] = await Promise.all([
-    supabase.from("audits").select("id, title, deal_type, updated_at, structured_data").eq("user_id", userId).order("updated_at", { ascending: false }).limit(200),
+    supabase.from("audits").select("id, title, deal_type, updated_at, structured_data, deal_value_minor, deal_value_currency").eq("user_id", userId).order("updated_at", { ascending: false }).limit(200),
     supabase.from("document_versions").select("audit_id, status, created_at, locked_at, owner_signed_at, counterparty_signed_at").eq("user_id", userId).limit(500),
     supabase.from("document_signers").select("created_at, signed_at").eq("status", "signed").limit(500),
     supabase.from("approval_requests").select("created_at, decided_at, verdict").neq("verdict", "pending").limit(200),
@@ -166,6 +168,16 @@ export async function getReports(): Promise<{ ok: true; data: ReportsData } | { 
       spend: {
         byOperation: [...spendByOp.entries()].map(([operation, credits]) => ({ operation, credits })).sort((a, b) => b.credits - a.credits),
         total30d: [...spendByOp.values()].reduce((a, b) => a + b, 0),
+      },
+      portfolio: {
+        byCurrency: sumByCurrency(
+          ((auditsRes.data ?? []) as Array<{ deal_value_minor?: number | null; deal_value_currency?: string | null }>).map((a) => ({
+            minor: a.deal_value_minor ?? null,
+            currency: a.deal_value_currency ?? null,
+          }))
+        ),
+        withValue: ((auditsRes.data ?? []) as Array<{ deal_value_minor?: number | null }>).filter((a) => a.deal_value_minor !== null && a.deal_value_minor !== undefined).length,
+        total: ((auditsRes.data ?? []) as unknown[]).length,
       },
       signed: {
         sealedPerMonth: monthBuckets(sealedStamps),

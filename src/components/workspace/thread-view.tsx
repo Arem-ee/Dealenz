@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Composer } from "@/components/workspace/composer"
+import { DealValue } from "@/components/workspace/deal-value"
 import { GenerateDraft } from "@/components/workspace/generate-draft"
 import { correctDealType, type ThreadView as ThreadData } from "@/app/(app)/chat/actions"
 import { INTAKE_DEAL_TYPES } from "@/lib/deals/intake"
@@ -148,6 +149,9 @@ export function ThreadView({ initial }: { initial: ThreadData }) {
             </section>
           )}
           {initial.auditId && <GenerateDraft auditId={initial.auditId} />}
+          {initial.auditId && (
+            <DealValue auditId={initial.auditId} minor={initial.dealValueMinor} currency={initial.dealValueCurrency} />
+          )}
         </div>
       </section>
     </div>

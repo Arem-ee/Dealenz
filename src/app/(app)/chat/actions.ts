@@ -217,7 +217,7 @@ async function runAnalysisForAudit(
  * the classifier's visible shot — operation, intent, proposed type — with
  * one-tap correction in the thread. Analysis runs automatically next.
  */
-export async function createDeal(input: { text: string; dealType?: string }): Promise<
+export async function createDeal(input: { text: string; dealType?: string; valueAmount?: string; valueCurrency?: string }): Promise<
   | ActionOk<{ threadId: string; auditId: string; operation: string; intent: string; dealType: IntakeDealType }>
   | ActionFail
 > {
@@ -235,9 +235,31 @@ export async function createDeal(input: { text: string; dealType?: string }): Pr
   const intent = inferIntent(text, operation)
   const raw = text.length > MAX_RAW_INPUT_CHARS ? `${text.slice(0, MAX_RAW_INPUT_CHARS).trimEnd()}…(truncated)` : text
 
+  let valueMinor: number | null = null
+  let valueCurrency: string | null = null
+  let envelope: Record<string, unknown> | null = null
+  if ((input.valueAmount ?? "").trim() !== "" || (input.valueCurrency ?? "").trim() !== "") {
+    const { parseDealValue } = await import("@/lib/deals/value")
+    const parsed = parseDealValue({ amount: input.valueAmount ?? "", currency: input.valueCurrency ?? "" })
+    if ("error" in parsed) return { ok: false, error: parsed.error }
+    const { envelopeWithValue } = await import("@/lib/deals/value")
+    const { emptyContextEnvelope } = await import("@/lib/context/schema")
+    const built = envelopeWithValue(emptyContextEnvelope(), parsed.minor, parsed.currency)
+    envelope = JSON.parse(JSON.stringify(built)) as Record<string, unknown>
+    valueMinor = parsed.minor
+    valueCurrency = parsed.currency
+  }
+
   const { data: audit, error: auditError } = await supabase
     .from("audits")
-    .insert({ user_id: userId, title: deriveTitle(text), deal_type: dealType, raw_input: raw })
+    .insert({
+      user_id: userId,
+      title: deriveTitle(text),
+      deal_type: dealType,
+      raw_input: raw,
+      ...(envelope ? { context_envelope: envelope as never, context_version: 1 } : {}),
+      ...(valueMinor !== null ? { deal_value_minor: valueMinor, deal_value_currency: valueCurrency } : {}),
+    })
     .select("id")
     .single()
   if (auditError || !audit) return { ok: false, error: "We couldn't start that deal. Please try again." }
@@ -340,6 +362,8 @@ export interface ThreadView {
   title: string
   auditId: string | null
   dealType: string | null
+  dealValueMinor: number | null
+  dealValueCurrency: string | null
   operation: string | null
   intent: string | null
   findings: FindingView[]
@@ -356,12 +380,12 @@ export async function getThread(threadId: string): Promise<ActionOk<{ thread: Th
   const thread = await getConversation(supabase as never, userId, threadId).catch(() => null)
   if (!thread) return { ok: false, error: "Thread not found." }
   const messages = await listMessages(supabase as never, userId, threadId, 50).catch(() => [])
-  type AuditThreadRow = { id: string; title: string | null; deal_type: string | null; structured_data?: unknown }
+  type AuditThreadRow = { id: string; title: string | null; deal_type: string | null; structured_data?: unknown; deal_value_minor?: number | null; deal_value_currency?: string | null }
   let audit: AuditThreadRow | null = null
   if (thread.attached_audit_id) {
     const { data } = await supabase
       .from("audits")
-      .select("id, title, deal_type, structured_data")
+      .select("id, title, deal_type, structured_data, deal_value_minor, deal_value_currency")
       .eq("id", thread.attached_audit_id)
       .eq("user_id", userId)
       .maybeSingle()
@@ -398,6 +422,8 @@ export async function getThread(threadId: string): Promise<ActionOk<{ thread: Th
       title: thread.title,
       auditId: audit?.id ?? null,
       dealType: audit?.deal_type ?? (typeof shotMeta.dealType === "string" ? shotMeta.dealType : null),
+      dealValueMinor: audit?.deal_value_minor ?? null,
+      dealValueCurrency: audit?.deal_value_currency ?? null,
       operation: typeof shotMeta.operation === "string" ? shotMeta.operation : null,
       intent: typeof shotMeta.intent === "string" ? shotMeta.intent : null,
       findings,

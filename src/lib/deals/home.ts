@@ -11,7 +11,7 @@ function titleFromText(text: string): string {
   return cut || normalized.slice(0, 60)
 }
 
-export async function createHomeDeal(text: string, jurisdiction?: string, dealTypeHint?: string): Promise<{ id: string }> {
+export async function createHomeDeal(text: string, jurisdiction?: string, dealTypeHint?: string, value?: { amount: string; currency: string }): Promise<{ id: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("You must be signed in.")
@@ -28,22 +28,35 @@ export async function createHomeDeal(text: string, jurisdiction?: string, dealTy
   const seeded = chosen
     ? applyUserConfirmation(profileSeeded, { jurisdiction: { value: chosen, confidence: 1 } })
     : profileSeeded
+  let valueMinor: number | null = null
+  let valueCurrency: string | null = null
+  let withValue = seeded
+  if (value && (value.amount.trim() !== "" || value.currency.trim() !== "")) {
+    const { parseDealValue } = await import("@/lib/deals/value")
+    const parsed = parseDealValue({ amount: value.amount, currency: value.currency })
+    if ("error" in parsed) throw new Error(parsed.error)
+    const { envelopeWithValue } = await import("@/lib/deals/value")
+    withValue = envelopeWithValue(seeded, parsed.minor, parsed.currency)
+    valueMinor = parsed.minor
+    valueCurrency = parsed.currency
+  }
   const payload: Record<string, unknown> = {
     user_id: user.id,
     title: titleFromText(trimmed),
     status: "draft",
     deal_type: dealType,
-    context_envelope: JSON.parse(JSON.stringify(seeded)) as never,
-    context_version: seeded.version,
+    context_envelope: JSON.parse(JSON.stringify(withValue)) as never,
+    context_version: withValue.version,
     raw_input: trimmed,
     source_type: "paste",
+    ...(valueMinor !== null ? { deal_value_minor: valueMinor, deal_value_currency: valueCurrency } : {}),
   }
   let data: { id: string } | null = null
   let error: { message: string } | null = null
   const result = await supabase.from("audits").insert(payload).select("id").single()
   data = result.data as { id: string } | null
   error = result.error as { message: string } | null
-  if (error && (error.message.includes("deal_type") || error.message.includes("context_envelope") || error.message.includes("context_version") || error.message.includes("raw_input"))) {
+  if (error && (error.message.includes("deal_type") || error.message.includes("context_envelope") || error.message.includes("context_version") || error.message.includes("raw_input") || error.message.includes("deal_value"))) {
     const fallback: Record<string, unknown> = {
       user_id: user.id,
       title: titleFromText(trimmed),

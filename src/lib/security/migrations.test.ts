@@ -609,6 +609,18 @@ describe("00083 credit purchase revocation statuses (static)", () => {
   })
 })
 
+describe("00100 deal value (static)", () => {
+  const mig100 = code(sql("00100_deal_value.sql"))
+
+  it("stores optional value pairs without faking history", () => {
+    expect(mig100).toMatch(/ADD COLUMN IF NOT EXISTS deal_value_minor/)
+    expect(mig100).toMatch(/ADD COLUMN IF NOT EXISTS deal_value_currency/)
+    expect(mig100).toMatch(/audits_value_pair_check/)
+    expect(mig100).not.toMatch(/DEFAULT 0/)
+    expect(mig100).not.toMatch(/UPDATE audits/)
+  })
+})
+
 describe("00099 approval delegation (static)", () => {
   const mig99 = code(sql("00099_approval_delegation.sql"))
 
