@@ -609,6 +609,23 @@ describe("00083 credit purchase revocation statuses (static)", () => {
   })
 })
 
+describe("00096 approval requests (static)", () => {
+  const mig96 = code(sql("00096_approval_requests.sql"))
+
+  it("queues team decisions with one live request per subject", () => {
+    expect(mig96).toMatch(/CREATE TABLE IF NOT EXISTS approval_requests/)
+    expect(mig96).toMatch(/uq_approval_request_live_subject/)
+    expect(mig96).toMatch(/approver_group_id UUID/)
+    expect(mig96).toMatch(/approver_user_id <> user_id/)
+  })
+
+  it("lets only the designated approver decide, exactly once", () => {
+    expect(mig96).toMatch(/Approvers decide pending requests/)
+    expect(mig96).toMatch(/verdict = 'pending'/)
+    expect(mig96).not.toMatch(/FOR DELETE/)
+  })
+})
+
 describe("00095 notifications (static)", () => {
   const mig = code(sql("00095_notifications.sql"))
 

@@ -63,6 +63,19 @@ export async function approveWorkPlan(planId: string, idempotencyKey: string): P
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "You must be signed in." }
     if (!user.email_confirmed_at) return { ok: false, error: VERIFY_REQUIRED_ERROR }
+    // Team-routed plans decide in the queue: self-approval while a live
+    // team request exists would bypass the approver. Solo plans (no live
+    // request) approve exactly as before.
+    const { data: live } = await supabase
+      .from("approval_requests")
+      .select("id")
+      .eq("subject_type", "plan")
+      .eq("subject_id", planId)
+      .eq("verdict", "pending")
+      .maybeSingle()
+    if (live) {
+      return { ok: false, error: "That plan awaits your approver's decision — find it in Approvals." }
+    }
     await approvePlan(supabase as never, user.id, planId, { idempotencyKey })
     return { ok: true, planId }
   } catch (e) {
@@ -100,15 +113,23 @@ export async function executeApprovedPlan(planId: string, approvalId: string): P
     if ((consentRow as { has_consented_to_ai_analysis?: boolean } | null)?.has_consented_to_ai_analysis !== true) {
       return { ok: false, error: "CONSENT_REQUIRED" }
     }
-    // Load approval to validate hash/version
+    // Load approval to validate hash/version: the self-flow row first,
+    // then a live team verdict (same version/hash seal, approver as the
+    // authorizer). Either one must match the current plan exactly.
     const { data: approval } = await supabase.from("work_approvals").select("*").eq("id", approvalId).eq("plan_id", planId).eq("user_id", user.id).maybeSingle()
-    if (!approval) return { ok: false, error: "Approval not found." }
+    let seal: { plan_version: number; approved_payload_hash: string; id: string } | null =
+      (approval as { plan_version: number; approved_payload_hash: string; id: string } | null) ?? null
+    if (!seal) {
+      const { findLiveTeamApproval } = await import("@/lib/approvals/actions")
+      seal = await findLiveTeamApproval(supabase, planId)
+    }
+    if (!seal) return { ok: false, error: "Approval not found." }
     // Always a priced policy on this authenticated path: estimate floors
     // (schema.ts) guarantee AI steps carry estimates, so metering mode must
     // never silently make execution free. Deterministic-only plans estimate
     // 0 and simply reserve nothing below.
     const { STANDARD_CREDIT_POLICY } = await import("@/lib/credits/pricing")
-    const res = await executePlan({ client: supabase as never, userId: user.id, planId, approval: approval as never, policy: STANDARD_CREDIT_POLICY })
+    const res = await executePlan({ client: supabase as never, userId: user.id, planId, approval: seal as never, policy: STANDARD_CREDIT_POLICY })
     // A failed execution is a failure to the caller, not a silent dead panel:
     // the thread surfaces the error instead of rendering "failed" with no
     // explanation. Credits for uncompleted work are voided inside executePlan.
