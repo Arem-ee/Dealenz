@@ -30,6 +30,19 @@ export async function POST(req: NextRequest) {
   const { package: pkg, currency } = validated
   const amountMinor = priceForPackage(pkg, currency)
 
+  // Pool funding: an org id routes the pack into the shared pool. Only
+  // owners/admins may fund; members top up solo. Verified server-side
+  // against membership — the webhook re-verifies before granting.
+  let poolOrgId: string | null = null
+  const rawOrgId = typeof input.orgId === "string" ? input.orgId.trim() : ""
+  if (rawOrgId !== "") {
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRe.test(rawOrgId)) {
+      return NextResponse.json({ error: "Invalid organization." }, { status: 400 })
+    }
+    poolOrgId = rawOrgId
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
   if (!appUrl) {
     return NextResponse.json({ error: "NEXT_PUBLIC_APP_URL is not configured" }, { status: 500 })
@@ -76,6 +89,18 @@ export async function POST(req: NextRequest) {
   const adapter = getProviderAdapter()
   let session: { id: string; url: string }
   try {
+    if (poolOrgId) {
+      const { data: membership } = await supabase
+        .from("organization_members")
+        .select("role")
+        .eq("org_id", poolOrgId)
+        .eq("user_id", user.id)
+        .maybeSingle()
+      const role = (membership as { role?: string } | null)?.role
+      if (role !== "owner" && role !== "admin") {
+        return NextResponse.json({ error: "Only organization owners and admins can fund the pool." }, { status: 403 })
+      }
+    }
     session = await adapter.createCheckoutSession({
       package: pkg,
       currency,
@@ -84,6 +109,7 @@ export async function POST(req: NextRequest) {
       userEmail: user.email ?? null,
       successUrl,
       cancelUrl,
+      orgId: poolOrgId,
     })
     checkoutId = session.id
   } catch (e) {
@@ -113,6 +139,7 @@ export async function POST(req: NextRequest) {
       const service = createServiceClient(serviceUrl, serviceKey)
       await service.from("credit_purchases").insert({
         user_id: user.id,
+        org_id: poolOrgId,
         provider: "paddle",
         provider_transaction_id: checkoutId,
         package_id: pkg.id,

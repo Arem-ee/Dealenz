@@ -380,10 +380,91 @@ function loadPaddle(): Promise<PaddleCheckout> {
   })
 }
 
+// Buy packs: solo top-up or pool funding (owners/admins pick a pool).
+// Posts to the pack checkout route and follows the provider URL.
+function BuyPacks({ busy, setBusy, setError, fundableOrgs }: {
+  busy: boolean
+  setBusy: (v: boolean) => void
+  setError: (v: string | null) => void
+  fundableOrgs: Array<{ orgId: string; orgName: string }>
+}) {
+  const [packId, setPackId] = useState("standard")
+  const [currency, setCurrency] = useState("USD")
+  const [orgId, setOrgId] = useState("")
+
+  async function buy() {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packageId: packId, currency, ...(orgId ? { orgId } : {}) }),
+      })
+      const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null
+      if (!res.ok || !data?.url) throw new Error(data?.error ?? "Checkout failed.")
+      window.location.href = data.url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Checkout failed.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-4 border border-border p-3" aria-label="Buy credits">
+      <p className="text-[13px] font-medium">Buy credits</p>
+      <p className="mt-0.5 text-[11px] text-muted-foreground">
+        One-time packs. Never expire. Target a pool to fund it instead of your solo balance.
+      </p>
+      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <label className="block text-[11px] text-muted-foreground">
+          Pack
+          <select value={packId} onChange={(e) => setPackId(e.target.value)} disabled={busy} className="mt-1 h-9 w-full border border-input bg-background px-2 text-xs text-foreground disabled:opacity-60">
+            <option value="starter">Starter · 50</option>
+            <option value="standard">Standard · 150</option>
+            <option value="pro">Pro · 400</option>
+          </select>
+        </label>
+        <label className="block text-[11px] text-muted-foreground">
+          Currency
+          <select value={currency} onChange={(e) => setCurrency(e.target.value)} disabled={busy} className="mt-1 h-9 w-full border border-input bg-background px-2 text-xs text-foreground disabled:opacity-60">
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </label>
+        <label className="block text-[11px] text-muted-foreground">
+          Fund
+          <select value={orgId} onChange={(e) => setOrgId(e.target.value)} disabled={busy} className="mt-1 h-9 w-full border border-input bg-background px-2 text-xs text-foreground disabled:opacity-60">
+            <option value="">Solo balance</option>
+            {fundableOrgs.map((o) => (
+              <option key={o.orgId} value={o.orgId}>{o.orgName} pool</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {fundableOrgs.length === 0 && (
+        <p className="mt-1.5 text-[11px] text-muted-foreground">Pool funding needs an organization you own or administer.</p>
+      )}
+      <button
+        type="button"
+        onClick={() => void buy()}
+        disabled={busy}
+        className="mt-2 inline-flex h-9 items-center bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+      >
+        Buy pack
+      </button>
+    </div>
+  )
+}
+
 // Billing: live subscription state, allowance usage, overage opt-in with
-// per-period invoices, cancellation at period end, and pack history.
-// Hard cap by default, stated plainly; overage meters past it when opted
-// in, bounded at one allowance, invoiced and settled through Paddle.
+// per-period invoices, cancellation at period end, pack history, and pack
+// purchase (solo or pool funding). Hard cap by default, stated plainly;
+// overage meters past it when opted in, bounded at one allowance,
+// invoiced and settled through Paddle.
 function BillingSection() {
   const [state, setState] = useState<{
     subscription: {
@@ -420,6 +501,7 @@ function BillingSection() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [cancelArmed, setCancelArmed] = useState(false)
+  const [fundableOrgs, setFundableOrgs] = useState<Array<{ orgId: string; orgName: string }>>([])
 
   const refresh = async () => {
     try {
@@ -446,8 +528,8 @@ function BillingSection() {
   useEffect(() => {
     let live = true
     import("@/lib/billing/subscription-actions")
-      .then(({ getBillingState, listOverageInvoices }) => Promise.all([getBillingState(), listOverageInvoices()]))
-      .then(([res, inv]) => {
+      .then(({ getBillingState, listOverageInvoices, getScopeState }) => Promise.all([getBillingState(), listOverageInvoices(), getScopeState()]))
+      .then(([res, inv, scope]) => {
         if (!live) return
         if (!res.ok) {
           setLoadError(res.error)
@@ -461,6 +543,9 @@ function BillingSection() {
           purchases: res.purchases,
         })
         if (inv.ok) setInvoices(inv.invoices)
+        if (scope.ok) {
+          setFundableOrgs(scope.orgs.filter((o) => o.canFund).map((o) => ({ orgId: o.orgId, orgName: o.orgName })))
+        }
       })
       .catch(() => {
         if (!live) return
@@ -748,6 +833,14 @@ function BillingSection() {
 
           {error && <p role="alert" className="mt-2 border border-destructive/30 bg-destructive/5 px-2.5 py-2 text-xs text-destructive">{error}</p>}
           {notice && <p role="status" className="mt-2 border border-border bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground">{notice}</p>}
+
+          <BuyPacks
+            busy={busy}
+            setBusy={setBusy}
+            setError={setError}
+            fundableOrgs={fundableOrgs}
+          />
+
           <p className="mt-4 text-[11px] text-muted-foreground">Cancellation is never buried — it lives here, two clicks, effective at period end.</p>
         </>
       )}

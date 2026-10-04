@@ -28,6 +28,7 @@ export interface ProviderAdapter {
     userEmail: string | null
     successUrl: string
     cancelUrl: string
+    orgId?: string | null
   }): Promise<CheckoutSession>
   verifyWebhook(input: { body: string; signature: string | null; secret: string }): Promise<VerifiedEvent>
   verifySubscriptionWebhook(input: { body: string; signature: string | null; secret: string }): Promise<VerifiedSubscriptionEvent & { raw: unknown }>
@@ -365,7 +366,7 @@ export function createPaddleAdapter(): ProviderAdapter {
       const transaction = await paddle.transactions.create({
         items: [{ priceId, quantity: 1 }],
         currencyCode: input.currency,
-        customData: { user_id: input.userId, package_id: input.package.id },
+        customData: { user_id: input.userId, package_id: input.package.id, ...(input.orgId ? { org_id: input.orgId } : {}) },
       })
       const data = transaction as unknown as Record<string, unknown>
       const checkout = asRecord(data.checkout)

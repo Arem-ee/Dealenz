@@ -64,7 +64,7 @@ export async function getReports(): Promise<{ ok: true; data: ReportsData } | { 
     supabase.from("approval_requests").select("created_at, decided_at, verdict").neq("verdict", "pending").limit(200),
     supabase.from("activity_events").select("event_type, created_at").eq("user_id", userId).gte("created_at", thirtyDaysAgo).limit(1000),
     supabase.from("monitoring_events").select("audit_id, event_type, title, status, due_date").eq("user_id", userId).limit(500),
-    supabase.from("credit_ledger").select("operation, amount, entry_type, status, created_at").eq("user_id", userId).gte("created_at", thirtyDaysAgo).limit(5000),
+    supabase.from("credit_ledger").select("operation, amount, entry_type, status, created_at").eq("user_id", userId).is("org_id", null).gte("created_at", thirtyDaysAgo).limit(5000),
   ])
   if (auditsRes.error) return { ok: false, error: "We couldn't load reports. Please try again." }
 

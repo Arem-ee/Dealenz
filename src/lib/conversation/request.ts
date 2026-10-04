@@ -77,6 +77,9 @@ export interface ConversationRequest {
   // Optional token sink for streaming callers. Threaded to the main answer
   // call only; absent means fully buffered (all existing callers unchanged).
   onToken?: (delta: string) => void
+  // Billing scope, resolved by the caller via resolveSpendScope (the ports
+  // carry no database client). Absent means solo balance.
+  orgId?: string | null
   ports: ConversationPorts
 }
 
@@ -233,6 +236,7 @@ export async function answerQuestion(request: ConversationRequest): Promise<Conv
     idempotencyKey: request.idempotencyKey,
     policy,
     inputChars: turnChars,
+    orgId: request.orgId ?? null,
   })
   if (!authorization.authorized) {
     return {

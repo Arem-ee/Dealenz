@@ -47,10 +47,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const email = user.email ?? ""
-  const [{ data: profile }, creditBalance, { data: audits }] = await Promise.all([
+  const [{ data: profile }, creditBalance, { data: audits }, scopeState] = await Promise.all([
     supabase.from("business_profiles").select("business_name").eq("user_id", user.id).maybeSingle(),
     getCreditBalance(user.id),
     supabase.from("audits").select("id, title, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(50),
+    import("@/lib/billing/subscription-actions").then(({ getScopeState }) => getScopeState().catch(() => null)),
   ])
   const businessName = (profile as { business_name?: string | null } | null)?.business_name ?? null
   const threads = ((audits ?? []) as Array<{ id: string; title: string | null; updated_at: string }>).map((a) => ({
@@ -58,10 +59,26 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     title: a.title ?? "Untitled",
     updatedAt: a.updated_at,
   }))
+  const scopeOrgs = (scopeState && scopeState.ok ? scopeState.orgs : []).map((o) => ({
+    orgId: o.orgId,
+    orgName: o.orgName,
+    balance: o.balance,
+  }))
+  const scopeOrgId = scopeState && scopeState.ok ? scopeState.scopeOrgId : null
+  const scoped = scopeOrgs.find((o) => o.orgId === scopeOrgId) ?? null
+  const visibleBalance = scoped && typeof scoped.balance === "number" ? scoped.balance : creditBalance
 
   return (
     <div className="flex h-dvh flex-col bg-background">
-      <TopBar email={email} businessName={businessName} creditBalance={creditBalance} threads={threads} />
+      <TopBar
+        email={email}
+        businessName={businessName}
+        creditBalance={visibleBalance}
+        threads={threads}
+        scopeOrgId={scopeOrgId}
+        scopeOrgs={scopeOrgs}
+        scopeLabel={scoped ? scoped.orgName : null}
+      />
       <div className="flex min-h-0 flex-1">
         <Sidebar />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">

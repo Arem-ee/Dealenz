@@ -29,6 +29,9 @@ export interface AuthorizationRequest {
   // User-text length for length-priced policies (conversation path).
   // Absent means price by operation alone.
   inputChars?: number
+  // Billing scope: null spends personal balance, an org id spends the
+  // pool (membership enforced in SQL). Resolved via resolveSpendScope.
+  orgId?: string | null
 }
 
 export type AuthorizationMode = "metering" | "reserved" | "denied"
@@ -38,23 +41,26 @@ export interface Authorization {
   authorized: boolean
   reservationId: string | null
   balance: number | null
+  orgId: string | null
   denialReason?: string
 }
 
 export async function authorizeOperation(request: AuthorizationRequest): Promise<Authorization> {
-  const balance = await getCreditBalance(request.ledger).catch(() => null)
+  const orgId = request.orgId ?? null
+  const balance = await getCreditBalance(request.ledger, orgId).catch(() => null)
   const estimate = request.policy ? request.policy.estimateMaxCredits(request.operation, request.inputChars) : null
   if (estimate === null) {
     // No priced policy: meter only. Nothing is held or charged.
-    return { mode: "metering", authorized: true, reservationId: null, balance }
+    return { mode: "metering", authorized: true, reservationId: null, balance, orgId }
   }
   if (!request.idempotencyKey) {
-    return { mode: "denied", authorized: false, reservationId: null, balance, denialReason: "Priced operations need an idempotency key" }
+    return { mode: "denied", authorized: false, reservationId: null, balance, orgId, denialReason: "Priced operations need an idempotency key" }
   }
   const reservation = await reserveCredits(request.ledger, {
     operation: request.operation,
     amount: estimate,
     idempotencyKey: request.idempotencyKey,
+    orgId,
   })
   if (!reservation.allowed) {
     return {
@@ -62,7 +68,10 @@ export async function authorizeOperation(request: AuthorizationRequest): Promise
       authorized: false,
       reservationId: reservation.reservationId,
       balance: reservation.balance,
-      denialReason: "Insufficient credits for this operation",
+      orgId,
+      denialReason: orgId
+        ? "Insufficient pool balance for this operation — ask an owner to top up the pool."
+        : "Insufficient credits for this operation",
     }
   }
   return {
@@ -70,6 +79,7 @@ export async function authorizeOperation(request: AuthorizationRequest): Promise
     authorized: true,
     reservationId: reservation.reservationId,
     balance: reservation.balance,
+    orgId,
   }
 }
 
@@ -110,7 +120,7 @@ export async function completeOperation(input: CompletionInput): Promise<Complet
   }
   if (input.status !== "success") {
     await voidReservation(input.ledger, input.authorization.reservationId)
-    const balance = await getCreditBalance(input.ledger).catch(() => null)
+    const balance = await getCreditBalance(input.ledger, input.authorization.orgId ?? null).catch(() => null)
     return { record, balance }
   }
   const charge = input.policy ? input.policy.creditsForUsage(record) : null

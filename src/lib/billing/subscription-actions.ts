@@ -60,6 +60,7 @@ export async function getBillingState() {
         .from("credit_ledger")
         .select("amount")
         .eq("user_id", user.id)
+        .is("org_id", null)
         .eq("entry_type", "consumption")
         .eq("status", "finalized")
         .gte("created_at", live.current_period_start)
@@ -90,6 +91,7 @@ export async function getBillingState() {
         .from("credit_ledger")
         .select("entry_type, amount, status")
         .eq("user_id", user.id)
+        .is("org_id", null)
         .gte("created_at", live.current_period_start)
         .limit(5000)
       let consumed = 0
@@ -201,6 +203,125 @@ export interface OverageInvoiceView {
   currency: string
   status: string
   paddle_transaction_id: string | null
+}
+
+export interface ScopeOrgView {
+  orgId: string
+  orgName: string
+  role: string
+  balance: number | null
+  canFund: boolean
+}
+
+/** Active billing scope + orgs with pool balances for the switcher. */
+export async function getScopeState() {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const { data: scope } = await supabase
+      .from("user_billing_scope")
+      .select("org_id")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    const scopeOrgId = (scope as { org_id?: string | null } | null)?.org_id ?? null
+    const { listMyOrganizations } = await import("@/lib/orgs/actions")
+    const orgsRes = await listMyOrganizations()
+    if (!orgsRes.ok) return { ok: true as const, scopeOrgId: null, orgs: [] as ScopeOrgView[] }
+    const orgs: ScopeOrgView[] = []
+    for (const o of orgsRes.orgs) {
+      let balance: number | null = null
+      try {
+        const { data } = await supabase.rpc("credit_balance" as never, { p_org_id: o.orgId } as never)
+        const row = (Array.isArray(data) ? data[0] : data) as { balance?: unknown } | null
+        if (row && typeof row.balance === "number") balance = Math.floor(row.balance)
+      } catch {
+        balance = null
+      }
+      orgs.push({
+        orgId: o.orgId,
+        orgName: o.orgName,
+        role: o.role,
+        balance,
+        canFund: o.role === "owner" || o.role === "admin",
+      })
+    }
+    const valid = scopeOrgId && orgs.some((o) => o.orgId === scopeOrgId) ? scopeOrgId : null
+    return { ok: true as const, scopeOrgId: valid, orgs }
+  } catch (e) {
+    return toActionFailure(e, "Could not load billing scope.") as never
+  }
+}
+
+export async function setSpendScopeAction(orgId: string | null) {
+  try {
+    if (orgId !== null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)) {
+      return { ok: false as const, error: "Invalid organization." }
+    }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const { setSpendScope } = await import("@/lib/credits/scope")
+    await setSpendScope(supabase, user.id, orgId)
+    return { ok: true as const, scopeOrgId: orgId }
+  } catch (e) {
+    return toActionFailure(e, "Could not switch billing scope.") as never
+  }
+}
+
+/** Pool spend by member, read-only aggregate for owners/admins. */
+export async function getOrgSpend(orgId: string) {
+  try {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)) {
+      return { ok: false as const, error: "Invalid organization." }
+    }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const { data: membership } = await supabase
+      .from("organization_members")
+      .select("role")
+      .eq("org_id", orgId)
+      .eq("user_id", user.id)
+      .maybeSingle()
+    if (!membership) return { ok: false as const, error: "Not a member of that organization." }
+    const { data, error } = await supabase
+      .from("credit_ledger")
+      .select("user_id, amount")
+      .eq("org_id", orgId)
+      .eq("entry_type", "consumption")
+      .eq("status", "finalized")
+      .order("created_at", { ascending: false })
+      .limit(500)
+    if (error) throw new Error(error.message)
+    const byMember = new Map<string, number>()
+    for (const r of ((data ?? []) as Array<{ user_id: string; amount: number }>)) {
+      byMember.set(r.user_id, (byMember.get(r.user_id) ?? 0) + Math.abs(r.amount))
+    }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const emails = new Map<string, string>()
+    if (url && key) {
+      try {
+        const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+        const svc = createServiceClient(url, key)
+        const { data: listed } = await svc.auth.admin.listUsers({ page: 1, perPage: 200 })
+        for (const u of ((listed as { users?: Array<{ id: string; email?: string }> } | null)?.users ?? [])) {
+          emails.set(u.id, u.email ?? "")
+        }
+      } catch {
+        // Ids still identify rows; emails are display-only.
+      }
+    }
+    return {
+      ok: true as const,
+      spend: [...byMember.entries()]
+        .map(([userId, credits]) => ({ userId, email: emails.get(userId) ?? "", credits }))
+        .sort((a, b) => b.credits - a.credits),
+    }
+  } catch (e) {
+    return toActionFailure(e, "Could not load pool spend.") as never
+  }
 }
 
 /** Overage opt-in/out: explicit user action only, never automatic. */

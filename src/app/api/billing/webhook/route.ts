@@ -128,17 +128,18 @@ export async function POST(req: NextRequest) {
         const service = createServiceClient(serviceUrl, serviceKey)
         const { data: purchase } = await service
           .from("credit_purchases")
-          .select("id, user_id, package_id, credits, status")
+          .select("id, user_id, org_id, package_id, credits, status")
           .eq("provider", "paddle")
           .eq("provider_transaction_id", event.providerTransactionId)
           .maybeSingle()
-        const row = purchase as { id: string; user_id: string; package_id: string; credits: number; status: string } | null
+        const row = purchase as { id: string; user_id: string; org_id: string | null; package_id: string; credits: number; status: string } | null
         if (row && (row.status === "refunded" || row.status === "disputed")) {
           return NextResponse.json({ received: true, idempotent: true }, { status: 200 })
         }
         if (row && typeof row.credits === "number" && row.credits > 0) {
           const { error: revokeError } = await service.from("credit_ledger").insert({
             user_id: row.user_id,
+            org_id: row.org_id,
             entry_type: "adjustment",
             amount: -Math.floor(row.credits),
             operation: null,
@@ -307,6 +308,31 @@ export async function POST(req: NextRequest) {
 
   const service = createServiceClient(serviceUrl, serviceKey)
 
+  // Pool funding: checkout stamps custom_data.org_id; the grant lands on
+  // the pool with the purchaser as actor. Only owners/admins may fund.
+  let poolOrgId: string | null = null
+  {
+    const raw = verifiedRaw as {
+      data?: { custom_data?: { org_id?: unknown } }
+    } | null
+    const orgRaw = raw?.data?.custom_data?.org_id
+    if (typeof orgRaw === "string" && uuidRe.test(orgRaw)) {
+      const { data: role } = await service
+        .from("organization_members")
+        .select("role")
+        .eq("org_id", orgRaw)
+        .eq("user_id", event.userId)
+        .maybeSingle()
+      const r = (role as { role?: string } | null)?.role
+      if (r !== "owner" && r !== "admin") {
+        return NextResponse.json({ error: "Only organization owners and admins can fund the pool." }, { status: 400 })
+      }
+      poolOrgId = orgRaw
+    } else if (orgRaw !== undefined && orgRaw !== null) {
+      return NextResponse.json({ error: "Invalid pool attribution." }, { status: 400 })
+    }
+  }
+
   const reportPaymentFailure = (error: unknown, details: Record<string, string | number | boolean | null>) =>
     reportError(service, {
       phase: "billing_webhook",
@@ -327,6 +353,7 @@ export async function POST(req: NextRequest) {
   const ensureLedgerGrant = async (reason: "purchase" | "purchase-repair"): Promise<{ ok: true; duplicate: boolean } | { ok: false; error: string }> => {
     const { error: ledgerErr } = await service.from("credit_ledger").insert({
       user_id: event.userId,
+      org_id: poolOrgId,
       entry_type: "grant",
       amount: pkg.credits,
       operation: null,
@@ -369,7 +396,7 @@ export async function POST(req: NextRequest) {
   if (existing) {
     const { error: updErr } = await service
       .from("credit_purchases")
-      .update({ status: "succeeded", user_id: event.userId, package_id: pkg.id, currency, amount_minor: event.totalMinor, credits: pkg.credits })
+      .update({ status: "succeeded", user_id: event.userId, org_id: poolOrgId, package_id: pkg.id, currency, amount_minor: event.totalMinor, credits: pkg.credits })
       .eq("provider", "paddle")
       .eq("provider_transaction_id", event.providerTransactionId)
     if (updErr) {
@@ -379,6 +406,7 @@ export async function POST(req: NextRequest) {
   } else {
     const { error: insErr } = await service.from("credit_purchases").insert({
       user_id: event.userId,
+      org_id: poolOrgId,
       provider: "paddle",
       provider_transaction_id: event.providerTransactionId,
       package_id: pkg.id,

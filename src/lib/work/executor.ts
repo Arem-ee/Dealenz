@@ -394,8 +394,21 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
   const { client, userId, planId, approval, policy } = input
   // Advisory lock per plan to serialize concurrent executions (prevents duplicate active)
   try {
-    await (client as unknown as { rpc: (n: string, p: unknown) => Promise<{ error: unknown }> }).rpc("acquire_plan_lock", { p_plan_id: planId } as never)
+    await (client as unknown as { rpc: (n: string, p: unknown) => Promise<unknown> }).rpc("acquire_plan_lock", { p_plan_id: planId } as never)
   } catch {}
+  // Billing scope once per execution: pool-first when the user switched to
+  // an org pool, solo otherwise. Reservation/finalize/void/consume carry
+  // it from here; the RPCs enforce membership and locks per scope.
+  let scopeOrgId: string | null = null
+  try {
+    const { resolveSpendScope } = await import("@/lib/credits/scope")
+    scopeOrgId = await resolveSpendScope(client as never, userId)
+  } catch {
+    scopeOrgId = null
+  }
+  const denyMessage = scopeOrgId
+    ? "Insufficient pool balance for plan execution — ask an owner to top up the pool."
+    : "Insufficient credits for plan execution"
   // Load plan + steps
   const { data: planRaw, error: planErr } = await client.from("work_plans").select("*").eq("id", planId).eq("user_id", userId).maybeSingle()
   if (planErr || !planRaw) throw new Error("Plan not found")
@@ -461,9 +474,10 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
         operation: "document_analysis" as never,
         amount: remaining,
         idempotencyKey: `plan:${planId}:v${plan.version}:resume:${executionId}`,
+        orgId: scopeOrgId,
       })
       if (!res.allowed || !res.reservationId) {
-        throw new Error("Insufficient credits to resume plan execution")
+        throw new Error(denyMessage)
       }
       reservationId = res.reservationId
       await client.from("work_executions").update({ reservation_id: reservationId, updated_at: new Date().toISOString() }).eq("id", executionId)
@@ -501,16 +515,16 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
     if (policy) {
       // Estimate as plan sum: policy.estimateMaxCredits for a synthetic "plan" op not accurate, so we directly reserve via ledger
       const { reserveCredits } = await import("@/lib/credits/ledger")
-      const balBefore = await getCreditBalance(ledger).catch(() => null)
+      const balBefore = await getCreditBalance(ledger, scopeOrgId).catch(() => null)
       void balBefore
-      const res = await reserveCredits(ledger, { operation: "document_analysis" as never, amount: estimated, idempotencyKey })
+      const res = await reserveCredits(ledger, { operation: "document_analysis" as never, amount: estimated, idempotencyKey, orgId: scopeOrgId })
       if (!res.allowed) {
         await client.from("work_executions").update({ status: "failed", completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", executionId)
         await client.from("work_plans").update({ status: "failed", updated_at: new Date().toISOString() }).eq("id", planId).eq("user_id", userId)
         try {
           await logEventWithClient(client as never, { audit_id: plan.deal_id, user_id: userId, phase: "work_execution", status: "failure", error_message: `plan ${planId} v${plan.version}: plan reservation denied for ${estimated} credits` })
         } catch {}
-        throw new Error("Insufficient credits for plan execution")
+        throw new Error(denyMessage)
       }
       reservationId = res.reservationId
       await client.from("work_executions").update({ reservation_id: reservationId, status: "running", started_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", executionId)

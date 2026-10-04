@@ -98,19 +98,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
     return NextResponse.json({ success: true, duplicate: true })
   }
 
+  let scopeOrgId: string | null = null
   try {
+    const { resolveSpendScope } = await import("@/lib/credits/scope")
+    scopeOrgId = await resolveSpendScope(supabase, user.id).catch(() => null)
     reservation = await reserveCredits(ledger, {
       operation: "document_analysis",
       amount: SIGNATURE_SEND_CREDITS,
       // Stable per invite: retries replay the same hold (pending-only replay
       // since 00088) instead of stacking fresh 10-credit holds.
       idempotencyKey: `invite:${auditId}:${versionId}:${email.toLowerCase()}`.slice(0, 120),
+      orgId: scopeOrgId,
     })
   } catch {
     return NextResponse.json({ success: false, error: "Could not verify credit balance. Please try again." }, { status: 500 })
   }
   if (!reservation.allowed || !reservation.reservationId) {
-    return NextResponse.json({ success: false, error: `Insufficient credits for this operation. Sending a signature request costs ${SIGNATURE_SEND_CREDITS} credits.` }, { status: 402 })
+    return NextResponse.json({ success: false, error: scopeOrgId ? `Insufficient pool balance. Sending a signature request costs ${SIGNATURE_SEND_CREDITS} credits — ask an owner to top up the pool.` : `Insufficient credits for this operation. Sending a signature request costs ${SIGNATURE_SEND_CREDITS} credits.` }, { status: 402 })
   }
 
   try {

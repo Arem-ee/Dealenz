@@ -14,11 +14,14 @@ import { PRIMARY_NAV, filterThreads, threadDate, type SidebarThread } from "@/li
 // Orthogonal top bar: logo left, inline search center, credits and account
 // right. Pinned to the top. No popups — search results and the account
 // panel render inline beneath the bar.
-export function TopBar({ email, businessName, creditBalance = null, threads = [] }: {
+export function TopBar({ email, businessName, creditBalance = null, threads = [], scopeOrgId = null, scopeOrgs = [], scopeLabel = null }: {
   email: string
   businessName?: string | null
   creditBalance?: number | null
   threads?: SidebarThread[]
+  scopeOrgId?: string | null
+  scopeOrgs?: Array<{ orgId: string; orgName: string; balance: number | null }>
+  scopeLabel?: string | null
 }) {
   const router = useRouter()
   const supabase = createClient()
@@ -103,8 +106,11 @@ export function TopBar({ email, businessName, creditBalance = null, threads = []
         </div>
         <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
           <NotificationBell />
+          {scopeOrgs.length > 0 && (
+            <ScopeSwitcher scopeOrgId={scopeOrgId} scopeOrgs={scopeOrgs} />
+          )}
           <span
-            title="Credit balance"
+            title={scopeLabel ? `Pool balance · ${scopeLabel}` : "Credit balance"}
             className="max-w-[110px] min-w-0 shrink truncate text-[13px] tabular-nums text-muted-foreground sm:max-w-none"
           >
             {typeof creditBalance === "number" ? `${creditBalance} credit${creditBalance === 1 ? "" : "s"}` : ""}
@@ -134,6 +140,50 @@ export function TopBar({ email, businessName, creditBalance = null, threads = []
         </div>
       </div>
     </header>
+  )
+}
+
+// Billing scope switch: solo balance or one org pool. The switch is
+// explicit and sticky (user_billing_scope); spend policy reads it per
+// operation and the RPCs enforce membership per call.
+function ScopeSwitcher({ scopeOrgId, scopeOrgs }: {
+  scopeOrgId: string | null
+  scopeOrgs: Array<{ orgId: string; orgName: string; balance: number | null }>
+}) {
+  const router = useRouter()
+  const [busy, setBusy] = useState(false)
+
+  async function switchScope(orgId: string | null) {
+    if (busy || orgId === scopeOrgId) return
+    setBusy(true)
+    try {
+      const { setSpendScopeAction } = await import("@/lib/billing/subscription-actions")
+      const res = await setSpendScopeAction(orgId)
+      if (!res.ok) throw new Error(res.error)
+      router.refresh()
+    } catch {
+      // Silent; the controlled value snaps back on the next refresh.
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <select
+      value={scopeOrgId ?? ""}
+      onChange={(e) => void switchScope(e.target.value === "" ? null : e.target.value)}
+      disabled={busy}
+      aria-label="Billing scope"
+      title="Spend from solo balance or a pool"
+      className="h-8 max-w-[110px] shrink-0 truncate border border-transparent bg-transparent px-1 text-[12px] text-muted-foreground outline-none transition-colors hover:border-border hover:text-foreground disabled:opacity-50 sm:max-w-[150px]"
+    >
+      <option value="">Solo</option>
+      {scopeOrgs.map((o) => (
+        <option key={o.orgId} value={o.orgId}>
+          {o.orgName}{typeof o.balance === "number" ? ` · ${o.balance}` : ""}
+        </option>
+      ))}
+    </select>
   )
 }
 

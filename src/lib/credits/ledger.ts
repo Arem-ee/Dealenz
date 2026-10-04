@@ -41,9 +41,9 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 // Current available balance for the caller: finalized grants, refunds, and
 // adjustments minus consumptions and open (pending) reservations. Voided rows
 // never count. The RPC derives the user from the session; there is no
-// user-id parameter to tamper with.
-export async function getCreditBalance(client: LedgerClient): Promise<number> {
-  const { data, error } = await client.rpc("credit_balance")
+// user-id parameter to tamper with. Pass an org scope for the pool balance.
+export async function getCreditBalance(client: LedgerClient, orgId?: string | null): Promise<number> {
+  const { data, error } = await client.rpc("credit_balance", { p_org_id: orgId ?? null })
   if (error) throw new Error("Failed to read credit balance")
   const row = Array.isArray(data) ? data[0] : data
   const record = asRecord(row)
@@ -63,9 +63,10 @@ export interface ReservationResult {
 // Holds amount credits for one billable operation. Idempotent on
 // idempotencyKey: replaying the same key returns the original outcome without
 // a second hold. Denied when the available balance is insufficient.
+// Pass an org scope to hold from the pool (membership enforced in SQL).
 export async function reserveCredits(
   client: LedgerClient,
-  input: { operation: AIOperation; amount: number; idempotencyKey: string }
+  input: { operation: AIOperation; amount: number; idempotencyKey: string; orgId?: string | null }
 ): Promise<ReservationResult> {
   if (!Number.isInteger(input.amount) || input.amount <= 0) {
     throw new Error("Reservation amount must be a positive integer")
@@ -77,6 +78,7 @@ export async function reserveCredits(
     p_operation: input.operation,
     p_amount: input.amount,
     p_idempotency_key: input.idempotencyKey,
+    p_org_id: input.orgId ?? null,
   })
   if (error) throw new Error("Failed to reserve credits")
   const row = asRecord(Array.isArray(data) ? data[0] : data)

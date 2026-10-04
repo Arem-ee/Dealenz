@@ -609,6 +609,19 @@ describe("00083 credit purchase revocation statuses (static)", () => {
   })
 })
 
+describe("00103 org pools (static)", () => {
+  const mig103 = code(sql("00103_org_pools.sql"))
+
+  it("scopes the ledger to pools without forking it", () => {
+    expect(mig103).toMatch(/ADD COLUMN IF NOT EXISTS org_id/)
+    expect(mig103).toMatch(/uq_ledger_solo_idempotency/)
+    expect(mig103).toMatch(/uq_ledger_org_idempotency/)
+    expect(mig103).toMatch(/user_billing_scope/)
+    expect(mig103).toMatch(/credit_pool:/)
+    expect(mig103).toMatch(/DROP FUNCTION IF EXISTS reserve_credits\(TEXT, INTEGER, TEXT\)/)
+  })
+})
+
 describe("00102 overage billing (static)", () => {
   const mig102 = code(sql("00102_overage_billing.sql"))
 

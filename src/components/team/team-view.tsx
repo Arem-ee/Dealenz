@@ -71,6 +71,8 @@ export function TeamView() {
   const [coverGroupId, setCoverGroupId] = useState("")
   const [coverEmail, setCoverEmail] = useState("")
   const [coverEnds, setCoverEnds] = useState("")
+  const [spendOrgId, setSpendOrgId] = useState("")
+  const [spend, setSpend] = useState<Array<{ userId: string; email: string; credits: number }> | null>(null)
   const [newOrgId, setNewOrgId] = useState("")
   const [newName, setNewName] = useState("")
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -227,6 +229,23 @@ export function TeamView() {
       showError(err instanceof Error ? err.message : "Couldn't end that cover.")
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function loadSpend(orgId: string) {
+    setSpendOrgId(orgId)
+    if (!orgId) {
+      setSpend(null)
+      return
+    }
+    try {
+      const { getOrgSpend } = await import("@/lib/billing/subscription-actions")
+      const res = await getOrgSpend(orgId)
+      if (!res.ok) throw new Error(res.error)
+      setSpend(res.spend)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't load pool spend.")
+      setSpend([])
     }
   }
 
@@ -503,6 +522,41 @@ export function TeamView() {
                 </li>
               ))}
             </ul>
+          )}
+        </div>
+      </section>
+
+      <section aria-label="Pool spend" className="mt-6 shrink-0">
+        <h2 className="text-sm font-semibold">Pool spend</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Who spent what from the shared pool — read-only.
+        </p>
+        <div className="mt-2">
+          <label className="block text-[11px] font-medium text-muted-foreground" htmlFor="spend-org">Organization</label>
+          <select
+            id="spend-org"
+            value={spendOrgId}
+            onChange={(e) => void loadSpend(e.target.value)}
+            className="mt-1 h-9 w-full max-w-xs border border-input bg-background px-2 text-sm"
+          >
+            <option value="">Pick an organization…</option>
+            {orgs.map((o) => (
+              <option key={o.orgId} value={o.orgId}>{o.orgName} · {o.role}</option>
+            ))}
+          </select>
+          {spend !== null && spendOrgId !== "" && (
+            spend.length === 0 ? (
+              <p className="mt-2 text-xs text-muted-foreground">No pool spend yet.</p>
+            ) : (
+              <ul className="mt-2 space-y-1.5">
+                {spend.map((s) => (
+                  <li key={s.userId} className="flex items-center justify-between gap-2 border border-border bg-background px-3 py-2 text-[13px]">
+                    <span className="min-w-0 flex-1 truncate">{s.email || s.userId}</span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">{s.credits} credits</span>
+                  </li>
+                ))}
+              </ul>
+            )
           )}
         </div>
       </section>

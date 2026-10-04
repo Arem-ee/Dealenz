@@ -40,6 +40,7 @@ export async function grantAllowance(
     .from("credit_ledger")
     .select("id")
     .eq("user_id", sub.user_id)
+    .is("org_id", null)
     .eq("idempotency_key", key)
     .maybeSingle()
   if (existing) return { granted: false }
@@ -70,6 +71,7 @@ async function consumptionSince(
     .from("credit_ledger")
     .select("amount")
     .eq("user_id", userId)
+    .is("org_id", null)
     .eq("entry_type", "consumption")
     .eq("status", "finalized")
     .gte("created_at", since)
@@ -90,6 +92,7 @@ export async function balanceFor(svc: SupabaseClient, userId: string): Promise<n
     .from("credit_ledger")
     .select("entry_type, amount, status, created_at")
     .eq("user_id", userId)
+    .is("org_id", null)
     .limit(5000)
   let balance = 0
   for (const r of ((data ?? []) as Array<{ entry_type: string; amount: number; status: string; created_at: string }>)) {
@@ -110,6 +113,7 @@ async function grantsSince(
     .from("credit_ledger")
     .select("amount")
     .eq("user_id", userId)
+    .is("org_id", null)
     .eq("entry_type", "grant")
     .eq("status", "finalized")
     .gte("created_at", since)
