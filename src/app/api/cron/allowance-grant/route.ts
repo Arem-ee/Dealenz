@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
-// Daily expiry pass: pending invitations whose expiry has passed flip to
-// 'expired' so queues read honestly. The row-level trigger (00090) already
-// blocks signing on lapsed invitations; this pass only updates the visible
-// state. Same auth contract as the deadline-reminders cron (CRON_SECRET
-// bearer; open in development when unset). Idempotent: only pending rows
-// match, and each row flips once.
+// Allowance rollover pass: subscriptions past period end get the unspent
+// slice of the closing grant clawed back (packs untouched), the new
+// period granted, and the window advanced. Idempotent per period via
+// ledger idempotency keys. Same auth contract as sibling crons
+// (CRON_SECRET bearer; open in development when unset).
 
 export const dynamic = "force-dynamic"
+
+const BATCH = 200
 
 function isAuthorized(req: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET
@@ -27,11 +28,11 @@ export async function GET(req: NextRequest) {
   const svc = createClient(url, key)
 
   try {
-    const { expireLapsedInvites } = await import("@/lib/signing/expiry")
-    const { expired, notified } = await expireLapsedInvites(svc)
-    return NextResponse.json({ ok: true, expired, notified })
+    const { rollOverdueSubscriptions } = await import("@/lib/billing/subscriptions")
+    const { rolled, failed } = await rollOverdueSubscriptions(svc, BATCH)
+    return NextResponse.json({ ok: true, rolled, failed })
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Expiry pass failed" }, { status: 500 })
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Rollover failed" }, { status: 500 })
   }
 }
 

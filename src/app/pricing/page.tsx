@@ -47,11 +47,12 @@ export default function PricingPage() {
 
         <div className="mx-auto mt-8 max-w-3xl text-center">
           <h1 className="display-h text-[32px] text-neutral-900 sm:text-[44px]">
-            Pay per deal outcome. No subscription lock-in.
+            Pay per deal, or subscribe for allowance.
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-[15px] leading-relaxed text-neutral-600">
             Every account starts with 10 free credits for your first two deal analyses.
-            Top up with credit packs when you need them.
+            Top up with credit packs when you need them, or subscribe for a monthly
+            allowance. Cancel anytime, effective at period end.
           </p>
         </div>
 

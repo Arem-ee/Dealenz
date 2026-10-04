@@ -46,6 +46,9 @@ Do not commit real values. All values below are names only.
 | `PADDLE_PRICE_STARTER` | Paddle Dashboard → Catalog → Product → Price ID | Server-only. USD price for 50-credit Starter. The bare variables are USD-denominated. |
 | `PADDLE_PRICE_STANDARD` | Paddle Dashboard → Catalog → Product → Price ID | Server-only. USD price for 150-credit Standard. |
 | `PADDLE_PRICE_PRO` | Paddle Dashboard → Catalog → Product → Price ID | Server-only. USD price for 400-credit Pro. |
+| `PADDLE_PLAN_STUDIO` | Paddle Dashboard → Catalog → subscription product → Price ID | Server-only. USD monthly price for Studio (300 credits / 30 days). Must equal catalog. |
+| `PADDLE_PLAN_FIRM` | Paddle Dashboard → Catalog → subscription product → Price ID | Server-only. USD monthly price for Firm (1,000 credits / 30 days). Must equal catalog. |
+| `PADDLE_PLAN_STUDIO_GBP`, `PADDLE_PLAN_STUDIO_EUR`, `PADDLE_PLAN_FIRM_GBP`, `PADDLE_PLAN_FIRM_EUR` | Paddle Dashboard → Catalog → same products, per-currency prices | Server-only. Optional per-currency prices; missing currencies fail closed at checkout. |
 | `PADDLE_PRICE_{STARTER,STANDARD,PRO}_{GBP,EUR}` | Paddle Dashboard → Catalog → same product, extra price per currency | Server-only, optional. Paddle prices are single-currency: create e.g. `PADDLE_PRICE_STANDARD_GBP` to sell Standard to GBP buyers. Any buyer currency missing a price is hidden from the selector and fails closed at the API. Until these exist, only USD works. |
 | `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` | Paddle Dashboard → Developer Tools → Authentication → client-side token (`live_…` or `test_…`) | Public. Powers the in-app Paddle.js overlay checkout (no page navigation). Environment is derived from the token prefix. If unset, Buy falls back to hosted-checkout redirect. |
 

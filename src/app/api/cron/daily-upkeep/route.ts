@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
-// Daily expiry pass: pending invitations whose expiry has passed flip to
-// 'expired' so queues read honestly. The row-level trigger (00090) already
-// blocks signing on lapsed invitations; this pass only updates the visible
-// state. Same auth contract as the deadline-reminders cron (CRON_SECRET
-// bearer; open in development when unset). Idempotent: only pending rows
-// match, and each row flips once.
+// Daily upkeep (single scheduled job): flip lapsed signing invitations
+// and roll subscriptions past period end (expiry clawback + fresh grant).
+// The legacy single-purpose routes stay callable; the scheduler only
+// needs this one path. Same auth contract as sibling crons
+// (CRON_SECRET bearer; open in development when unset).
 
 export const dynamic = "force-dynamic"
+
+const BATCH = 200
 
 function isAuthorized(req: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET
@@ -25,14 +26,23 @@ export async function GET(req: NextRequest) {
   if (!url || !key) return NextResponse.json({ error: "Service not configured" }, { status: 500 })
 
   const svc = createClient(url, key)
+  const result: Record<string, unknown> = { ok: true }
 
   try {
     const { expireLapsedInvites } = await import("@/lib/signing/expiry")
-    const { expired, notified } = await expireLapsedInvites(svc)
-    return NextResponse.json({ ok: true, expired, notified })
+    result.expiry = await expireLapsedInvites(svc)
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Expiry pass failed" }, { status: 500 })
+    result.expiry = { error: e instanceof Error ? e.message : "Expiry pass failed" }
   }
+
+  try {
+    const { rollOverdueSubscriptions } = await import("@/lib/billing/subscriptions")
+    result.allowance = await rollOverdueSubscriptions(svc, BATCH)
+  } catch (e) {
+    result.allowance = { error: e instanceof Error ? e.message : "Allowance pass failed" }
+  }
+
+  return NextResponse.json(result)
 }
 
 export async function POST(req: NextRequest) {

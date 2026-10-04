@@ -54,10 +54,12 @@ export default function TermsPage() {
           <p>
             Dealenz is free to start: new accounts receive 10 credits, enough for two full
             analyses. Further work — analyses (5 each), answers, drafts, uploads, signature
-            sends — consumes credits, which can be topped up in one-time credit packs inside the app. There are no subscriptions.
-            Quoted prices are ceilings: quick questions cost 1 credit, longer answers are
+            sends — consumes credits, which can be topped up in one-time credit packs inside the app,
+            or covered by a subscription allowance: Studio and Firm plans grant credits every
+            30 days, unused allowance expires at period end, and cancelled subscriptions simply
+            stop renewing. Quoted prices are ceilings: quick questions cost 1 credit, longer answers are
             priced by length, and concise answers settle lower than quoted — you never pay
-            more than the estimate shown before you send. Credits never expire. Failed operations do not consume credits. A purchase counts once
+            more than the estimate shown before you send. Pack credits never expire. Failed operations do not consume credits. A purchase counts once
             our payment provider&apos;s verified settlement lands it in your balance; returning
             from checkout alone means nothing. If a purchase does not land in your balance, write
             to support and it will be put right.

@@ -19,6 +19,22 @@ export async function POST(req: NextRequest) {
   const webhookSecret = process.env.PADDLE_WEBHOOK_SECRET
   const adapter = getProviderAdapter()
 
+  // Branch on the event name before verifying: transactions and
+  // subscriptions ride separate parsers (the transaction parser keeps
+  // rejecting subscription events — covered by tests). Peeking at the
+  // name trusts nothing; both branches verify the signature internally.
+  let isSubscription = false
+  try {
+    const peek = JSON.parse(body) as { event_type?: unknown }
+    isSubscription = typeof peek.event_type === "string" && peek.event_type.startsWith("subscription.")
+  } catch {
+    return NextResponse.json({ error: "Invalid webhook body" }, { status: 400 })
+  }
+
+  if (isSubscription) {
+    return handleSubscriptionEvent(body, signature, webhookSecret, adapter)
+  }
+
   let event: {
     type: string
     providerTransactionId: string
@@ -120,10 +136,70 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true, status: event.status }, { status: 200 })
   }
 
-  // Dealenz sells one-time packs only: subscription events have no product
-  // meaning. Acknowledge without mutating anything (previous behavior).
-  if (event.type.startsWith("subscription_")) {
-    return NextResponse.json({ received: true, status: event.status }, { status: 200 })
+  // Subscription lifecycle: upsert the subscription row and drop the
+  // opening allowance on first activation. Unknown prices, missing user
+  // attribution, and unconfigured service role all fail closed (4xx/5xx
+  // so Paddle retries a decision that may resolve; successes ack 200).
+  async function handleSubscriptionEvent(
+    rawBody: string,
+    sig: string | null,
+    secret: string | undefined,
+    provider: ReturnType<typeof getProviderAdapter>
+  ) {
+    const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!serviceUrl || !serviceKey) {
+      return NextResponse.json({ error: "Service role not configured" }, { status: 503 })
+    }
+    let verified: {
+      type: string
+      subscriptionId: string
+      status: string
+      priceId: string
+      userId: string
+      periodStart: string | null
+      periodEnd: string | null
+    }
+    try {
+      verified = await provider.verifySubscriptionWebhook({ body: rawBody, signature: sig, secret: secret ?? "" })
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Invalid webhook signature" }, { status: 400 })
+    }
+    try {
+      const service = createServiceClient(serviceUrl, serviceKey)
+      const { applySubscriptionEvent } = await import("@/lib/billing/subscriptions")
+      const applied = await applySubscriptionEvent(service, {
+        type: verified.type,
+        subscriptionId: verified.subscriptionId,
+        status: verified.status,
+        priceId: verified.priceId,
+        userId: verified.userId,
+        periodStart: verified.periodStart,
+        periodEnd: verified.periodEnd,
+        raw: null,
+      })
+      try {
+        const { createNotification } = await import("@/lib/notifications/store")
+        const { data: owner } = await service.from("subscriptions").select("user_id, plan_id").eq("id", applied.subscriptionId).maybeSingle()
+        const ownerId = (owner as { user_id?: string; plan_id?: string } | null)?.user_id
+        if (ownerId) {
+          await createNotification(service, {
+            userId: ownerId,
+            type: "status",
+            title: applied.status === "canceled" ? "Subscription canceled" : "Subscription active",
+            body: applied.status === "canceled"
+              ? "Your subscription is canceled — packs keep working anytime."
+              : `Your plan is live${applied.granted ? " and this period's allowance is in your balance" : ""}.`,
+            link: "/settings",
+          })
+        }
+      } catch {
+        // The subscription stands regardless; the notification is best-effort.
+      }
+      return NextResponse.json({ received: true, subscription: applied.subscriptionId, status: applied.status }, { status: 200 })
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Subscription event failed" }, { status: 400 })
+    }
   }
 
   if (event.status !== "succeeded") {

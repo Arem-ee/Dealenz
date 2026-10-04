@@ -609,6 +609,20 @@ describe("00083 credit purchase revocation statuses (static)", () => {
   })
 })
 
+describe("00097 subscriptions (static)", () => {
+  const mig = code(sql("00097_subscriptions.sql"))
+
+  it("holds one live subscription per user with a phase-2 cap switch", () => {
+    expect(mig).toMatch(/CREATE TABLE IF NOT EXISTS subscriptions/)
+    expect(mig).toMatch(/uq_subscriptions_live_user/)
+    expect(mig).toMatch(/overage_allowed BOOLEAN NOT NULL DEFAULT false/)
+    expect(mig).toMatch(/FOR SELECT/)
+    expect(mig).not.toMatch(/FOR INSERT/)
+    expect(mig).not.toMatch(/FOR UPDATE/)
+    expect(mig).not.toMatch(/FOR DELETE/)
+  })
+})
+
 describe("00096 approval requests (static)", () => {
   const mig96 = code(sql("00096_approval_requests.sql"))
 

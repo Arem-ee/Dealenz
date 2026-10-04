@@ -85,24 +85,7 @@ export function SettingsView({ email }: { email: string }) {
           )}
 
           {section === "Billing" && (
-            <section aria-label="Billing">
-              <h2 className="text-sm font-semibold">Billing</h2>
-              <dl className="mt-3 space-y-3">
-                <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Plan</dt>
-                  <dd className="mt-0.5 text-sm text-muted-foreground">—</dd>
-                </div>
-                <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Allowance used</dt>
-                  <dd className="mt-0.5 text-sm text-muted-foreground">—</dd>
-                </div>
-                <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Invoices</dt>
-                  <dd className="mt-0.5 text-sm text-muted-foreground">None yet.</dd>
-                </div>
-              </dl>
-              <p className="mt-4 text-[11px] text-muted-foreground">Plan, usage bar, payment method, and fair cancel wire up with functions. Cancellation is never buried.</p>
-            </section>
+            <BillingSection />
           )}
 
           {section === "Notifications" && (
@@ -364,6 +347,303 @@ function ModelsSection() {
               Save key
             </button>
           </div>
+        </>
+      )}
+    </section>
+  )
+}
+
+interface PaddleCheckout {
+  Setup: (options: { token: string }) => void
+  Environment: { set: (env: string) => void }
+  Checkout: { open: (options: unknown) => void }
+}
+
+declare global {
+  interface Window {
+    Paddle?: PaddleCheckout
+  }
+}
+
+function loadPaddle(): Promise<PaddleCheckout> {
+  if (typeof window !== "undefined" && window.Paddle) return Promise.resolve(window.Paddle)
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script")
+    script.src = "https://cdn.paddle.com/paddle/v2/paddle.js"
+    script.async = true
+    script.onload = () => {
+      if (window.Paddle) resolve(window.Paddle)
+      else reject(new Error("Checkout failed to load."))
+    }
+    script.onerror = () => reject(new Error("Checkout failed to load. Check your connection and try again."))
+    document.head.appendChild(script)
+  })
+}
+
+// Billing: live subscription state, allowance usage, plan switching,
+// cancellation at period end, and pack history. Hard cap, stated
+// plainly: work pauses when the balance runs out; packs top up anytime.
+// Overage billing is not built yet — nothing here pretends otherwise.
+function BillingSection() {
+  const [state, setState] = useState<{
+    subscription: {
+      id: string
+      plan_id: string
+      plan_label: string
+      status: string
+      currency: string
+      monthly_allowance: number
+      used_allowance: number
+      period_end: string
+      renews: boolean
+    } | null
+    balance: number | null
+    plans: Array<{ id: string; monthlyAllowance: number; description: string }>
+    checkoutConfigured: boolean
+    purchases: Array<{ package_id: string; currency: string; amount_minor: number; credits: number; status: string; created_at: string }>
+  } | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [currency, setCurrency] = useState("USD")
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [cancelArmed, setCancelArmed] = useState(false)
+
+  const refresh = async () => {
+    try {
+      const { getBillingState } = await import("@/lib/billing/subscription-actions")
+      const res = await getBillingState()
+      if (!res.ok) {
+        setLoadError(res.error)
+        return
+      }
+      setState({
+        subscription: res.subscription,
+        balance: res.balance,
+        plans: res.plans,
+        checkoutConfigured: res.checkoutConfigured,
+        purchases: res.purchases,
+      })
+    } catch {
+      setLoadError("We couldn't load billing.")
+    }
+  }
+
+  useEffect(() => {
+    let live = true
+    import("@/lib/billing/subscription-actions")
+      .then(({ getBillingState }) => getBillingState())
+      .then((res) => {
+        if (!live) return
+        if (!res.ok) {
+          setLoadError(res.error)
+          return
+        }
+        setState({
+          subscription: res.subscription,
+          balance: res.balance,
+          plans: res.plans,
+          checkoutConfigured: res.checkoutConfigured,
+          purchases: res.purchases,
+        })
+      })
+      .catch(() => {
+        if (!live) return
+        setLoadError("We couldn't load billing.")
+      })
+    return () => {
+      live = false
+    }
+  }, [])
+
+  async function subscribe(planId: string) {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const { startSubscriptionCheckout } = await import("@/lib/billing/subscription-actions")
+      const res = await startSubscriptionCheckout({ planId, currency })
+      if (!res.ok) throw new Error(res.error)
+      const paddle = await loadPaddle()
+      if (res.environment === "sandbox") {
+        try {
+          paddle.Environment.set("sandbox")
+        } catch {
+          // Production token with a sandbox flag — Setup still validates.
+        }
+      }
+      paddle.Setup({ token: res.clientToken })
+      paddle.Checkout.open({
+        items: [{ priceId: res.priceId, quantity: 1 }],
+        customer: { email: res.email },
+        customData: res.customData,
+      })
+      setNotice("Checkout opened — your plan activates when payment completes. Refresh this page after.")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Checkout failed.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function cancel() {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const { cancelSubscription } = await import("@/lib/billing/subscription-actions")
+      const res = await cancelSubscription()
+      if (!res.ok) throw new Error(res.error)
+      setCancelArmed(false)
+      setNotice("Cancellation requested — allowance runs to period end, then stops. Packs keep working anytime.")
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Cancellation failed — your subscription is unchanged.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const sub = state?.subscription ?? null
+
+  return (
+    <section aria-label="Billing">
+      <h2 className="text-sm font-semibold">Billing</h2>
+      {loadError ? (
+        <p role="alert" className="mt-3 border border-destructive/30 bg-destructive/5 px-2.5 py-2 text-xs text-destructive">{loadError}</p>
+      ) : !state ? (
+        <p className="mt-3 text-sm text-muted-foreground">Loading billing…</p>
+      ) : (
+        <>
+          <dl className="mt-3 space-y-3">
+            <div>
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Plan</dt>
+              <dd className="mt-0.5 text-sm">{sub ? `${sub.plan_label} · ${sub.status.replaceAll("_", " ")}` : "Pay as you go (packs)"}</dd>
+            </div>
+            {sub && (
+              <div>
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Allowance used · renews {new Date(sub.period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </dt>
+                <dd className="mt-1.5">
+                  <span className="block h-2 w-full max-w-xs bg-muted">
+                    <span
+                      className="block h-full bg-foreground"
+                      style={{ width: `${sub.monthly_allowance > 0 ? Math.min(100, Math.round((sub.used_allowance / sub.monthly_allowance) * 100)) : 0}%` }}
+                    />
+                  </span>
+                  <span className="mt-1 block text-xs tabular-nums text-muted-foreground">
+                    {sub.used_allowance} of {sub.monthly_allowance} credits
+                  </span>
+                </dd>
+              </div>
+            )}
+            {typeof state.balance === "number" && (
+              <div>
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Balance</dt>
+                <dd className="mt-0.5 text-sm tabular-nums">{state.balance} credits</dd>
+              </div>
+            )}
+            <div>
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Invoices</dt>
+              <dd className="mt-0.5 text-sm">
+                {state.purchases.length === 0 ? (
+                  <span className="text-muted-foreground">None yet.</span>
+                ) : (
+                  <ul className="space-y-1">
+                    {state.purchases.slice(0, 5).map((p, i) => (
+                      <li key={i} className="text-xs tabular-nums text-muted-foreground">
+                        {p.package_id} · {(p.amount_minor / 100).toFixed(2)} {p.currency} · {p.credits} credits · {p.status} ·{" "}
+                        {new Date(p.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </dd>
+            </div>
+          </dl>
+
+          {!sub && (
+            <div className="mt-4 border border-border p-3" aria-label="Subscribe">
+              <p className="text-[13px] font-medium">Subscribe for monthly allowance</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Use-or-lose every 30 days. Hard cap: work pauses when the balance runs out — packs top up anytime.
+              </p>
+              {!state.checkoutConfigured ? (
+                <p className="mt-2 text-[11px] text-muted-foreground">Subscriptions open soon — packs work today.</p>
+              ) : (
+                <>
+                  <label className="mt-2 block text-[11px] text-muted-foreground">
+                    Currency
+                    <select value={currency} onChange={(e) => setCurrency(e.target.value)} disabled={busy} className="mt-1 h-9 w-32 border border-input bg-background px-2 text-xs text-foreground disabled:opacity-60">
+                      <option value="USD">USD</option>
+                      <option value="GBP">GBP</option>
+                      <option value="EUR">EUR</option>
+                    </select>
+                  </label>
+                  <div className="mt-2 space-y-1.5">
+                    {state.plans.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between gap-2 border border-border px-2.5 py-2">
+                        <div>
+                          <p className="text-[13px] font-medium capitalize">{p.id}</p>
+                          <p className="text-[11px] text-muted-foreground">{p.description}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void subscribe(p.id)}
+                          disabled={busy}
+                          className="h-8 shrink-0 bg-primary px-3 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
+                        >
+                          Subscribe
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {sub && sub.renews && (
+            <div className="mt-4">
+              {!cancelArmed ? (
+                <button
+                  type="button"
+                  onClick={() => setCancelArmed(true)}
+                  className="text-[11px] text-muted-foreground hover:text-destructive"
+                >
+                  Cancel subscription
+                </button>
+              ) : (
+                <div className="border border-brick-700/40 p-3" aria-label="Confirm cancellation">
+                  <p className="text-xs">Cancel at period end? Allowance stops renewing; packs keep working.</p>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void cancel()}
+                      disabled={busy}
+                      className="inline-flex h-8 items-center bg-destructive px-3 text-[11px] font-semibold text-destructive-foreground disabled:opacity-40"
+                    >
+                      {busy ? "Canceling…" : "Yes, cancel at period end"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCancelArmed(false)}
+                      className="inline-flex h-8 items-center px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      Keep plan
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {error && <p role="alert" className="mt-2 border border-destructive/30 bg-destructive/5 px-2.5 py-2 text-xs text-destructive">{error}</p>}
+          {notice && <p role="status" className="mt-2 border border-border bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground">{notice}</p>}
+          <p className="mt-4 text-[11px] text-muted-foreground">Cancellation is never buried — it lives here, two clicks, effective at period end.</p>
         </>
       )}
     </section>

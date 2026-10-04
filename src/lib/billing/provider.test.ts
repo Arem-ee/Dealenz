@@ -4,13 +4,16 @@ import {
   createMockAdapter,
   createPaddleAdapter,
   enabledCurrencies,
+  isSubscriptionCheckoutConfigured,
+  parsePaddleSubscriptionEvent,
   parsePaddleTransactionEvent,
+  planPriceId,
   priceIdForPackage,
   packageIdForPrice,
   isPaddleConfigured,
   verifyPaddleSignature,
 } from "./provider"
-import { getPackage } from "./catalog"
+import { getPackage, getPlan, planAndCurrencyForPrice } from "./catalog"
 
 const OLD_ENV = { ...process.env }
 
@@ -21,6 +24,9 @@ function setPaddleEnv() {
   process.env.PADDLE_PRICE_STANDARD = "pri_standard_222"
   process.env.PADDLE_PRICE_PRO = "pri_pro_333"
   process.env.PADDLE_ENVIRONMENT = "sandbox"
+  process.env.PADDLE_PLAN_STUDIO = "pri_studio_usd"
+  process.env.PADDLE_PLAN_FIRM = "pri_firm_usd"
+  process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN = "test_client_token"
 }
 
 beforeEach(() => {
@@ -178,5 +184,63 @@ describe("billing provider adapter — Paddle", () => {
         cancelUrl: "https://example.com/b",
       })
     ).rejects.toThrow(/not configured/)
+  })
+})
+
+function subscriptionBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    event_id: "evt_01sub",
+    event_type: "subscription.created",
+    occurred_at: new Date().toISOString(),
+    notification_id: "ntf_01sub",
+    data: {
+      id: "sub_01test12345678901234567890ab",
+      status: "active",
+      customer_id: "ctm_01test",
+      currency_code: "USD",
+      custom_data: { user_id: "00000000-0000-0000-0000-000000000001", plan_id: "studio" },
+      items: [{ price: { id: "pri_studio_usd" }, quantity: 1 }],
+      current_billing_period: { starts_at: "2026-01-01T00:00:00Z", ends_at: "2026-01-31T00:00:00Z" },
+      ...((overrides.data as Record<string, unknown>) ?? {}),
+    },
+    ...overrides,
+  }
+}
+
+describe("subscription plans and events", () => {
+  it("resolves plan price ids per currency and fails closed when absent", () => {
+    expect(planPriceId("studio", "USD")).toBe("pri_studio_usd")
+    expect(planPriceId("studio", "GBP")).toBeNull()
+    expect(planPriceId("nope", "USD")).toBeNull()
+    expect(planAndCurrencyForPrice("pri_firm_usd")).toEqual({ planId: "firm", currency: "USD" })
+    expect(planAndCurrencyForPrice("pri_unknown")).toBeNull()
+    expect(getPlan("studio")?.monthlyAllowance).toBe(300)
+    expect(getPlan("nope")).toBeNull()
+  })
+
+  it("gates hosted checkout on client token plus USD prices", () => {
+    expect(isSubscriptionCheckoutConfigured()).toBe(true)
+    delete process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
+    expect(isSubscriptionCheckoutConfigured()).toBe(false)
+  })
+
+  it("parses subscription lifecycle events with period bounds", () => {
+    const event = parsePaddleSubscriptionEvent(subscriptionBody())
+    expect(event.subscriptionId).toMatch(/^sub_/)
+    expect(event.status).toBe("active")
+    expect(event.priceId).toBe("pri_studio_usd")
+    expect(event.userId).toBe("00000000-0000-0000-0000-000000000001")
+    expect(event.periodStart).toBe("2026-01-01T00:00:00Z")
+    expect(event.periodEnd).toBe("2026-01-31T00:00:00Z")
+  })
+
+  it("rejects non-subscription events and missing subscription ids", () => {
+    expect(() => parsePaddleSubscriptionEvent({ event_type: "transaction.completed", data: {} })).toThrow(/not a subscription/i)
+    const noId = subscriptionBody()
+    ;((noId.data as Record<string, unknown>).id as unknown) = "txn_notasub"
+    expect(() => parsePaddleSubscriptionEvent(noId)).toThrow(/subscription id/)
+    const noPrice = subscriptionBody()
+    ;((noPrice.data as Record<string, unknown>).items as unknown[]) = [{ price: {} }]
+    expect(() => parsePaddleSubscriptionEvent(noPrice)).toThrow(/price id/)
   })
 })

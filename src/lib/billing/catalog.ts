@@ -10,6 +10,7 @@
 // drift — repricing here without updating Paddle breaks checkout.
 
 import { ANALYSIS_CREDITS, CREDIT_PRICE_BRIEF, DOCUMENT_CREDIT_COSTS } from "@/lib/credits/pricing"
+import { planPriceId } from "@/lib/billing/provider"
 
 export type Currency = "USD" | "GBP" | "EUR"
 
@@ -92,4 +93,57 @@ export function packageValueLines(credits: number): string[] {
     plural(Math.floor(credits / DOCUMENT_CREDIT_COSTS.proposal), "proposal", "proposals"),
     plural(Math.floor(credits / CREDIT_PRICE_BRIEF), "quick answer", "quick answers"),
   ]
+}
+
+export interface SubscriptionPlan {
+  id: string // stable, provider-independent: studio | firm
+  monthlyAllowance: number
+  prices: Record<Currency, number> // minor units per month
+  active: boolean
+  // Paddle price ids live in environment (PADDLE_PLAN_*,
+  // resolved by src/lib/billing/provider.ts), never as code constants.
+  description: string
+}
+
+// Starting catalog — the business sets these numbers; the Paddle
+// products behind PADDLE_PLAN_* must equal these amounts, same contract
+// as packs. Allowance sizes in whole credits per 30-day period.
+export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
+  {
+    id: "studio",
+    monthlyAllowance: 300,
+    prices: { USD: 2900, GBP: 2300, EUR: 2700 },
+    active: true,
+    description: "300 credits every 30 days, use-or-lose",
+  },
+  {
+    id: "firm",
+    monthlyAllowance: 1000,
+    prices: { USD: 7900, GBP: 6300, EUR: 7400 },
+    active: true,
+    description: "1,000 credits every 30 days, use-or-lose",
+  },
+]
+
+export function getPlan(planId: string): SubscriptionPlan | null {
+  return SUBSCRIPTION_PLANS.find((p) => p.id === planId) ?? null
+}
+
+export function priceForPlan(plan: SubscriptionPlan, currency: Currency): number {
+  return plan.prices[currency]
+}
+
+export function planIdForPrice(priceId: string): string | null {
+  return planAndCurrencyForPrice(priceId)?.planId ?? null
+}
+
+export function planAndCurrencyForPrice(priceId: string): { planId: string; currency: Currency } | null {
+  if (!priceId) return null
+  for (const plan of SUBSCRIPTION_PLANS) {
+    if (!plan.active) continue
+    for (const currency of ["USD", "GBP", "EUR"] as const) {
+      if (planPriceId(plan.id, currency) === priceId) return { planId: plan.id, currency }
+    }
+  }
+  return null
 }

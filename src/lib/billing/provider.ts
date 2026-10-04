@@ -30,6 +30,7 @@ export interface ProviderAdapter {
     cancelUrl: string
   }): Promise<CheckoutSession>
   verifyWebhook(input: { body: string; signature: string | null; secret: string }): Promise<VerifiedEvent>
+  verifySubscriptionWebhook(input: { body: string; signature: string | null; secret: string }): Promise<VerifiedSubscriptionEvent & { raw: unknown }>
 }
 
 export interface VerifiedEvent {
@@ -45,6 +46,23 @@ export interface VerifiedEvent {
   /** Attributed user id from custom_data (validated as UUID downstream). */
   userId: string
   status: "succeeded" | "failed" | "canceled" | "refunded" | "disputed"
+  raw: unknown
+}
+
+export interface VerifiedSubscriptionEvent {
+  /** Paddle event name, e.g. "subscription.created". */
+  type: string
+  /** Stable Paddle subscription id (sub_...). Never fabricated. */
+  subscriptionId: string
+  /** Raw Paddle subscription status: active, trialing, past_due, paused, canceled. */
+  status: string
+  /** Server-resolved price id from the subscription items. */
+  priceId: string
+  /** Attributed user id from custom_data (validated as UUID downstream). */
+  userId: string
+  /** Billing period bounds from current_billing_period, null when absent. */
+  periodStart: string | null
+  periodEnd: string | null
   raw: unknown
 }
 
@@ -92,6 +110,37 @@ export function packageIdForPrice(priceId: string): string | null {
     }
   }
   return null
+}
+
+// Subscription plan price ids (PADDLE_PLAN_STUDIO[_USD|_GBP|_EUR],
+// PADDLE_PLAN_FIRM[...]). Same contract as packs: absent ids fail closed
+// per currency, and the dashboard products must equal catalog amounts.
+const PLAN_PRICE_ENV: Record<string, string> = {
+  studio: "PADDLE_PLAN_STUDIO",
+  firm: "PADDLE_PLAN_FIRM",
+}
+
+export function planPriceId(planId: string, currency?: string): string | null {
+  const envVar = PLAN_PRICE_ENV[planId]
+  if (!envVar) return null
+  if (currency && currency !== "USD") {
+    const specific = (process.env[`${envVar}_${currency}`] ?? "").trim()
+    return specific.length > 0 ? specific : null
+  }
+  const legacy = (process.env[envVar] ?? "").trim()
+  if (legacy.length > 0) return legacy
+  if (currency === "USD") {
+    const specific = (process.env[`${envVar}_USD`] ?? "").trim()
+    return specific.length > 0 ? specific : null
+  }
+  return legacy.length > 0 ? legacy : null
+}
+
+/** Hosted subscription checkout needs the client token plus a USD price. */
+export function isSubscriptionCheckoutConfigured(): boolean {
+  if (!paddleApiKey() || !paddleWebhookSecret()) return false
+  if (!(process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? "").trim()) return false
+  return ["studio", "firm"].every((id) => planPriceId(id, "USD") !== null)
 }
 
 /** Buyer currencies where every active package has a resolvable price. */
@@ -211,6 +260,52 @@ export function parsePaddleTransactionEvent(parsed: unknown): Omit<VerifiedEvent
   }
 }
 
+function firstPriceId(data: Record<string, unknown>): string {
+  const items = Array.isArray(data.items) ? data.items as unknown[] : []
+  const firstItem = asRecord(items[0] as unknown)
+  const price = asRecord(firstItem?.price as unknown)
+  const priceId = typeof price?.id === "string" ? price.id : (typeof firstItem?.price_id === "string" ? (firstItem.price_id as string) : "")
+  if (!priceId) throw new Error("Paddle event is missing its price id; refusing to fulfill")
+  return priceId
+}
+
+function customUserIdOf(data: Record<string, unknown>): string {
+  const customData = asRecord(data.custom_data)
+  return typeof customData?.user_id === "string" ? (customData.user_id as string).trim() : ""
+}
+
+/**
+ * Subscription lifecycle events (created/updated/canceled/...). Parsed
+ * separately from transactions — the transaction parser keeps rejecting
+ * them (covered by tests), and the webhook route branches on the event
+ * name. Period bounds come from current_billing_period when Paddle sends
+ * it; the allowance cron re-derives from the stored period otherwise.
+ */
+export function parsePaddleSubscriptionEvent(parsed: unknown): Omit<VerifiedSubscriptionEvent, "raw"> {
+  const root = asRecord(parsed)
+  if (!root) throw new Error("Invalid Paddle event: not an object")
+  const eventType = typeof root.event_type === "string" ? root.event_type : ""
+  if (!eventType.startsWith("subscription.")) throw new Error(`Not a subscription event: ${eventType || "(missing)"}`)
+  const data = asRecord(root.data)
+  if (!data) throw new Error("Paddle event is missing data")
+  const id = typeof data.id === "string" ? data.id : ""
+  if (!id || !id.startsWith("sub_")) throw new Error("Paddle event is missing its subscription id; refusing to fulfill")
+  const status = typeof data.status === "string" ? data.status : ""
+  if (!status) throw new Error("Paddle event is missing its subscription status; refusing to fulfill")
+  const period = asRecord(data.current_billing_period)
+  const periodStart = typeof period?.starts_at === "string" ? (period.starts_at as string) : null
+  const periodEnd = typeof period?.ends_at === "string" ? (period.ends_at as string) : null
+  return {
+    type: eventType,
+    subscriptionId: id,
+    status,
+    priceId: firstPriceId(data),
+    userId: customUserIdOf(data),
+    periodStart,
+    periodEnd,
+  }
+}
+
 export function createPaddleAdapter(): ProviderAdapter {
   return {
     async createCheckoutSession(input) {
@@ -257,6 +352,21 @@ export function createPaddleAdapter(): ProviderAdapter {
       const event = parsePaddleTransactionEvent(parsed)
       return { ...event, raw: parsed }
     },
+    async verifySubscriptionWebhook(input) {
+      if (!input.secret) throw new Error("PADDLE_WEBHOOK_SECRET is not configured")
+      if (!input.signature) throw new Error("Missing Paddle-Signature header")
+      if (!verifyPaddleSignature(input.body, input.signature, input.secret)) {
+        throw new Error("Invalid Paddle webhook signature")
+      }
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(input.body)
+      } catch {
+        throw new Error("Invalid webhook body")
+      }
+      const event = parsePaddleSubscriptionEvent(parsed)
+      return { ...event, raw: parsed }
+    },
   }
 }
 
@@ -266,6 +376,9 @@ export function createMockAdapter(): ProviderAdapter {
       const id = `txn_test_${input.package.id}_${input.currency}_${Date.now()}`
       const url = `https://checkout.example.invalid/paddle/${input.package.id}?user=${input.userId}`
       return { id, url, provider: "paddle" }
+    },
+    async verifySubscriptionWebhook() {
+      throw new Error("Subscription webhooks are not simulated by the mock adapter")
     },
     async verifyWebhook(input) {
       let parsed: unknown
