@@ -609,6 +609,18 @@ describe("00083 credit purchase revocation statuses (static)", () => {
   })
 })
 
+describe("00095 notifications (static)", () => {
+  const mig = code(sql("00095_notifications.sql"))
+
+  it("queues owner-scoped notifications with read-as-timestamp", () => {
+    expect(mig).toMatch(/CREATE TABLE IF NOT EXISTS notifications/)
+    expect(mig).toMatch(/auth\.uid\(\) = user_id/)
+    expect(mig).toMatch(/read_at TIMESTAMPTZ/)
+    expect(mig).toMatch(/link LIKE '\/%'/)
+    expect(mig).not.toMatch(/FOR DELETE/)
+  })
+})
+
 describe("00094 signing order and forwarding (static)", () => {
   const mig = code(sql("00094_signing_order_forward.sql"))
 

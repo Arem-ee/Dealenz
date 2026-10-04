@@ -2,6 +2,15 @@
 
 import { createClient } from "@/lib/supabase/server"
 
+/** Service client for post-event owner lookups invitees can't read. Null when unconfigured. */
+async function serviceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return null
+  const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+  return createServiceClient(url, key)
+}
+
 export interface SignerViewState {
   name: string
   email: string
@@ -73,6 +82,28 @@ export async function signTokenAction(input: {
   if (error) return { ok: false, error: "We couldn't record that signature. Please try again." }
   const row = (Array.isArray(data) ? data[0] : data) as { success?: boolean; message?: string } | null
   if (!row?.success) return { ok: false, error: row?.message || "That signing link is no longer valid." }
+  try {
+    const svc = await serviceClient()
+    if (svc) {
+      const { data: signer } = await svc
+        .from("document_signers")
+        .select("name, audit_id")
+        .eq("token", input.token)
+        .maybeSingle()
+      const s = signer as { name?: string; audit_id?: string } | null
+      if (s?.audit_id) {
+        const { notifyDealOwner } = await import("@/lib/notifications/notify")
+        await notifyDealOwner(svc, s.audit_id, {
+          type: "signing",
+          title: `${s.name || "A counterparty"} signed`,
+          body: `${s.name || "A counterparty"} signed their step. Open Signing to follow the ceremony.`,
+          link: "/signing",
+        })
+      }
+    }
+  } catch {
+    // The signature stands regardless; the notification is best-effort.
+  }
   return { ok: true }
 }
 
@@ -84,6 +115,28 @@ export async function declineTokenAction(input: { token: string }): Promise<
   if (error) return { ok: false, error: "We couldn't record that. Please try again." }
   const row = (Array.isArray(data) ? data[0] : data) as { success?: boolean; message?: string } | null
   if (!row?.success) return { ok: false, error: row?.message || "That signing link is no longer valid." }
+  try {
+    const svc = await serviceClient()
+    if (svc) {
+      const { data: signer } = await svc
+        .from("document_signers")
+        .select("name, audit_id")
+        .eq("token", input.token)
+        .maybeSingle()
+      const s = signer as { name?: string; audit_id?: string } | null
+      if (s?.audit_id) {
+        const { notifyDealOwner } = await import("@/lib/notifications/notify")
+        await notifyDealOwner(svc, s.audit_id, {
+          type: "signing",
+          title: `${s.name || "A counterparty"} declined`,
+          body: `${s.name || "An invitee"} declined their invitation. Re-invite or revoke it in Signing.`,
+          link: "/signing",
+        })
+      }
+    }
+  } catch {
+    // The decline stands regardless; the notification is best-effort.
+  }
   return { ok: true }
 }
 
@@ -135,6 +188,28 @@ export async function forwardTokenAction(input: {
   const row = (Array.isArray(data) ? data[0] : data) as { success?: boolean; message?: string; new_token?: string } | null
   if (!row?.success || !row.new_token) {
     return { ok: false, error: row?.message || "That signing link is no longer valid." }
+  }
+  try {
+    const svc = await serviceClient()
+    if (svc) {
+      const { data: signer } = await svc
+        .from("document_signers")
+        .select("name, email, audit_id")
+        .eq("token", input.token)
+        .maybeSingle()
+      const s = signer as { name?: string; email?: string; audit_id?: string } | null
+      if (s?.audit_id) {
+        const { notifyDealOwner } = await import("@/lib/notifications/notify")
+        await notifyDealOwner(svc, s.audit_id, {
+          type: "signing",
+          title: "Invitation forwarded",
+          body: `${s.name || "An invitee"} (${s.email || "their address"}) forwarded their step to ${email}.`,
+          link: "/signing",
+        })
+      }
+    }
+  } catch {
+    // The forward stands regardless; the notification is best-effort.
   }
   return { ok: true, newToken: row.new_token }
 }

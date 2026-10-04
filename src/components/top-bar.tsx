@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { LogOut, Menu, Plus, Search } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Logo } from "@/components/logo"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { PRIMARY_NAV, filterThreads, threadDate, type SidebarThread } from "@/lib/nav"
@@ -101,6 +102,7 @@ export function TopBar({ email, businessName, creditBalance = null, threads = []
           <InlineSearch threads={threads} />
         </div>
         <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+          <NotificationBell />
           <span
             title="Credit balance"
             className="max-w-[110px] min-w-0 shrink truncate text-[13px] tabular-nums text-muted-foreground sm:max-w-none"

@@ -464,6 +464,22 @@ export async function signAsOwnerAction(input: {
     // Consent evidence is best-effort; the signature row stands regardless.
   }
   version = await maybeFinalize(supabase, userId, version)
+  if (version.status === "locked") {
+    try {
+      const { createNotification } = await import("@/lib/notifications/store")
+      const { data: audit } = await supabase.from("audits").select("title").eq("id", version.audit_id).eq("user_id", userId).maybeSingle()
+      const dealTitle = ((audit as { title?: string | null } | null)?.title?.trim() ? (audit as { title: string }).title : "Untitled")
+      await createNotification(supabase, {
+        userId,
+        type: "success",
+        title: "Document sealed",
+        body: `“${dealTitle}” collected every signature and is sealed against edits.`,
+        link: "/signing",
+      })
+    } catch {
+      // The seal stands regardless; the notification is best-effort.
+    }
+  }
   return { ok: true, ceremony: await loadCeremony(supabase, userId, version) }
 }
 

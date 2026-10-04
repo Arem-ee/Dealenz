@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 
   const { data: rows, error } = await svc
     .from("document_signers")
-    .select("id")
+    .select("id, name, email, audit_id")
     .eq("status", "pending")
     .not("expires_at", "is", null)
     .lt("expires_at", new Date().toISOString())
@@ -45,7 +45,29 @@ export async function GET(req: NextRequest) {
     .in("id", ids)
     .eq("status", "pending")
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
-  return NextResponse.json({ ok: true, expired: ids.length })
+
+  // Owners learn about lapsed links through the notification center, not
+  // by discovering them. Best-effort: the flip above already stands.
+  let notified = 0
+  try {
+    const { notifyDealOwner } = await import("@/lib/notifications/notify")
+    for (const r of ((rows ?? []) as Array<{ id: string; name: string; email: string; audit_id: string }>)) {
+      try {
+        await notifyDealOwner(svc, r.audit_id, {
+          type: "signing",
+          title: "Signing link expired",
+          body: `${r.name || r.email || "An invitee"}'s invitation lapsed. Re-send or revoke it in Signing.`,
+          link: "/signing",
+        })
+        notified += 1
+      } catch {
+        // One missed notification never blocks the rest.
+      }
+    }
+  } catch {
+    // Notification import failure never fails the cron.
+  }
+  return NextResponse.json({ ok: true, expired: ids.length, notified })
 }
 
 export async function POST(req: NextRequest) {
