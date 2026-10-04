@@ -609,6 +609,24 @@ describe("00083 credit purchase revocation statuses (static)", () => {
   })
 })
 
+describe("00099 approval delegation (static)", () => {
+  const mig99 = code(sql("00099_approval_delegation.sql"))
+
+  it("tables cover with depth-1 guards and RPC-only writes", () => {
+    expect(mig99).toMatch(/CREATE TABLE IF NOT EXISTS approval_delegations/)
+    expect(mig99).toMatch(/CHECK \(delegator <> delegate\)/)
+    expect(mig99).toMatch(/grant_approval_delegation/)
+    expect(mig99).toMatch(/revoke_approval_delegation/)
+    expect(mig99).toMatch(/expire_approval_delegations/)
+  })
+
+  it("extends the queue policies with time-predicated delegation arms", () => {
+    expect(mig99).toMatch(/delegation_covers_request/)
+    expect(mig99).toMatch(/delegation_is_live/)
+    expect(mig99).toMatch(/Approvers decide pending requests/)
+  })
+})
+
 describe("00098 approval groups (static)", () => {
   const mig98 = code(sql("00098_approval_groups.sql"))
 

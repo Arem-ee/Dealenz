@@ -42,6 +42,16 @@ export async function GET(req: NextRequest) {
     result.allowance = { error: e instanceof Error ? e.message : "Allowance pass failed" }
   }
 
+  try {
+    // Coverage hygiene: lapsed delegations flip inactive. Enforcement is
+    // lazy (decide-time + RLS time predicates), so this only tidies reads.
+    const { data, error } = await svc.rpc("expire_approval_delegations")
+    if (error) throw new Error(error.message)
+    result.coverage = { expired: typeof data === "number" ? data : 0 }
+  } catch (e) {
+    result.coverage = { error: e instanceof Error ? e.message : "Coverage pass failed" }
+  }
+
   return NextResponse.json(result)
 }
 

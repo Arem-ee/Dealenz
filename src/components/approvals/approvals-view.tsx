@@ -320,7 +320,14 @@ export function ApprovalsView() {
               <ul className="mt-1.5 space-y-1.5">
                 {pendingIncoming.map((r) => (
                   <li key={r.id} className="border border-border bg-background px-3.5 py-3">
-                    <p className="text-sm font-medium">{r.title}</p>
+                    <p className="text-sm font-medium">
+                      {r.title}
+                      {r.covered_for && (
+                        <span className="ml-2 border border-border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Covering {r.covered_for}
+                        </span>
+                      )}
+                    </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       from {r.requester_email || "a teammate"}{r.group_name ? ` · routed to ${r.group_name}` : ""} · {r.detail}
                     </p>

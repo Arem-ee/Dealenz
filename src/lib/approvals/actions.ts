@@ -31,6 +31,7 @@ export interface ApprovalRequestRow {
   approver_email?: string | null
   requester_email?: string | null
   group_name?: string | null
+  covered_for?: string | null
 }
 
 async function serviceClient() {
@@ -126,10 +127,74 @@ export async function listApprovalQueue() {
       approver_email: r.approver_user_id ? (emails.get(r.approver_user_id) ?? null) : null,
       group_name: r.approver_group_id ? (groupNames.get(r.approver_group_id) ?? null) : null,
     }))
+    const attachCover = (r: ApprovalRequestRow): ApprovalRequestRow => {
+      const delegator = coveredBy.get(r.id)
+      return { ...r, covered_for: delegator ? (emails.get(delegator) ?? null) : null }
+    }
+    // Delegated legs: rows I cover through a live grant (incoming) or
+    // covered through any grant ever held (decided history). Grants are
+    // mine to read; coverage matching mirrors delegation_covers_request.
+    const coveredPending = new Set<string>()
+    const coveredDecided = new Set<string>()
+    const coveredBy = new Map<string, string>()
+    if (svc) {
+      try {
+        const { data: grants } = await svc
+          .from("approval_delegations")
+          .select("id, group_id, delegator, is_active")
+          .eq("delegate", user.id)
+          .limit(50)
+        const allGrants = ((grants ?? []) as Array<{ id: string; group_id: string | null; delegator: string; is_active: boolean }>)
+        const live = allGrants.filter((g) => g.is_active)
+        const { data: extra } = await supabase
+          .from("approval_requests")
+          .select("id, user_id, approver_user_id, approver_group_id, subject_type, subject_id, title, detail, verdict, comment, plan_version, decided_at, created_at")
+          .neq("verdict", "pending")
+          .order("created_at", { ascending: false })
+          .limit(100)
+        const candidates = [...withEmails, ...(((extra ?? []) as ApprovalRequestRow[]).filter((e) => !withEmails.some((r) => r.id === e.id) && ["approved", "rejected"].includes(e.verdict)))]
+        for (const c of candidates) {
+          if (c.user_id === user.id) continue
+          const match = allGrants.find((g) =>
+            g.delegator === c.approver_user_id ||
+            (c.approver_group_id !== null && (g.group_id === null || g.group_id === c.approver_group_id))
+          )
+          // Group match also needs the granter in the group at read time;
+          // designated matches are exact. (Decide-time re-validates fully.)
+          if (match && (match.delegator === c.approver_user_id || c.approver_group_id === null || match.group_id === null)) {
+            if (c.verdict === "pending" && live.some((g) => g.id === match.id)) { coveredPending.add(c.id); coveredBy.set(c.id, match.delegator) }
+            else if (c.verdict !== "pending") { coveredDecided.add(c.id); coveredBy.set(c.id, match.delegator) }
+          } else if (match && c.approver_group_id !== null) {
+            const granterIn = await groupDeciderEligible(svc, c.approver_group_id, match.delegator).catch(() => false)
+            if (granterIn) {
+              if (c.verdict === "pending" && live.some((g) => g.id === match.id)) { coveredPending.add(c.id); coveredBy.set(c.id, match.delegator) }
+              else if (c.verdict !== "pending") { coveredDecided.add(c.id); coveredBy.set(c.id, match.delegator) }
+            }
+          }
+        }
+        for (const e of ((extra ?? []) as ApprovalRequestRow[])) {
+          if (coveredDecided.has(e.id) && !withEmails.some((r) => r.id === e.id)) {
+            withEmails.push({
+              ...e,
+              requester_email: emails.get(e.user_id) ?? null,
+              approver_email: e.approver_user_id ? (emails.get(e.approver_user_id) ?? null) : null,
+              group_name: e.approver_group_id ? (groupNames.get(e.approver_group_id) ?? null) : null,
+            })
+          }
+        }
+      } catch {
+        // Named + group legs already loaded; delegation legs are additive.
+      }
+    }
     return {
       ok: true as const,
-      incoming: withEmails.filter((r) => r.approver_user_id === user.id || (r.approver_group_id !== null && r.user_id !== user.id)),
-      outgoing: withEmails.filter((r) => r.user_id === user.id),
+      incoming: withEmails.filter((r) =>
+        r.approver_user_id === user.id ||
+        (r.approver_group_id !== null && r.user_id !== user.id) ||
+        coveredPending.has(r.id) ||
+        coveredDecided.has(r.id)
+      ).map(attachCover),
+      outgoing: withEmails.filter((r) => r.user_id === user.id).map(attachCover),
     }
   } catch (e) {
     return toActionFailure(e, "Could not load approvals.") as never
@@ -195,6 +260,44 @@ export async function listApprovalGroups() {
   }
 }
 
+/** Live delegations where the caller is the cover, with scope. */
+async function liveDelegationsFor(
+  svc: NonNullable<Awaited<ReturnType<typeof serviceClient>>>,
+  delegateId: string
+): Promise<Array<{ id: string; org_id: string; group_id: string | null; delegator: string }>> {
+  const now = new Date().toISOString()
+  const { data } = await svc
+    .from("approval_delegations")
+    .select("id, org_id, group_id, delegator")
+    .eq("delegate", delegateId)
+    .eq("is_active", true)
+    .is("revoked_at", null)
+    .lte("starts_at", now)
+    .or(`ends_at.is.null,ends_at.gt.${now}`)
+    .limit(50)
+  return ((data ?? []) as Array<{ id: string; org_id: string; group_id: string | null; delegator: string }>)
+}
+
+/**
+ * Delegation coverage for one request: a live grant whose delegator is
+ * the routed party (designated user or member of the routed group) and
+ * whose scope matches. Mirrors delegation_covers_request in SQL.
+ */
+async function delegationCovers(
+  svc: NonNullable<Awaited<ReturnType<typeof serviceClient>>>,
+  userId: string,
+  req: { approver_user_id: string | null; approver_group_id: string | null }
+): Promise<{ id: string; delegator: string } | null> {
+  const grants = await liveDelegationsFor(svc, userId)
+  for (const g of grants) {
+    if (g.group_id !== null && g.group_id !== req.approver_group_id) continue
+    if (g.delegator === req.approver_user_id) return { id: g.id, delegator: g.delegator }
+    if (req.approver_group_id !== null && await groupDeciderEligible(svc, req.approver_group_id, g.delegator)) {
+      return { id: g.id, delegator: g.delegator }
+    }
+  }
+  return null
+}
 /** True when the user may decide for the group (membership, any role). */
 async function groupDeciderEligible(
   svc: NonNullable<Awaited<ReturnType<typeof serviceClient>>>,
@@ -416,11 +519,44 @@ export async function decideApprovalRequest(input: { requestId: string; verdict:
     const designated = reqRow.approver_user_id === user.id
     const viaGroup = reqRow.approver_group_id !== null
       && (await groupDeciderEligible(svc, reqRow.approver_group_id as string, user.id))
-    if (!designated && !viaGroup) {
-      return { ok: false as const, error: "Only the designated approver or a member of the routed group can decide." }
+    // Third arm: live cover. The delegate inherits exactly the delegator's
+    // reach on this request — nothing more.
+    const cover = !designated && !viaGroup
+      ? await delegationCovers(svc, user.id, { approver_user_id: reqRow.approver_user_id, approver_group_id: reqRow.approver_group_id })
+      : null
+    if (!designated && !viaGroup && !cover) {
+      return { ok: false as const, error: "Only the designated approver, a member of the routed group, or their live cover can decide." }
     }
     if (designated && !(await approverEligible(svc, reqRow.user_id, user.id))) {
       return { ok: false as const, error: "You are no longer an approver for that teammate's organization." }
+    }
+    if (cover) {
+      // Re-validate the chain at decide-time: the delegator must still
+      // hold deciding power, and the cover must still belong to the org.
+      const { data: membership } = await svc
+        .from("organization_members")
+        .select("org_id")
+        .eq("user_id", user.id)
+        .limit(50)
+      const myOrgs = new Set(((membership ?? []) as Array<{ org_id: string }>).map((m) => m.org_id))
+      const { data: grant } = await svc
+        .from("approval_delegations")
+        .select("org_id, delegator")
+        .eq("id", cover.id)
+        .maybeSingle()
+      const g = grant as { org_id: string; delegator: string } | null
+      if (!g || !myOrgs.has(g.org_id)) {
+        return { ok: false as const, error: "That cover no longer reaches this request." }
+      }
+      const granterDesignated = g.delegator === reqRow.approver_user_id
+      const granterInGroup = reqRow.approver_group_id !== null
+        && (await groupDeciderEligible(svc, reqRow.approver_group_id as string, g.delegator))
+      if (!granterDesignated && !granterInGroup) {
+        return { ok: false as const, error: "The granter lost deciding power — the cover lapses for this request." }
+      }
+      if (granterDesignated && !(await approverEligible(svc, reqRow.user_id, g.delegator))) {
+        return { ok: false as const, error: "The granter lost deciding power — the cover lapses for this request." }
+      }
     }
 
     // Snapshot the exact version+hash under decision: execution later
@@ -478,22 +614,39 @@ export async function decideApprovalRequest(input: { requestId: string; verdict:
         user_id: planRow.user_id,
         audit_id: planRow.deal_id,
         event_type: input.verdict === "approved" ? "plan_approved" : "plan_rejected",
-        payload: { plan_id: planRow.id, request_id: reqRow.id, decided_by: user.id, comment: comment || null },
+        payload: {
+          plan_id: planRow.id,
+          request_id: reqRow.id,
+          decided_by: user.id,
+          on_behalf_of: cover ? cover.delegator : null,
+          delegation_id: cover ? cover.id : null,
+          comment: comment || null,
+        },
       })
     } catch {
       // Audit is best-effort; the frozen row is the record.
     }
     try {
       const { createNotification } = await import("@/lib/notifications/store")
+      const deciderLabel = cover ? `${user.email ?? "A cover"} (on behalf)` : (user.email ?? "Your approver")
       await createNotification(svc, {
         userId: planRow.user_id,
         type: "approval",
         title: input.verdict === "approved" ? "Plan approved" : "Plan rejected",
         body: input.verdict === "approved"
-          ? `${user.email ?? "Your approver"} approved “${reqRow.title}” — it can execute now.`
-          : `${user.email ?? "Your approver"} rejected “${reqRow.title}”: ${comment}`,
+          ? `${deciderLabel} approved “${reqRow.title}” — it can execute now.`
+          : `${deciderLabel} rejected “${reqRow.title}”: ${comment}`,
         link: "/approvals",
       })
+      if (cover) {
+        await createNotification(svc, {
+          userId: cover.delegator,
+          type: "approval",
+          title: `Cover decided: ${input.verdict}`,
+          body: `${user.email ?? "Your cover"} ${input.verdict} “${reqRow.title}” on your behalf.`,
+          link: "/approvals",
+        })
+      }
     } catch {
       // The decision stands regardless; the notification is best-effort.
     }

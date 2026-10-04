@@ -11,6 +11,168 @@ export interface OrgMembership {
   role: OrgRole
 }
 
+export interface OrgDelegation {
+  id: string
+  orgId: string
+  orgName: string
+  groupId: string | null
+  groupName: string | null
+  delegator: string
+  delegate: string
+  delegateEmail: string
+  delegatorEmail: string
+  startsAt: string
+  endsAt: string | null
+  isActive: boolean
+  mine: boolean
+}
+
+/** Coverage across the caller's orgs, with names resolved for display. */
+export async function listOrgDelegations(): Promise<{ ok: true; delegations: OrgDelegation[] } | { ok: false; error: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) return { ok: false as const, error: "Service not configured." }
+    const svc = createServiceClient(url, key)
+    const { data: mine } = await svc.from("organization_members").select("org_id, role").eq("user_id", user.id)
+    const myOrgs = ((mine ?? []) as Array<{ org_id: string; role: string }>)
+    if (myOrgs.length === 0) return { ok: true as const, delegations: [] }
+    const roleByOrg = new Map(myOrgs.map((m) => [m.org_id, m.role]))
+    const { data: orgs } = await svc.from("organizations").select("id, name").in("id", [...roleByOrg.keys()])
+    const orgNames = new Map(((orgs ?? []) as Array<{ id: string; name: string }>).map((o) => [o.id, o.name]))
+    const { data: rows } = await svc
+      .from("approval_delegations")
+      .select("id, org_id, group_id, delegator, delegate, starts_at, ends_at, is_active")
+      .in("org_id", [...roleByOrg.keys()])
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(100)
+    const delegations = ((rows ?? []) as Array<{
+      id: string; org_id: string; group_id: string | null; delegator: string;
+      delegate: string; starts_at: string; ends_at: string | null; is_active: boolean;
+    }>)
+    const groupIds = [...new Set(delegations.map((d) => d.group_id).filter((v): v is string => v !== null))]
+    const groupNames = new Map<string, string>()
+    if (groupIds.length > 0) {
+      const { data: groups } = await svc.from("permission_groups").select("id, name").in("id", groupIds)
+      for (const g of ((groups ?? []) as Array<{ id: string; name: string }>)) groupNames.set(g.id, g.name)
+    }
+    const emails = new Map<string, string>()
+    try {
+      const { data: listed } = await svc.auth.admin.listUsers({ page: 1, perPage: 200 })
+      for (const u of ((listed as { users?: Array<{ id: string; email?: string }> } | null)?.users ?? [])) {
+        emails.set(u.id, u.email ?? "")
+      }
+    } catch {
+      // Emails are display-only.
+    }
+    return {
+      ok: true as const,
+      delegations: delegations.map((d) => ({
+        id: d.id,
+        orgId: d.org_id,
+        orgName: orgNames.get(d.org_id) ?? "Organization",
+        groupId: d.group_id,
+        groupName: d.group_id ? (groupNames.get(d.group_id) ?? null) : null,
+        delegator: d.delegator,
+        delegate: d.delegate,
+        delegateEmail: emails.get(d.delegate) ?? "",
+        delegatorEmail: emails.get(d.delegator) ?? "",
+        startsAt: d.starts_at,
+        endsAt: d.ends_at,
+        isActive: d.is_active,
+        mine: d.delegator === user.id,
+      })),
+    }
+  } catch (e) {
+    return toActionFailure(e, "We couldn't load coverage.") as never
+  }
+}
+
+export async function grantOrgDelegation(input: {
+  orgId: string
+  groupId?: string | null
+  email: string
+  endsAt?: string | null
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  try {
+    if (!isUUID(input.orgId)) return { ok: false as const, error: "Invalid organization." }
+    if (input.groupId !== undefined && input.groupId !== null && !isUUID(input.groupId)) {
+      return { ok: false as const, error: "Invalid group." }
+    }
+    const clean = input.email.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) return { ok: false as const, error: "Enter a valid email." }
+    let endsAt: string | null = null
+    if (input.endsAt) {
+      const t = new Date(input.endsAt).getTime()
+      if (Number.isNaN(t) || t <= Date.now()) return { ok: false as const, error: "Coverage must end in the future." }
+      endsAt = new Date(t).toISOString()
+    }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false as const, error: "Please verify your email address first." }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) return { ok: false as const, error: "Service not configured." }
+    const svc = createServiceClient(url, key)
+    const { data: listed, error: listError } = await svc.auth.admin.listUsers({ page: 1, perPage: 200 })
+    if (listError) return { ok: false as const, error: "We couldn't find that account. Please try again." }
+    const target = ((((listed as unknown as { users?: Array<{ id: string; email?: string }> }).users) ?? []).find((u) => (u.email ?? "").toLowerCase() === clean))
+    if (!target) return { ok: false as const, error: "No Dealenz account uses that email yet." }
+    const { data, error } = await supabase.rpc("grant_approval_delegation", {
+      p_org_id: input.orgId,
+      p_group_id: input.groupId ?? null,
+      p_delegate: target.id,
+      p_ends_at: endsAt,
+    })
+    if (error) {
+      if (error.message.includes("approval_delegation")) {
+        return { ok: false as const, error: "Coverage needs a database update (migration 00099). Please try again after migrating." }
+      }
+      return { ok: false as const, error: "We couldn't grant that coverage. Please try again." }
+    }
+    const row = (Array.isArray(data) ? data[0] : data) as { success?: boolean; message?: string; id?: string } | null
+    if (!row?.success || !row.id) return { ok: false as const, error: row?.message ?? "We couldn't grant that coverage." }
+    try {
+      const { createNotification } = await import("@/lib/notifications/store")
+      await createNotification(svc, {
+        userId: target.id,
+        type: "approval",
+        title: "Approval cover granted",
+        body: `${user.email ?? "A teammate"} handed you approval cover${endsAt ? ` until ${new Date(endsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}.`,
+        link: "/approvals",
+      })
+    } catch {
+      // The grant stands regardless; the notification is best-effort.
+    }
+    return { ok: true as const, id: String(row.id) }
+  } catch (e) {
+    return toActionFailure(e, "We couldn't grant that coverage.") as never
+  }
+}
+
+export async function revokeOrgDelegation(
+  delegationId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    if (!isUUID(delegationId)) return { ok: false as const, error: "Invalid coverage." }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const { data, error } = await supabase.rpc("revoke_approval_delegation", { p_delegation_id: delegationId })
+    if (error) return { ok: false as const, error: "We couldn't end that coverage." }
+    const row = (Array.isArray(data) ? data[0] : data) as { success?: boolean; message?: string } | null
+    if (!row?.success) return { ok: false as const, error: row?.message ?? "We couldn't end that coverage." }
+    return { ok: true as const }
+  } catch (e) {
+    return toActionFailure(e, "We couldn't end that coverage.") as never
+  }
+}
+
 export interface OrgGroup {
   groupId: string
   orgId: string

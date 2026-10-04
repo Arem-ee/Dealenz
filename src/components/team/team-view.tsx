@@ -6,9 +6,13 @@ import { useToast } from "@/components/ui/toast"
 import {
   addOrgGroupMember,
   createOrgGroup,
+  grantOrgDelegation,
   listMyOrganizations,
+  listOrgDelegations,
   listOrgGroups,
   removeOrgGroupMember,
+  revokeOrgDelegation,
+  type OrgDelegation,
   type OrgGroup,
 } from "@/lib/orgs/actions"
 
@@ -59,8 +63,14 @@ const MATRIX: Array<{ group: string; rows: Array<{ label: string; desc: string; 
 export function TeamView() {
   const { showError, showSuccess } = useToast()
   const [groups, setGroups] = useState<OrgGroup[] | null>(null)
+  const [delegations, setDelegations] = useState<OrgDelegation[] | null>(null)
   const [orgs, setOrgs] = useState<Array<{ orgId: string; orgName: string; role: string }>>([])
   const [createOpen, setCreateOpen] = useState(false)
+  const [coverOpen, setCoverOpen] = useState(false)
+  const [coverOrgId, setCoverOrgId] = useState("")
+  const [coverGroupId, setCoverGroupId] = useState("")
+  const [coverEmail, setCoverEmail] = useState("")
+  const [coverEnds, setCoverEnds] = useState("")
   const [newOrgId, setNewOrgId] = useState("")
   const [newName, setNewName] = useState("")
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -69,12 +79,17 @@ export function TeamView() {
 
   const refresh = async () => {
     try {
-      const [g, o] = await Promise.all([listOrgGroups(), listMyOrganizations()])
+      const [g, o, d] = await Promise.all([listOrgGroups(), listMyOrganizations(), listOrgDelegations()])
       if (!g.ok) {
         showError(g.error)
         setGroups([])
       } else {
         setGroups(g.groups)
+      }
+      if (!d.ok) {
+        setDelegations([])
+      } else {
+        setDelegations(d.delegations)
       }
       if (o.ok) {
         setOrgs(o.orgs)
@@ -82,17 +97,22 @@ export function TeamView() {
           const manageable = o.orgs.find((x) => x.role === "owner" || x.role === "admin")
           setNewOrgId((manageable ?? o.orgs[0]!).orgId)
         }
+        if (o.orgs.length > 0 && !coverOrgId) {
+          const manageable = o.orgs.find((x) => x.role === "owner" || x.role === "admin")
+          setCoverOrgId((manageable ?? o.orgs[0]!).orgId)
+        }
       }
     } catch {
       showError("Team failed to load")
       setGroups([])
+      setDelegations([])
     }
   }
 
   useEffect(() => {
     let live = true
-    Promise.all([listOrgGroups(), listMyOrganizations()])
-      .then(([g, o]) => {
+    Promise.all([listOrgGroups(), listMyOrganizations(), listOrgDelegations()])
+      .then(([g, o, d]) => {
         if (!live) return
         if (!g.ok) {
           showError(g.error)
@@ -100,17 +120,24 @@ export function TeamView() {
         } else {
           setGroups(g.groups)
         }
+        setDelegations(d.ok ? d.delegations : [])
         if (o.ok) {
           setOrgs(o.orgs)
           const manageable = o.orgs.find((x) => x.role === "owner" || x.role === "admin")
-          if (manageable) setNewOrgId(manageable.orgId)
-          else if (o.orgs.length > 0) setNewOrgId(o.orgs[0]!.orgId)
+          if (manageable) {
+            setNewOrgId(manageable.orgId)
+            setCoverOrgId(manageable.orgId)
+          } else if (o.orgs.length > 0) {
+            setNewOrgId(o.orgs[0]!.orgId)
+            setCoverOrgId(o.orgs[0]!.orgId)
+          }
         }
       })
       .catch(() => {
         if (!live) return
         showError("Team failed to load")
         setGroups([])
+        setDelegations([])
       })
     return () => {
       live = false
@@ -160,6 +187,44 @@ export function TeamView() {
       await refresh()
     } catch (err) {
       showError(err instanceof Error ? err.message : "Couldn't remove that member.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function grant() {
+    if (busy || !coverOrgId || !coverEmail.trim()) return
+    setBusy(true)
+    try {
+      const res = await grantOrgDelegation({
+        orgId: coverOrgId,
+        groupId: coverGroupId || null,
+        email: coverEmail,
+        endsAt: coverEnds || null,
+      })
+      if (!res.ok) throw new Error(res.error)
+      showSuccess("Cover granted.")
+      setCoverOpen(false)
+      setCoverEmail("")
+      setCoverEnds("")
+      setCoverGroupId("")
+      await refresh()
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't grant that cover.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function revoke(id: string) {
+    if (busy) return
+    setBusy(true)
+    try {
+      const res = await revokeOrgDelegation(id)
+      if (!res.ok) throw new Error(res.error)
+      await refresh()
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't end that cover.")
     } finally {
       setBusy(false)
     }
@@ -326,6 +391,115 @@ export function TeamView() {
                       )}
                     </div>
                   )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <section aria-label="Coverage" className="mt-6 shrink-0">
+        <div className="flex items-end justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold">Coverage</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Hand your deciding power to a teammate for a window — they decide as your cover, never as themselves.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCoverOpen((v) => !v)}
+            className="inline-flex h-8 shrink-0 items-center gap-1 border border-border px-3 text-[11px] font-medium hover:bg-muted"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Grant cover
+          </button>
+        </div>
+
+        {coverOpen && (
+          <div className="mt-2 border border-border bg-background p-3" aria-label="Grant cover">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label className="block text-[11px] font-medium text-muted-foreground">
+                Organization
+                <select value={coverOrgId} onChange={(e) => { setCoverOrgId(e.target.value); setCoverGroupId("") }} disabled={busy} className="mt-1 h-9 w-full border border-input bg-background px-2 text-xs text-foreground disabled:opacity-60">
+                  <option value="">Pick an organization…</option>
+                  {orgs.map((o) => (
+                    <option key={o.orgId} value={o.orgId}>{o.orgName} · {o.role}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-[11px] font-medium text-muted-foreground">
+                Scope <span className="font-normal">(blank covers everything)</span>
+                <select value={coverGroupId} onChange={(e) => setCoverGroupId(e.target.value)} disabled={busy || !coverOrgId} className="mt-1 h-9 w-full border border-input bg-background px-2 text-xs text-foreground disabled:opacity-60">
+                  <option value="">Everything</option>
+                  {(groups ?? []).filter((g) => g.orgId === coverOrgId).map((g) => (
+                    <option key={g.groupId} value={g.groupId}>{g.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-[11px] font-medium text-muted-foreground">
+                Cover email
+                <input value={coverEmail} onChange={(e) => setCoverEmail(e.target.value)} disabled={busy} autoComplete="off" placeholder="colleague@example.com" className="mt-1 h-9 w-full border border-input bg-background px-2 text-xs text-foreground outline-none disabled:opacity-60" />
+              </label>
+              <label className="block text-[11px] font-medium text-muted-foreground">
+                Ends <span className="font-normal">(blank means open-ended)</span>
+                <input value={coverEnds} onChange={(e) => setCoverEnds(e.target.value)} disabled={busy} type="date" className="mt-1 h-9 w-full border border-input bg-background px-2 text-xs text-foreground outline-none disabled:opacity-60" />
+              </label>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => void grant()}
+                disabled={busy || !coverOrgId || !coverEmail.trim()}
+                className="inline-flex h-9 items-center bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+              >
+                Grant cover
+              </button>
+              <button
+                type="button"
+                onClick={() => setCoverOpen(false)}
+                className="inline-flex h-9 items-center px-3 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Owners and admins only. Covers never stack — a cover cannot hand power onward — and never reach your own requests.
+            </p>
+          </div>
+        )}
+
+        <div className="mt-2">
+          {delegations === null ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Loading coverage…</p>
+          ) : delegations.length === 0 ? (
+            <div className="border border-dashed px-4 py-10 text-center">
+              <p className="text-sm font-medium">No cover in place</p>
+              <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+                Vacations stop stalling approvals — grant cover before you go.
+              </p>
+            </div>
+          ) : (
+            <ul className="space-y-1.5">
+              {delegations.map((d) => (
+                <li key={d.id} className="flex items-center gap-2 border border-border bg-background px-3.5 py-2.5 text-[13px]">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">
+                      {d.mine ? "You" : (d.delegatorEmail || d.delegator.slice(0, 8))} → {d.delegateEmail || d.delegate.slice(0, 8)}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                      {d.orgName}{d.groupName ? ` · ${d.groupName} only` : " · everything"}
+                      {d.endsAt ? ` · until ${new Date(d.endsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : " · open-ended"}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void revoke(d.id)}
+                    disabled={busy}
+                    className="shrink-0 border border-border px-2 py-1 text-[11px] text-muted-foreground hover:text-destructive disabled:opacity-50"
+                  >
+                    End
+                  </button>
                 </li>
               ))}
             </ul>
