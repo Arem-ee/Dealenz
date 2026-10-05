@@ -43,6 +43,15 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const { rollOverdueOrgSubscriptions, checkPoolThresholds } = await import("@/lib/billing/org-subscriptions")
+    const rolled = await rollOverdueOrgSubscriptions(svc, BATCH)
+    const thresholds = await checkPoolThresholds(svc, BATCH)
+    result.orgAllowance = { ...rolled, thresholdAlerts: thresholds.notified }
+  } catch (e) {
+    result.orgAllowance = { error: e instanceof Error ? e.message : "Org allowance pass failed" }
+  }
+
+  try {
     // Coverage hygiene: lapsed delegations flip inactive. Enforcement is
     // lazy (decide-time + RLS time predicates), so this only tidies reads.
     const { data, error } = await svc.rpc("expire_approval_delegations")

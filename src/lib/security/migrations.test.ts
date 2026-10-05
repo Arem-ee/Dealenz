@@ -609,6 +609,21 @@ describe("00083 credit purchase revocation statuses (static)", () => {
   })
 })
 
+describe("00106 org subscriptions (static)", () => {
+  const mig106 = code(sql("00106_org_subscriptions.sql"))
+
+  it("plans pools beside solo plans with an org overage leg", () => {
+    expect(mig106).toMatch(/CREATE TABLE IF NOT EXISTS org_subscriptions/)
+    expect(mig106).toMatch(/uq_org_sub_live_org/)
+    expect(mig106).toMatch(/CREATE TABLE IF NOT EXISTS org_overage_invoices/)
+    expect(mig106).toMatch(/alerts_sent JSONB NOT NULL DEFAULT/)
+    expect(mig106).toMatch(/Org members read org subscription/)
+    expect(mig106).not.toMatch(/ON org_subscriptions FOR INSERT/)
+    expect(mig106).not.toMatch(/ON org_subscriptions FOR UPDATE/)
+    expect(mig106).not.toMatch(/ON org_subscriptions FOR DELETE/)
+  })
+})
+
 describe("00105 shared write roles (static)", () => {
   const mig105 = code(sql("00105_shared_write_roles.sql"))
 

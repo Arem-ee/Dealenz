@@ -61,6 +61,8 @@ export interface VerifiedSubscriptionEvent {
   priceId: string
   /** Attributed user id from custom_data (validated as UUID downstream). */
   userId: string
+  /** Attributed org id from custom_data, null for solo plans. */
+  orgId: string | null
   /** Billing period bounds from current_billing_period, null when absent. */
   periodStart: string | null
   periodEnd: string | null
@@ -333,12 +335,15 @@ export function parsePaddleSubscriptionEvent(parsed: unknown): Omit<VerifiedSubs
   const period = asRecord(data.current_billing_period)
   const periodStart = typeof period?.starts_at === "string" ? (period.starts_at as string) : null
   const periodEnd = typeof period?.ends_at === "string" ? (period.ends_at as string) : null
+  const customData = asRecord(data.custom_data)
+  const orgId = typeof customData?.org_id === "string" ? (customData.org_id as string) : null
   return {
     type: eventType,
     subscriptionId: id,
     status,
     priceId: firstPriceId(data),
     userId: customUserIdOf(data),
+    orgId,
     periodStart,
     periodEnd,
   }

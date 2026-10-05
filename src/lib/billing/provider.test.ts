@@ -231,8 +231,16 @@ describe("subscription plans and events", () => {
     expect(event.status).toBe("active")
     expect(event.priceId).toBe("pri_studio_usd")
     expect(event.userId).toBe("00000000-0000-0000-0000-000000000001")
+    expect(event.orgId).toBeNull()
     expect(event.periodStart).toBe("2026-01-01T00:00:00Z")
     expect(event.periodEnd).toBe("2026-01-31T00:00:00Z")
+    const base = subscriptionBody() as unknown as Record<string, unknown>
+    const baseData = base.data as Record<string, unknown>
+    const orgBody = {
+      ...base,
+      data: { ...baseData, custom_data: { user_id: "00000000-0000-0000-0000-000000000001", plan_id: "studio", org_id: "00000000-0000-0000-0000-000000000002" } },
+    }
+    expect(parsePaddleSubscriptionEvent(orgBody).orgId).toBe("00000000-0000-0000-0000-000000000002")
   })
 
   it("rejects non-subscription events and missing subscription ids", () => {

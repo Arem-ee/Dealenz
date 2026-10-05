@@ -68,9 +68,11 @@ export async function POST(req: NextRequest) {
   // Overage settlement: a transaction carrying custom_data.overage_invoice_id
   // pays a period invoice — mark paid, grant NOTHING (the work already ran).
   // Branched before pack pricing (overage prices are unknown to packs).
+  // Solo and org invoices share the custom-data key; the id is looked up
+  // in both tables, org match verified the same way.
   {
     const raw = verifiedRaw as {
-      data?: { custom_data?: { overage_invoice_id?: unknown; user_id?: unknown } }
+      data?: { custom_data?: { overage_invoice_id?: unknown; user_id?: unknown; org_id?: unknown } }
     } | null
     const custom = raw?.data?.custom_data
     const overageInvoiceId = typeof custom?.overage_invoice_id === "string" ? custom.overage_invoice_id : ""
@@ -88,15 +90,36 @@ export async function POST(req: NextRequest) {
           .eq("id", overageInvoiceId)
           .maybeSingle()
         const inv = invoice as { id: string; user_id: string; status: string } | null
-        if (!inv) return NextResponse.json({ error: "Unknown overage invoice" }, { status: 400 })
-        if (typeof custom?.user_id === "string" && custom.user_id !== inv.user_id) {
-          return NextResponse.json({ error: "Invoice user mismatch" }, { status: 400 })
+        if (inv) {
+          if (typeof custom?.user_id === "string" && custom.user_id !== inv.user_id) {
+            return NextResponse.json({ error: "Invoice user mismatch" }, { status: 400 })
+          }
+          if (inv.status === "paid") return NextResponse.json({ received: true, idempotent: true }, { status: 200 })
+          await service
+            .from("overage_invoices")
+            .update({ status: "paid", paddle_transaction_id: event.providerTransactionId })
+            .eq("id", inv.id)
+            .in("status", ["pending", "invoiced"])
+          return NextResponse.json({ received: true, overage_paid: true }, { status: 200 })
         }
-        if (inv.status === "paid") return NextResponse.json({ received: true, idempotent: true }, { status: 200 })
+        const { data: orgInvoice } = await service
+          .from("org_overage_invoices")
+          .select("id, org_id, payer_user_id, status")
+          .eq("id", overageInvoiceId)
+          .maybeSingle()
+        const orgInv = orgInvoice as { id: string; org_id: string; payer_user_id: string; status: string } | null
+        if (!orgInv) return NextResponse.json({ error: "Unknown overage invoice" }, { status: 400 })
+        if (typeof custom?.org_id === "string" && custom.org_id !== orgInv.org_id) {
+          return NextResponse.json({ error: "Invoice org mismatch" }, { status: 400 })
+        }
+        if (typeof custom?.user_id === "string" && custom.user_id !== orgInv.payer_user_id) {
+          return NextResponse.json({ error: "Invoice payer mismatch" }, { status: 400 })
+        }
+        if (orgInv.status === "paid") return NextResponse.json({ received: true, idempotent: true }, { status: 200 })
         await service
-          .from("overage_invoices")
+          .from("org_overage_invoices")
           .update({ status: "paid", paddle_transaction_id: event.providerTransactionId })
-          .eq("id", inv.id)
+          .eq("id", orgInv.id)
           .in("status", ["pending", "invoiced"])
         return NextResponse.json({ received: true, overage_paid: true }, { status: 200 })
       } catch {
@@ -199,6 +222,7 @@ export async function POST(req: NextRequest) {
       status: string
       priceId: string
       userId: string
+      orgId: string | null
       periodStart: string | null
       periodEnd: string | null
     }
@@ -206,6 +230,45 @@ export async function POST(req: NextRequest) {
       verified = await provider.verifySubscriptionWebhook({ body: rawBody, signature: sig, secret: secret ?? "" })
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "Invalid webhook signature" }, { status: 400 })
+    }
+    // Org plans branch before solo: attribution carries org_id, and the
+    // payer must own the org (enforced in the apply path).
+    if (typeof verified.orgId === "string" && verified.orgId !== "") {
+      try {
+        const service = createServiceClient(serviceUrl, serviceKey)
+        const { applyOrgSubscriptionEvent } = await import("@/lib/billing/org-subscriptions")
+        const applied = await applyOrgSubscriptionEvent(service, {
+          type: verified.type,
+          subscriptionId: verified.subscriptionId,
+          status: verified.status,
+          priceId: verified.priceId,
+          userId: verified.userId,
+          orgId: verified.orgId,
+          periodStart: verified.periodStart,
+          periodEnd: verified.periodEnd,
+        })
+        try {
+          const { createNotification } = await import("@/lib/notifications/store")
+          const { data: orgSub } = await service.from("org_subscriptions").select("owner_user_id").eq("id", applied.subscriptionId).maybeSingle()
+          const ownerId = (orgSub as { owner_user_id?: string } | null)?.owner_user_id
+          if (ownerId) {
+            await createNotification(service, {
+              userId: ownerId,
+              type: "status",
+              title: applied.status === "canceled" ? "Pool plan canceled" : "Pool plan active",
+              body: applied.status === "canceled"
+                ? "The pool plan is canceled — the pool keeps its packs, allowance stops renewing."
+                : `The pool plan is live${applied.granted ? " and this period's allowance is in the pool" : ""}.`,
+              link: "/settings",
+            })
+          }
+        } catch {
+          // The subscription stands regardless; the notification is best-effort.
+        }
+        return NextResponse.json({ received: true, subscription: applied.subscriptionId, status: applied.status }, { status: 200 })
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "Subscription event failed" }, { status: 400 })
+      }
     }
     try {
       const service = createServiceClient(serviceUrl, serviceKey)
@@ -216,6 +279,7 @@ export async function POST(req: NextRequest) {
         status: verified.status,
         priceId: verified.priceId,
         userId: verified.userId,
+        orgId: verified.orgId,
         periodStart: verified.periodStart,
         periodEnd: verified.periodEnd,
         raw: null,

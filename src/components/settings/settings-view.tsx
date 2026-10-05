@@ -380,6 +380,318 @@ function loadPaddle(): Promise<PaddleCheckout> {
   })
 }
 
+// Org pool plan: recurring allowance for the shared pool, metered org
+// overage invoiced to the owner. Owner-only mutations; members read.
+function OrgPlanSection() {
+  const [orgs, setOrgs] = useState<Array<{ orgId: string; orgName: string; role: string }>>([])
+  const [orgId, setOrgId] = useState("")
+  const [state, setState] = useState<{
+    subscription: {
+      id: string
+      plan_id: string
+      plan_label: string
+      status: string
+      currency: string
+      monthly_allowance: number
+      used_allowance: number
+      overage_credits: number
+      overage_allowed: boolean
+      period_end: string
+    } | null
+    poolBalance: number | null
+    plans: Array<{ id: string; monthlyAllowance: number; description: string }>
+    checkoutConfigured: boolean
+    invoices: Array<{
+      id: string
+      period_start: string
+      period_end: string
+      overage_credits: number
+      amount_minor: number
+      currency: string
+      status: string
+    }>
+  } | null>(null)
+  const [currency, setCurrency] = useState("USD")
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [cancelArmed, setCancelArmed] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    import("@/lib/orgs/actions")
+      .then(({ listMyOrganizations }) => listMyOrganizations())
+      .then((res) => {
+        if (!live) return
+        if (res.ok) {
+          setOrgs(res.orgs)
+          const owned = res.orgs.find((o) => o.role === "owner")
+          if (owned) setOrgId(owned.orgId)
+          else if (res.orgs.length > 0) setOrgId(res.orgs[0]!.orgId)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!orgId) return
+    let live = true
+    import("@/lib/billing/org-billing-actions")
+      .then(({ getOrgBillingState }) => getOrgBillingState(orgId))
+      .then((res) => {
+        if (!live) return
+        if (!res.ok) {
+          setError(res.error)
+          return
+        }
+        setState({
+          subscription: res.subscription,
+          poolBalance: res.poolBalance,
+          plans: res.plans,
+          checkoutConfigured: res.checkoutConfigured,
+          invoices: res.invoices,
+        })
+      })
+      .catch(() => {
+        if (!live) return
+        setError("We couldn't load the pool plan.")
+      })
+    return () => {
+      live = false
+    }
+  }, [orgId])
+
+  const isOwner = orgs.find((o) => o.orgId === orgId)?.role === "owner"
+  const sub = state?.subscription ?? null
+
+  async function subscribe(planId: string) {
+    if (busy || !orgId) return
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const { startOrgSubscriptionCheckout } = await import("@/lib/billing/org-billing-actions")
+      const res = await startOrgSubscriptionCheckout({ orgId, planId, currency })
+      if (!res.ok) throw new Error(res.error)
+      const paddle = await loadPaddle()
+      if (res.environment === "sandbox") {
+        try {
+          paddle.Environment.set("sandbox")
+        } catch {
+          // Production token with a sandbox flag — Setup still validates.
+        }
+      }
+      paddle.Setup({ token: res.clientToken })
+      paddle.Checkout.open({
+        items: [{ priceId: res.priceId, quantity: 1 }],
+        customer: { email: res.email },
+        customData: res.customData,
+      })
+      setNotice("Checkout opened — the pool plan activates when payment completes. Refresh after.")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Checkout failed.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function cancel() {
+    if (busy || !orgId) return
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const { cancelOrgSubscription } = await import("@/lib/billing/org-billing-actions")
+      const res = await cancelOrgSubscription(orgId)
+      if (!res.ok) throw new Error(res.error)
+      setCancelArmed(false)
+      setNotice("Cancellation requested — pool allowance runs to period end, then stops.")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Cancellation failed — the plan is unchanged.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function flipOverage(optIn: boolean) {
+    if (busy || !orgId) return
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const { setOrgOverageAllowed } = await import("@/lib/billing/org-billing-actions")
+      const res = await setOrgOverageAllowed(orgId, optIn)
+      if (!res.ok) throw new Error(res.error)
+      setNotice(optIn ? "Pool overage billing is on — metered past allowance, invoiced to you each period." : "Pool overage billing is off — hard cap restored.")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't change overage billing.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function pay(id: string) {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const { settleOrgOverageInvoiceAction } = await import("@/lib/billing/org-billing-actions")
+      const res = await settleOrgOverageInvoiceAction(id)
+      if (!res.ok) throw new Error(res.error)
+      setNotice("Payment started — the invoice flips to paid when Paddle confirms.")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Payment failed — the invoice is unchanged.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (orgs.length === 0) return null
+
+  return (
+    <div className="mt-4 border border-border p-3" aria-label="Pool plan">
+      <p className="text-[13px] font-medium">Pool plan</p>
+      <p className="mt-0.5 text-[11px] text-muted-foreground">
+        Recurring allowance for the shared pool. Only the organization owner can change it — members read.
+      </p>
+      <label className="mt-2 block text-[11px] text-muted-foreground">
+        Organization
+        <select value={orgId} onChange={(e) => setOrgId(e.target.value)} disabled={busy} className="mt-1 h-9 w-full border border-input bg-background px-2 text-xs text-foreground disabled:opacity-60">
+          {orgs.map((o) => (
+            <option key={o.orgId} value={o.orgId}>{o.orgName} · {o.role}</option>
+          ))}
+        </select>
+      </label>
+      {!state ? (
+        <p className="mt-2 text-xs text-muted-foreground">Loading pool plan…</p>
+      ) : (
+        <>
+          <p className="mt-2 text-xs tabular-nums text-muted-foreground">
+            Pool balance: {typeof state.poolBalance === "number" ? `${state.poolBalance} credits` : "—"}
+            {sub && <> · {sub.used_allowance} of {sub.monthly_allowance} used{sub.overage_credits > 0 && <> · <span className="font-semibold text-destructive">+{sub.overage_credits} overage</span></>}</>}
+          </p>
+          {!sub ? (
+            isOwner ? (
+              state.checkoutConfigured ? (
+                <>
+                  <label className="mt-2 block text-[11px] text-muted-foreground">
+                    Currency
+                    <select value={currency} onChange={(e) => setCurrency(e.target.value)} disabled={busy} className="mt-1 h-9 w-32 border border-input bg-background px-2 text-xs text-foreground disabled:opacity-60">
+                      <option value="USD">USD</option>
+                      <option value="GBP">GBP</option>
+                      <option value="EUR">EUR</option>
+                    </select>
+                  </label>
+                  <div className="mt-2 space-y-1.5">
+                    {state.plans.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between gap-2 border border-border px-2.5 py-2">
+                        <div>
+                          <p className="text-[13px] font-medium capitalize">{p.id}</p>
+                          <p className="text-[11px] text-muted-foreground">{p.description}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void subscribe(p.id)}
+                          disabled={busy}
+                          className="h-8 shrink-0 bg-primary px-3 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
+                        >
+                          Subscribe pool
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="mt-2 text-[11px] text-muted-foreground">Pool plans open soon.</p>
+              )
+            ) : (
+              <p className="mt-2 text-[11px] text-muted-foreground">No pool plan — only the organization owner can subscribe.</p>
+            )
+          ) : (
+            <>
+              <p className="mt-2 text-xs">
+                {sub.plan_label} · {sub.status.replaceAll("_", " ")} · renews {new Date(sub.period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              </p>
+              {isOwner && (
+                <>
+                  <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={sub.overage_allowed}
+                      onChange={(e) => void flipOverage(e.target.checked)}
+                      disabled={busy}
+                      className="mt-0.5 h-3.5 w-3.5 accent-foreground"
+                    />
+                    <span className="text-muted-foreground">
+                      Meter pool overage past allowance (bounded at one allowance, invoiced to you each period).
+                    </span>
+                  </label>
+                  {state.invoices.length > 0 && (
+                    <ul className="mt-2 space-y-1.5">
+                      {state.invoices.map((inv) => (
+                        <li key={inv.id} className="flex items-center gap-2 text-xs tabular-nums text-muted-foreground">
+                          <span className="min-w-0 flex-1">
+                            {inv.overage_credits} credits · {(inv.amount_minor / 100).toFixed(2)} {inv.currency} · {inv.status}
+                          </span>
+                          {(inv.status === "pending" || inv.status === "failed") && (
+                            <button
+                              type="button"
+                              onClick={() => void pay(inv.id)}
+                              disabled={busy}
+                              className="shrink-0 border border-border px-2 py-1 text-[11px] hover:text-foreground disabled:opacity-50"
+                            >
+                              Pay now
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {sub.status !== "canceled" && (
+                    !cancelArmed ? (
+                      <button
+                        type="button"
+                        onClick={() => setCancelArmed(true)}
+                        className="mt-2 text-[11px] text-muted-foreground hover:text-destructive"
+                      >
+                        Cancel pool plan
+                      </button>
+                    ) : (
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void cancel()}
+                          disabled={busy}
+                          className="inline-flex h-8 items-center bg-destructive px-3 text-[11px] font-semibold text-destructive-foreground disabled:opacity-40"
+                        >
+                          {busy ? "Canceling…" : "Yes, cancel at period end"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCancelArmed(false)}
+                          className="inline-flex h-8 items-center px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                        >
+                          Keep plan
+                        </button>
+                      </div>
+                    )
+                  )}
+                </>
+              )}
+            </>
+          )}
+          {error && <p role="alert" className="mt-2 border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">{error}</p>}
+          {notice && <p role="status" className="mt-2 border border-border bg-muted/40 px-2 py-1.5 text-[11px] text-muted-foreground">{notice}</p>}
+        </>
+      )}
+    </div>
+  )
+}
+
 // Buy packs: solo top-up or pool funding (owners/admins pick a pool).
 // Posts to the pack checkout route and follows the provider URL.
 function BuyPacks({ busy, setBusy, setError, fundableOrgs }: {
@@ -840,6 +1152,8 @@ function BillingSection() {
             setError={setError}
             fundableOrgs={fundableOrgs}
           />
+
+          <OrgPlanSection />
 
           <p className="mt-4 text-[11px] text-muted-foreground">Cancellation is never buried — it lives here, two clicks, effective at period end.</p>
         </>
