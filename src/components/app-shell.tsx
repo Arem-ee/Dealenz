@@ -53,8 +53,26 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     supabase.from("audits").select("id, title, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(50),
     import("@/lib/billing/subscription-actions").then(({ getScopeState }) => getScopeState().catch(() => null)),
   ])
+  // Shared recents union in for the search box; failure degrades to owned.
+  let sharedThreads: Array<{ id: string; title: string | null; updated_at: string }> = []
+  try {
+    const { sharedAuditIds } = await import("@/lib/deals/shares")
+    const ids = await sharedAuditIds(supabase, user.id)
+    if (ids.length > 0) {
+      const { data } = await supabase
+        .from("audits")
+        .select("id, title, updated_at")
+        .in("id", ids.slice(0, 50))
+        .order("updated_at", { ascending: false })
+        .limit(50)
+      const owned = new Set(((audits ?? []) as Array<{ id: string }>).map((a) => a.id))
+      sharedThreads = ((data ?? []) as Array<{ id: string; title: string | null; updated_at: string }>).filter((a) => !owned.has(a.id))
+    }
+  } catch {
+    // Owned recents already loaded.
+  }
   const businessName = (profile as { business_name?: string | null } | null)?.business_name ?? null
-  const threads = ((audits ?? []) as Array<{ id: string; title: string | null; updated_at: string }>).map((a) => ({
+  const threads = [...((audits ?? []) as Array<{ id: string; title: string | null; updated_at: string }>), ...sharedThreads].map((a) => ({
     id: a.id,
     title: a.title ?? "Untitled",
     updatedAt: a.updated_at,

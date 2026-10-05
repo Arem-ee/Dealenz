@@ -609,6 +609,22 @@ describe("00083 credit purchase revocation statuses (static)", () => {
   })
 })
 
+describe("00104 deal shares (static)", () => {
+  const mig104 = code(sql("00104_deal_shares.sql"))
+
+  it("shares read-only with owner-gated RPC writes", () => {
+    expect(mig104).toMatch(/CREATE TABLE IF NOT EXISTS deal_shares/)
+    expect(mig104).toMatch(/UNIQUE \(deal_id, group_id\)/)
+    expect(mig104).toMatch(/share_deal_with_group/)
+    expect(mig104).toMatch(/unshare_deal_with_group/)
+    expect(mig104).toMatch(/deal_visible_to/)
+    expect(mig104).toMatch(/Shared readers view deal files/)
+    expect(mig104).not.toMatch(/ON deal_shares FOR INSERT/)
+    expect(mig104).not.toMatch(/ON deal_shares FOR UPDATE/)
+    expect(mig104).not.toMatch(/ON deal_shares FOR DELETE/)
+  })
+})
+
 describe("00103 org pools (static)", () => {
   const mig103 = code(sql("00103_org_pools.sql"))
 

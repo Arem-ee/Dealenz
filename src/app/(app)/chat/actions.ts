@@ -361,6 +361,7 @@ export interface ThreadView {
   threadId: string
   title: string
   auditId: string | null
+  shared: boolean
   dealType: string | null
   dealValueMinor: number | null
   dealValueCurrency: string | null
@@ -378,18 +379,69 @@ export async function getThread(threadId: string): Promise<ActionOk<{ thread: Th
   const { supabase, userId } = authed
 
   const thread = await getConversation(supabase as never, userId, threadId).catch(() => null)
-  if (!thread) return { ok: false, error: "Thread not found." }
-  const messages = await listMessages(supabase as never, userId, threadId, 50).catch(() => [])
+  // Shared leg: the conversation query above is owner-scoped, so a deal
+  // shared with the caller's group loads here instead — conversation and
+  // messages by id (RLS admits group members), audit through the shared
+  // union below. Anything else stays "not found".
+  let sharedThread: { id: string; title: string; attached_audit_id: string | null } | null = null
+  if (!thread) {
+    const { data: convo } = await supabase
+      .from("conversations")
+      .select("id, title, attached_audit_id")
+      .eq("id", threadId)
+      .maybeSingle()
+    const c = convo as { id: string; title: string; attached_audit_id: string | null } | null
+    if (c?.attached_audit_id) {
+      const { sharedAuditIds } = await import("@/lib/deals/shares")
+      const visible = await sharedAuditIds(supabase, userId)
+      if (visible.includes(c.attached_audit_id)) {
+        sharedThread = c
+      }
+    }
+    if (!sharedThread) return { ok: false, error: "Thread not found." }
+  }
+  const activeThreadId = thread?.id ?? (sharedThread as { id: string }).id
+  const messages = thread
+    ? await listMessages(supabase as never, userId, threadId, 50).catch(() => [])
+    : await supabase
+        .from("conversation_messages")
+        .select("id, conversation_id, user_id, role, content, operation, intent, objective, message_type, metadata, created_at")
+        .eq("conversation_id", threadId)
+        .order("created_at", { ascending: true })
+        .limit(50)
+        .then(
+          (r) => (r.data ?? []) as Array<{ id: string; role: "user" | "assistant"; content: string; created_at: string; metadata: Record<string, unknown> }>,
+          () => [] as Array<{ id: string; role: "user" | "assistant"; content: string; created_at: string; metadata: Record<string, unknown> }>
+        )
   type AuditThreadRow = { id: string; title: string | null; deal_type: string | null; structured_data?: unknown; deal_value_minor?: number | null; deal_value_currency?: string | null }
   let audit: AuditThreadRow | null = null
-  if (thread.attached_audit_id) {
+  let shared = false
+  const activeThread = thread ?? sharedThread
+  const activeAuditId = activeThread?.attached_audit_id ?? null
+  if (activeAuditId) {
     const { data } = await supabase
       .from("audits")
       .select("id, title, deal_type, structured_data, deal_value_minor, deal_value_currency")
-      .eq("id", thread.attached_audit_id)
+      .eq("id", activeAuditId)
       .eq("user_id", userId)
       .maybeSingle()
     audit = (data as AuditThreadRow | null) ?? null
+    if (!audit) {
+      // Shared leg: RLS admits the audit, conversation, and messages to
+      // group members; every mutation below keeps its user_id chain and
+      // stays owner-only. Fail-closed: anything else is "not found".
+      const { sharedAuditIds } = await import("@/lib/deals/shares")
+      const visible = await sharedAuditIds(supabase, userId)
+      if (visible.includes(activeAuditId)) {
+        const { data: sharedAudit } = await supabase
+          .from("audits")
+          .select("id, title, deal_type, structured_data, deal_value_minor, deal_value_currency")
+          .eq("id", activeAuditId)
+          .maybeSingle()
+        audit = (sharedAudit as AuditThreadRow | null) ?? null
+        shared = audit !== null
+      }
+    }
   }
   const shot = [...messages].reverse().find((m) => (m.metadata as Record<string, unknown>)?.type === "routing_shot")
   const shotMeta = (shot?.metadata ?? {}) as Record<string, unknown>
@@ -418,9 +470,10 @@ export async function getThread(threadId: string): Promise<ActionOk<{ thread: Th
   return {
     ok: true,
     thread: {
-      threadId: thread.id,
-      title: thread.title,
+      threadId: activeThreadId,
+      title: (thread ?? sharedThread)?.title ?? "Thread",
       auditId: audit?.id ?? null,
+      shared,
       dealType: audit?.deal_type ?? (typeof shotMeta.dealType === "string" ? shotMeta.dealType : null),
       dealValueMinor: audit?.deal_value_minor ?? null,
       dealValueCurrency: audit?.deal_value_currency ?? null,

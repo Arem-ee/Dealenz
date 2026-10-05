@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { Composer } from "@/components/workspace/composer"
 import { DealValue } from "@/components/workspace/deal-value"
 import { GenerateDraft } from "@/components/workspace/generate-draft"
+import { ShareDialog } from "@/components/workspace/share-dialog"
 import { correctDealType, type ThreadView as ThreadData } from "@/app/(app)/chat/actions"
 import { INTAKE_DEAL_TYPES } from "@/lib/deals/intake"
 
@@ -46,6 +47,11 @@ export function ThreadView({ initial }: { initial: ThreadData }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <section aria-label="Conversation" className="relative flex min-h-0 min-w-0 flex-1 flex-col border-b border-border lg:border-b-0 lg:border-r">
+        {initial.shared && (
+          <p role="status" className="shrink-0 border-b border-border bg-muted/40 px-4 py-2 text-[11px] text-muted-foreground">
+            Shared with you — read-only. Only the owner can ask, edit, or sign here.
+          </p>
+        )}
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-24 pt-4">
           {initial.messages.map((m) => (
             <div key={m.id} className={cn("max-w-[85%]", m.role === "user" ? "ml-auto" : "mr-auto")}>
@@ -61,7 +67,9 @@ export function ThreadView({ initial }: { initial: ThreadData }) {
             </div>
           ))}
         </div>
-        <Composer mode={initial.auditId ? { kind: "thread", threadId: initial.threadId, auditId: initial.auditId } : { kind: "new" }} />
+        {!initial.shared && (
+          <Composer mode={initial.auditId ? { kind: "thread", threadId: initial.threadId, auditId: initial.auditId } : { kind: "new" }} />
+        )}
       </section>
       <section aria-label="Work surface" className="hidden min-h-0 min-w-0 flex-[1.4] flex-col bg-muted/20 lg:flex">
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
@@ -77,7 +85,7 @@ export function ThreadView({ initial }: { initial: ThreadData }) {
                   key={t}
                   type="button"
                   onClick={() => void correct(t)}
-                  disabled={correcting || !initial.auditId}
+                  disabled={correcting || !initial.auditId || initial.shared}
                   aria-pressed={dealType === t}
                   className={cn(
                     "border px-2 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-50",
@@ -149,9 +157,10 @@ export function ThreadView({ initial }: { initial: ThreadData }) {
             </section>
           )}
           {initial.auditId && <GenerateDraft auditId={initial.auditId} />}
-          {initial.auditId && (
+          {initial.auditId && !initial.shared && (
             <DealValue auditId={initial.auditId} minor={initial.dealValueMinor} currency={initial.dealValueCurrency} />
           )}
+          {initial.auditId && <ShareDialog auditId={initial.auditId} shared={initial.shared} />}
         </div>
       </section>
     </div>
