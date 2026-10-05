@@ -15,9 +15,10 @@ export interface DealShareView {
   groupName: string | null
   orgName: string | null
   scope: ShareScope
+  expiresAt: string | null
 }
 
-/** Audit ids shared with the caller through group membership. */
+/** Audit ids shared with the caller through live group membership. */
 export async function sharedAuditIds(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
@@ -25,9 +26,11 @@ export async function sharedAuditIds(
   try {
     const { data } = await supabase
       .from("deal_shares")
-      .select("deal_id, group_id")
+      .select("deal_id, group_id, expires_at")
       .limit(200)
-    const rows = ((data ?? []) as Array<{ deal_id: string; group_id: string }>)
+    const now = new Date().toISOString()
+    const rows = ((data ?? []) as Array<{ deal_id: string; group_id: string; expires_at: string | null }>)
+      .filter((r) => r.expires_at === null || r.expires_at > now)
     if (rows.length === 0) return []
     // RLS already narrows to visible shares; confirm membership per
     // group so revoked members drop out even before policy propagation.
@@ -54,10 +57,12 @@ export async function sharedScope(
   try {
     const { data: shares } = await supabase
       .from("deal_shares")
-      .select("scope, group_id")
+      .select("scope, group_id, expires_at")
       .eq("deal_id", auditId)
       .limit(20)
-    const rows = ((shares ?? []) as Array<{ scope: string; group_id: string }>)
+    const now = new Date().toISOString()
+    const rows = ((shares ?? []) as Array<{ scope: string; group_id: string; expires_at: string | null }>)
+      .filter((r) => r.expires_at === null || r.expires_at > now)
     if (rows.length === 0) return null
     const { data: memberships } = await supabase
       .from("permission_group_members")
@@ -85,7 +90,7 @@ export async function listDealShares(auditId: string) {
     if (!user) return { ok: false as const, error: "You must be signed in." }
     const { data, error } = await supabase
       .from("deal_shares")
-      .select("group_id, scope")
+      .select("group_id, scope, expires_at")
       .eq("deal_id", auditId)
       .limit(50)
     if (error) {
@@ -94,7 +99,7 @@ export async function listDealShares(auditId: string) {
       }
       throw new Error(error.message)
     }
-    const shareRows = ((data ?? []) as Array<{ group_id: string; scope: string }>)
+    const shareRows = ((data ?? []) as Array<{ group_id: string; scope: string; expires_at: string | null }>)
     const groupIds = shareRows.map((r) => r.group_id)
     const names = new Map<string, { name: string; org: string }>()
     if (groupIds.length > 0) {
@@ -117,6 +122,7 @@ export async function listDealShares(auditId: string) {
       groupName: names.get(r.group_id)?.name ?? null,
       orgName: names.get(r.group_id)?.org ?? null,
       scope: (r.scope === "commenter" || r.scope === "asker" || r.scope === "participant" ? r.scope : "viewer"),
+      expiresAt: r.expires_at,
     }))
     return { ok: true as const, shares }
   } catch (e) {
@@ -124,16 +130,22 @@ export async function listDealShares(auditId: string) {
   }
 }
 
-export async function shareDealWithGroup(auditId: string, groupId: string) {
+export async function shareDealWithGroup(auditId: string, groupId: string, expiresAt?: string | null) {
   try {
     if (!UUID_RE.test(auditId) || !UUID_RE.test(groupId)) {
       return { ok: false as const, error: "Invalid deal or group." }
+    }
+    let expiry: string | null = null
+    if (expiresAt) {
+      const t = new Date(expiresAt).getTime()
+      if (Number.isNaN(t) || t <= Date.now()) return { ok: false as const, error: "Share expiry must be in the future." }
+      expiry = new Date(t).toISOString()
     }
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false as const, error: "You must be signed in." }
     if (!user.email_confirmed_at) return { ok: false as const, error: "Verify your email first." }
-    const { data, error } = await supabase.rpc("share_deal_with_group", { p_deal_id: auditId, p_group_id: groupId })
+    const { data, error } = await supabase.rpc("share_deal_with_group", { p_deal_id: auditId, p_group_id: groupId, p_expires_at: expiry })
     if (error) {
       if (error.message.includes("share_deal_with_group")) {
         return { ok: false as const, error: "Sharing needs a database update (migration 00104). Please try again after migrating." }
@@ -195,6 +207,30 @@ export async function unshareDealWithGroup(auditId: string, groupId: string) {
     return { ok: true as const }
   } catch (e) {
     return toActionFailure(e, "We couldn't revoke that share.") as never
+  }
+}
+
+export async function setShareExpiry(auditId: string, groupId: string, expiresAt: string | null) {
+  try {
+    if (!UUID_RE.test(auditId) || !UUID_RE.test(groupId)) {
+      return { ok: false as const, error: "Invalid deal or group." }
+    }
+    let expiry: string | null = null
+    if (expiresAt) {
+      const t = new Date(expiresAt).getTime()
+      if (Number.isNaN(t) || t <= Date.now()) return { ok: false as const, error: "Share expiry must be in the future." }
+      expiry = new Date(t).toISOString()
+    }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const { data, error } = await supabase.rpc("set_deal_share_expiry", { p_deal_id: auditId, p_group_id: groupId, p_expires_at: expiry })
+    if (error) return { ok: false as const, error: "We couldn't change that expiry." }
+    const row = (Array.isArray(data) ? data[0] : data) as { success?: boolean; message?: string } | null
+    if (!row?.success) return { ok: false as const, error: row?.message ?? "We couldn't change that expiry." }
+    return { ok: true as const }
+  } catch (e) {
+    return toActionFailure(e, "We couldn't change that expiry.") as never
   }
 }
 

@@ -8,6 +8,7 @@ import {
 } from "@/lib/approvals/actions"
 import {
   listDealShares,
+  setShareExpiry,
   setShareScope,
   shareDealWithGroup,
   unshareDealWithGroup,
@@ -24,6 +25,7 @@ export function ShareDialog({ auditId, shared }: { auditId: string; shared: bool
   const [shares, setShares] = useState<DealShareView[] | null>(null)
   const [groups, setGroups] = useState<Array<{ groupId: string; name: string }>>([])
   const [groupId, setGroupId] = useState("")
+  const [expiry, setExpiry] = useState("")
   const [busy, setBusy] = useState(false)
 
   async function load() {
@@ -76,10 +78,11 @@ export function ShareDialog({ auditId, shared }: { auditId: string; shared: bool
     if (busy || !groupId) return
     setBusy(true)
     try {
-      const res = await shareDealWithGroup(auditId, groupId)
+      const res = await shareDealWithGroup(auditId, groupId, expiry || null)
       if (!res.ok) throw new Error(res.error)
       showSuccess("Deal shared — members read, only you can change.")
       setGroupId("")
+      setExpiry("")
       await load()
     } catch (err) {
       showError(err instanceof Error ? err.message : "Couldn't share that deal.")
@@ -88,6 +91,22 @@ export function ShareDialog({ auditId, shared }: { auditId: string; shared: bool
     }
   }
 
+  async function changeExpiry(id: string, value: string | null) {
+    if (busy) return
+    setBusy(true)
+    try {
+      const res = await setShareExpiry(auditId, id, value)
+      if (!res.ok) throw new Error(res.error)
+      setShares((prev) => prev?.map((s) => (s.groupId === id ? {
+        ...s,
+        expiresAt: value ? new Date(value).toISOString() : null,
+      } : s)) ?? null)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't change that expiry.")
+    } finally {
+      setBusy(false)
+    }
+  }
   async function revoke(id: string) {
     if (busy) return
     setBusy(true)
@@ -142,32 +161,46 @@ export function ShareDialog({ auditId, shared }: { auditId: string; shared: bool
           ) : (
             <ul className="space-y-1.5">
               {shares.map((s) => (
-                <li key={s.groupId} className="flex items-center gap-1.5 text-[13px]">
-                  <span className="min-w-0 flex-1 truncate">
-                    {s.groupName ?? "Group"}
-                    {s.orgName && <span className="text-muted-foreground"> · {s.orgName}</span>}
-                  </span>
-                  <select
-                    value={s.scope}
-                    onChange={(e) => void changeScope(s.groupId, e.target.value as ShareScope)}
-                    disabled={busy}
-                    aria-label={`Access for ${s.groupName ?? "group"}`}
-                    className="h-7 shrink-0 border border-input bg-background px-1 text-[11px] disabled:opacity-60"
-                  >
-                    <option value="viewer">View</option>
-                    <option value="commenter">Comment</option>
-                    <option value="asker">Ask</option>
-                    <option value="participant">Ask + comment</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => void revoke(s.groupId)}
-                    disabled={busy}
-                    aria-label={`Revoke share with ${s.groupName ?? "group"}`}
-                    className="shrink-0 p-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                <li key={s.groupId} className="border-b border-border/60 pb-1.5 last:border-b-0 last:pb-0">
+                  <div className="flex items-center gap-1.5 text-[13px]">
+                    <span className="min-w-0 flex-1 truncate">
+                      {s.groupName ?? "Group"}
+                      {s.orgName && <span className="text-muted-foreground"> · {s.orgName}</span>}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void revoke(s.groupId)}
+                      disabled={busy}
+                      aria-label={`Revoke share with ${s.groupName ?? "group"}`}
+                      className="shrink-0 p-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <select
+                      value={s.scope}
+                      onChange={(e) => void changeScope(s.groupId, e.target.value as ShareScope)}
+                      disabled={busy}
+                      aria-label={`Access for ${s.groupName ?? "group"}`}
+                      className="h-7 shrink-0 border border-input bg-background px-1 text-[11px] disabled:opacity-60"
+                    >
+                      <option value="viewer">View</option>
+                      <option value="commenter">Comment</option>
+                      <option value="asker">Ask</option>
+                      <option value="participant">Ask + comment</option>
+                    </select>
+                    <input
+                      type="date"
+                      value={s.expiresAt ? s.expiresAt.slice(0, 10) : ""}
+                      min={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => void changeExpiry(s.groupId, e.target.value || null)}
+                      disabled={busy}
+                      aria-label={`Share expiry for ${s.groupName ?? "group"}`}
+                      title={s.expiresAt ? `Expires ${new Date(s.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} — clear to keep open` : "No expiry — pick a date to time-box"}
+                      className="h-7 min-w-0 flex-1 border border-input bg-background px-1 text-[11px] disabled:opacity-60"
+                    />
+                  </div>
                 </li>
               ))}
             </ul>
@@ -185,6 +218,16 @@ export function ShareDialog({ auditId, shared }: { auditId: string; shared: bool
                 <option key={g.groupId} value={g.groupId}>{g.name}</option>
               ))}
             </select>
+            <input
+              type="date"
+              value={expiry}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setExpiry(e.target.value)}
+              disabled={busy}
+              aria-label="Share expiry (optional)"
+              title="Optional — leave blank for open access"
+              className="h-8 w-32 shrink-0 border border-input bg-background px-1.5 text-xs disabled:opacity-60"
+            />
             <button
               type="button"
               onClick={() => void share()}
@@ -194,7 +237,7 @@ export function ShareDialog({ auditId, shared }: { auditId: string; shared: bool
               Share
             </button>
           </div>
-          <p className="mt-1.5 text-[11px] text-muted-foreground">Members read everything, change nothing. Revoke anytime.</p>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">Members read everything, change nothing. Revoke anytime — or set an expiry and access lapses itself.</p>
         </div>
       )}
     </div>

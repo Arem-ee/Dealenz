@@ -609,6 +609,18 @@ describe("00083 credit purchase revocation statuses (static)", () => {
   })
 })
 
+describe("00107 share expiry (static)", () => {
+  const mig107 = code(sql("00107_share_expiry.sql"))
+
+  it("time-boxes shares with lazy predicates and a revoke-flip", () => {
+    expect(mig107).toMatch(/ADD COLUMN IF NOT EXISTS expires_at/)
+    expect(mig107).toMatch(/deal_share_is_live/)
+    expect(mig107).toMatch(/set_deal_share_expiry/)
+    expect(mig107).toMatch(/expire_deal_shares/)
+    expect(mig107).toMatch(/DROP FUNCTION IF EXISTS share_deal_with_group\(UUID, UUID\)/)
+  })
+})
+
 describe("00106 org subscriptions (static)", () => {
   const mig106 = code(sql("00106_org_subscriptions.sql"))
 

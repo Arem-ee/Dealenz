@@ -459,7 +459,10 @@ export async function getThread(threadId: string): Promise<ActionOk<{ thread: Th
       guidance: r.finding?.guidance ?? null,
     }))
   const rawConflicts = ((audit?.structured_data ?? {}) as { corpusConflicts?: unknown }).corpusConflicts
-  const corpusConflicts: CorpusConflictView[] = (Array.isArray(rawConflicts) ? rawConflicts : [])
+  // Leakage guard: persisted conflicts name the owner's OTHER deals
+  // (titles + quotes). Shared viewers see none of that — the section
+  // reads "your other deals," which is false for them. Owners unaffected.
+  const corpusConflicts: CorpusConflictView[] = shared ? [] : (Array.isArray(rawConflicts) ? rawConflicts : [])
     .filter((c): c is { type: string; message: string; auditId: string; auditTitle: string; clauseTitle: string; quote: string } =>
       typeof c === "object" && c !== null && typeof (c as { message?: unknown }).message === "string")
     .map((c) => ({
