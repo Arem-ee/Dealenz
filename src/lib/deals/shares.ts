@@ -14,6 +14,7 @@ export interface DealShareView {
   groupId: string
   groupName: string | null
   orgName: string | null
+  scope: ShareScope
 }
 
 /** Audit ids shared with the caller through group membership. */
@@ -42,6 +43,40 @@ export async function sharedAuditIds(
   }
 }
 
+export type ShareScope = "viewer" | "commenter" | "asker" | "participant"
+
+/** Strongest scope the caller holds on a deal (null = none shared). */
+export async function sharedScope(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  auditId: string
+): Promise<ShareScope | null> {
+  try {
+    const { data: shares } = await supabase
+      .from("deal_shares")
+      .select("scope, group_id")
+      .eq("deal_id", auditId)
+      .limit(20)
+    const rows = ((shares ?? []) as Array<{ scope: string; group_id: string }>)
+    if (rows.length === 0) return null
+    const { data: memberships } = await supabase
+      .from("permission_group_members")
+      .select("group_id")
+      .eq("user_id", userId)
+      .in("group_id", rows.map((r) => r.group_id))
+      .limit(20)
+    const mine = new Set(((memberships ?? []) as Array<{ group_id: string }>).map((m) => m.group_id))
+    const held = rows.filter((r) => mine.has(r.group_id)).map((r) => r.scope)
+    if (held.includes("participant")) return "participant"
+    if (held.includes("asker") && held.includes("commenter")) return "participant"
+    if (held.includes("asker")) return "asker"
+    if (held.includes("commenter")) return "commenter"
+    return held.length > 0 ? "viewer" : null
+  } catch {
+    return null
+  }
+}
+
 export async function listDealShares(auditId: string) {
   try {
     if (!UUID_RE.test(auditId)) return { ok: false as const, error: "Invalid deal." }
@@ -50,7 +85,7 @@ export async function listDealShares(auditId: string) {
     if (!user) return { ok: false as const, error: "You must be signed in." }
     const { data, error } = await supabase
       .from("deal_shares")
-      .select("group_id")
+      .select("group_id, scope")
       .eq("deal_id", auditId)
       .limit(50)
     if (error) {
@@ -59,7 +94,8 @@ export async function listDealShares(auditId: string) {
       }
       throw new Error(error.message)
     }
-    const groupIds = ((data ?? []) as Array<{ group_id: string }>).map((r) => r.group_id)
+    const shareRows = ((data ?? []) as Array<{ group_id: string; scope: string }>)
+    const groupIds = shareRows.map((r) => r.group_id)
     const names = new Map<string, { name: string; org: string }>()
     if (groupIds.length > 0) {
       const { data: groups } = await supabase
@@ -76,10 +112,11 @@ export async function listDealShares(auditId: string) {
         names.set(g.id, { name: g.name, org: orgNames.get(g.org_id) ?? "" })
       }
     }
-    const shares: DealShareView[] = groupIds.map((id) => ({
-      groupId: id,
-      groupName: names.get(id)?.name ?? null,
-      orgName: names.get(id)?.org ?? null,
+    const shares: DealShareView[] = shareRows.map((r) => ({
+      groupId: r.group_id,
+      groupName: names.get(r.group_id)?.name ?? null,
+      orgName: names.get(r.group_id)?.org ?? null,
+      scope: (r.scope === "commenter" || r.scope === "asker" || r.scope === "participant" ? r.scope : "viewer"),
     }))
     return { ok: true as const, shares }
   } catch (e) {
@@ -158,5 +195,26 @@ export async function unshareDealWithGroup(auditId: string, groupId: string) {
     return { ok: true as const }
   } catch (e) {
     return toActionFailure(e, "We couldn't revoke that share.") as never
+  }
+}
+
+export async function setShareScope(auditId: string, groupId: string, scope: ShareScope) {
+  try {
+    if (!UUID_RE.test(auditId) || !UUID_RE.test(groupId)) {
+      return { ok: false as const, error: "Invalid deal or group." }
+    }
+    if (scope !== "viewer" && scope !== "commenter" && scope !== "asker" && scope !== "participant") {
+      return { ok: false as const, error: "Unknown scope." }
+    }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const { data, error } = await supabase.rpc("set_deal_share_scope", { p_deal_id: auditId, p_group_id: groupId, p_scope: scope })
+    if (error) return { ok: false as const, error: "We couldn't change that scope." }
+    const row = (Array.isArray(data) ? data[0] : data) as { success?: boolean; message?: string } | null
+    if (!row?.success) return { ok: false as const, error: row?.message ?? "We couldn't change that scope." }
+    return { ok: true as const }
+  } catch (e) {
+    return toActionFailure(e, "We couldn't change that scope.") as never
   }
 }

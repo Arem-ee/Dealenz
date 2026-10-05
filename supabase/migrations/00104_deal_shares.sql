@@ -191,3 +191,37 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION unshare_deal_with_group(UUID, UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION set_deal_share_scope(p_deal_id UUID, p_group_id UUID, p_scope TEXT)
+RETURNS TABLE (success BOOLEAN, message TEXT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_owner UUID;
+BEGIN
+  IF p_scope NOT IN ('viewer', 'commenter', 'asker', 'participant') THEN
+    RETURN QUERY SELECT false, 'Unknown scope';
+    RETURN;
+  END IF;
+  SELECT user_id INTO v_owner FROM audits WHERE id = p_deal_id;
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT false, 'Deal not found';
+    RETURN;
+  END IF;
+  IF v_owner <> auth.uid() THEN
+    RETURN QUERY SELECT false, 'Only the deal owner can change sharing';
+    RETURN;
+  END IF;
+  UPDATE deal_shares SET scope = p_scope
+  WHERE deal_id = p_deal_id AND group_id = p_group_id;
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT false, 'That share does not exist';
+    RETURN;
+  END IF;
+  RETURN QUERY SELECT true, 'Scope updated';
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION set_deal_share_scope(UUID, UUID, TEXT) TO authenticated;

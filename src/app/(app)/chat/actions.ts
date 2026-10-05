@@ -26,6 +26,7 @@ import { buildAskPrompt, parseClaimsBlock } from "@/lib/deals/claims"
 
 const AUDIT_FILES_BUCKET = "audit-files"
 const MAX_RAW_INPUT_CHARS = 500_000
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 type ActionOk<T> = { ok: true } & T
 type ActionFail = { ok: false; error: string }
@@ -362,6 +363,8 @@ export interface ThreadView {
   title: string
   auditId: string | null
   shared: boolean
+  scope: "owner" | "viewer" | "commenter" | "asker" | "participant"
+  currentUserId: string
   dealType: string | null
   dealValueMinor: number | null
   dealValueCurrency: string | null
@@ -369,7 +372,7 @@ export interface ThreadView {
   intent: string | null
   findings: FindingView[]
   corpusConflicts: CorpusConflictView[]
-  messages: Array<{ id: string; role: "user" | "assistant"; content: string; created_at: string; metadata: Record<string, unknown> }>
+  messages: Array<{ id: string; userId: string; role: "user" | "assistant"; content: string; created_at: string; metadata: Record<string, unknown> }>
 }
 
 /** Load a thread for the workspace: audit, shot state, messages. */
@@ -410,8 +413,8 @@ export async function getThread(threadId: string): Promise<ActionOk<{ thread: Th
         .order("created_at", { ascending: true })
         .limit(50)
         .then(
-          (r) => (r.data ?? []) as Array<{ id: string; role: "user" | "assistant"; content: string; created_at: string; metadata: Record<string, unknown> }>,
-          () => [] as Array<{ id: string; role: "user" | "assistant"; content: string; created_at: string; metadata: Record<string, unknown> }>
+          (r) => (r.data ?? []) as Array<{ id: string; user_id: string; role: "user" | "assistant"; content: string; created_at: string; metadata: Record<string, unknown> }>,
+          () => [] as Array<{ id: string; user_id: string; role: "user" | "assistant"; content: string; created_at: string; metadata: Record<string, unknown> }>
         )
   type AuditThreadRow = { id: string; title: string | null; deal_type: string | null; structured_data?: unknown; deal_value_minor?: number | null; deal_value_currency?: string | null }
   let audit: AuditThreadRow | null = null
@@ -474,6 +477,12 @@ export async function getThread(threadId: string): Promise<ActionOk<{ thread: Th
       title: (thread ?? sharedThread)?.title ?? "Thread",
       auditId: audit?.id ?? null,
       shared,
+      scope: !audit ? "owner" : shared
+        ? await import("@/lib/deals/shares").then(async ({ sharedScope }) =>
+            (await sharedScope(supabase, userId, (audit as { id: string }).id).catch(() => null)) ?? "viewer"
+          )
+        : "owner",
+      currentUserId: userId,
       dealType: audit?.deal_type ?? (typeof shotMeta.dealType === "string" ? shotMeta.dealType : null),
       dealValueMinor: audit?.deal_value_minor ?? null,
       dealValueCurrency: audit?.deal_value_currency ?? null,
@@ -483,6 +492,7 @@ export async function getThread(threadId: string): Promise<ActionOk<{ thread: Th
       corpusConflicts,
       messages: messages.map((m) => ({
         id: m.id,
+        userId: (m as { user_id?: string }).user_id ?? "",
         role: m.role,
         content: m.content,
         created_at: m.created_at,
@@ -868,4 +878,267 @@ export async function askQuestion(input: { threadId: string; text: string; model
     }).catch(() => undefined)
   }
   return { ok: true, answer }
+}
+
+/**
+ * Shared comment: a zero-AI remark on a shared thread. Owners post
+ * through the normal composer; this path serves group members holding
+ * commenter/participant scope. Never triggers analysis, never mutates
+ * the audit — one user row with a shared marker.
+ */
+export async function postSharedComment(input: { threadId: string; text: string }): Promise<
+  ActionOk<{ messageId: string }> | ActionFail
+> {
+  const authed = await authedUserId()
+  if (!authed) return { ok: false, error: "You must be signed in." }
+  const { supabase, userId } = authed
+
+  const text = input.text.trim()
+  if (!text) return { ok: false, error: "Write a comment first." }
+  if (!UUID_RE.test(input.threadId)) return { ok: false, error: "Invalid thread." }
+  const { data: convo } = await supabase
+    .from("conversations")
+    .select("id, attached_audit_id")
+    .eq("id", input.threadId)
+    .maybeSingle()
+  const thread = convo as { id: string; attached_audit_id: string | null } | null
+  if (!thread?.attached_audit_id) return { ok: false, error: "That thread has no deal attached." }
+  const audit = await ownedAudit(supabase, userId, thread.attached_audit_id)
+  if (!audit) {
+    const { sharedAuditIds, sharedScope } = await import("@/lib/deals/shares")
+    const visible = await sharedAuditIds(supabase, userId)
+    if (!visible.includes(thread.attached_audit_id)) return { ok: false, error: "Thread not found." }
+    const scope = await sharedScope(supabase, userId, thread.attached_audit_id)
+    if (scope !== "commenter" && scope !== "participant") {
+      return { ok: false, error: "Your access on this deal is read-only." }
+    }
+  }
+  const fitted = fitMessage(text)
+  try {
+    const row = await addMessage(supabase as never, {
+      conversationId: thread.id,
+      userId,
+      role: "user",
+      content: fitted.content,
+      metadata: { type: "shared_comment", shared: true, ...(fitted.truncated ? { truncated: true } : {}) },
+    })
+    try {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (url && key) {
+        const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+        const { notifyDealOwner } = await import("@/lib/notifications/notify")
+        await notifyDealOwner(createServiceClient(url, key), thread.attached_audit_id, {
+          type: "status",
+          title: "New comment on your deal",
+          body: "A group member commented — open the thread to read it.",
+          link: `/chat/${thread.id}`,
+        })
+      }
+    } catch {
+      // The comment stands regardless; the notification is best-effort.
+    }
+    return { ok: true, messageId: row.id }
+  } catch {
+    return { ok: false, error: "We couldn't post that comment." }
+  }
+}
+
+/**
+ * Shared ask: a group member's question on a shared deal. Metering-only
+ * like owner Ask (no priced policy), rate-capped per reader BEFORE any
+ * write — denied turns write nothing. Grounded on this deal's findings
+ * only: no corpus cross-deal, no standing rules (those are the owner's).
+ * Writes user + assistant rows with a shared marker; never analysis.
+ */
+export async function askSharedQuestion(input: { threadId: string; text: string }): Promise<
+  ActionOk<{ answer: string }> | ActionFail
+> {
+  const authed = await authedUserId()
+  if (!authed) return { ok: false, error: "You must be signed in." }
+  const { supabase, userId } = authed
+
+  const question = input.text.trim()
+  if (!question) return { ok: false, error: "Ask a question first." }
+  if (!UUID_RE.test(input.threadId)) return { ok: false, error: "Invalid thread." }
+  const { data: convo } = await supabase
+    .from("conversations")
+    .select("id, attached_audit_id")
+    .eq("id", input.threadId)
+    .maybeSingle()
+  const thread = convo as { id: string; attached_audit_id: string | null } | null
+  if (!thread?.attached_audit_id) return { ok: false, error: "That thread has no deal attached." }
+  const owned = await ownedAudit(supabase, userId, thread.attached_audit_id)
+  if (!owned) {
+    const { sharedAuditIds, sharedScope } = await import("@/lib/deals/shares")
+    const visible = await sharedAuditIds(supabase, userId)
+    if (!visible.includes(thread.attached_audit_id)) return { ok: false, error: "Thread not found." }
+    const scope = await sharedScope(supabase, userId, thread.attached_audit_id)
+    if (scope !== "asker" && scope !== "participant") {
+      return { ok: false, error: "Your access on this deal is read-only." }
+    }
+  }
+  const { data: auditRow } = await supabase
+    .from("audits")
+    .select("id, deal_type, raw_input, structured_data")
+    .eq("id", thread.attached_audit_id)
+    .maybeSingle()
+  const audit = auditRow as {
+    id: string; deal_type: string | null; raw_input: string | null;
+    structured_data: { deterministicFindings?: unknown } | null;
+  } | null
+  if (!audit) return { ok: false, error: "Deal not found." }
+
+  const operation = classifyOperation(question, true)
+  const intent = inferIntent(question, operation)
+
+  // Rate gate FIRST: denied turns write nothing (unlike the owner path's
+  // post-then-check order, which this path deliberately does not copy).
+  const cap = await checkRateLimit("ask_turn")
+  if (!cap.allowed) {
+    return { ok: false, error: cap.error ?? "You've reached today's question limit. Please try again tomorrow." }
+  }
+
+  const rawFindings = audit.structured_data?.deterministicFindings
+  const stored = (Array.isArray(rawFindings) ? rawFindings : []) as RuleResult[]
+  const valid = (r: RuleResult) => r.status === "FAIL" || r.status === "PASS" || r.status === "UNKNOWN"
+  const fails = stored.filter((r) => r.status === "FAIL")
+  const findings: AskFinding[] = fails.slice(0, 8).map((r) => ({
+    ruleKey: r.ruleKey,
+    status: r.status,
+    severity: r.finding?.severity ?? "attention",
+    summary: r.finding?.summary ?? r.ruleKey,
+    guidance: r.finding?.guidance ?? null,
+    evidenceQuote: r.finding?.evidence?.[0]?.quote?.slice(0, 200) ?? null,
+  }))
+  const { data: historyRows } = await supabase
+    .from("conversation_messages")
+    .select("role, content, metadata")
+    .eq("conversation_id", thread.id)
+    .order("created_at", { ascending: true })
+    .limit(ASK_HISTORY_TURNS + 1)
+  const history = (((historyRows ?? []) as Array<{ role: string; content: string; metadata?: Record<string, unknown> }>)
+    .filter((m) => (m.role === "user" || m.role === "assistant") && (m.metadata as Record<string, unknown> | undefined)?.type !== "shared_comment")
+    .slice(-ASK_HISTORY_TURNS)
+    .map((m) => ({ role: m.role, text: m.content.slice(0, 1000) })))
+
+  const fitted = fitMessage(question)
+  try {
+    await addMessage(supabase as never, {
+      conversationId: thread.id,
+      userId,
+      role: "user",
+      content: fitted.content,
+      operation,
+      intent,
+      metadata: { type: "shared_ask", shared: true, ...(fitted.truncated ? { truncated: true } : {}) },
+    })
+  } catch {
+    return { ok: false, error: "We couldn't post that question." }
+  }
+
+  const material = (audit.raw_input ?? "").trim().slice(0, ASK_MATERIAL_CHARS)
+  const dealType = audit.deal_type ?? "generic"
+  const turnStart = Date.now()
+  let answer: string
+  try {
+    const { systemPrompt, userContent } = buildAskPrompt({
+      question,
+      dealType,
+      material: material || "(no material recorded yet)",
+      findings,
+      history,
+      standing: null,
+    })
+    const res = await callAIForSurface("authenticated", {
+      systemPrompt,
+      userContent: userContent.slice(0, ASK_MATERIAL_CHARS + ASK_PROMPT_CHARS),
+      temperature: 0.2,
+      maxTokens: 1200,
+    })
+    const parsed = parseClaimsBlock(res.text)
+    const conflicts = detectFindingConflicts(stored.filter(valid), parsed.claims)
+    answer = conflicts.length === 0
+      ? parsed.clean || res.text.trim()
+      : `I couldn't verify that against this deal's findings, so here is what they do say:\n${fails.slice(0, 5).map((f) => `• ${f.finding?.summary ?? f.ruleKey}`).join("\n") || "No risky patterns recorded."}`
+    await addMessage(supabase as never, {
+      conversationId: thread.id,
+      userId,
+      role: "assistant",
+      content: answer,
+      operation,
+      intent,
+      metadata: { type: "shared_ask_answer", shared: true },
+    })
+  } catch (err) {
+    const msg = err instanceof AIProviderError
+      ? "I couldn't reach the AI service. Your question is saved — ask again to retry."
+      : "Ask failed. Your question is saved — try again."
+    try {
+      await addMessage(supabase as never, {
+        conversationId: thread.id,
+        userId,
+        role: "assistant",
+        content: msg,
+        operation,
+        intent,
+        metadata: { type: "ask_failed", shared: true },
+      })
+    } catch {
+      // Failure notice is best-effort; the question row stands.
+    }
+    return { ok: true, answer: msg }
+  }
+  try {
+    const { logEvent } = await import("@/lib/logger")
+    await logEvent({
+      audit_id: thread.attached_audit_id,
+      user_id: userId,
+      phase: "ask_turn",
+      status: "success",
+      duration_ms: Date.now() - turnStart,
+      metadata: { shared: true },
+    }).catch(() => undefined)
+  } catch {
+    // Telemetry never fails the answer.
+  }
+  return { ok: true, answer }
+}
+
+/**
+ * Owner-delete for shared comments: the thread owner may remove reader
+ * rows on owned deals. Own rows were never deletable and stay that way;
+ * reader rows on other owners' deals are untouchable.
+ */
+export async function deleteSharedMessage(input: { messageId: string }): Promise<
+  ActionOk<{ deleted: boolean }> | ActionFail
+> {
+  const authed = await authedUserId()
+  if (!authed) return { ok: false, error: "You must be signed in." }
+  const { supabase, userId } = authed
+  if (!UUID_RE.test(input.messageId)) return { ok: false, error: "Invalid message." }
+  const { data: msg } = await supabase
+    .from("conversation_messages")
+    .select("id, conversation_id, user_id")
+    .eq("id", input.messageId)
+    .maybeSingle()
+  const row = msg as { id: string; conversation_id: string; user_id: string } | null
+  if (!row) return { ok: false, error: "Message not found." }
+  if (row.user_id === userId) return { ok: false, error: "Messages can't be deleted." }
+  const { data: convo } = await supabase
+    .from("conversations")
+    .select("attached_audit_id")
+    .eq("id", row.conversation_id)
+    .maybeSingle()
+  const auditId = (convo as { attached_audit_id?: string | null } | null)?.attached_audit_id
+  if (!auditId) return { ok: false, error: "Message not found." }
+  const audit = await ownedAudit(supabase, userId, auditId)
+  if (!audit) return { ok: false, error: "Only the deal owner can remove comments." }
+  const { error } = await supabase
+    .from("conversation_messages")
+    .delete()
+    .eq("id", row.id)
+    .neq("user_id", userId)
+  if (error) return { ok: false, error: "We couldn't remove that comment." }
+  return { ok: true, deleted: true }
 }

@@ -8,9 +8,11 @@ import {
 } from "@/lib/approvals/actions"
 import {
   listDealShares,
+  setShareScope,
   shareDealWithGroup,
   unshareDealWithGroup,
   type DealShareView,
+  type ShareScope,
 } from "@/lib/deals/shares"
 
 // Share dialog: the owner shares this deal with a group (read-only for
@@ -100,6 +102,20 @@ export function ShareDialog({ auditId, shared }: { auditId: string; shared: bool
     }
   }
 
+  async function changeScope(id: string, scope: ShareScope) {
+    if (busy) return
+    setBusy(true)
+    try {
+      const res = await setShareScope(auditId, id, scope)
+      if (!res.ok) throw new Error(res.error)
+      setShares((prev) => prev?.map((s) => (s.groupId === id ? { ...s, scope } : s)) ?? null)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't change that scope.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (shared) return null
 
   return (
@@ -126,11 +142,23 @@ export function ShareDialog({ auditId, shared }: { auditId: string; shared: bool
           ) : (
             <ul className="space-y-1.5">
               {shares.map((s) => (
-                <li key={s.groupId} className="flex items-center gap-2 text-[13px]">
+                <li key={s.groupId} className="flex items-center gap-1.5 text-[13px]">
                   <span className="min-w-0 flex-1 truncate">
                     {s.groupName ?? "Group"}
                     {s.orgName && <span className="text-muted-foreground"> · {s.orgName}</span>}
                   </span>
+                  <select
+                    value={s.scope}
+                    onChange={(e) => void changeScope(s.groupId, e.target.value as ShareScope)}
+                    disabled={busy}
+                    aria-label={`Access for ${s.groupName ?? "group"}`}
+                    className="h-7 shrink-0 border border-input bg-background px-1 text-[11px] disabled:opacity-60"
+                  >
+                    <option value="viewer">View</option>
+                    <option value="commenter">Comment</option>
+                    <option value="asker">Ask</option>
+                    <option value="participant">Ask + comment</option>
+                  </select>
                   <button
                     type="button"
                     onClick={() => void revoke(s.groupId)}

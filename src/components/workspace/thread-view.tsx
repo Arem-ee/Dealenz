@@ -7,6 +7,8 @@ import { Composer } from "@/components/workspace/composer"
 import { DealValue } from "@/components/workspace/deal-value"
 import { GenerateDraft } from "@/components/workspace/generate-draft"
 import { ShareDialog } from "@/components/workspace/share-dialog"
+import { SharedComposer } from "@/components/workspace/shared-composer"
+import { deleteSharedMessage } from "@/app/(app)/chat/actions"
 import { correctDealType, type ThreadView as ThreadData } from "@/app/(app)/chat/actions"
 import { INTAKE_DEAL_TYPES } from "@/lib/deals/intake"
 
@@ -27,6 +29,24 @@ export function ThreadView({ initial }: { initial: ThreadData }) {
   const [dealType, setDealType] = useState<string | null>(initial.dealType)
   const [correcting, setCorrecting] = useState(false)
   const [correctError, setCorrectError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const scope = initial.shared ? initial.scope : "owner"
+  const canWriteShared = scope === "commenter" || scope === "asker" || scope === "participant"
+
+  async function removeMessage(id: string) {
+    if (deletingId) return
+    setDeletingId(id)
+    try {
+      const res = await deleteSharedMessage({ messageId: id })
+      if (!res.ok) throw new Error(res.error)
+      router.refresh()
+    } catch {
+      // Silent; the row stays.
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   async function correct(next: string) {
     if (!initial.auditId || next === dealType || correcting) return
@@ -49,14 +69,21 @@ export function ThreadView({ initial }: { initial: ThreadData }) {
       <section aria-label="Conversation" className="relative flex min-h-0 min-w-0 flex-1 flex-col border-b border-border lg:border-b-0 lg:border-r">
         {initial.shared && (
           <p role="status" className="shrink-0 border-b border-border bg-muted/40 px-4 py-2 text-[11px] text-muted-foreground">
-            Shared with you — read-only. Only the owner can ask, edit, or sign here.
+            {scope === "viewer" && "Shared with you — read-only. Only the owner can ask, edit, or sign here."}
+            {scope === "commenter" && "Shared with you — you can comment. Only the owner can ask, edit, or sign."}
+            {scope === "asker" && "Shared with you — you can ask questions. Only the owner can edit or sign."}
+            {scope === "participant" && "Shared with you — you can ask and comment. Only the owner can edit or sign."}
           </p>
         )}
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-24 pt-4">
-          {initial.messages.map((m) => (
+          {initial.messages.map((m) => {
+            const mine = m.userId === initial.currentUserId
+            const sharedMark = (m.metadata as Record<string, unknown> | undefined)?.shared === true
+            return (
             <div key={m.id} className={cn("max-w-[85%]", m.role === "user" ? "ml-auto" : "mr-auto")}>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {m.role === "user" ? "You" : "Dealenz"}
+                {m.role === "user" ? (mine ? "You" : "Member") : "Dealenz"}
+                {sharedMark && m.role === "user" && !mine && <span className="ml-1 font-normal normal-case">· shared</span>}
               </p>
               <p className={cn(
                 "mt-1 whitespace-pre-wrap px-3.5 py-2.5 text-sm leading-relaxed",
@@ -64,10 +91,26 @@ export function ThreadView({ initial }: { initial: ThreadData }) {
               )}>
                 {m.content}
               </p>
+              {initial.auditId && !mine && sharedMark && scope === "owner" && (
+                <button
+                  type="button"
+                  onClick={() => void removeMessage(m.id)}
+                  disabled={deletingId !== null}
+                  aria-label="Remove this comment"
+                  className="mt-1 text-[11px] text-muted-foreground hover:text-destructive disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              )}
             </div>
-          ))}
+            )
+          })}
         </div>
-        {!initial.shared && (
+        {initial.shared ? (
+          canWriteShared && initial.auditId ? (
+            <SharedComposer threadId={initial.threadId} scope={scope as "commenter" | "asker" | "participant"} />
+          ) : null
+        ) : (
           <Composer mode={initial.auditId ? { kind: "thread", threadId: initial.threadId, auditId: initial.auditId } : { kind: "new" }} />
         )}
       </section>

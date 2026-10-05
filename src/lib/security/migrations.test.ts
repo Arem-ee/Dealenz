@@ -609,6 +609,18 @@ describe("00083 credit purchase revocation statuses (static)", () => {
   })
 })
 
+describe("00105 shared write roles (static)", () => {
+  const mig105 = code(sql("00105_shared_write_roles.sql"))
+
+  it("scopes shared writes with owner delete and no other grants", () => {
+    expect(mig105).toMatch(/ADD COLUMN IF NOT EXISTS scope/)
+    expect(mig105).toMatch(/deal_share_grants/)
+    expect(mig105).toMatch(/Shared writers comment on shared threads/)
+    expect(mig105).toMatch(/Thread owners remove reader rows/)
+    expect(mig105).not.toMatch(/ON conversation_messages FOR UPDATE/)
+  })
+})
+
 describe("00104 deal shares (static)", () => {
   const mig104 = code(sql("00104_deal_shares.sql"))
 
