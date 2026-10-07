@@ -322,6 +322,10 @@ export async function startCeremony(input: {
 
   const problem = validateRecipients(input.signers)
   if (problem) return { ok: false, error: problem }
+  const live = input.signers.filter((r) => r.name.trim() || r.email.trim())
+  if (live.length === 0) {
+    return { ok: false, error: "Add at least one counterparty — owner-only ceremonies would seal on your signature alone." }
+  }
   const expiryDays = normalizeExpiryDays(input.expiresInDays)
   if (expiryDays === null) return { ok: false, error: "Expiry must be 1 to 120 days." }
   const rate = await checkInviteRate()
@@ -420,6 +424,25 @@ export async function signAsOwnerAction(input: {
   if (input.consent !== true) {
     return { ok: false, error: "Confirm you agree to sign electronically first." }
   }
+
+  // Ownership first: the signer row must belong to the caller's deal
+  // before anything (including the image) is written. The artifact lands
+  // after this gate, still before the sign RPC flips the status.
+  const { data: target } = await supabase
+    .from("document_signers")
+    .select("id, document_version_id, status, party_label")
+    .eq("id", input.signerId)
+    .maybeSingle()
+  const targetRow = target as { id: string; document_version_id: string; status: string; party_label: string } | null
+  if (!targetRow) return { ok: false, error: "Signer not found." }
+  if (targetRow.party_label !== "owner" && targetRow.party_label !== "Owner") {
+    return { ok: false, error: "Only the owner signature can be recorded here." }
+  }
+  if (targetRow.status !== "pending") {
+    return { ok: false, error: "Only pending invitations can be signed." }
+  }
+  const preVersion = await ownedVersion(supabase, userId, targetRow.document_version_id)
+  if (!preVersion) return { ok: false, error: "Document not found." }
 
   if (input.imageData !== undefined || input.method !== undefined) {
     const { validateSignatureArtifact } = await import("@/lib/signatures/validate")
@@ -603,6 +626,17 @@ export async function revokeSigner(input: { signerId: string }): Promise<
   if (!version) return { ok: false, error: "Document not found." }
   if (row.status !== "pending" && row.status !== "expired") {
     return { ok: false, error: "Only pending invitations can be revoked." }
+  }
+  // Self-complete guard: revoking the last outstanding invitation while
+  // any signature stands would seal the ceremony on the remaining rows.
+  // Changing the required signers is a redraft-level event, not a revoke.
+  if (!isLockedStatus(version.status)) {
+    const signers = await versionSigners(supabase, version.id)
+    const outstanding = signers.filter((s) => s.status === "pending" || s.status === "expired")
+    const signed = signers.filter((s) => s.status === "signed")
+    if (outstanding.length <= 1 && signed.length > 0) {
+      return { ok: false, error: "Revoking the last invitation would seal the ceremony on the remaining signatures — redraft instead to change signers." }
+    }
   }
   const { error } = await supabase.from("document_signers").update({ status: "revoked" }).eq("id", row.id)
   if (error) return { ok: false, error: "We couldn't revoke that invitation." }
