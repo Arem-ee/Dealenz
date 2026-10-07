@@ -609,6 +609,24 @@ describe("00083 credit purchase revocation statuses (static)", () => {
   })
 })
 
+describe("00108 deny reasons and quotas (static)", () => {
+  const mig108 = code(sql("00108_deny_reasons_quotas.sql"))
+
+  it("reports why holds fail and gates members inside the pool lock", () => {
+    expect(mig108).toMatch(/deny_reason TEXT/)
+    expect(mig108).toMatch(/CREATE TABLE IF NOT EXISTS member_quotas/)
+    expect(mig108).toMatch(/set_member_quota/)
+    expect(mig108).toMatch(/remove_member_quota/)
+    expect(mig108).toMatch(/cap_hit/)
+    expect(mig108).toMatch(/pool_empty/)
+    expect(mig108).toMatch(/DROP FUNCTION IF EXISTS reserve_credits\(TEXT, INTEGER, TEXT, UUID\)/)
+    expect(mig108).toMatch(/ON member_quotas FOR SELECT/)
+    expect(mig108).not.toMatch(/ON member_quotas FOR INSERT/)
+    expect(mig108).not.toMatch(/ON member_quotas FOR UPDATE/)
+    expect(mig108).not.toMatch(/ON member_quotas FOR DELETE/)
+  })
+})
+
 describe("00107 share expiry (static)", () => {
   const mig107 = code(sql("00107_share_expiry.sql"))
 

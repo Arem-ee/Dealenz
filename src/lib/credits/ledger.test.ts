@@ -31,9 +31,15 @@ describe("credit ledger client", () => {
   })
 
   it("returns allowance, balance, and reservation id", async () => {
-    const client = rpcClient(() => [{ allowed: true, balance: 90, reservation_id: "res-1" }])
+    const client = rpcClient(() => [{ allowed: true, balance: 90, reservation_id: "res-1", deny_reason: null }])
     const result = await reserveCredits(client, { operation: "conversation", amount: 10, idempotencyKey: "q-1" })
-    expect(result).toEqual({ allowed: true, balance: 90, reservationId: "res-1" })
+    expect(result).toEqual({ allowed: true, balance: 90, reservationId: "res-1", denyReason: null })
+  })
+
+  it("surfaces the deny reason", async () => {
+    const client = rpcClient(() => [{ allowed: false, balance: 3, reservation_id: null, deny_reason: "cap_hit" }])
+    const result = await reserveCredits(client, { operation: "conversation", amount: 10, idempotencyKey: "q-2" })
+    expect(result).toEqual({ allowed: false, balance: 3, reservationId: null, denyReason: "cap_hit" })
   })
 
   it("finalizes with measured consumption and validates amounts", async () => {

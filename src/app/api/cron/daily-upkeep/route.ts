@@ -100,6 +100,86 @@ export async function GET(req: NextRequest) {
     result.coverage = { error: e instanceof Error ? e.message : "Coverage pass failed" }
   }
 
+  try {
+    // Quota alerts: members at ≥80% get warned, owners learn of hits.
+    // Throttled to one notice per member per 7 days via activity_events —
+    // the pass runs daily, the inbox must not.
+    const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString()
+    const { data: quotas } = await svc
+      .from("member_quotas")
+      .select("org_id, user_id, cap_credits")
+      .limit(50)
+    let quotaNotified = 0
+    for (const q of ((quotas ?? []) as Array<{ org_id: string; user_id: string; cap_credits: number }>)) {
+      try {
+        const { data: spent } = await svc
+          .from("credit_ledger")
+          .select("amount")
+          .eq("org_id", q.org_id)
+          .eq("user_id", q.user_id)
+          .eq("entry_type", "consumption")
+          .eq("status", "finalized")
+          .gte("created_at", new Date(Date.now() - 30 * 86_400_000).toISOString())
+          .limit(1000)
+        const total = ((spent ?? []) as Array<{ amount: number }>).reduce((a, r) => a + Math.abs(r.amount), 0)
+        const pct = q.cap_credits > 0 ? Math.round((total / q.cap_credits) * 100) : 0
+        if (pct < 80) continue
+        const { data: recent } = await svc
+          .from("activity_events")
+          .select("id")
+          .eq("event_type", "quota_alert")
+          .eq("user_id", q.user_id)
+          .gte("created_at", weekAgo)
+          .limit(1)
+        if ((recent ?? []).length > 0) continue
+        const { createNotification } = await import("@/lib/notifications/store")
+        const hit = pct >= 100
+        await createNotification(svc, {
+          userId: q.user_id,
+          type: "status",
+          title: hit ? "Pool limit reached" : "Pool limit at 80%",
+          body: hit
+            ? `You hit your ${q.cap_credits}-credit pool limit — further pool spend is denied until it resets. Solo balance still works.`
+            : `You've used ${pct}% of your ${q.cap_credits}-credit pool limit (rolling 30 days).`,
+          link: "/team",
+        })
+        if (hit) {
+          const { data: owners } = await svc
+            .from("organization_members")
+            .select("user_id")
+            .eq("org_id", q.org_id)
+            .in("role", ["owner", "admin"])
+            .limit(5)
+          for (const o of ((owners ?? []) as Array<{ user_id: string }>)) {
+            try {
+              await createNotification(svc, {
+                userId: o.user_id,
+                type: "status",
+                title: "Member hit pool limit",
+                body: `A member reached their ${q.cap_credits}-credit pool limit. Raise it in the Team tab or leave it.`,
+                link: "/team",
+              })
+            } catch {
+              // One missed owner never blocks the rest.
+            }
+          }
+        }
+        await svc.from("activity_events").insert({
+          user_id: q.user_id,
+          audit_id: null,
+          event_type: "quota_alert",
+          payload: { org_id: q.org_id, pct },
+        })
+        quotaNotified += 1
+      } catch {
+        // One bad quota never blocks the pass.
+      }
+    }
+    result.quotas = { notified: quotaNotified }
+  } catch (e) {
+    result.quotas = { error: e instanceof Error ? e.message : "Quota pass failed" }
+  }
+
   return NextResponse.json(result)
 }
 

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { toActionFailure } from "@/lib/action-result"
+import type { SupabaseClient } from "@supabase/supabase-js"
 import { getPlan, SUBSCRIPTION_PLANS, type Currency } from "@/lib/billing/catalog"
 import { isSubscriptionCheckoutConfigured, paddleApiKey, paddleEnvironment, planPriceId } from "@/lib/billing/provider"
 
@@ -283,5 +284,176 @@ export async function settleOrgOverageInvoiceAction(invoiceId: string) {
     return { ok: true as const, ...res }
   } catch (e) {
     return toActionFailure(e, "Payment failed — the invoice is unchanged.") as never
+  }
+}
+
+export interface OrgPlanChangePreview {
+  planId: string
+  direction: "upgrade" | "downgrade" | "same"
+  mode: string
+  dueTodayMinor: number | null
+  nextCreditMinor: number | null
+  currency: string
+}
+
+async function liveOrgSub(svc: SupabaseClient, orgId: string) {
+  const { data } = await svc
+    .from("org_subscriptions")
+    .select("id, plan_id, paddle_subscription_id, currency, status, monthly_allowance, current_period_start, current_period_end")
+    .eq("org_id", orgId)
+    .in("status", ["active", "trialing", "past_due"])
+    .maybeSingle()
+  return (data as {
+    id: string; plan_id: string; paddle_subscription_id: string | null; currency: string;
+    status: string; monthly_allowance: number; current_period_start: string; current_period_end: string;
+  } | null) ?? null
+}
+
+/**
+ * Org plan changes mirror solo: upgrades bill apportioned now,
+ * downgrades credit next invoice, previewed before confirm. Owner-only;
+ * the webhook lands plan/period and the true-up grants the prorated
+ * pool delta on upgrades.
+ */
+export async function previewOrgPlanChange(orgId: string, planId: string) {
+  try {
+    const plan = getPlan(planId)
+    if (!plan || !plan.active) return { ok: false as const, error: "Unknown plan." }
+    if (!UUID_RE.test(orgId)) return { ok: false as const, error: "Invalid organization." }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    if (!(await ownerOrg(orgId, user.id))) {
+      return { ok: false as const, error: "Only the organization owner can change the pool plan." }
+    }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) return { ok: false as const, error: "Service not configured." }
+    const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+    const svc = createServiceClient(url, key)
+    const row = await liveOrgSub(svc, orgId)
+    if (!row) return { ok: false as const, error: "No live pool plan to change." }
+    if (!row.paddle_subscription_id) return { ok: false as const, error: "Recorded without a provider id — contact support." }
+    if (row.plan_id === planId) return { ok: false as const, error: "That's already the pool plan." }
+    if (row.currency !== "USD" && row.currency !== "GBP" && row.currency !== "EUR") {
+      return { ok: false as const, error: "Unsupported currency." }
+    }
+    const priceId = planPriceId(planId, row.currency as Currency)
+    if (!priceId) return { ok: false as const, error: `That plan isn't priced in ${row.currency} yet.` }
+    const current = getPlan(row.plan_id)
+    const direction = !current || plan.monthlyAllowance > current.monthlyAllowance ? "upgrade" : plan.monthlyAllowance < current.monthlyAllowance ? "downgrade" : "same"
+    if (direction === "same") return { ok: false as const, error: "Those plans carry the same allowance." }
+    const mode = direction === "upgrade" ? "prorated_immediately" : "prorated_next_billing_period"
+    if (!paddleApiKey()) return { ok: false as const, error: "Billing is not configured." }
+    const { Paddle } = await import("@paddle/paddle-node-sdk")
+    const paddle = new Paddle(paddleApiKey() as string, { environment: paddleEnvironment() })
+    let dueTodayMinor: number | null = null
+    let nextCreditMinor: number | null = null
+    try {
+      const preview = (await paddle.subscriptions.previewUpdate(row.paddle_subscription_id, {
+        items: [{ priceId, quantity: 1 }],
+        prorationBillingMode: mode as never,
+      })) as unknown as Record<string, unknown>
+      const txn = preview.immediate_transaction as { totals?: { total?: string; grand_total?: string } } | undefined
+      const totalStr = txn?.totals?.total ?? txn?.totals?.grand_total
+      if (typeof totalStr === "string" && /^\d+$/.test(totalStr)) dueTodayMinor = parseInt(totalStr, 10)
+      const next = preview.next_transaction as { totals?: { credit?: string } } | undefined
+      const creditStr = (next?.totals as { credit?: string } | undefined)?.credit
+      if (typeof creditStr === "string" && /^\d+$/.test(creditStr)) nextCreditMinor = parseInt(creditStr, 10)
+    } catch {
+      // Preview is best-effort; the mode math below still discloses terms.
+    }
+    const out: OrgPlanChangePreview = { planId, direction, mode, dueTodayMinor, nextCreditMinor, currency: row.currency }
+    return { ok: true as const, preview: out }
+  } catch (e) {
+    return toActionFailure(e, "Could not preview that change.") as never
+  }
+}
+
+export async function changeOrgPlan(orgId: string, planId: string) {
+  try {
+    const plan = getPlan(planId)
+    if (!plan || !plan.active) return { ok: false as const, error: "Unknown plan." }
+    if (!UUID_RE.test(orgId)) return { ok: false as const, error: "Invalid organization." }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false as const, error: "Verify your email first." }
+    if (!(await ownerOrg(orgId, user.id))) {
+      return { ok: false as const, error: "Only the organization owner can change the pool plan." }
+    }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) return { ok: false as const, error: "Service not configured." }
+    const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+    const svc = createServiceClient(url, key)
+    const row = await liveOrgSub(svc, orgId)
+    if (!row) return { ok: false as const, error: "No live pool plan to change." }
+    if (!row.paddle_subscription_id) return { ok: false as const, error: "Recorded without a provider id — contact support." }
+    if (row.plan_id === planId) return { ok: false as const, error: "That's already the pool plan." }
+    if (row.currency !== "USD" && row.currency !== "GBP" && row.currency !== "EUR") {
+      return { ok: false as const, error: "Unsupported currency." }
+    }
+    const priceId = planPriceId(planId, row.currency as Currency)
+    if (!priceId) return { ok: false as const, error: `That plan isn't priced in ${row.currency} yet.` }
+    const current = getPlan(row.plan_id)
+    const isUpgrade = !current || plan.monthlyAllowance > current.monthlyAllowance
+    const mode = isUpgrade ? "prorated_immediately" : "prorated_next_billing_period"
+    if (!paddleApiKey()) return { ok: false as const, error: "Billing is not configured." }
+    const { Paddle } = await import("@paddle/paddle-node-sdk")
+    const paddle = new Paddle(paddleApiKey() as string, { environment: paddleEnvironment() })
+    await paddle.subscriptions.update(row.paddle_subscription_id, {
+      items: [{ priceId, quantity: 1 }],
+      prorationBillingMode: mode as never,
+    })
+    if (isUpgrade) {
+      try {
+        const start = new Date(row.current_period_start).getTime()
+        const end = new Date(row.current_period_end).getTime()
+        const span = Math.max(end - start, 86_400_000)
+        const left = Math.max(end - Date.now(), 0)
+        const delta = Math.floor(((plan.monthlyAllowance - (current?.monthlyAllowance ?? 0)) * left) / span)
+        if (delta > 0) {
+          const idempotencyKey = `proration:${row.id}:${row.current_period_start.slice(0, 10)}:${planId}`
+          const { data: existing } = await svc
+            .from("credit_ledger")
+            .select("id")
+            .eq("org_id", orgId)
+            .eq("idempotency_key", idempotencyKey)
+            .maybeSingle()
+          if (!existing) {
+            await svc.from("credit_ledger").insert({
+              user_id: user.id,
+              org_id: orgId,
+              entry_type: "grant",
+              amount: delta,
+              operation: null,
+              status: "finalized",
+              idempotency_key: idempotencyKey,
+              metadata: { reason: "proration_true_up", planId, subscriptionId: row.id },
+            })
+          }
+        }
+      } catch {
+        // True-up is best-effort; the plan change stands regardless.
+      }
+    }
+    try {
+      const { createNotification } = await import("@/lib/notifications/store")
+      await createNotification(svc, {
+        userId: user.id,
+        type: "status",
+        title: isUpgrade ? "Pool plan upgraded" : "Pool plan downgraded",
+        body: isUpgrade
+          ? "New pool allowance is live now; the apportioned difference bills immediately."
+          : "Lower pool allowance applies now; the apportioned credit lands on the next invoice.",
+        link: "/settings",
+      })
+    } catch {
+      // Notification is best-effort.
+    }
+    return { ok: true as const, direction: isUpgrade ? "upgrade" : "downgrade" }
+  } catch (e) {
+    return toActionFailure(e, "Could not change plan. The pool plan is unchanged.") as never
   }
 }

@@ -466,6 +466,13 @@ function OrgPlanSection() {
 
   const isOwner = orgs.find((o) => o.orgId === orgId)?.role === "owner"
   const sub = state?.subscription ?? null
+  const [preview, setPreview] = useState<{
+    planId: string
+    direction: string
+    dueTodayMinor: number | null
+    nextCreditMinor: number | null
+    currency: string
+  } | null>(null)
 
   async function subscribe(planId: string) {
     if (busy || !orgId) return
@@ -493,6 +500,42 @@ function OrgPlanSection() {
       setNotice("Checkout opened — the pool plan activates when payment completes. Refresh after.")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function previewChange(planId: string) {
+    if (busy || !orgId) return
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    setPreview(null)
+    try {
+      const { previewOrgPlanChange } = await import("@/lib/billing/org-billing-actions")
+      const res = await previewOrgPlanChange(orgId, planId)
+      if (!res.ok) throw new Error(res.error)
+      setPreview({ ...res.preview })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't preview that change.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function confirmChange() {
+    if (busy || !orgId || !preview) return
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const { changeOrgPlan } = await import("@/lib/billing/org-billing-actions")
+      const res = await changeOrgPlan(orgId, preview.planId)
+      if (!res.ok) throw new Error(res.error)
+      setPreview(null)
+      setNotice(res.direction === "upgrade" ? "Pool plan upgraded — new allowance is live, apportioned difference billed now." : "Pool plan downgraded — credit lands on the next invoice.")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't change plan. The pool plan is unchanged.")
     } finally {
       setBusy(false)
     }
@@ -616,6 +659,55 @@ function OrgPlanSection() {
               <p className="mt-2 text-xs">
                 {sub.plan_label} · {sub.status.replaceAll("_", " ")} · renews {new Date(sub.period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
               </p>
+              {isOwner && (
+                <div className="mt-2 border border-border p-2.5" aria-label="Change pool plan">
+                  <p className="text-[11px] font-medium">Change plan</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {state.plans.filter((p) => p.id !== sub.plan_id).map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => void previewChange(p.id)}
+                        disabled={busy}
+                        className="border border-border px-2 py-1 text-[11px] capitalize hover:bg-muted disabled:opacity-50"
+                      >
+                        Preview {p.id}
+                      </button>
+                    ))}
+                  </div>
+                  {preview && (
+                    <div className="mt-2 border border-border bg-muted/40 px-2.5 py-2 text-[11px]" aria-label="Change preview">
+                      <p>
+                        {preview.direction === "upgrade" ? "Upgrade" : "Downgrade"} to <strong className="capitalize">{preview.planId}</strong>
+                        {preview.dueTodayMinor !== null && <> · due today {(preview.dueTodayMinor / 100).toFixed(2)} {preview.currency}</>}
+                        {preview.nextCreditMinor !== null && <> · credit on next invoice</>}
+                      </p>
+                      <p className="mt-0.5 text-muted-foreground">
+                        {preview.direction === "upgrade"
+                          ? "Apportioned difference bills now; prorated allowance lands immediately."
+                          : "Credit applies to the next invoice; lower allowance takes effect now."}
+                      </p>
+                      <div className="mt-1.5 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void confirmChange()}
+                          disabled={busy}
+                          className="inline-flex h-8 items-center bg-primary px-3 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
+                        >
+                          Confirm change
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPreview(null)}
+                          className="inline-flex h-8 items-center px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                        >
+                          Back
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               {isOwner && (
                 <>
                   <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs">
@@ -814,6 +906,50 @@ function BillingSection() {
   const [notice, setNotice] = useState<string | null>(null)
   const [cancelArmed, setCancelArmed] = useState(false)
   const [fundableOrgs, setFundableOrgs] = useState<Array<{ orgId: string; orgName: string }>>([])
+  const [preview, setPreview] = useState<{
+    planId: string
+    direction: string
+    dueTodayMinor: number | null
+    nextCreditMinor: number | null
+    currency: string
+  } | null>(null)
+
+  async function previewChange(planId: string) {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    setPreview(null)
+    try {
+      const { previewPlanChange } = await import("@/lib/billing/subscription-actions")
+      const res = await previewPlanChange(planId)
+      if (!res.ok) throw new Error(res.error)
+      setPreview({ ...res.preview })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't preview that change.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function confirmChange() {
+    if (busy || !preview) return
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const { changePlan } = await import("@/lib/billing/subscription-actions")
+      const res = await changePlan(preview.planId)
+      if (!res.ok) throw new Error(res.error)
+      setPreview(null)
+      setNotice(res.direction === "upgrade" ? "Plan upgraded — new allowance is live, apportioned difference billed now." : "Plan downgraded — credit lands on the next invoice.")
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't change plan. Your subscription is unchanged.")
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const refresh = async () => {
     try {
@@ -1104,6 +1240,54 @@ function BillingSection() {
                     ))}
                   </div>
                 </>
+              )}
+            </div>
+          )}
+
+          {sub && (
+            <div className="mt-4 border border-border p-3" aria-label="Change plan">
+              <p className="text-[13px] font-medium">Change plan</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Upgrades bill the apportioned difference now; downgrades credit the next invoice. Math shown before you confirm.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {state.plans.filter((p) => p.id !== sub.plan_id).map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => void previewChange(p.id)}
+                    disabled={busy}
+                    className="border border-border px-2 py-1 text-[11px] capitalize hover:bg-muted disabled:opacity-50"
+                  >
+                    Preview {p.id}
+                  </button>
+                ))}
+              </div>
+              {preview && (
+                <div className="mt-2 border border-border bg-muted/40 px-2.5 py-2 text-[11px]" aria-label="Change preview">
+                  <p>
+                    {preview.direction === "upgrade" ? "Upgrade" : "Downgrade"} to <strong className="capitalize">{preview.planId}</strong>
+                    {preview.dueTodayMinor !== null && <> · due today {(preview.dueTodayMinor / 100).toFixed(2)} {preview.currency}</>}
+                    {preview.nextCreditMinor !== null && <> · credit on next invoice</>}
+                  </p>
+                  <div className="mt-1.5 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void confirmChange()}
+                      disabled={busy}
+                      className="inline-flex h-8 items-center bg-primary px-3 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
+                    >
+                      Confirm change
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreview(null)}
+                      className="inline-flex h-8 items-center px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      Back
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           )}

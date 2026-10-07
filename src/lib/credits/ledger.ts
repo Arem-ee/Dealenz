@@ -58,6 +58,7 @@ export interface ReservationResult {
   allowed: boolean
   balance: number
   reservationId: string | null
+  denyReason: string | null
 }
 
 // Holds amount credits for one billable operation. Idempotent on
@@ -85,10 +86,12 @@ export async function reserveCredits(
   if (!row || typeof row.allowed !== "boolean" || typeof row.balance !== "number") {
     throw new Error("Failed to reserve credits")
   }
+  const denyReason = typeof row.deny_reason === "string" ? row.deny_reason : null
   return {
     allowed: row.allowed,
     balance: Math.floor(row.balance),
     reservationId: typeof row.reservation_id === "string" ? row.reservation_id : null,
+    denyReason,
   }
 }
 

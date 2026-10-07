@@ -69,9 +69,7 @@ export async function authorizeOperation(request: AuthorizationRequest): Promise
       reservationId: reservation.reservationId,
       balance: reservation.balance,
       orgId,
-      denialReason: orgId
-        ? "Insufficient pool balance for this operation — ask an owner to top up the pool."
-        : "Insufficient credits for this operation",
+      denialReason: denialMessage(reservation.denyReason, orgId),
     }
   }
   return {
@@ -81,6 +79,19 @@ export async function authorizeOperation(request: AuthorizationRequest): Promise
     balance: reservation.balance,
     orgId,
   }
+}
+
+function denialMessage(reason: string | null, orgId: string | null): string {
+  if (reason === "cap_hit") {
+    return "You hit your pool limit — ask an owner to raise it, or switch to solo balance."
+  }
+  if (reason === "not_member") {
+    return "You're no longer in that pool — switched back to solo balance."
+  }
+  if (reason === "pool_empty" || orgId) {
+    return "Insufficient pool balance for this operation — ask an owner to top up the pool."
+  }
+  return "Insufficient credits for this operation"
 }
 
 export interface CompletionInput {

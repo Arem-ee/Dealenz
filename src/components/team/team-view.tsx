@@ -73,6 +73,9 @@ export function TeamView() {
   const [coverEnds, setCoverEnds] = useState("")
   const [spendOrgId, setSpendOrgId] = useState("")
   const [spend, setSpend] = useState<Array<{ userId: string; email: string; credits: number }> | null>(null)
+  const [quotas, setQuotas] = useState<Array<{ userId: string; email: string; cap: number }>>([])
+  const [quotaEmail, setQuotaEmail] = useState("")
+  const [quotaCap, setQuotaCap] = useState("")
   const [newOrgId, setNewOrgId] = useState("")
   const [newName, setNewName] = useState("")
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -236,16 +239,52 @@ export function TeamView() {
     setSpendOrgId(orgId)
     if (!orgId) {
       setSpend(null)
+      setQuotas([])
       return
     }
     try {
       const { getOrgSpend } = await import("@/lib/billing/subscription-actions")
-      const res = await getOrgSpend(orgId)
-      if (!res.ok) throw new Error(res.error)
-      setSpend(res.spend)
+      const { listMemberQuotas } = await import("@/lib/orgs/actions")
+      const [spendRes, quotaRes] = await Promise.all([getOrgSpend(orgId), listMemberQuotas(orgId)])
+      if (!spendRes.ok) throw new Error(spendRes.error)
+      setSpend(spendRes.spend)
+      setQuotas(quotaRes.ok ? quotaRes.quotas : [])
     } catch (err) {
       showError(err instanceof Error ? err.message : "Couldn't load pool spend.")
       setSpend([])
+    }
+  }
+
+  async function setQuota() {
+    if (busy || !spendOrgId || !quotaEmail.trim() || !quotaCap.trim()) return
+    setBusy(true)
+    try {
+      const { setMemberQuota } = await import("@/lib/orgs/actions")
+      const res = await setMemberQuota(spendOrgId, quotaEmail, Number(quotaCap))
+      if (!res.ok) throw new Error(res.error)
+      showSuccess("Quota set — enforced on the next reservation.")
+      setQuotaEmail("")
+      setQuotaCap("")
+      await loadSpend(spendOrgId)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't set that quota.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeQuota(userId: string) {
+    if (busy || !spendOrgId) return
+    setBusy(true)
+    try {
+      const { removeMemberQuota } = await import("@/lib/orgs/actions")
+      const res = await removeMemberQuota(spendOrgId, userId)
+      if (!res.ok) throw new Error(res.error)
+      await loadSpend(spendOrgId)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't remove that quota.")
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -545,18 +584,76 @@ export function TeamView() {
             ))}
           </select>
           {spend !== null && spendOrgId !== "" && (
-            spend.length === 0 ? (
+            spend.length === 0 && quotas.length === 0 ? (
               <p className="mt-2 text-xs text-muted-foreground">No pool spend yet.</p>
             ) : (
               <ul className="mt-2 space-y-1.5">
-                {spend.map((s) => (
-                  <li key={s.userId} className="flex items-center justify-between gap-2 border border-border bg-background px-3 py-2 text-[13px]">
-                    <span className="min-w-0 flex-1 truncate">{s.email || s.userId}</span>
-                    <span className="shrink-0 tabular-nums text-muted-foreground">{s.credits} credits</span>
+                {spend.map((s) => {
+                  const quota = quotas.find((q) => q.userId === s.userId)
+                  const canManage = (orgs.find((o) => o.orgId === spendOrgId)?.role === "owner" || orgs.find((o) => o.orgId === spendOrgId)?.role === "admin")
+                  return (
+                    <li key={s.userId} className="border border-border bg-background px-3 py-2 text-[13px]">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 flex-1 truncate">{s.email || s.userId}</span>
+                        <span className="shrink-0 tabular-nums text-muted-foreground">
+                          {s.credits} credits{quota ? ` / ${quota.cap} cap` : ""}
+                        </span>
+                        {canManage && quota && (
+                          <button
+                            type="button"
+                            onClick={() => void removeQuota(s.userId)}
+                            disabled={busy}
+                            aria-label={`Remove quota for ${s.email || s.userId}`}
+                            className="shrink-0 text-[11px] text-muted-foreground hover:text-destructive disabled:opacity-50"
+                          >
+                            Uncap
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
+                {quotas.filter((q) => !spend.some((s) => s.userId === q.userId)).map((q) => (
+                  <li key={q.userId} className="flex items-center justify-between gap-2 border border-border bg-background px-3 py-2 text-[13px]">
+                    <span className="min-w-0 flex-1 truncate">{q.email || q.userId}</span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">0 / {q.cap} cap</span>
                   </li>
                 ))}
               </ul>
             )
+          )}
+          {spendOrgId !== "" && (orgs.find((o) => o.orgId === spendOrgId)?.role === "owner" || orgs.find((o) => o.orgId === spendOrgId)?.role === "admin") && (
+            <div className="mt-2 border border-border p-2.5" aria-label="Set a quota">
+              <p className="text-[11px] font-medium">Cap a member <span className="font-normal text-muted-foreground">(rolling 30 days, pool spend only)</span></p>
+              <div className="mt-1.5 flex gap-1.5">
+                <input
+                  value={quotaEmail}
+                  onChange={(e) => setQuotaEmail(e.target.value)}
+                  disabled={busy}
+                  placeholder="colleague@example.com"
+                  aria-label="Member email"
+                  autoComplete="off"
+                  className="h-8 min-w-0 flex-1 border border-input bg-background px-2 text-xs outline-none disabled:opacity-60"
+                />
+                <input
+                  value={quotaCap}
+                  onChange={(e) => setQuotaCap(e.target.value.replace(/[^0-9]/g, "").slice(0, 7))}
+                  disabled={busy}
+                  inputMode="numeric"
+                  placeholder="Credits"
+                  aria-label="Quota in credits"
+                  className="h-8 w-24 shrink-0 border border-input bg-background px-2 text-xs outline-none disabled:opacity-60"
+                />
+                <button
+                  type="button"
+                  onClick={() => void setQuota()}
+                  disabled={busy || !quotaEmail.trim() || !quotaCap.trim()}
+                  className="h-8 shrink-0 border border-border px-2.5 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
+                >
+                  Set
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </section>

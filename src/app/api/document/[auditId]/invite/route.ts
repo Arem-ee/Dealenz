@@ -54,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
   }
   // The reservation moves below (after audit+version+dedupe resolve) so the
   // idempotency key is stable per invite — declared here for the void paths.
-  let reservation: { allowed: boolean; reservationId: string | null } | null = null
+  let reservation: { allowed: boolean; reservationId: string | null; denyReason: string | null } | null = null
   const voidHold = async () => {
     try {
       if (reservation?.reservationId) await voidReservation(ledger, reservation.reservationId)
@@ -114,6 +114,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ aud
     return NextResponse.json({ success: false, error: "Could not verify credit balance. Please try again." }, { status: 500 })
   }
   if (!reservation.allowed || !reservation.reservationId) {
+    const reason = reservation.denyReason
+    if (reason === "cap_hit") {
+      return NextResponse.json({ success: false, error: `You hit your pool limit — ask an owner to raise it, or switch to solo balance. Sending a signature request costs ${SIGNATURE_SEND_CREDITS} credits.` }, { status: 402 })
+    }
     return NextResponse.json({ success: false, error: scopeOrgId ? `Insufficient pool balance. Sending a signature request costs ${SIGNATURE_SEND_CREDITS} credits — ask an owner to top up the pool.` : `Insufficient credits for this operation. Sending a signature request costs ${SIGNATURE_SEND_CREDITS} credits.` }, { status: 402 })
   }
 

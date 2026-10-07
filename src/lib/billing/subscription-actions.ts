@@ -419,3 +419,174 @@ export async function settleOverageInvoiceAction(invoiceId: string) {
     return toActionFailure(e, "Payment failed — the invoice is unchanged, try again.") as never
   }
 }
+
+export interface PlanChangePreview {
+  planId: string
+  direction: "upgrade" | "downgrade" | "same"
+  mode: string
+  dueTodayMinor: number | null
+  nextCreditMinor: number | null
+  currency: string
+}
+
+/**
+ * Fair plan changes, provider-native. Upgrades bill the apportioned
+ * difference immediately (value now); downgrades credit the next invoice
+ * (never surprise charges, never silent forfeits). Preview first —
+ * callers display the math before confirm. Credits true-up: upgrades
+ * grant the prorated allowance delta now; downgrades step allowance down
+ * at once with no retroactive claw (consumed excess stays consumed).
+ */
+export async function previewPlanChange(planId: string) {
+  try {
+    const plan = getPlan(planId)
+    if (!plan || !plan.active) return { ok: false as const, error: "Unknown plan." }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("id, plan_id, paddle_subscription_id, currency, status")
+      .eq("user_id", user.id)
+      .in("status", ["active", "trialing", "past_due"])
+      .maybeSingle()
+    const row = sub as { id: string; plan_id: string; paddle_subscription_id: string | null; currency: string; status: string } | null
+    if (!row) return { ok: false as const, error: "No live subscription to change." }
+    if (!row.paddle_subscription_id) return { ok: false as const, error: "Recorded without a provider id — contact support." }
+    if (row.plan_id === planId) return { ok: false as const, error: "That's already your plan." }
+    if (row.currency !== "USD" && row.currency !== "GBP" && row.currency !== "EUR") {
+      return { ok: false as const, error: "Unsupported currency." }
+    }
+    const priceId = planPriceId(planId, row.currency as Currency)
+    if (!priceId) return { ok: false as const, error: `That plan isn't priced in ${row.currency} yet.` }
+    const current = getPlan(row.plan_id)
+    const direction = !current || plan.monthlyAllowance > current.monthlyAllowance ? "upgrade" : plan.monthlyAllowance < current.monthlyAllowance ? "downgrade" : "same"
+    if (direction === "same") return { ok: false as const, error: "Those plans carry the same allowance." }
+    const mode = direction === "upgrade" ? "prorated_immediately" : "prorated_next_billing_period"
+    if (!paddleApiKey()) return { ok: false as const, error: "Billing is not configured." }
+    const { Paddle } = await import("@paddle/paddle-node-sdk")
+    const paddle = new Paddle(paddleApiKey() as string, { environment: paddleEnvironment() })
+    let dueTodayMinor: number | null = null
+    let nextCreditMinor: number | null = null
+    try {
+      const preview = (await paddle.subscriptions.previewUpdate(row.paddle_subscription_id, {
+        items: [{ priceId, quantity: 1 }],
+        prorationBillingMode: mode as never,
+      })) as unknown as Record<string, unknown>
+      const txn = preview.immediate_transaction as { totals?: { total?: string; grand_total?: string } } | undefined
+      const totalStr = txn?.totals?.total ?? txn?.totals?.grand_total
+      if (typeof totalStr === "string" && /^\d+$/.test(totalStr)) dueTodayMinor = parseInt(totalStr, 10)
+      const next = preview.next_transaction as { totals?: { total?: string; grand_total?: string; credit?: string } } | undefined
+      const creditStr = (next?.totals as { credit?: string } | undefined)?.credit
+      if (typeof creditStr === "string" && /^\d+$/.test(creditStr)) nextCreditMinor = parseInt(creditStr, 10)
+    } catch {
+      // Preview is best-effort; the mode math below still discloses terms.
+    }
+    const previewOut: PlanChangePreview = { planId, direction, mode, dueTodayMinor, nextCreditMinor, currency: row.currency }
+    return { ok: true as const, preview: previewOut }
+  } catch (e) {
+    return toActionFailure(e, "Could not preview that change.") as never
+  }
+}
+
+export async function changePlan(planId: string) {
+  try {
+    const plan = getPlan(planId)
+    if (!plan || !plan.active) return { ok: false as const, error: "Unknown plan." }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false as const, error: "Verify your email first." }
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("id, plan_id, paddle_subscription_id, currency, status, monthly_allowance, current_period_start, current_period_end")
+      .eq("user_id", user.id)
+      .in("status", ["active", "trialing", "past_due"])
+      .maybeSingle()
+    const row = sub as {
+      id: string; plan_id: string; paddle_subscription_id: string | null; currency: string;
+      status: string; monthly_allowance: number; current_period_start: string; current_period_end: string;
+    } | null
+    if (!row) return { ok: false as const, error: "No live subscription to change." }
+    if (!row.paddle_subscription_id) return { ok: false as const, error: "Recorded without a provider id — contact support." }
+    if (row.plan_id === planId) return { ok: false as const, error: "That's already your plan." }
+    if (row.currency !== "USD" && row.currency !== "GBP" && row.currency !== "EUR") {
+      return { ok: false as const, error: "Unsupported currency." }
+    }
+    const priceId = planPriceId(planId, row.currency as Currency)
+    if (!priceId) return { ok: false as const, error: `That plan isn't priced in ${row.currency} yet.` }
+    const current = getPlan(row.plan_id)
+    const isUpgrade = !current || plan.monthlyAllowance > current.monthlyAllowance
+    const mode = isUpgrade ? "prorated_immediately" : "prorated_next_billing_period"
+    if (!paddleApiKey()) return { ok: false as const, error: "Billing is not configured." }
+    const { Paddle } = await import("@paddle/paddle-node-sdk")
+    const paddle = new Paddle(paddleApiKey() as string, { environment: paddleEnvironment() })
+    await paddle.subscriptions.update(row.paddle_subscription_id, {
+      items: [{ priceId, quantity: 1 }],
+      prorationBillingMode: mode as never,
+    })
+    // Credits true-up, upgrades only: prorated allowance delta granted now
+    // (days-left share). Idempotent per subscription+period+plan: retries
+    // converge instead of stacking. Downgrades step the allowance down
+    // with no retroactive claw — consumed excess stays consumed.
+    if (isUpgrade) {
+      try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+        if (url && key) {
+          const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+          const svc = createServiceClient(url, key)
+          const start = new Date(row.current_period_start).getTime()
+          const end = new Date(row.current_period_end).getTime()
+          const span = Math.max(end - start, 86_400_000)
+          const left = Math.max(end - Date.now(), 0)
+          const delta = Math.floor(((plan.monthlyAllowance - (current?.monthlyAllowance ?? 0)) * left) / span)
+          if (delta > 0) {
+            const idempotencyKey = `proration:${row.id}:${row.current_period_start.slice(0, 10)}:${planId}`
+            const { data: existing } = await svc
+              .from("credit_ledger")
+              .select("id")
+              .eq("user_id", user.id)
+              .eq("idempotency_key", idempotencyKey)
+              .maybeSingle()
+            if (!existing) {
+              await svc.from("credit_ledger").insert({
+                user_id: user.id,
+                entry_type: "grant",
+                amount: delta,
+                operation: null,
+                status: "finalized",
+                idempotency_key: idempotencyKey,
+                metadata: { reason: "proration_true_up", planId, subscriptionId: row.id },
+              })
+            }
+          }
+        }
+      } catch {
+        // True-up is best-effort; the plan change stands regardless.
+      }
+    }
+    try {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (url && key) {
+        const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+        const { createNotification } = await import("@/lib/notifications/store")
+        await createNotification(createServiceClient(url, key), {
+          userId: user.id,
+          type: "status",
+          title: isUpgrade ? "Plan upgraded" : "Plan downgraded",
+          body: isUpgrade
+            ? "New allowance is live now; the apportioned difference bills immediately."
+            : "Lower allowance applies now; the apportioned credit lands on your next invoice.",
+          link: "/settings",
+        })
+      }
+    } catch {
+      // Notification is best-effort.
+    }
+    return { ok: true as const, direction: isUpgrade ? "upgrade" : "downgrade" }
+  } catch (e) {
+    return toActionFailure(e, "Could not change plan. Your subscription is unchanged.") as never
+  }
+}

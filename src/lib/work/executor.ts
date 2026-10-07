@@ -406,9 +406,11 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
   } catch {
     scopeOrgId = null
   }
-  const denyMessage = scopeOrgId
-    ? "Insufficient pool balance for plan execution — ask an owner to top up the pool."
-    : "Insufficient credits for plan execution"
+  const denyMessageFor = (reason: string | null) => reason === "cap_hit"
+    ? "You hit your pool limit — ask an owner to raise it, or switch to solo balance."
+    : scopeOrgId
+      ? "Insufficient pool balance for plan execution — ask an owner to top up the pool."
+      : "Insufficient credits for plan execution"
   // Load plan + steps
   const { data: planRaw, error: planErr } = await client.from("work_plans").select("*").eq("id", planId).eq("user_id", userId).maybeSingle()
   if (planErr || !planRaw) throw new Error("Plan not found")
@@ -477,7 +479,7 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
         orgId: scopeOrgId,
       })
       if (!res.allowed || !res.reservationId) {
-        throw new Error(denyMessage)
+        throw new Error(denyMessageFor(res.denyReason))
       }
       reservationId = res.reservationId
       await client.from("work_executions").update({ reservation_id: reservationId, updated_at: new Date().toISOString() }).eq("id", executionId)
@@ -524,7 +526,7 @@ export async function executePlan(input: ExecutePlanInput): Promise<{ executionI
         try {
           await logEventWithClient(client as never, { audit_id: plan.deal_id, user_id: userId, phase: "work_execution", status: "failure", error_message: `plan ${planId} v${plan.version}: plan reservation denied for ${estimated} credits` })
         } catch {}
-        throw new Error(denyMessage)
+        throw new Error(denyMessageFor(res.denyReason))
       }
       reservationId = res.reservationId
       await client.from("work_executions").update({ reservation_id: reservationId, status: "running", started_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", executionId)

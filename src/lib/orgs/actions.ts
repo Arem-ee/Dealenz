@@ -27,6 +27,114 @@ export interface OrgDelegation {
   mine: boolean
 }
 
+export interface OrgMemberQuota {
+  userId: string
+  email: string
+  cap: number
+}
+
+/** Quotas for an org's members, with emails resolved for management. */
+export async function listMemberQuotas(
+  orgId: string
+): Promise<{ ok: true; quotas: OrgMemberQuota[] } | { ok: false; error: string }> {
+  try {
+    if (!isUUID(orgId)) return { ok: false as const, error: "Invalid organization." }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const { data, error } = await supabase
+      .from("member_quotas")
+      .select("user_id, cap_credits")
+      .eq("org_id", orgId)
+      .limit(200)
+    if (error) {
+      if (error.message.includes("member_quotas")) {
+        return { ok: false as const, error: "Quotas need a database update (migration 00108). Please try again after migrating." }
+      }
+      throw new Error(error.message)
+    }
+    const rows = ((data ?? []) as Array<{ user_id: string; cap_credits: number }>)
+    const emails = new Map<string, string>()
+    if (rows.length > 0) {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (url && key) {
+        try {
+          const svc = createServiceClient(url, key)
+          const { data: listed } = await svc.auth.admin.listUsers({ page: 1, perPage: 200 })
+          for (const u of ((listed as { users?: Array<{ id: string; email?: string }> } | null)?.users ?? [])) {
+            emails.set(u.id, u.email ?? "")
+          }
+        } catch {
+          // Ids still identify rows; emails are display-only.
+        }
+      }
+    }
+    return {
+      ok: true as const,
+      quotas: rows.map((r) => ({ userId: r.user_id, email: emails.get(r.user_id) ?? "", cap: r.cap_credits })),
+    }
+  } catch (e) {
+    return toActionFailure(e, "We couldn't load quotas.") as never
+  }
+}
+
+export async function setMemberQuota(
+  orgId: string,
+  email: string,
+  cap: number
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    if (!isUUID(orgId)) return { ok: false as const, error: "Invalid organization." }
+    const clean = email.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) return { ok: false as const, error: "Enter a valid email." }
+    if (!Number.isInteger(cap) || cap <= 0) return { ok: false as const, error: "Quota must be a positive credit amount." }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false as const, error: "Please verify your email address first." }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) return { ok: false as const, error: "Service not configured." }
+    const svc = createServiceClient(url, key)
+    const { data: listed, error: listError } = await svc.auth.admin.listUsers({ page: 1, perPage: 200 })
+    if (listError) return { ok: false as const, error: "We couldn't find that account. Please try again." }
+    const target = ((((listed as unknown as { users?: Array<{ id: string; email?: string }> }).users) ?? []).find((u) => (u.email ?? "").toLowerCase() === clean))
+    if (!target) return { ok: false as const, error: "No Dealenz account uses that email yet." }
+    const { data, error } = await supabase.rpc("set_member_quota", { p_org_id: orgId, p_user_id: target.id, p_cap: cap })
+    if (error) {
+      if (error.message.includes("member_quotas")) {
+        return { ok: false as const, error: "Quotas need a database update (migration 00108). Please try again after migrating." }
+      }
+      return { ok: false as const, error: "We couldn't set that quota. Please try again." }
+    }
+    const row = (Array.isArray(data) ? data[0] : data) as { success?: boolean; message?: string } | null
+    if (!row?.success) return { ok: false as const, error: row?.message ?? "We couldn't set that quota." }
+    return { ok: true as const }
+  } catch (e) {
+    return toActionFailure(e, "We couldn't set that quota.") as never
+  }
+}
+
+export async function removeMemberQuota(
+  orgId: string,
+  userId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    if (!isUUID(orgId) || !isUUID(userId)) return { ok: false as const, error: "Invalid quota." }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const { data, error } = await supabase.rpc("remove_member_quota", { p_org_id: orgId, p_user_id: userId })
+    if (error) return { ok: false as const, error: "We couldn't remove that quota." }
+    const row = (Array.isArray(data) ? data[0] : data) as { success?: boolean; message?: string } | null
+    if (!row?.success) return { ok: false as const, error: row?.message ?? "We couldn't remove that quota." }
+    return { ok: true as const }
+  } catch (e) {
+    return toActionFailure(e, "We couldn't remove that quota.") as never
+  }
+}
+
 /** Coverage across the caller's orgs, with names resolved for display. */
 export async function listOrgDelegations(): Promise<{ ok: true; delegations: OrgDelegation[] } | { ok: false; error: string }> {
   try {
