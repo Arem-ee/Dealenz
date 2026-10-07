@@ -229,7 +229,7 @@ export async function createDeal(input: { text: string; dealType?: string; value
   const text = input.text.trim()
   if (!text) return { ok: false, error: "Describe the deal first." }
   if (isGreeting(text)) {
-    return { ok: false, error: "GREETING:Say hello back instead — greetings never become deals." }
+    return { ok: false, error: "Say hello back instead — greetings never become deals." }
   }
   const dealType: IntakeDealType = isIntakeDealType(input.dealType) ? input.dealType : proposeDealType(text)
   const operation = classifyOperation(text, false)
