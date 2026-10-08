@@ -57,8 +57,10 @@ rather ask or qualify than guess.
 The product is twelve tabs, built foreground-first, functions second:
 
 1. **Home** — the contract repository. Filter chips (Type / Stage / Risk),
-   deals table, empty state. No text search — the top bar owns the single
-   product-wide search.
+   deals table, empty state. No separate text search box — the top bar owns
+   the single product-wide search, spanning titles, document content, and
+   clauses with exhaustive snippet results (basis:
+   `research/contract-search/`).
 2. **Inbox** — intake triage. Gmail threads arrive for sorting and importing.
 3. **Drafts** — every generated document with versions.
 4. **Signing** — ceremonies in flight, executed archive, locked lifecycle.
@@ -67,7 +69,12 @@ The product is twelve tabs, built foreground-first, functions second:
 6. **Clauses** — the playbook home. Positions (standing rules, constant
    context) on top, Library (clause language) in the middle, Tracked
    (per-deal states: Suggested → In draft → Needs input → Signed) at the
-   bottom. Policy in, language out, positions tracked.
+   bottom. Positions link to exact library language (preferred slot,
+   verbatim reuse) with ordered fallback ladders carrying when/why
+   conditions and a walk-away floor; exhausted ladders escalate to the
+   Approvals queue; missing clauses offer one-click insertion of the
+   linked language. Policy in, language out, positions tracked. Basis:
+   `research/clause-playbook-pairing/`.
 7. **Templates** — standard contracts, one click to a first draft.
 8. **Compare** — side-by-side document diff with material-difference summary.
 9. **Approvals** — the decision queue. Nothing consequential runs without a

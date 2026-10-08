@@ -93,6 +93,17 @@ stacking under their message.
 
 ## Data Model
 
+### Search (lexical v1; semantic banked)
+
+Stored generated `content_tsv` columns + GIN on `audits`,
+`document_versions`, `corpus_clauses`; trigram indexes on titles for
+typo-tolerant name search. One RLS-scoped RPC (`search_deals`,
+SECURITY INVOKER — table policies are the boundary, per doctrine);
+`websearch_to_tsquery` syntax, `ts_rank_cd` ranking, `ts_headline`
+snippets. Top-bar pill is the only surface; chips constrain. pgvector +
+RRF hybrid is the documented second phase. Basis:
+`research/contract-search/`. Canary tests assert cross-user denial.
+
 ### Surviving tables (kept through the wipe, RLS throughout)
 
 - `audits` — the deal (raw input, structured extraction, risk report,
@@ -153,8 +164,11 @@ AI synthesis (model-logged) → approval gate → work product → audit trail
 ```
 
 - Findings cite authority in order: playbook section → corpus clause →
-  statute → base rule. Playbook-vs-law contradictions surface as blocking
-  or advisory by severity, never silent.
+  statute → base rule. Linked positions cite through to their library
+  variant and ladder rung; linked language is the only auto-suggested
+  insertion source. Playbook-vs-law contradictions surface as blocking
+  or advisory by severity, never silent. Basis:
+  `research/clause-playbook-pairing/`.
 - Deterministic rules keep their shape (`RuleResult` PASS/FAIL/UNKNOWN,
   evidence-embedded) and remain the only verdict source. AI never flips a
   verdict; a model can only affect explanation quality.

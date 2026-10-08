@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { LogOut, Menu, Plus, Search } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { useToast } from "@/components/ui/toast"
 import { Logo } from "@/components/logo"
 import { NotificationBell } from "@/components/notifications/notification-bell"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -187,14 +188,86 @@ function ScopeSwitcher({ scopeOrgId, scopeOrgs }: {
   )
 }
 
+const SEARCH_TYPES = ["founder", "partnership", "purchase_sale", "lease", "employment", "freelance"] as const
+
+interface SearchItem {
+  key: string
+  title: string
+  sub: string | null
+  snippet: string | null
+  threadId: string | null
+}
+
+/**
+ * ts_headline marks matches with <b> tags but passes document text through
+ * unescaped — a stored document containing markup would inject HTML.
+ * Snippets render as text only; highlighting is dropped for safety.
+ */
+function stripSnippetTags(snippet: string): string {
+  return snippet.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
+}
+
 function InlineSearch({ threads }: { threads: SidebarThread[] }) {
+  const { showError } = useToast()
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
-  const results = useMemo(() => filterThreads(threads, query), [threads, query])
+  const [typeFilter, setTypeFilter] = useState<string | null>(null)
+  const [hits, setHits] = useState<SearchItem[]>([])
+  const [searching, setSearching] = useState(false)
+  const threadResults = useMemo(() => filterThreads(threads, query), [threads, query])
+
+  // Exhaustive content search (deals + versions + clauses) alongside the
+  // thread filter. Debounced, RLS-scoped server-side; threads stay instant
+  // and client-side. Content rows without a resolvable thread are dropped —
+  // every result must land somewhere.
+  useEffect(() => {
+    const q = query.trim()
+    if (q.length < 2) return
+    let live = true
+    const timer = setTimeout(() => {
+      if (!live) return
+      setSearching(true)
+      import("@/app/(app)/search/actions")
+        .then((m) =>
+          m.searchContent({ query: q, dealTypes: typeFilter ? [typeFilter] : [] })
+        )
+        .then((res) => {
+          if (!live) return
+          setSearching(false)
+          if (!res.ok) {
+            showError(res.error)
+            setHits([])
+            return
+          }
+          const seen = new Set(threadResults.map((t) => t.id))
+          setHits(
+            res.hits
+              .filter((h) => h.threadId && !seen.has(h.threadId))
+              .slice(0, 8)
+              .map((h) => ({
+                key: `hit:${h.dealId}:${h.kind}`,
+                title: h.title,
+                sub: h.kind === "clause" ? `Clause match · ${h.dealType?.replace("_", " ") ?? "deal"}` : h.dealType?.replace("_", " ") ?? null,
+                snippet: h.snippet,
+                threadId: h.threadId,
+              }))
+          )
+        })
+        .catch(() => {
+          if (!live) return
+          setSearching(false)
+          setHits([])
+        })
+    }, 250)
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [query, typeFilter, showError, threadResults])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -215,12 +288,27 @@ function InlineSearch({ threads }: { threads: SidebarThread[] }) {
     return () => document.removeEventListener("pointerdown", onDown)
   }, [])
 
-  const go = (id: string) => {
+  const items: SearchItem[] = useMemo(
+    () => [
+      ...threadResults.map((t) => ({
+        key: `thread:${t.id}`,
+        title: t.title || "Untitled",
+        sub: null as string | null,
+        snippet: null as string | null,
+        threadId: t.id as string | null,
+      })),
+      ...hits,
+    ],
+    [threadResults, hits]
+  )
+
+  const go = (threadId: string | null) => {
+    if (!threadId) return
     setQuery("")
     setOpen(false)
     setSelectedIndex(-1)
     inputRef.current?.blur()
-    router.push(`/chat/${id}`)
+    router.push(`/chat/${threadId}`)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -232,7 +320,7 @@ function InlineSearch({ threads }: { threads: SidebarThread[] }) {
     if (e.key === "ArrowDown") {
       e.preventDefault()
       setOpen(true)
-      setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1))
+      setSelectedIndex((prev) => Math.min(prev + 1, items.length - 1))
       return
     }
     if (e.key === "ArrowUp") {
@@ -242,10 +330,10 @@ function InlineSearch({ threads }: { threads: SidebarThread[] }) {
     }
     if (e.key === "Enter") {
       e.preventDefault()
-      if (selectedIndex >= 0 && results[selectedIndex]) {
-        go(results[selectedIndex].id)
-      } else if (results.length > 0) {
-        go(results[0].id)
+      if (selectedIndex >= 0 && items[selectedIndex]) {
+        go(items[selectedIndex].threadId)
+      } else if (items.length > 0) {
+        go(items[0].threadId)
       }
       return
     }
@@ -261,9 +349,14 @@ function InlineSearch({ threads }: { threads: SidebarThread[] }) {
           id="topbar-search"
           value={query}
           onChange={(e) => {
-            setQuery(e.target.value)
+            const next = e.target.value
+            setQuery(next)
             setOpen(true)
             setSelectedIndex(-1)
+            if (next.trim().length < 2) {
+              setHits([])
+              setSearching(false)
+            }
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
@@ -282,27 +375,71 @@ function InlineSearch({ threads }: { threads: SidebarThread[] }) {
         )}
       </div>
       {open && (
-        <div id="topbar-search-results" className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-72 overflow-y-auto border border-border bg-background p-1.5" role="listbox" aria-label="Search deals">
-          {results.length > 0 ? (
-            results.map((t, i) => (
+        <div id="topbar-search-results" className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-80 overflow-y-auto border border-border bg-background p-1.5" role="listbox" aria-label="Search deals">
+          {query.trim().length >= 2 ? (
+            <div className="flex flex-wrap gap-1 px-1.5 pb-1.5" aria-label="Filter by deal type">
+              {SEARCH_TYPES.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={typeFilter === t}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setTypeFilter((prev) => (prev === t ? null : t))}
+                  className={`border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                    typeFilter === t
+                      ? "border-foreground bg-muted text-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {t.replace("_", " ")}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {items.length > 0 ? (
+            items.map(({ key, title, sub, snippet, threadId }, i) => (
               <button
-                key={t.id}
+                key={key}
                 id={`search-result-${i}`}
-                onClick={() => go(t.id)}
+                onClick={() => {
+                  if (!threadId) return
+                  setQuery("")
+                  setOpen(false)
+                  setSelectedIndex(-1)
+                  if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+                  router.push(`/chat/${threadId}`)
+                }}
                 onMouseEnter={() => setSelectedIndex(i)}
                 role="option"
                 aria-selected={i === selectedIndex}
-                className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors ${
+                className={`block w-full px-3 py-2.5 text-left text-sm transition-colors ${
                   i === selectedIndex ? "bg-muted" : "hover:bg-muted"
                 }`}
               >
-                <span className="min-w-0 flex-1 truncate font-medium">{t.title || "Untitled"}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">{threadDate(t.updatedAt)}</span>
+                <span className="flex items-center gap-3">
+                  <span className="min-w-0 flex-1 truncate font-medium">{title}</span>
+                  {sub ? (
+                    <span className="shrink-0 text-xs text-muted-foreground">{sub}</span>
+                  ) : (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {threadDate(threadResults.find((t) => t.id === threadId)?.updatedAt ?? "")}
+                    </span>
+                  )}
+                </span>
+                {snippet ? (
+                  <span className="mt-0.5 line-clamp-2 block text-xs leading-relaxed text-muted-foreground">
+                    {stripSnippetTags(snippet)}
+                  </span>
+                ) : null}
               </button>
             ))
           ) : (
             <p className="px-3 py-4 text-center text-sm text-muted-foreground">
-              {threads.length === 0 ? "No deals yet — start from Home." : "No matching deals."}
+              {searching
+                ? "Searching documents…"
+                : threads.length === 0
+                  ? "No deals yet — start from Home."
+                  : "No matching deals."}
             </p>
           )}
         </div>
