@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import gsap from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 
@@ -9,19 +9,17 @@ gsap.registerPlugin(ScrollTrigger)
 interface WordRevealProps {
   children: ReactNode
   className?: string
-  wordDelay?: number
   delay?: number
   stagger?: number
 }
 
-export function WordReveal({ children, className, wordDelay = 80, delay = 0, stagger = 0.06 }: WordRevealProps) {
+export function WordReveal({ children, className, delay = 0, stagger = 0.06 }: WordRevealProps) {
   const ref = useRef<HTMLDivElement | null>(null)
-  const [words, setWords] = useState<string[]>([])
   const [isVisible, setIsVisible] = useState(false)
 
-  useEffect(() => {
-    const text = String(children).trim()
-    setWords(text.split(/\s+/).filter(Boolean))
+  const words = useMemo(() => {
+    const text = typeof children === "string" ? children.trim() : String(children ?? "").trim()
+    return text.split(/\s+/).filter(Boolean)
   }, [children])
 
   useEffect(() => {
@@ -75,12 +73,11 @@ export function WordReveal({ children, className, wordDelay = 80, delay = 0, sta
 interface LineRevealProps {
   lines: string[]
   className?: string
-  lineDelay?: number
   delay?: number
   stagger?: number
 }
 
-export function LineReveal({ lines, className, lineDelay = 180, delay = 0, stagger = 0.12 }: LineRevealProps) {
+export function LineReveal({ lines, className, delay = 0, stagger = 0.12 }: LineRevealProps) {
   const ref = useRef<HTMLDivElement | null>(null)
   const [isVisible, setIsVisible] = useState(false)
 

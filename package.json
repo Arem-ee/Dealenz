@@ -8,6 +8,9 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:lib": "vitest run src/lib",
+    "test:app": "vitest run src/app src/proxy.test.ts src/next-config.test.ts",
+    "test:ui": "vitest run src/components src/hooks src/tests",
     "db:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
     "db:migrate": "supabase db push",
     "db:start": "supabase start"
