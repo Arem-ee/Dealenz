@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { createNotification, type NotificationType } from "./store"
+import { createNotification, type NotificationCategory, type NotificationType } from "./store"
 
 // Deal-scoped owner notification: resolves the deal owner + title from
 // the audit and writes one row. Best-effort by contract — callers never
@@ -8,7 +8,7 @@ import { createNotification, type NotificationType } from "./store"
 export async function notifyDealOwner(
   client: SupabaseClient,
   auditId: string,
-  input: { type: NotificationType; title: string; body: string; link?: string | null }
+  input: { type: NotificationType; title: string; body: string; link?: string | null; category?: NotificationCategory }
 ): Promise<void> {
   const { data: audit } = await client
     .from("audits")
@@ -26,6 +26,7 @@ export async function notifyDealOwner(
       title,
       body,
       link: input.link ?? null,
+      ...(input.category ? { category: input.category } : {}),
     })
   } catch {
     // Notification delivery never breaks the underlying event.

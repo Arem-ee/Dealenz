@@ -366,10 +366,11 @@ export async function checkPoolThresholds(svc: SupabaseClient, limit = 200): Pro
               userId: r.owner_user_id,
               type: "status",
               title: t === 100 ? "Pool allowance exhausted" : "Pool allowance at 80%",
-            body: t === 100
-              ? "Your pool burned through its allowance — work pauses at zero unless overage billing is on. Top up or enable overage."
-              : `Your pool used ${pct}% of its allowance with time left in the period.`,
+              body: t === 100
+                ? "Your pool burned through its allowance — work pauses at zero unless overage billing is on. Top up or enable overage."
+                : `Your pool used ${pct}% of its allowance with time left in the period.`,
               link: "/settings",
+              category: "deadline_digests",
             })
           } catch {
             // One missed alert never blocks the rest.

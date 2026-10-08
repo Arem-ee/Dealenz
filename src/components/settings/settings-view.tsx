@@ -89,18 +89,7 @@ export function SettingsView({ email }: { email: string }) {
           )}
 
           {section === "Notifications" && (
-            <section aria-label="Notifications">
-              <h2 className="text-sm font-semibold">Notifications</h2>
-              <ul className="mt-3 space-y-3">
-                {["Deadline digests", "Approval requests", "Product updates"].map((n) => (
-                  <li key={n} className="flex items-center justify-between gap-3 border border-border px-3 py-2.5">
-                    <span className="text-sm">{n}</span>
-                    <span className="text-[11px] text-muted-foreground">On</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-4 text-[11px] text-muted-foreground">Per-category control, low-noise defaults. Toggles persist with functions.</p>
-            </section>
+            <NotificationsSection />
           )}
         </div>
       </div>
@@ -110,6 +99,89 @@ export function SettingsView({ email }: { email: string }) {
         <p className="mt-1 text-xs text-muted-foreground">Cancel subscription and delete workspace live here alone — each with intent-proving confirmation. Nothing destructive exists anywhere else in Settings.</p>
       </section>
     </div>
+  )
+}
+
+function NotificationsSection() {
+  const [prefs, setPrefs] = useState<{ approval_requests: boolean; deadline_digests: boolean } | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    import("@/lib/notifications/actions")
+      .then(({ getNotificationPrefsAction }) => getNotificationPrefsAction())
+      .then((res) => {
+        if (!live) return
+        if (!res.ok) {
+          setLoadError(res.error)
+          return
+        }
+        setPrefs(res.prefs)
+      })
+      .catch(() => {
+        if (!live) return
+        setLoadError("We couldn't load notification settings.")
+      })
+    return () => {
+      live = false
+    }
+  }, [])
+
+  async function flip(key: "approval_requests" | "deadline_digests", value: boolean) {
+    if (busy) return
+    setBusy(true)
+    try {
+      const { setNotificationPrefAction } = await import("@/lib/notifications/actions")
+      const res = await setNotificationPrefAction(key, value)
+      if (!res.ok) throw new Error(res.error)
+      setPrefs((prev) => (prev ? { ...prev, [key]: value } : prev))
+    } catch {
+      // Silent; the checkbox snaps back since state never changed.
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const rows: Array<{ key: "approval_requests" | "deadline_digests"; label: string; desc: string }> = [
+    { key: "deadline_digests", label: "Deadline digests", desc: "Expiring links, allowance and quota alerts." },
+    { key: "approval_requests", label: "Approval requests", desc: "Routed decisions and outcomes." },
+  ]
+
+  return (
+    <section aria-label="Notifications">
+      <h2 className="text-sm font-semibold">Notifications</h2>
+      {loadError ? (
+        <p role="alert" className="mt-3 border border-destructive/30 bg-destructive/5 px-2.5 py-2 text-xs text-destructive">{loadError}</p>
+      ) : !prefs ? (
+        <p className="mt-3 text-sm text-muted-foreground">Loading…</p>
+      ) : (
+        <ul className="mt-3 space-y-3">
+          {rows.map((r) => (
+            <li key={r.key} className="flex items-center justify-between gap-3 border border-border px-3 py-2.5">
+              <span>
+                <span className="block text-sm">{r.label}</span>
+                <span className="block text-[11px] text-muted-foreground">{r.desc}</span>
+              </span>
+              <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[11px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={prefs[r.key]}
+                  onChange={(e) => void flip(r.key, e.target.checked)}
+                  disabled={busy}
+                  aria-label={r.label}
+                  className="h-3.5 w-3.5 accent-foreground"
+                />
+                {prefs[r.key] ? "On" : "Off"}
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-4 text-[11px] text-muted-foreground">
+        Signatures, billing, and plan changes always notify — those are transactional, never toggled.
+      </p>
+    </section>
   )
 }
 

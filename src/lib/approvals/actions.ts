@@ -393,7 +393,7 @@ async function notifyGroup(
     const { createNotification } = await import("@/lib/notifications/store")
     for (const id of ids) {
       try {
-        await createNotification(svc, { userId: id, type: "approval", title: input.title.slice(0, 120), body: input.body.slice(0, 500), link: "/approvals" })
+        await createNotification(svc, { userId: id, type: "approval", title: input.title.slice(0, 120), body: input.body.slice(0, 500), link: "/approvals", category: "approval_requests" })
       } catch {
         // One missed member never blocks the rest.
       }
@@ -567,6 +567,7 @@ export async function requestApprovalDecision(input: { planId: string; approverU
         await createNotification(supabase, {
           userId: first.userId as string,
           type: "approval",
+          category: "approval_requests",
           title: "Approval requested",
           body: `${user.email ?? "A teammate"} asked you to decide: ${title}${legs.length > 1 ? ` (step 1 of ${legs.length})` : ""}`,
           link: "/approvals",
@@ -741,6 +742,7 @@ export async function decideApprovalRequest(input: { requestId: string; verdict:
           await createNotification(svc, {
             userId: next.approver_user_id,
             type: "approval",
+            category: "approval_requests",
             title: "Approval requested",
             body: `Step ${stepPosition + 1} of ${totalSteps} is yours: ${reqRow.title}`,
             link: "/approvals",
@@ -831,6 +833,7 @@ export async function decideApprovalRequest(input: { requestId: string; verdict:
       await createNotification(svc, {
         userId: planRow.user_id,
         type: "approval",
+        category: "approval_requests",
         title: input.verdict === "approved" ? "Plan approved" : "Plan rejected",
         body: input.verdict === "approved"
           ? `${deciderLabel} approved “${reqRow.title}” — it can execute now.`
@@ -841,6 +844,7 @@ export async function decideApprovalRequest(input: { requestId: string; verdict:
         await createNotification(svc, {
           userId: cover.delegator,
           type: "approval",
+          category: "approval_requests",
           title: `Cover decided: ${input.verdict}`,
           body: `${user.email ?? "Your cover"} ${input.verdict} “${reqRow.title}” on your behalf.`,
           link: "/approvals",

@@ -15,12 +15,19 @@ export interface NotificationRow {
   created_at: string
 }
 
+export type NotificationCategory = "approval_requests" | "deadline_digests"
+
 export interface CreateNotification {
   userId: string
   type: NotificationType
   title: string
   body: string
   link?: string | null
+  // Non-transactional bucket. Absent ⟹ always send (transactional
+  // notices — signatures, billing, plan changes — are never gated).
+  // Present ⟹ skipped quietly when the user switched it off. Prefs
+  // read failures send (fail-open): never lose a notice to a hiccup.
+  category?: NotificationCategory
 }
 
 const TYPES: NotificationType[] = ["reminder", "success", "approval", "status", "signing"]
@@ -41,6 +48,21 @@ type Client = SupabaseClient
 export async function createNotification(client: Client, input: CreateNotification): Promise<{ id: string }> {
   const err = validateNotification(input)
   if (err) throw new Error(err)
+  if (input.category) {
+    try {
+      const { data: prefs } = await client
+        .from("notification_prefs")
+        .select("approval_requests, deadline_digests")
+        .eq("user_id", input.userId)
+        .maybeSingle()
+      const row = prefs as { approval_requests?: boolean; deadline_digests?: boolean } | null
+      if (row && row[input.category] === false) {
+        return { id: "suppressed" }
+      }
+    } catch {
+      // Fail open: prefs hiccup never eats a notification.
+    }
+  }
   const { data, error } = await client
     .from("notifications")
     .insert({
@@ -54,6 +76,34 @@ export async function createNotification(client: Client, input: CreateNotificati
     .single()
   if (error || !data) throw new Error(error?.message ?? "Could not create notification.")
   return { id: (data as { id: string }).id }
+}
+
+export async function getNotificationPrefs(
+  client: Client,
+  userId: string
+): Promise<{ approval_requests: boolean; deadline_digests: boolean }> {
+  const { data } = await client
+    .from("notification_prefs")
+    .select("approval_requests, deadline_digests")
+    .eq("user_id", userId)
+    .maybeSingle()
+  const row = data as { approval_requests?: boolean; deadline_digests?: boolean } | null
+  return {
+    approval_requests: row?.approval_requests ?? true,
+    deadline_digests: row?.deadline_digests ?? true,
+  }
+}
+
+export async function setNotificationPref(
+  client: Client,
+  userId: string,
+  key: NotificationCategory,
+  value: boolean
+): Promise<void> {
+  const { error } = await client
+    .from("notification_prefs")
+    .upsert({ user_id: userId, [key]: value, updated_at: new Date().toISOString() }, { onConflict: "user_id" })
+  if (error) throw new Error(error.message)
 }
 
 export async function listNotifications(client: Client, userId: string, limit = 30): Promise<{ items: NotificationRow[]; unread: number }> {

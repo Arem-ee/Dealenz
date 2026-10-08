@@ -36,6 +36,7 @@ export async function expireLapsedInvites(svc: SupabaseClient): Promise<{ expire
           title: "Signing link expired",
           body: `${r.name || r.email || "An invitee"}'s invitation lapsed. Re-send or revoke it in Signing.`,
           link: "/signing",
+          category: "deadline_digests",
         })
         notified += 1
       } catch {

@@ -22,5 +22,7 @@ export function canRemove(acting: OrgRole, target: OrgRole, self: boolean): bool
 }
 
 export function canManageBilling(role: OrgRole): boolean {
-  return role === "owner" || role === "admin"
+  // Money stays owner-only, matching the Team matrix. Admins manage
+  // members and groups, never the card.
+  return role === "owner"
 }

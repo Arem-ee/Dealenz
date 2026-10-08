@@ -11,6 +11,58 @@ export interface OrgMembership {
   role: OrgRole
 }
 
+export interface OrgRosterMember {
+  userId: string
+  email: string
+  role: string
+}
+
+/** Roster of one org the caller belongs to, with emails for display. */
+export async function listOrgMembers(
+  orgId: string
+): Promise<{ ok: true; members: OrgRosterMember[]; myRole: string | null } | { ok: false; error: string }> {
+  try {
+    if (!isUUID(orgId)) return { ok: false as const, error: "Invalid organization." }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) return { ok: false as const, error: "Service not configured." }
+    const svc = createServiceClient(url, key)
+    const { data: mine } = await svc
+      .from("organization_members")
+      .select("role")
+      .eq("org_id", orgId)
+      .eq("user_id", user.id)
+      .maybeSingle()
+    if (!mine) return { ok: false as const, error: "Not a member of that organization." }
+    const { data: members } = await svc
+      .from("organization_members")
+      .select("user_id, role")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: true })
+      .limit(200)
+    const rows = ((members ?? []) as Array<{ user_id: string; role: string }>)
+    const emails = new Map<string, string>()
+    try {
+      const { data: listed } = await svc.auth.admin.listUsers({ page: 1, perPage: 200 })
+      for (const u of ((listed as { users?: Array<{ id: string; email?: string }> } | null)?.users ?? [])) {
+        emails.set(u.id, u.email ?? "")
+      }
+    } catch {
+      // Ids still identify rows; emails are display-only.
+    }
+    return {
+      ok: true as const,
+      members: rows.map((m) => ({ userId: m.user_id, email: emails.get(m.user_id) ?? "", role: m.role })),
+      myRole: (mine as { role: string }).role,
+    }
+  } catch (e) {
+    return toActionFailure(e, "We couldn't load members.") as never
+  }
+}
+
 export interface OrgDelegation {
   id: string
   orgId: string
@@ -253,6 +305,7 @@ export async function grantOrgDelegation(input: {
         title: "Approval cover granted",
         body: `${user.email ?? "A teammate"} handed you approval cover${endsAt ? ` until ${new Date(endsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}.`,
         link: "/approvals",
+        category: "approval_requests",
       })
     } catch {
       // The grant stands regardless; the notification is best-effort.

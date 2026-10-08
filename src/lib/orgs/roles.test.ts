@@ -25,7 +25,7 @@ describe("organization role hierarchy", () => {
 
   it("only owners and admins touch billing", () => {
     expect(canManageBilling("owner")).toBe(true)
-    expect(canManageBilling("admin")).toBe(true)
+    expect(canManageBilling("admin")).toBe(false)
     expect(canManageBilling("member")).toBe(false)
   })
 })

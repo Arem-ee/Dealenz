@@ -1,19 +1,26 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Check, Plus, Trash2, Users } from "lucide-react"
+import { Check, Plus, Trash2 } from "lucide-react"
 import { useToast } from "@/components/ui/toast"
 import {
   addOrgGroupMember,
   createOrgGroup,
+  createOrganization,
   grantOrgDelegation,
+  inviteOrganizationMember,
   listMyOrganizations,
   listOrgDelegations,
   listOrgGroups,
+  listOrgMembers,
+  removeMemberQuota,
   removeOrgGroupMember,
+  removeOrganizationMember,
   revokeOrgDelegation,
+  setMemberQuota,
   type OrgDelegation,
   type OrgGroup,
+  type OrgRosterMember,
 } from "@/lib/orgs/actions"
 
 const ROLE_COLUMNS = ["Owner", "Admin", "Member", "Viewer"] as const
@@ -76,6 +83,13 @@ export function TeamView() {
   const [quotas, setQuotas] = useState<Array<{ userId: string; email: string; cap: number }>>([])
   const [quotaEmail, setQuotaEmail] = useState("")
   const [quotaCap, setQuotaCap] = useState("")
+  const [memberOrgId, setMemberOrgId] = useState("")
+  const [roster, setRoster] = useState<OrgRosterMember[] | null>(null)
+  const [myOrgRole, setMyOrgRole] = useState<string | null>(null)
+  const [inviteEmail, setInviteEmail] = useState("")
+  const [inviteRole, setInviteRole] = useState("member")
+  const [newOrgName, setNewOrgName] = useState("")
+  const [showCreateOrg, setShowCreateOrg] = useState(false)
   const [newOrgId, setNewOrgId] = useState("")
   const [newName, setNewName] = useState("")
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -235,6 +249,71 @@ export function TeamView() {
     }
   }
 
+  async function loadRoster(orgId: string) {
+    setMemberOrgId(orgId)
+    if (!orgId) {
+      setRoster(null)
+      setMyOrgRole(null)
+      return
+    }
+    try {
+      const res = await listOrgMembers(orgId)
+      if (!res.ok) throw new Error(res.error)
+      setRoster(res.members)
+      setMyOrgRole(res.myRole)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't load members.")
+      setRoster([])
+    }
+  }
+
+  async function invite() {
+    if (busy || !memberOrgId || !inviteEmail.trim()) return
+    setBusy(true)
+    try {
+      const res = await inviteOrganizationMember(memberOrgId, inviteEmail, inviteRole)
+      if (!res.ok) throw new Error(res.error)
+      showSuccess("Invited — they join on their next sign-in.")
+      setInviteEmail("")
+      await loadRoster(memberOrgId)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't invite that member.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeMember(userId: string) {
+    if (busy || !memberOrgId) return
+    setBusy(true)
+    try {
+      const res = await removeOrganizationMember(memberOrgId, userId)
+      if (!res.ok) throw new Error(res.error)
+      await loadRoster(memberOrgId)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't remove that member.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function createOrg() {
+    if (busy || !newOrgName.trim()) return
+    setBusy(true)
+    try {
+      const res = await createOrganization(newOrgName)
+      if (!res.ok) throw new Error(res.error)
+      showSuccess("Organization created — you own it.")
+      setNewOrgName("")
+      setShowCreateOrg(false)
+      await refresh()
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Couldn't create that organization.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function loadSpend(orgId: string) {
     setSpendOrgId(orgId)
     if (!orgId) {
@@ -297,21 +376,122 @@ export function TeamView() {
             Members, groups, and who can do what.
           </p>
         </div>
-        <span className="inline-flex h-9 shrink-0 items-center gap-1.5 bg-primary px-4 text-xs font-semibold text-primary-foreground opacity-40" aria-disabled="true">
+        <button
+          type="button"
+          onClick={() => setShowCreateOrg((v) => !v)}
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 bg-primary px-4 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+        >
           <Plus className="h-3.5 w-3.5" />
-          Invite
-        </span>
+          New organization
+        </button>
       </div>
+
+      {showCreateOrg && (
+        <div className="mb-4 border border-border bg-background p-3" aria-label="Create an organization">
+          <label className="block text-[11px] font-medium text-muted-foreground" htmlFor="new-org-name">
+            Organization name
+          </label>
+          <div className="mt-1 flex gap-1.5">
+            <input
+              id="new-org-name"
+              value={newOrgName}
+              onChange={(e) => setNewOrgName(e.target.value)}
+              disabled={busy}
+              autoComplete="off"
+              placeholder="Acme Inc"
+              className="h-9 min-w-0 flex-1 border border-input bg-background px-2 text-sm outline-none disabled:opacity-60"
+            />
+            <button
+              type="button"
+              onClick={() => void createOrg()}
+              disabled={busy || !newOrgName.trim()}
+              className="h-9 shrink-0 bg-primary px-3 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
+            >
+              Create
+            </button>
+          </div>
+        </div>
+      )}
 
       <section aria-label="Members" className="shrink-0">
         <h2 className="text-sm font-semibold">Members</h2>
-        <div className="mt-2 border border-dashed px-4 py-10 text-center">
-          <Users className="mx-auto h-6 w-6 text-muted-foreground" />
-          <p className="mt-2 text-sm font-medium">Only you here — so far</p>
-          <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-            Invites land here with role and status, newest first. Inviting wires up with this tab&apos;s functions.
-          </p>
+        <div className="mt-2">
+          <label className="block text-[11px] font-medium text-muted-foreground" htmlFor="member-org">Organization</label>
+          <select
+            id="member-org"
+            value={memberOrgId}
+            onChange={(e) => void loadRoster(e.target.value)}
+            className="mt-1 h-9 w-full max-w-xs border border-input bg-background px-2 text-sm"
+          >
+            <option value="">Pick an organization…</option>
+            {orgs.map((o) => (
+              <option key={o.orgId} value={o.orgId}>{o.orgName} · {o.role}</option>
+            ))}
+          </select>
+          {roster !== null && memberOrgId !== "" && (
+            roster.length === 0 ? (
+              <p className="mt-2 text-xs text-muted-foreground">No members found.</p>
+            ) : (
+              <ul className="mt-2 space-y-1.5">
+                {roster.map((m) => (
+                  <li key={m.userId} className="flex items-center gap-2 border border-border bg-background px-3 py-2 text-[13px]">
+                    <span className="min-w-0 flex-1 truncate">
+                      {m.email || m.userId}
+                      <span className="ml-2 text-[11px] capitalize text-muted-foreground">{m.role}</span>
+                    </span>
+                    {(myOrgRole === "owner" || myOrgRole === "admin") && m.role !== "owner" && (
+                      <button
+                        type="button"
+                        onClick={() => void removeMember(m.userId)}
+                        disabled={busy}
+                        aria-label={`Remove ${m.email || m.userId}`}
+                        className="shrink-0 p-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )
+          )}
+          {memberOrgId !== "" && (myOrgRole === "owner" || myOrgRole === "admin") && (
+            <div className="mt-2 flex gap-1.5">
+              <input
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                disabled={busy}
+                placeholder="colleague@example.com"
+                aria-label="Invite email"
+                autoComplete="off"
+                className="h-8 min-w-0 flex-1 border border-input bg-background px-2 text-xs outline-none disabled:opacity-60"
+              />
+              <select
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value)}
+                disabled={busy}
+                aria-label="Invite role"
+                className="h-8 shrink-0 border border-input bg-background px-2 text-xs disabled:opacity-60"
+              >
+                <option value="member">Member</option>
+                <option value="viewer">Viewer</option>
+                {myOrgRole === "owner" && <option value="admin">Admin</option>}
+              </select>
+              <button
+                type="button"
+                onClick={() => void invite()}
+                disabled={busy || !inviteEmail.trim()}
+                className="h-8 shrink-0 border border-border px-2.5 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
+              >
+                Invite
+              </button>
+            </div>
+          )}
+          {memberOrgId !== "" && roster === null && (
+            <p className="mt-2 text-xs text-muted-foreground">Loading members…</p>
+          )}
         </div>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">Invites need a registered account — members join with their own login.</p>
       </section>
 
       <section aria-label="Groups" className="mt-6 shrink-0">

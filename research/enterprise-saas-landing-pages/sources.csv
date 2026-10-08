@@ -1,0 +1,33 @@
+source_id,url,title,source_type,credibility,recency,bias,company,subtopic,hypotheses_addressed
+01,https://ironcladapp.com/,"Ironclad Homepage",Primary,High,High,Vendor,Ironclad,Hero/Trust/Social Proof/Comparison/Product Depth,H1,H2,H3,H4,H5,H6
+02,https://ironcladapp.com/why/enterprise-class,"Ironclad Enterprise Page",Primary,High,High,Vendor,Ironclad,Enterprise Credibility/ROI Metrics/Integrations,H2,H4,H6
+03,https://ironcladapp.com/product/ai-based-contract-management,"Ironclad Product Page",Primary,High,High,Vendor,Ironclad,Product Depth/Demo/Features/Security,H2,H3,H5
+04,https://www.evisort.com/,"Evisort Homepage",Primary,High,High,Vendor,Evisort,Hero/AI-Native/Trust/Resources,H1,H2,H3,H5,H6
+05,https://www.evisort.com/product/overview,"Evisort Product Overview",Primary,High,High,Vendor,Evisort,Product Depth/AI Engine/Integrations,H3,H5
+06,https://www.evisort.com/success-stories/mckesson-contracting-at-scale,"Evisort McKesson Case Study",Primary,High,Medium,Vendor,Evisort,Case Study/ROI Metrics,H1,H6
+07,https://www.evisort.com/platform,"Evisort Platform (Workday)",Primary,High,High,Vendor,Evisort,Compliance Certifications (ISO 42001/27001/27701),H2
+08,https://contractpodai.com/,"ContractPodAi Homepage",Primary,High,High,Vendor,ContractPodAi,Hero/AI Agent/Metrics/Solutions,H1,H3,H4,H6
+09,https://contractpodai.com/platform,"ContractPodAi Platform",Primary,High,High,Vendor,ContractPodAi,Security/Guardrails/Integrations,H2,H3
+10,https://www.lexion.ai/,"Lexion Homepage",Primary,High,High,Vendor,Lexion,Hero/Role-Based/Email-Driven/Integrations,H1,H3,H4,H6
+11,https://www.lexion.ai/solutions/contract-management-for-it,"Lexion IT Solution Page",Primary,High,High,Vendor,Lexion,Role-Based Entry (IT)/Security Reviews,H4
+12,https://www.lexion.ai/industries/software,"Lexion Software Industry Page",Primary,High,High,Vendor,Lexion,Industry Vertical/Case Studies/G2 Reviews,H1,H5
+13,https://www.sirion.ai/,"Sirion Homepage",Primary,High,High,Vendor,Sirion,Hero/Agentic CLM/Metrics/Industries,H1,H2,H3,H4,H6
+14,https://www.sirion.ai/platform/manage,"Sirion Manage Platform",Primary,High,High,Vendor,Sirion,Product Depth/Obligation Tracking/Metrics,H3,H6
+15,https://www.sirion.ai/solutions/contract-management-for-financial-services,"Sirion Financial Services",Primary,High,High,Vendor,Sirion,Industry Vertical/Compliance/Case Studies,H1,H2,H4
+16,https://linksquares.com/,"LinkSquares Homepage",Primary,High,High,Vendor,LinkSquares,Hero/Agentic AI/G2 Badges/Testimonials,H1,H2,H3,H6
+17,https://linksquares.com/products/analyze/features/dashboard,"LinkSquares Analytics",Primary,High,High,Vendor,LinkSquares,Product Depth/Dashboards/Reporting,H3,H5
+18,https://linksquares.com/contract-lifecycle-management-software,"LinkSquares CLM Page",Primary,High,High,Vendor,LinkSquares,ROI Study (360% ROI)/Playbooks/Legal Project Mgmt,H1,H5,H6
+19,https://www.docusign.com/,"DocuSign Homepage",Primary,High,High,Vendor,DocuSign,Hero/Trust Metrics/Enterprise/Compliance,H1,H2,H4,H6
+20,https://www.docusign.com/enterprise,"DocuSign Enterprise",Primary,High,High,Vendor,DocuSign,Enterprise Credibility/Trust Center/Compliance Certs,H2,H4
+21,https://www.pandadoc.com/,"PandaDoc Homepage",Primary,High,High,Vendor,PandaDoc,Hero/Social Proof/Metrics/Integrations,H1,H3,H5,H6
+22,https://www.pandadoc.com/document-automation-software,"PandaDoc Document Automation",Primary,High,High,Vendor,PandaDoc,Product Features/Free Trial/Metrics,H3,H6
+23,https://www.gong.io/,"Gong Homepage",Primary,High,High,Vendor,Gong,Hero/Role-Based/Revenue Graph/Metrics,H1,H2,H3,H4,H6
+24,https://www.gong.io/go/all-in-one-revenue-intelligence-platform,"Gong Platform Tour",Primary,High,High,Vendor,Gong,Interactive Demo/Product Tour/AI Agents,H3,H6
+25,https://linear.app/,"Linear Homepage",Primary,High,High,Vendor,Linear,Hero/Product Philosophy/Speed Metrics/Integrations,H3,H5,H6
+26,https://linear.app/build,"Linear Build Page",Primary,High,High,Vendor,Linear,Product Depth/Features/Triage/Planning,H3,H5
+27,https://vercel.com/,"Vercel Homepage",Primary,High,High,Vendor,Vercel,Hero/Customer Logos/Metrics/Deploy Demo,H1,H3,H6
+28,https://stripe.com/,"Stripe Homepage",Primary,High,High,Vendor,Stripe,Hero/Metrics/Enterprise/Startup/Developer-First,H1,H4,H6
+29,https://www.leadfeeder.com/blog/conversion-optimization/saas-landing-pages-that-convert,"Leadfeeder SaaS Landing Guide",Industry Report,Medium,High,Independent,Leadfeeder,Core Sections Framework,H1,H3,H4,H5,H6
+30,https://www.insaim.design/blog/how-high-converting-saas-product-pages-are-actually-built,"Insaim SaaS Landing Frameworks",Industry Report,Medium,High,Independent,Insaim,Framework Patterns (PSP/Awareness Ladder),H4,H5
+31,https://moda.app/blog/saas-landing-page,"Moda 6 SaaS Teardowns 2026",Industry Report,Medium,High,Independent,Moda,Structural Patterns/Enterprise Argument Layers,H1,H3,H4,H5,H6
+32,https://www.vezadigital.com/post/best-saas-landing-page-examples,"Vezadigital SaaS Patterns 2026",Industry Report,Medium,High,Independent,Vezadigital,Section Breakdown/Navigation/CTA Patterns,H1,H3,H4,H6

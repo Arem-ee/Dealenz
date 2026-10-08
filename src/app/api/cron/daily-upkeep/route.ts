@@ -78,6 +78,7 @@ export async function GET(req: NextRequest) {
             title: "Deal share expired",
             body: `Sharing lapsed on “${a.title?.trim() ? a.title : "Untitled"}” — re-share from the thread to restore access.`,
             link: "/dashboard",
+            category: "deadline_digests",
           })
           shareNotified += 1
         } catch {
@@ -142,6 +143,7 @@ export async function GET(req: NextRequest) {
             ? `You hit your ${q.cap_credits}-credit pool limit — further pool spend is denied until it resets. Solo balance still works.`
             : `You've used ${pct}% of your ${q.cap_credits}-credit pool limit (rolling 30 days).`,
           link: "/team",
+          category: "deadline_digests",
         })
         if (hit) {
           const { data: owners } = await svc
@@ -158,6 +160,7 @@ export async function GET(req: NextRequest) {
                 title: "Member hit pool limit",
                 body: `A member reached their ${q.cap_credits}-credit pool limit. Raise it in the Team tab or leave it.`,
                 link: "/team",
+                category: "deadline_digests",
               })
             } catch {
               // One missed owner never blocks the rest.
