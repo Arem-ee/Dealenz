@@ -914,6 +914,29 @@ describe("00111 prompt lab registry (static)", () => {
   })
 })
 
+describe("00113 guest grants + staged uploads (static)", () => {
+  const mig = code(sql("00113_guest_grants_staged.sql"))
+
+  it("types audiences and scopes with one primary uploader per deal", () => {
+    expect(mig).toMatch(/audience IN \('employee', 'supplier', 'customer'\)/)
+    expect(mig).toMatch(/scope IN \('reader', 'uploader'\)/)
+    expect(mig).toMatch(/UNIQUE \(deal_id, email\)/)
+  })
+
+  it("stages uploads outside version control, owner-decided", () => {
+    expect(mig).toMatch(/status IN \('pending', 'accepted', 'rejected'\)/)
+    expect(mig).toMatch(/Only the deal owner decides staged uploads/)
+    expect(mig).not.toMatch(/UPDATE document_versions/)
+  })
+
+  it("fails closed on tokens with no direct table grants", () => {
+    expect(mig).toMatch(/revoked_at IS NULL/)
+    expect(mig).toMatch(/expires_at IS NULL OR/)
+    expect(mig).not.toMatch(/GRANT (SELECT|INSERT|UPDATE|DELETE) ON guest_grants/)
+    expect(mig).not.toMatch(/GRANT (SELECT|INSERT|UPDATE|DELETE) ON staged_uploads/)
+  })
+})
+
 describe("00112 variants, staging, usage (static)", () => {
   const mig = code(sql("00112_variants_staging_usage.sql"))
 

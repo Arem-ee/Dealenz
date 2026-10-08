@@ -105,17 +105,22 @@ on mobile, work cards stacking under the message that produced them.
 ## Folder Batch
 
 Single-file analysis is retail; the enterprise motion is the folder drop.
-Bounded workers, never autonomous agents:
+Bounded workers, never autonomous agents. Market basis: bulk
+ingestion → extraction → repository is the enterprise CLM pattern, with
+formal intake and threshold-based review routing; the priced estimate gate
+is Dealenz's own answer to surprise-billing (no vendor equivalent).
+See `research/phase-c-batch-portals/` for evidence and deliberation (D1–D3).
 
 1. Drop a folder → **manifest first**: file count, type mix, estimated credit
    cost. Nothing runs until approved — a 500-file folder must never
    surprise-bill.
 2. **Fan-out with caps**: fixed concurrency, per-file credit ceiling, one
-   failure never kills the batch.
+   failure never kills the batch. Failed files retry in isolation.
 3. **Sort then work**: classify each file (type, language, materiality),
-   route to the right rulepack, aggregate into a portfolio rollup in
-   Reports + Home.
-4. Every file keeps its own evidence trail; the rollup links back to each.
+   route to the right rulepack. Files surfacing critical findings pause at
+   the Approvals queue; clean files roll up automatically.
+4. **Portfolio rollup** into Reports + Home. Every file keeps its own
+   evidence trail; the rollup links back to each.
 
 ## Teams, Groups, Guests
 
@@ -128,9 +133,16 @@ workspace settings, Ironclad group-approvers, Notion/Linear guest models):
 - **Groups**: reusable people-sets that carry approvals and access.
   Approvals assign to groups; repository access grants to groups; signing
   rights flow from groups. Groups are the routing fabric.
-- **Guests ≠ members**: outsiders get scoped doors (portals, token links),
-  never member seats. Members vs external participants are different
-  concepts, enforced in data model, not just UI.
+- **Guests ≠ members**: outsiders get scoped grants on one external surface
+  (audience-typed `employee` / `supplier` / `customer`, scoped to their
+  contracts only), never member seats. Members vs external participants are
+  different concepts, enforced in data model, not just UI. Market basis:
+  vendors scope by contract with tiered external roles, never by door
+  count — see `research/phase-c-batch-portals/` (D4–D7).
+- **Counterparty redlines reconcile staged**: one primary external owner per
+  deal may upload back; their files stage outside version control until an
+  internal owner accepts them into the version chain. Grants are time-bound
+  and auto-revoke on expiry or deal close.
 - **Visibility is permission-gated**: the Team tab renders for Owner/Admin
   only. Member/Viewer get no tab; the route redirects them Home.
 - **Audit trail**: invites, removals, role changes, ownership transfers —

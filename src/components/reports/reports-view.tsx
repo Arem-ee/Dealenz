@@ -5,6 +5,7 @@ import { BarChart3, Download } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/toast"
 import { getReports, type ReportsData } from "@/app/(app)/reports/actions"
+import { BatchSection } from "@/components/reports/batch-section"
 import { formatDays, toCsv } from "@/lib/reports/stats"
 import { formatDealValue } from "@/lib/deals/value"
 
@@ -138,6 +139,10 @@ export function ReportsView() {
             <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
           </div>
         ))}
+      </div>
+
+      <div className="mt-4 shrink-0">
+        <BatchSection />
       </div>
 
       <div className="mt-4 grid shrink-0 grid-cols-1 gap-4 md:grid-cols-2">

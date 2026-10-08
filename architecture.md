@@ -186,9 +186,17 @@ option, never a rewrite.
 Not agents: bounded operations with approval gates. Manifest (N files,
 types, languages, estimate) → user approval → fan-out at fixed
 concurrency → per-file classify → route to rulepack → findings + evidence →
-portfolio rollup into Reports + Home. Per-file credit ceiling, failure
-isolation, idempotent items (`job:file:hash`). No autonomous looping, no
-unapproved spend, no silent actions.
+threshold-routed review (critical files pause at Approvals, clean files pass)
+→ portfolio rollup into Reports + Home. Per-file credit ceiling, failure
+isolation with isolated retry, idempotent items (`job:file:hash`). No
+autonomous looping, no unapproved spend, no silent actions.
+
+Execution reuses the work core — no parallel batch tables (D8): the
+manifest is computed, a batch is a work plan with one analysis step per
+deal, approval gates through `work_approvals`, and the rollup reads steps
++ per-deal outcomes. Estimate approval mandatory before fan-out; fixed
+worker concurrency; per-file failure isolation; rollup artifact linking
+each file. Basis: `research/phase-c-batch-portals/` (D1–D3, D8).
 
 ## Teams & Permissions Enforcement
 
@@ -198,6 +206,12 @@ unapproved spend, no silent actions.
   (frozen snapshot per decision for auditability, live list for routing).
 - Guests/external participants are distinct principals (token/scoped
   grants), never members. Member tables and guest grants never mix.
+  One external surface serves all audiences; each grant is audience-typed
+  (`employee` / `supplier` / `customer`) and scoped to its contracts.
+  Counterparty uploads stage outside version control until accepted.
+  Grants expire and auto-revoke. Vendor-admins manage their own users;
+  invites stay internal-owner-only. Basis:
+  `research/phase-c-batch-portals/` (D4–D7).
 - Sensitive actions (invite, remove, role change, ownership transfer,
   workspace delete) require confirmation and write the audit trail.
 

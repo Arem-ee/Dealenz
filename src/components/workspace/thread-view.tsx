@@ -7,6 +7,7 @@ import { Composer } from "@/components/workspace/composer"
 import { DealValue } from "@/components/workspace/deal-value"
 import { GenerateDraft } from "@/components/workspace/generate-draft"
 import { ShareDialog } from "@/components/workspace/share-dialog"
+import { GuestAccessSection } from "@/components/workspace/guest-access-section"
 import { SharedComposer } from "@/components/workspace/shared-composer"
 import { deleteSharedMessage } from "@/app/(app)/chat/actions"
 import { correctDealType, type ThreadView as ThreadData } from "@/app/(app)/chat/actions"
@@ -199,11 +200,12 @@ export function ThreadView({ initial }: { initial: ThreadData }) {
               </ul>
             </section>
           )}
-          {initial.auditId && <GenerateDraft auditId={initial.auditId} />}
+          {initial.auditId && !initial.shared && <GenerateDraft auditId={initial.auditId} />}
           {initial.auditId && !initial.shared && (
             <DealValue auditId={initial.auditId} minor={initial.dealValueMinor} currency={initial.dealValueCurrency} />
           )}
           {initial.auditId && <ShareDialog auditId={initial.auditId} shared={initial.shared} />}
+          {initial.auditId && !initial.shared && <GuestAccessSection auditId={initial.auditId} />}
         </div>
       </section>
     </div>
