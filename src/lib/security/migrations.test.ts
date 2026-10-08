@@ -867,3 +867,68 @@ describe("00094 signing order and forwarding (static)", () => {
     expect(mig).not.toMatch(/DELETE FROM/)
   })
 })
+
+describe("00110 clause library + states (static)", () => {
+  const mig = code(sql("00110_clause_library_states.sql"))
+
+  it("scopes library and states to their owner with cascade deletes", () => {
+    expect(mig).toMatch(/USING \(auth\.uid\(\) = user_id\)/)
+    expect(mig).toMatch(/REFERENCES auth\.users\(id\) ON DELETE CASCADE/)
+    expect(mig).toMatch(/audit_id UUID NOT NULL REFERENCES audits\(id\) ON DELETE CASCADE/)
+  })
+
+  it("versions library rows immutably per key with a status lifecycle", () => {
+    expect(mig).toMatch(/UNIQUE \(user_id, key, version\)/)
+    expect(mig).toMatch(/status IN \('active', 'deprecated', 'superseded'\)/)
+  })
+
+  it("stores user clause actions without touching derived data", () => {
+    expect(mig).toMatch(/PRIMARY KEY \(user_id, audit_id, clause_id\)/)
+    expect(mig).toMatch(/status IN \('accepted', 'edited', 'dismissed'\)/)
+  })
+
+  it("grants no service-role bypass and deletes no tables", () => {
+    expect(mig).not.toMatch(/service_role/)
+    expect(mig).not.toMatch(/DROP TABLE/)
+  })
+})
+
+describe("00111 prompt lab registry (static)", () => {
+  const mig = code(sql("00111_prompt_lab.sql"))
+
+  it("scopes templates, versions, and runs to their owner", () => {
+    expect(mig.match(/USING \(auth\.uid\(\) = user_id\)/g)?.length).toBeGreaterThan(2)
+    expect(mig).toMatch(/REFERENCES auth\.users\(id\) ON DELETE CASCADE/)
+  })
+
+  it("keeps versions immutable by withholding the UPDATE policy", () => {
+    expect(mig).toMatch(/CREATE POLICY "Users read own prompt versions"/)
+    expect(mig).toMatch(/CREATE POLICY "Users insert own prompt versions"/)
+    expect(mig).toMatch(/CREATE POLICY "Users delete own prompt versions"/)
+    expect(mig).not.toMatch(/FOR UPDATE/)
+  })
+
+  it("bounds run evals and model metadata", () => {
+    expect(mig).toMatch(/eval_score INT NULL CHECK/)
+    expect(mig).toMatch(/status IN \('success', 'failure'\)/)
+  })
+})
+
+describe("00112 variants, staging, usage (static)", () => {
+  const mig = code(sql("00112_variants_staging_usage.sql"))
+
+  it("widens version uniqueness to key+variant with the three-tier check", () => {
+    expect(mig).toMatch(/variant IN \('preferred', 'fallback', 'walkaway'\)/)
+    expect(mig).toMatch(/UNIQUE \(user_id, key, variant, version\)/)
+  })
+
+  it("adds non-negative usage counters and a staging label", () => {
+    expect(mig).toMatch(/use_count INT NOT NULL DEFAULT 0 CHECK \(use_count >= 0\)/)
+    expect(mig).toMatch(/staging_version INT NULL/)
+  })
+
+  it("deletes no tables and grants nothing new", () => {
+    expect(mig).not.toMatch(/DROP TABLE/)
+    expect(mig).not.toMatch(/GRANT/)
+  })
+})

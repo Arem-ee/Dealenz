@@ -21,6 +21,7 @@ export type AIOperation =
   | "decision_support"
   | "proposal"
   | "counterparty_research"
+  | "prompt_test"
 
 export const AI_OPERATIONS: readonly AIOperation[] = [
   "document_analysis",
@@ -33,6 +34,7 @@ export const AI_OPERATIONS: readonly AIOperation[] = [
   "decision_support",
   "proposal",
   "counterparty_research",
+  "prompt_test",
 ]
 
 // What the user is trying to accomplish. Deliberately small: intent refines
@@ -211,6 +213,19 @@ const OPERATION_PROFILES: Record<AIOperation, OperationProfile> = {
     usesRules: false,
     defaultIntent: "explore",
     outputBudget: "standard",
+    contextSelection: "minimal",
+  },
+  // Prompt Lab test runs are an explicit UI action, never classifier-routed:
+  // brief-tier prose tests, credit-gated at the server-action boundary. The
+  // operation prices the work; verdicts never flow through it (lab output is
+  // test prose, never a deal finding).
+  prompt_test: {
+    operation: "prompt_test",
+    requiresDocument: false,
+    requiresContext: false,
+    usesRules: false,
+    defaultIntent: "explore",
+    outputBudget: "brief",
     contextSelection: "minimal",
   },
 }

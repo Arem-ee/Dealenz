@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react"
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react"
-import { ScrollText } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { LibrarySection } from "@/components/clauses/library-section"
+import { TrackedSection } from "@/components/clauses/tracked-section"
 import { RULE_DEAL_TYPES } from "@/lib/standing/rules"
 import {
   addPosition,
@@ -14,8 +15,6 @@ import {
 } from "@/app/(app)/clauses/actions"
 
 const DEAL_TYPES = ["Founder", "Partnership", "Purchase/Sale", "Lease", "Employment", "Freelance"]
-
-const TRACKED_STATUSES = ["Suggested", "In draft", "Needs input", "Signed"]
 
 const STARTERS = [
   "I never accept net-60 payment terms",
@@ -326,12 +325,8 @@ export function ClausesView() {
         <p className="mt-0.5 text-xs text-muted-foreground">
           Drafting suggestions, never law — confirm enforceability with a lawyer when it matters.
         </p>
-        <div className="mt-2 border border-dashed px-4 py-10 text-center">
-          <ScrollText className="mx-auto h-6 w-6 text-muted-foreground" />
-          <p className="mt-2 text-sm font-medium">No clauses in the library yet</p>
-          <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-            Templates seed here with this tab&apos;s functions.
-          </p>
+        <div className="mt-2">
+          <LibrarySection dealTypeFilter={dealType} />
         </div>
       </section>
 
@@ -340,11 +335,8 @@ export function ClausesView() {
         <p className="mt-0.5 text-xs text-muted-foreground">
           Every clause suggested or used in every deal, with its state.
         </p>
-        <div className="mt-2 border border-dashed px-4 py-10 text-center">
-          <p className="text-sm font-medium">Nothing tracked yet</p>
-          <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-            Clauses move through {TRACKED_STATUSES.join(" → ")} as deals progress. Tracking wires up with this tab&apos;s functions.
-          </p>
+        <div className="mt-2">
+          <TrackedSection dealTypeFilter={dealType} />
         </div>
       </section>
     </div>

@@ -14,6 +14,7 @@ export type RateLimitedAction =
   | "upload_version"
   | "verification_resend"
   | "ask_turn"
+  | "prompt_run"
 
 const LIMITS: Record<RateLimitedAction, number> = {
   generateProtectionPackage: 10,
@@ -35,6 +36,9 @@ const LIMITS: Record<RateLimitedAction, number> = {
   // Ask turns: abuse guard until the allowance backend lands. No per-action
   // prices anywhere — this cap counts turns, never charges them.
   ask_turn: 30,
+  // Prompt Lab test runs: abuse cap on top of the credit gate (credits stop
+  // broke attackers, this stops funded ones burning provider budget).
+  prompt_run: 20,
 }
 
 /** Single source for daily usage limits shown in the UI. Analyses are not

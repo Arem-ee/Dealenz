@@ -164,6 +164,11 @@ export async function generateDraft(input: {
       generation_method: "assembled",
       created_at: new Date().toISOString(),
     })
+  // Library usage analytics: which saved clauses actually ship in drafts.
+  // Best-effort — a usage miss never fails the draft.
+  void import("@/app/(app)/clauses/library")
+    .then((m) => m.recordClauseUse({ templateIds: family.clauseIds }))
+    .catch(() => undefined)
   const firstNumber = await readNextVersion()
   const first = await persistVersion(firstNumber)
   if (first.error) {
