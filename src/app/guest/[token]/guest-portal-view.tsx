@@ -1,8 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { FileText, Loader2, Upload } from "lucide-react"
-import { getGuestContent, uploadStagedRedline, type GuestPortalState } from "@/app/guest/[token]/actions"
+import {
+  getGuestComments,
+  getGuestContent,
+  getGuestNegotiation,
+  postGuestComment,
+  uploadStagedRedline,
+  type GuestComment,
+  type GuestPortalState,
+  type GuestRoundRow,
+} from "@/app/guest/[token]/actions"
 
 // Guest portal island: version reading for every grant, redline upload for
 // the primary owner. Uploads stage outside version control — the owner
@@ -15,6 +24,49 @@ export function GuestPortalView({ token, portal }: { token: string; portal: Gues
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploaded, setUploaded] = useState(false)
+  const [nego, setNego] = useState<GuestRoundRow[] | null>(null)
+  const [comments, setComments] = useState<GuestComment[] | null>(null)
+  const [commentBody, setCommentBody] = useState("")
+  const [posting, setPosting] = useState(false)
+  const [commentError, setCommentError] = useState<string | null>(null)
+
+  const canComment = portal.scope === "commenter" || portal.scope === "uploader"
+
+  useEffect(() => {
+    let live = true
+    getGuestNegotiation(token)
+      .then((res) => {
+        if (!live) return
+        if (res.ok) setNego(res.rows)
+      })
+      .catch(() => undefined)
+    getGuestComments(token)
+      .then((res) => {
+        if (!live) return
+        if (res.ok) setComments(res.comments)
+      })
+      .catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [token])
+
+  async function post() {
+    if (posting || !commentBody.trim()) return
+    setPosting(true)
+    setCommentError(null)
+    try {
+      const res = await postGuestComment(token, commentBody)
+      if (!res.ok) throw new Error(res.error)
+      setCommentBody("")
+      const refreshed = await getGuestComments(token)
+      if (refreshed.ok) setComments(refreshed.comments)
+    } catch (err) {
+      setCommentError(err instanceof Error ? err.message : "Comment not posted.")
+    } finally {
+      setPosting(false)
+    }
+  }
 
   const canUpload = portal.scope === "uploader" && portal.isPrimaryOwner
 
@@ -96,6 +148,81 @@ export function GuestPortalView({ token, portal }: { token: string; portal: Gues
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      {nego !== null && nego.length > 0 ? (
+        <section aria-label="Negotiation rounds">
+          <h2 className="text-sm font-semibold">Negotiation</h2>
+          <ul className="mt-2 space-y-1.5">
+            {nego.map((row, i) =>
+              row.kind === "comment" ? (
+                <li key={`c-${i}`} className="border border-border px-3 py-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground">From the owner</p>
+                  <p className="mt-0.5 text-xs leading-relaxed">{row.commentBody}</p>
+                </li>
+              ) : (
+                <li key={`p-${i}`} className="border border-border px-3 py-2">
+                  <p className="text-xs font-semibold">
+                    Round {row.roundNo}
+                    {row.outcome ? <span className="font-normal capitalize text-muted-foreground"> · {row.outcome}</span> : null}
+                  </p>
+                  {row.reasoning ? <p className="mt-0.5 text-[11px] text-muted-foreground">{row.reasoning}</p> : null}
+                  {row.counterText ? (
+                    <p className="mt-1 whitespace-pre-wrap border-l-2 border-muted-foreground/30 pl-2 text-xs leading-relaxed">{row.counterText}</p>
+                  ) : null}
+                </li>
+              )
+            )}
+          </ul>
+        </section>
+      ) : null}
+
+      <section aria-label="Discussion">
+        <h2 className="text-sm font-semibold">Discussion</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Visible to the deal owner. Internal strategy threads stay private.
+        </p>
+        {comments === null ? (
+          <p className="mt-2 text-xs text-muted-foreground">Loading discussion…</p>
+        ) : comments.length === 0 ? (
+          <p className="mt-2 text-xs text-muted-foreground">No comments yet.</p>
+        ) : (
+          <ul className="mt-2 space-y-1.5">
+            {comments.map((c, i) => (
+              <li key={i} className="border border-border px-3 py-2">
+                <p className="text-xs leading-relaxed">{c.body}</p>
+                {c.resolved ? (
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">Resolved by the owner.</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+        {canComment ? (
+          <div className="mt-2">
+            <div className="flex gap-1.5">
+              <input
+                value={commentBody}
+                onChange={(e) => setCommentBody(e.target.value)}
+                maxLength={2000}
+                placeholder="Ask or answer on this deal"
+                aria-label="Post a comment"
+                className="h-9 min-w-0 flex-1 border border-input bg-background px-2 text-sm outline-none placeholder:text-muted-foreground/60"
+              />
+              <button
+                type="button"
+                onClick={() => void post()}
+                disabled={posting || !commentBody.trim()}
+                className="h-9 shrink-0 bg-primary px-3 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
+              >
+                Post
+              </button>
+            </div>
+            {commentError ? <p role="alert" className="mt-1.5 text-xs text-destructive">{commentError}</p> : null}
+          </div>
+        ) : (
+          <p className="mt-2 text-[11px] text-muted-foreground">Your grant is read-only — ask the sender for comment access to reply here.</p>
         )}
       </section>
 

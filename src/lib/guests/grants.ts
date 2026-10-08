@@ -13,10 +13,18 @@ export function isGuestAudience(raw: unknown): raw is GuestAudience {
   return raw === "employee" || raw === "supplier" || raw === "customer"
 }
 
-export type GuestScope = "reader" | "uploader"
+export type GuestScope = "reader" | "commenter" | "uploader"
+
+export const GUEST_SCOPES: readonly GuestScope[] = ["reader", "commenter", "uploader"]
 
 export function isGuestScope(raw: unknown): raw is GuestScope {
-  return raw === "reader" || raw === "uploader"
+  return raw === "reader" || raw === "commenter" || raw === "uploader"
+}
+
+/** Cumulative ladder: a scope includes everything below it. */
+export function scopeIncludes(have: GuestScope, need: Exclude<GuestScope, "reader">): boolean {
+  const order: Record<GuestScope, number> = { reader: 0, commenter: 1, uploader: 2 }
+  return order[have] >= order[need]
 }
 
 export function audienceLabel(audience: GuestAudience): string {

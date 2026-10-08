@@ -171,7 +171,15 @@ AI synthesis (model-logged) → approval gate → work product → audit trail
   `research/clause-playbook-pairing/`.
 - Deterministic rules keep their shape (`RuleResult` PASS/FAIL/UNKNOWN,
   evidence-embedded) and remain the only verdict source. AI never flips a
-  verdict; a model can only affect explanation quality.
+  verdict; a model can only affect explanation quality. Negotiation
+  evaluation order: rules first, then ladder rung (accept / propose
+  fallback), then escalation past walk-away or routing of novelties; the
+  model drafts counter-language for fallback rungs only, with per-clause
+  reasoning attached. Assembly records clause spans at generation
+  (verbatim anchors, zero inference); third-party text locates spans by
+  verbatim match (EXACT) or Jaccard ≥ 0.5 (APPROXIMATE), else UNAVAILABLE
+  with human review — ungrounded spans are dropped, never trusted. Basis:
+  `research/redline-negotiation/` and `research/negotiation-gaps/`.
 - Evidence: EXACT/APPROXIMATE/UNAVAILABLE preserved; no offsets invented.
 - Unknown stays unknown — the system asks or qualifies, never guesses.
 

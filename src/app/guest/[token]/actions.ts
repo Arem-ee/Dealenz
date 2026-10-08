@@ -26,6 +26,110 @@ export interface GuestVersionMeta {
   createdAt: string
 }
 
+export interface GuestComment {
+  body: string
+  resolved: boolean
+  createdAt: string | null
+}
+
+/** External-channel comments for the portal (resolution state included). */
+export async function getGuestComments(token: string): Promise<
+  { ok: true; comments: GuestComment[] } | { ok: false; error: string }
+> {
+  if (!validToken(token)) return { ok: false, error: "That link is no longer valid." }
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("get_guest_comments", { p_token: token })
+  if (error || !data) return { ok: false, error: "That link is no longer valid." }
+  const comments: GuestComment[] = []
+  for (const r of ((Array.isArray(data) ? data : [data]) as Array<Record<string, unknown>>)) {
+    if (typeof r.body !== "string") continue
+    comments.push({
+      body: r.body,
+      resolved: r.resolved === true,
+      createdAt: typeof r.created_at === "string" ? r.created_at : null,
+    })
+  }
+  return { ok: true, comments }
+}
+
+/**
+ * Counterparty comment posting. The RPC forces channel='external' and
+ * enforces the commenter-or-broader scope plus a per-grant daily cap —
+ * guests can never address the internal channel.
+ */
+export async function postGuestComment(token: string, body: string): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
+  if (!validToken(token)) return { ok: false, error: "That link is no longer valid." }
+  const text = (body ?? "").trim().slice(0, 2000)
+  if (!text) return { ok: false, error: "Write the comment first." }
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("post_guest_comment", { p_token: token, p_body: text, p_round_id: null })
+  if (error) return { ok: false, error: "We couldn't post that comment. Please try again." }
+  const row = (Array.isArray(data) ? data[0] : data) as { success?: boolean; message?: string } | null
+  if (!row?.success) return { ok: false, error: row?.message || "That link is no longer valid." }
+  return { ok: true }
+}
+
+export interface GuestRoundRow {
+  kind: "position" | "comment"
+  roundNo: number | null
+  stance: string | null
+  status: string | null
+  clauseId: string | null
+  outcome: string | null
+  rung: number | null
+  variant: string | null
+  reasoning: string | null
+  counterText: string | null
+  commentBody: string | null
+  commentCreatedAt: string | null
+}
+
+/**
+ * Negotiation visibility for the counterparty: round dispositions with
+ * counter-language plus the EXTERNAL comment channel only. Internal
+ * strategy can never pass through this path — the channel predicate and
+ * the grant check both fail closed first.
+ */
+export async function getGuestNegotiation(token: string): Promise<
+  { ok: true; rows: GuestRoundRow[] } | { ok: false; error: string }
+> {
+  if (!validToken(token)) return { ok: false, error: "That link is no longer valid." }
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("get_guest_negotiation", { p_token: token })
+  if (error || !data) return { ok: false, error: "That link is no longer valid." }
+  const rows: GuestRoundRow[] = []
+  for (const r of ((Array.isArray(data) ? data : [data]) as Array<Record<string, unknown>>)) {
+    if (r.comment_body !== null && r.comment_body !== undefined) {
+      if (typeof r.comment_body !== "string") continue
+      rows.push({
+        kind: "comment",
+        roundNo: null, stance: null, status: null, clauseId: null, outcome: null,
+        rung: null, variant: null, reasoning: null, counterText: null,
+        commentBody: r.comment_body,
+        commentCreatedAt: typeof r.comment_created_at === "string" ? r.comment_created_at : null,
+      })
+    } else {
+      if (typeof r.round_no !== "number") continue
+      rows.push({
+        kind: "position",
+        roundNo: r.round_no,
+        stance: typeof r.stance === "string" ? r.stance : null,
+        status: typeof r.status === "string" ? r.status : null,
+        clauseId: typeof r.clause_id === "string" ? r.clause_id : null,
+        outcome: typeof r.outcome === "string" ? r.outcome : null,
+        rung: typeof r.rung === "number" ? r.rung : null,
+        variant: typeof r.variant === "string" ? r.variant : null,
+        reasoning: typeof r.reasoning === "string" ? r.reasoning : null,
+        counterText: typeof r.counter_text === "string" ? r.counter_text : null,
+        commentBody: null, commentCreatedAt: null,
+      })
+    }
+  }
+  return { ok: true, rows }
+}
+
 export interface GuestPortalState {
   dealTitle: string
   audience: GuestAudience

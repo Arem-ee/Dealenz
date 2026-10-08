@@ -215,4 +215,26 @@ describe("business-owner document assembly — international", () => {
       })
     ).toThrow(/Jurisdiction is required/)
   })
+
+  it("records exact clause anchors — slices reproduce the rendered blocks", () => {
+    const findings = founderFindings("Alice (CEO) and Bob (CTO) split 50/50.")
+    const result = assembleDraft({
+      familyId: "founder-agreement",
+      dealType: "founder",
+      jurisdiction: { country: "Nigeria" },
+      findings,
+      variables: { company_name: "Acme Ltd", founder_names: "Alice and Bob", ownership_percentages: "50/50" },
+    })
+    expect(result.anchors.length).toBeGreaterThan(0)
+    for (const a of result.anchors) {
+      const slice = result.draft.markdown.slice(a.startOffset, a.endOffset)
+      expect(slice).toContain(`### ${a.title}`)
+      expect(a.startOffset).toBeGreaterThanOrEqual(0)
+      expect(a.endOffset).toBeGreaterThan(a.startOffset)
+      expect(a.endOffset).toBeLessThanOrEqual(result.draft.markdown.length)
+      expect(a.templateVersion).toBeGreaterThanOrEqual(1)
+    }
+    const ids = result.anchors.map((a) => a.clauseId)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
 })

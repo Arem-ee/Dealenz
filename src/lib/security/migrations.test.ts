@@ -944,6 +944,47 @@ describe("00116 RLS recursion remediation (static)", () => {
   })
 })
 
+describe("00118 anchors + guest comments (static)", () => {
+  const mig = code(sql("00118_round_anchors_guest_comments.sql"))
+
+  it("anchors spans per version with cumulative commenter scope", () => {
+    expect(mig).toMatch(/UNIQUE \(version_id, clause_id\)/)
+    expect(mig).toMatch(/CHECK \(scope IN \('reader', 'commenter', 'uploader'\)\)/)
+  })
+
+  it("forces the external channel and caps guest posting server-side", () => {
+    expect(mig).toMatch(/channel, body, guest_grant_id/)
+    expect(mig).toMatch(/VALUES \(v_owner_id, v_deal_id, p_round_id, 'external'/)
+    expect(mig).toMatch(/Daily comment limit reached/)
+  })
+})
+
+describe("00119 guest commenter scope (static)", () => {
+  const mig = code(sql("00119_guest_commenter_scope.sql"))
+
+  it("widens the scope check without touching RLS", () => {
+    expect(mig).toMatch(/CHECK \(scope IN \('reader', 'commenter', 'uploader'\)\)/)
+    expect(mig).not.toMatch(/CREATE POLICY/)
+    expect(mig).not.toMatch(/GRANT/)
+  })
+})
+
+describe("00117 negotiation rounds (static)", () => {
+  const mig = code(sql("00117_negotiation_rounds.sql"))
+
+  it("keeps rounds owner-scoped with dual channels", () => {
+    expect(mig).toMatch(/proposer_kind IN \('owner', 'guest'\)/)
+    expect(mig).toMatch(/channel IN \('internal', 'external'\)/)
+    expect(mig).toMatch(/outcome IN \('accept', 'fallback', 'escalate', 'route'\)/)
+  })
+
+  it("exposes only the external channel to guests, fail-closed", () => {
+    expect(mig).toMatch(/c\.channel = 'external'/)
+    expect(mig).toMatch(/revoked_at IS NULL/)
+    expect(mig).toMatch(/GRANT EXECUTE ON FUNCTION get_guest_negotiation\(TEXT\) TO anon, authenticated/)
+  })
+})
+
 // Anti-pattern guard (all migrations): a CREATE POLICY block must never
 // reference a protected table directly — 42P17 infinite recursion (live
 // incident, 00116). Helpers (SECURITY DEFINER) and cycle-free tables are

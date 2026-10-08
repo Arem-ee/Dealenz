@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest"
-import { audienceLabel, guestPortalPath, isGuestAudience, isGuestScope, normalizeGuestEmail } from "./grants"
+import { audienceLabel, guestPortalPath, isGuestAudience, isGuestScope, normalizeGuestEmail, scopeIncludes } from "./grants"
 
 describe("guest grant validation", () => {
-  it("accepts the three audiences and two scopes", () => {
+  it("accepts the three audiences and three scopes", () => {
     expect(isGuestAudience("supplier")).toBe(true)
     expect(isGuestAudience("partner")).toBe(false)
-    expect(isGuestScope("uploader")).toBe(true)
+    expect(isGuestScope("commenter")).toBe(true)
     expect(isGuestScope("admin")).toBe(false)
+  })
+
+  it("treats scopes as cumulative", () => {
+    expect(scopeIncludes("uploader", "commenter")).toBe(true)
+    expect(scopeIncludes("commenter", "commenter")).toBe(true)
+    expect(scopeIncludes("reader", "commenter")).toBe(false)
   })
 
   it("normalizes emails strictly", () => {

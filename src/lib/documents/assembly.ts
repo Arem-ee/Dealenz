@@ -25,15 +25,27 @@ export interface AssemblyInput {
   partnershipStructure?: string | null // "LLP" | "LP" | "ordinary" | null (UNKNOWN)
 }
 
+export interface ClauseAnchor {
+  clauseId: string
+  title: string
+  startOffset: number
+  endOffset: number
+  templateVersion: number
+}
+
+export type AssemblyVeracity = "VERIFIED" | "SUPPORTED" | "STALE" | "UNVERIFIED" | "NOT_FOUND" | "CONFLICTING"
+
 export interface AssemblyResult {
   draft: DraftDocument
   missingVariables: string[]
   citations: LegalCitation[]
-  veracity: "VERIFIED" | "SUPPORTED" | "STALE" | "UNVERIFIED" | "NOT_FOUND" | "CONFLICTING"
+  veracity: AssemblyVeracity
   requiresLawyerReview: boolean
+  /** Recorded clause spans (D1): exact offsets, zero inference. */
+  anchors: ClauseAnchor[]
 }
 
-function citationsForFamily(familyId: string, jurisdictionCountry: string, now: Date): { citations: LegalCitation[]; veracity: AssemblyResult["veracity"] } {
+function citationsForFamily(familyId: string, jurisdictionCountry: string, now: Date): { citations: LegalCitation[]; veracity: AssemblyVeracity } {
   const family = familyById(familyId)
   if (!family) return { citations: [], veracity: "NOT_FOUND" }
   if (jurisdictionCountry === "Testland") {
@@ -99,7 +111,7 @@ function citationsForFamily(familyId: string, jurisdictionCountry: string, now: 
   const citations = sources.map(citationFromSource)
   const validations = sources.map((s) => validateLegalSource(s, now))
   const states = validations.map((v) => v.state)
-  let veracity: AssemblyResult["veracity"] = "VERIFIED"
+  let veracity: AssemblyVeracity = "VERIFIED"
   if (states.includes("CONFLICTING")) veracity = "CONFLICTING"
   else if (states.every((s) => s === "VERIFIED")) veracity = "VERIFIED"
   else if (states.includes("STALE")) veracity = "STALE"
@@ -195,21 +207,38 @@ export function assembleDraft(input: AssemblyInput, now: Date = new Date()): Ass
   lines.push(`## Clauses`)
   lines.push(`The following clauses are drafting assistance, not statutory text.`)
   lines.push("")
+  // Offset-tracked pushes from here: anchors record the exact span of
+  // each rendered clause block (D1). Joining with "\n" means the next
+  // line starts at joined.length + 1.
+  let offset = lines.join("\n").length + 1
+  const push = (s: string) => {
+    lines.push(s)
+    offset += s.length + 1
+  }
+  const anchors: ClauseAnchor[] = []
   for (const clause of clauses) {
     const { rendered, missing } = renderClauseTemplate(clause.template, variables)
-    lines.push(`### ${clause.title}`)
-    lines.push(`*${clause.purpose}*`)
-    lines.push("")
-    lines.push(rendered)
-    lines.push("")
+    const start = offset
+    push(`### ${clause.title}`)
+    push(`*${clause.purpose}*`)
+    push("")
+    push(rendered)
+    push("")
     if (missing.length > 0) {
-      lines.push(`> **Needs input:** ${missing.join(", ")} — UNKNOWN. Do not invent these values.`)
-      lines.push("")
+      push(`> **Needs input:** ${missing.join(", ")} — UNKNOWN. Do not invent these values.`)
+      push("")
     }
     for (const w of clause.warnings) {
-      lines.push(`> ⚠ ${w}`)
+      push(`> ⚠ ${w}`)
     }
-    lines.push("")
+    push("")
+    anchors.push({
+      clauseId: clause.id,
+      title: clause.title,
+      startOffset: start,
+      endOffset: offset - 1,
+      templateVersion: clause.version,
+    })
   }
 
   // Legal provenance
@@ -261,5 +290,5 @@ export function assembleDraft(input: AssemblyInput, now: Date = new Date()): Ass
     warnings: clauses.flatMap((c) => c.warnings),
   }
 
-  return { draft, missingVariables, citations, veracity, requiresLawyerReview }
+  return { draft, missingVariables, citations, veracity, requiresLawyerReview, anchors }
 }

@@ -155,15 +155,36 @@ export async function generateDraft(input: {
     return (typeof latest?.version_number === "number" ? latest.version_number : 0) + 1
   }
   const persistVersion = async (versionNumber: number) =>
-    supabase.from("document_versions").insert({
-      audit_id: row.id,
-      user_id: user.id,
-      document_type: family.id,
-      version_number: versionNumber,
-      content: result.draft.markdown,
-      generation_method: "assembled",
-      created_at: new Date().toISOString(),
-    })
+    supabase
+      .from("document_versions")
+      .insert({
+        audit_id: row.id,
+        user_id: user.id,
+        document_type: family.id,
+        version_number: versionNumber,
+        content: result.draft.markdown,
+        generation_method: "assembled",
+        created_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single()
+  // Anchors ride the version insert: exact spans, zero inference.
+  // Best-effort — a missing anchor set never fails the draft; rounds fall
+  // back to attested inputs for unanchored clauses.
+  const persistAnchors = async (versionId: string) => {
+    if (result.anchors.length === 0) return
+    await supabase.from("version_clause_spans").insert(
+      result.anchors.map((a) => ({
+        user_id: user.id,
+        version_id: versionId,
+        audit_id: row.id,
+        clause_id: a.clauseId,
+        start_offset: a.startOffset,
+        end_offset: a.endOffset,
+        template_version: a.templateVersion,
+      }))
+    )
+  }
   // Library usage analytics: which saved clauses actually ship in drafts.
   // Best-effort — a usage miss never fails the draft.
   void import("@/app/(app)/clauses/library")
@@ -176,10 +197,12 @@ export async function generateDraft(input: {
     if (msg.includes("duplicate") || msg.includes("unique")) {
       const retryNumber = await readNextVersion()
       const retry = await persistVersion(retryNumber)
-      if (retry.error) return { ok: false, error: "We couldn't save that draft. Please try again." }
+      if (retry.error || !retry.data) return { ok: false, error: "We couldn't save that draft. Please try again." }
+      await persistAnchors((retry.data as { id: string }).id)
       return { ok: true, familyTitle: family.title, versionNumber: retryNumber, missingVariables: result.missingVariables }
     }
     return { ok: false, error: "We couldn't save that draft. Please try again." }
   }
+  if (first.data) await persistAnchors((first.data as { id: string }).id)
   return { ok: true, familyTitle: family.title, versionNumber: firstNumber, missingVariables: result.missingVariables }
 }

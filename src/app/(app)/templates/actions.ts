@@ -87,16 +87,33 @@ export async function createFromTemplate(input: {
       intent: "create",
       metadata: { type: "template_first_draft", familyId: family.id },
     })
-    const { error: versionError } = await supabase.from("document_versions").insert({
-      audit_id: auditId,
-      user_id: user.id,
-      document_type: family.id,
-      version_number: 1,
-      content: assembled.draft.markdown,
-      generation_method: "assembled",
-      created_at: new Date().toISOString(),
-    })
-    if (versionError) throw new Error(versionError.message)
+    const { data: versionRow, error: versionError } = await supabase
+      .from("document_versions")
+      .insert({
+        audit_id: auditId,
+        user_id: user.id,
+        document_type: family.id,
+        version_number: 1,
+        content: assembled.draft.markdown,
+        generation_method: "assembled",
+        created_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single()
+    if (versionError || !versionRow) throw new Error(versionError?.message ?? "Version not saved")
+    if (assembled.anchors.length > 0) {
+      await supabase.from("version_clause_spans").insert(
+        assembled.anchors.map((a) => ({
+          user_id: user.id,
+          version_id: (versionRow as { id: string }).id,
+          audit_id: auditId,
+          clause_id: a.clauseId,
+          start_offset: a.startOffset,
+          end_offset: a.endOffset,
+          template_version: a.templateVersion,
+        }))
+      )
+    }
     // Library usage analytics, best-effort — never fails creation.
     void import("@/app/(app)/clauses/library")
       .then((m) => m.recordClauseUse({ templateIds: family.clauseIds }))

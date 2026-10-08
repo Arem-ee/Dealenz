@@ -16,7 +16,13 @@ import {
 } from "@/lib/deals/guests"
 
 const AUDIENCES: GuestAudience[] = ["employee", "supplier", "customer"]
-const SCOPES: GuestScope[] = ["reader", "uploader"]
+const SCOPES: GuestScope[] = ["reader", "commenter", "uploader"]
+
+const SCOPE_LABEL: Record<GuestScope, string> = {
+  reader: "Reader",
+  commenter: "Commenter",
+  uploader: "Uploader",
+}
 
 // External access: invitation-only token grants on the one guest surface.
 // Readers read; one primary uploader per deal uploads redlines back staged;
@@ -175,7 +181,7 @@ export function GuestAccessSection({ auditId }: { auditId: string }) {
                   : "border-border text-muted-foreground hover:text-foreground"
               )}
             >
-              {s === "reader" ? "Reader" : "Uploader"}
+              {SCOPE_LABEL[s]}
             </button>
           ))}
           {scope === "uploader" ? (

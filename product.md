@@ -102,6 +102,15 @@ on mobile, work cards stacking under the message that produced them.
 - **Classifier routes live** from the first keystroke and **shows its shot**:
   what it detected (analysis / question / draft / compare) with one-tap
   correction. Magic routing without visible recourse is forbidden.
+- **Negotiation runs in rounds**: each round proposes per-clause outcomes
+  against the paired ladders (accept in policy, propose fallback rung,
+  escalate past walk-away, route novelties to legal), keeps internal and
+  counterparty-visible comments strictly separate, and hands the agreed
+  version to signing without re-upload. Clause positions anchor to
+  recorded spans (located with verification on third-party text); guests
+  comment on the external channel by grant, and open external threads
+  must resolve before a round is accepted. Basis:
+  `research/redline-negotiation/` and `research/negotiation-gaps/`.
 - **New deal lands here**: every New / Import / Create entry across all tabs
   opens an empty workspace. No form page, no wizard.
 - **Model trust boundary**: the picker is allowed because verdicts stay
