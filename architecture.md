@@ -81,9 +81,11 @@ stacking under their message.
 - **No inversions.** State emphasis via borders, weight, muted fills.
   Nothing renders light-text-on-dark-fill except deliberate brand blocks
   (hero, final CTA).
-- **Color tokens** (`globals.css`): pine (verified/success), brick
-  (danger/critical/overdue/destructive), ink/neutral (everything else).
-  `--destructive` resolves brick.
+- **Color tokens** (`globals.css`): pine (primary actions + verified/
+  success; AA 5.25:1 light, 9.1:1 dark), brick
+  (danger/critical/overdue/destructive), ink/neutral (text + neutral
+  emphasis). `--destructive` resolves brick. Landing ink blocks bypass
+  action tokens by design.
 - **One search**: the top bar pill. Tabs filter with chips, never a second
   search box.
 - **Copy voice**: enterprise-terse. Empty states carry benefit + exactly

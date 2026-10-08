@@ -87,7 +87,9 @@
   /* Dealenz visual system (UX architecture pass).
    * Star white is the foundation; surfaces step down in strict order:
    * page (star) -> card (#FFFFFF) -> sunken (#F5F4F2). No greige defaults.
-   * Ink is the default action color.
+   * Pine is the default action color (AA 5.25:1 against star white).
+   * Ink stays for text and neutral emphasis; landing brand blocks keep
+   * their own ink fills and never read these action tokens.
 
   --star: #FAFAF8;
 
@@ -111,7 +113,7 @@
   --brick-700: #B91C1C;
   --brick-900: #7F1D1D;
 
-  --primary: #1C1917;
+  --primary: #047857;
   --primary-foreground: #FAFAF8;
   --accent: #EDEBE7;
   --accent-foreground: #1C1917;
@@ -128,7 +130,7 @@
   --muted-foreground: #57534E;
   --border: rgba(28, 25, 23, 0.1);
   --input: rgba(28, 25, 23, 0.16);
-  --ring: rgba(28, 25, 23, 0.28);
+  --ring: rgba(4, 120, 87, 0.4);
 
   --destructive: #B91C1C;
   --destructive-foreground: #FAFAF8;
@@ -159,12 +161,12 @@
 
   --sidebar-background: var(--star);
   --sidebar-foreground: #1C1917;
-  --sidebar-primary: #1C1917;
+  --sidebar-primary: #047857;
   --sidebar-primary-foreground: #FAFAF8;
   --sidebar-accent: #F1EFEC;
   --sidebar-accent-foreground: #1C1917;
   --sidebar-border: rgba(28, 25, 23, 0.1);
-  --sidebar-ring: rgba(28, 25, 23, 0.28);
+  --sidebar-ring: rgba(4, 120, 87, 0.4);
 }
 
 /* Dark theme. Every product surface reads semantic tokens, so flipping the
@@ -181,7 +183,7 @@
   --popover: #1E1A16;
   --popover-foreground: #F4F1EC;
 
-  --primary: #EDE8E1;
+  --primary: #34D399;
   --primary-foreground: #1C1917;
   --secondary: #2A2521;
   --secondary-foreground: #F4F1EC;
@@ -219,7 +221,7 @@
 
   --sidebar-background: var(--star);
   --sidebar-foreground: #F4F1EC;
-  --sidebar-primary: #EDE8E1;
+  --sidebar-primary: #34D399;
   --sidebar-primary-foreground: #1C1917;
   --sidebar-accent: #2A2521;
   --sidebar-accent-foreground: #F4F1EC;

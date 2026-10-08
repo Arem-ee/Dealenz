@@ -178,12 +178,13 @@ ledger. Credits never become money.
 - **Orthogonal UI**: zero radius, hairline borders, flat surfaces, no
   shadows. Sharp everywhere, landing through app.
 - **Color stack — three voices, one job each**:
-  - Pine green: verified, success, done, healthy. Never danger.
+  - Pine green: the action color (primary buttons, send, focus) plus
+    verified, success, done, healthy. Never danger.
   - Brick red: danger, critical risk, overdue/hot, errors, destructive
     actions. Never success.
-  - Ink/neutral: everything else. Never inverted fills for state — emphasis
-    comes from borders, weight, and muted fills, which cannot collapse into
-    unreadable black boxes.
+  - Ink/neutral: text and neutral emphasis (borders, weight, muted fills).
+    Never inverted fills for state, which cannot collapse into unreadable
+    black boxes. Landing brand blocks keep their own ink fills.
 - **No popups**: search results, account menu, consent, editors, viewers —
   all render inline. Menus that navigate (mobile drawer) are the only
   overlays. Dialogs with backdrops do not exist in this product.
