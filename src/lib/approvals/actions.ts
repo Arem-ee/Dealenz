@@ -582,6 +582,134 @@ export async function requestApprovalDecision(input: { planId: string; approverU
   }
 }
 
+/**
+ * Clause escalation (pairing D3): a linked position's exhausted ladder (or
+ * its escalate flag) files a verdict-only decision request. Same routing
+ * machinery as plan approvals (legs, groups, delegation, eligibility) but
+ * subject_type='escalation' with NO approval_steps rows — the parent
+ * routing is the only leg (the legacy single-leg shape), and deciding
+ * records a verdict with zero execution side effects. Execution gating
+ * stays plan-exclusive: findLiveTeamApproval keeps filtering plans.
+ */
+export async function requestEscalationDecision(input: {
+  auditId: string
+  clauseTitle: string
+  positionText: string
+  rungLabel: string
+  legs?: ApprovalLeg[]
+  approverUserId?: string
+  approverGroupId?: string
+  detail?: string
+}) {
+  try {
+    const legs: ApprovalLeg[] = input.legs && input.legs.length > 0
+      ? input.legs
+      : input.approverUserId
+        ? [{ userId: input.approverUserId }]
+        : input.approverGroupId
+          ? [{ groupId: input.approverGroupId }]
+          : []
+    const legsProblem = legError(legs)
+    if (legsProblem) return { ok: false as const, error: legsProblem }
+    // Escalations decide as one leg: the parent row carries the single
+    // route. Multi-leg chains stay a plan-approval shape.
+    if (legs.length > 1) return { ok: false as const, error: "Escalations route to one approver or group — one leg." }
+    const first = legs[0] as ApprovalLeg
+    const named = !!first.userId
+    if (!UUID_RE.test(input.auditId)) return { ok: false as const, error: "Invalid deal." }
+    const clauseTitle = input.clauseTitle.trim().slice(0, 120)
+    if (!clauseTitle) return { ok: false as const, error: "Name the clause being escalated." }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false as const, error: "You must be signed in." }
+    if (!user.email_confirmed_at) return { ok: false as const, error: VERIFY_REQUIRED_ERROR }
+    const { data: audit } = await supabase
+      .from("audits")
+      .select("id, title")
+      .eq("id", input.auditId)
+      .eq("user_id", user.id)
+      .maybeSingle()
+    if (!audit) return { ok: false as const, error: "Deal not found." }
+
+    const svc = await serviceClient()
+    if (!svc) return { ok: false as const, error: "Service not configured." }
+    if (first.userId) {
+      if (first.userId === user.id) {
+        return { ok: false as const, error: "Route to someone else — decide your own escalations directly." }
+      }
+      if (!(await approverEligible(svc, user.id, first.userId))) {
+        return { ok: false as const, error: "Approvers must be an owner or admin of an organization you belong to." }
+      }
+    } else if (first.groupId) {
+      const { data: group } = await svc
+        .from("permission_groups")
+        .select("id, org_id, name")
+        .eq("id", first.groupId)
+        .maybeSingle()
+      if (!group) return { ok: false as const, error: "Group not found." }
+      const { data: membership } = await svc
+        .from("organization_members")
+        .select("org_id")
+        .eq("org_id", (group as { org_id: string }).org_id)
+        .eq("user_id", user.id)
+        .maybeSingle()
+      if (!membership) return { ok: false as const, error: "You can only route to groups of your own organizations." }
+    }
+
+    const title = `Escalation: ${clauseTitle}`
+    const { data: live } = await supabase
+      .from("approval_requests")
+      .select("id")
+      .eq("subject_type", "escalation")
+      .eq("subject_id", input.auditId)
+      .eq("title", title)
+      .eq("verdict", "pending")
+      .maybeSingle()
+    if (live) return { ok: false as const, error: "That clause is already escalated — one live escalation at a time." }
+
+    const detail = (input.detail
+      ?? `Position: ${input.positionText.slice(0, 300)} — rung: ${input.rungLabel}. Ladder exhausted or flagged; needs a human call.`)
+      .trim().slice(0, 1000)
+    const { data: created, error } = await supabase
+      .from("approval_requests")
+      .insert({
+        user_id: user.id,
+        approver_user_id: named ? (first.userId as string) : null,
+        approver_group_id: !named ? (first.groupId as string) : null,
+        subject_type: "escalation",
+        subject_id: input.auditId,
+        title,
+        detail: detail || "Clause escalation.",
+      })
+      .select("id")
+      .single()
+    if (error || !created) return { ok: false, error: "We couldn't file that escalation." }
+    try {
+      if (!named) {
+        await notifyGroup(svc, first.groupId as string, user.id, {
+          title: "Escalation requested",
+          body: `${user.email ?? "A teammate"} escalated ${clauseTitle}: ${detail.slice(0, 200)}`,
+        })
+      } else {
+        const { createNotification } = await import("@/lib/notifications/store")
+        await createNotification(supabase, {
+          userId: first.userId as string,
+          type: "approval",
+          category: "approval_requests",
+          title: "Escalation requested",
+          body: `${user.email ?? "A teammate"} escalated ${clauseTitle} for your call.`,
+          link: "/approvals",
+        })
+      }
+    } catch {
+      // The request stands regardless; the notification is best-effort.
+    }
+    return { ok: true as const, id: (created as { id: string }).id }
+  } catch (e) {
+    return toActionFailure(e, "Could not file that escalation.") as never
+  }
+}
+
 export async function decideApprovalRequest(input: { requestId: string; verdict: "approved" | "rejected"; comment?: string }) {
   try {
     if (!UUID_RE.test(input.requestId)) return { ok: false as const, error: "Invalid request." }
@@ -608,7 +736,9 @@ export async function decideApprovalRequest(input: { requestId: string; verdict:
       return { ok: false as const, error: "You can't decide your own request — not even through a group." }
     }
     if (reqRow.verdict !== "pending") return { ok: false as const, error: "That request is already decided — decisions are final." }
-    if (reqRow.subject_type !== "plan") return { ok: false as const, error: "Unknown approval subject." }
+    if (reqRow.subject_type !== "plan" && reqRow.subject_type !== "escalation") {
+      return { ok: false as const, error: "Unknown approval subject." }
+    }
 
     const svc = await serviceClient()
     if (!svc) return { ok: false as const, error: "Service not configured." }
@@ -653,6 +783,55 @@ export async function decideApprovalRequest(input: { requestId: string; verdict:
       if (granterDesignated && !(await approverEligible(svc, reqRow.user_id, g.delegator))) {
         return { ok: false as const, error: "The granter lost deciding power — the cover lapses for this request." }
       }
+    }
+
+    if (reqRow.subject_type === "escalation") {
+      // Verdict-only escalation: the eligibility above is the whole gate.
+      // No plan seal, no step ledger, no execution side effects — the
+      // frozen row is the record. First-writer-wins pin like plans.
+      const decidedAt = new Date().toISOString()
+      const { data: decided, error: decideError } = await supabase
+        .from("approval_requests")
+        .update({ verdict: input.verdict, comment: comment || null, decided_at: decidedAt })
+        .eq("id", reqRow.id)
+        .eq("verdict", "pending")
+        .select("id")
+      if (decideError) return { ok: false as const, error: "We couldn't record that decision." }
+      if (!decided || (Array.isArray(decided) && decided.length === 0)) {
+        return { ok: false as const, error: "Someone decided first — this request is already settled." }
+      }
+      try {
+        await svc.from("activity_events").insert({
+          user_id: reqRow.user_id,
+          audit_id: reqRow.subject_id,
+          event_type: "escalation_decided",
+          payload: {
+            request_id: reqRow.id,
+            decided_by: user.id,
+            on_behalf_of: cover ? cover.delegator : null,
+            comment: comment || null,
+          },
+        })
+      } catch {
+        // Audit is best-effort; the frozen row is the record.
+      }
+      try {
+        const { createNotification } = await import("@/lib/notifications/store")
+        const deciderLabel = cover ? `${user.email ?? "A cover"} (on behalf)` : (user.email ?? "Your approver")
+        await createNotification(svc, {
+          userId: reqRow.user_id,
+          type: "approval",
+          category: "approval_requests",
+          title: input.verdict === "approved" ? "Escalation accepted" : "Escalation sent back",
+          body: input.verdict === "approved"
+            ? `${deciderLabel} accepted “${reqRow.title}” — proceed on that call.`
+            : `${deciderLabel} sent back “${reqRow.title}”: ${comment}`,
+          link: "/approvals",
+        })
+      } catch {
+        // The decision stands regardless; the notification is best-effort.
+      }
+      return { ok: true as const, verdict: input.verdict }
     }
 
     // Snapshot the exact version+hash under decision: execution later

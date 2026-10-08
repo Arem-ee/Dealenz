@@ -1,10 +1,11 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Loader2 } from "lucide-react"
+import { Check, Copy, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/toast"
 import type { ClauseUserState } from "@/lib/library/entries"
+import { listApprovalGroups, listApprovers, requestEscalationDecision } from "@/lib/approvals/actions"
 import {
   clearClauseState,
   getTrackedDeals,
@@ -34,6 +35,11 @@ export function TrackedSection({ dealTypeFilter }: { dealTypeFilter: string }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [noteFor, setNoteFor] = useState<string | null>(null)
   const [note, setNote] = useState("")
+  const [escalateFor, setEscalateFor] = useState<string | null>(null)
+  const [approvers, setApprovers] = useState<Array<{ userId: string; email: string }>>([])
+  const [groups, setGroups] = useState<Array<{ groupId: string; name: string }>>([])
+  const [escTarget, setEscTarget] = useState("")
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
   useEffect(() => {
     let live = true
@@ -87,6 +93,53 @@ export function TrackedSection({ dealTypeFilter }: { dealTypeFilter: string }) {
       showError(err instanceof Error ? err.message : "Action not saved.")
     } finally {
       setBusy(null)
+    }
+  }
+
+  async function openEscalate() {
+    try {
+      const [a, g] = await Promise.all([listApprovers(), listApprovalGroups()])
+      if (a.ok) setApprovers(a.approvers)
+      if (g.ok) setGroups(g.groups.map((x) => ({ groupId: x.groupId, name: x.name })))
+    } catch {
+      // Approver lists are best-effort; the form still sends by id.
+    }
+  }
+
+  async function sendEscalation(auditId: string, clauseId: string, clauseTitle: string) {
+    if (busy || !escTarget) return
+    setBusy(`${auditId}:${clauseId}:esc`)
+    try {
+      const [kind, id] = escTarget.split(":", 2)
+      const deal = (deals ?? []).find((d) => d.auditId === auditId)
+      const clause = deal?.clauses.find((c) => c.clauseId === clauseId)
+      const rung = clause?.pairing.find((p) => p.escalate)
+      const res = await requestEscalationDecision({
+        auditId,
+        clauseTitle,
+        positionText: rung?.positionText ?? clause?.pairing[0]?.positionText ?? "",
+        rungLabel: rung ? `${rung.variant} rung ${rung.rung}` : "ladder exhausted",
+        ...(kind === "user" ? { approverUserId: id } : { approverGroupId: id }),
+      })
+      if (!res.ok) throw new Error(res.error)
+      setEscalateFor(null)
+      setEscTarget("")
+      const refreshed = await getTrackedDeals()
+      if (refreshed.ok) setDeals(refreshed.deals)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Escalation failed.")
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function copyInsertion(key: string, body: string) {
+    try {
+      await navigator.clipboard.writeText(body)
+      setCopiedKey(key)
+      setTimeout(() => setCopiedKey((cur) => (cur === key ? null : cur)), 2000)
+    } catch {
+      showError("Copy failed — select the text manually.")
     }
   }
 
@@ -168,6 +221,24 @@ export function TrackedSection({ dealTypeFilter }: { dealTypeFilter: string }) {
                           {c.userNote ? ` — ${c.userNote}` : ""}
                         </p>
                       ) : null}
+                      {c.escalated ? (
+                        <p className="mt-0.5 text-[11px] font-medium text-foreground">
+                          Escalated — awaiting a decision in Approvals.
+                        </p>
+                      ) : null}
+                      {c.pairing.length > 0 ? (
+                        <div className="mt-1 border-t border-border/60 pt-1" aria-label="Linked playbook language">
+                          {c.pairing.map((p) => (
+                            <p key={p.linkId} className="mt-0.5 text-[11px] text-muted-foreground">
+                              <span className="font-semibold text-foreground">
+                                {p.variant === "preferred" ? "Enforced" : p.variant === "fallback" ? `Fallback ${p.rung}` : "Walk-away"}
+                              </span>
+                              {" "}by “{p.positionText}” · {p.languageTitle} v{p.languageVersion}
+                              {p.conditionText ? ` — offer when: ${p.conditionText}` : ""}
+                            </p>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                     <div className="flex shrink-0 gap-1">
                       {!c.userState ? (
@@ -210,8 +281,70 @@ export function TrackedSection({ dealTypeFilter }: { dealTypeFilter: string }) {
                           Reopen
                         </button>
                       )}
+                      {!c.escalated && c.pairing.some((p) => p.escalate) ? (
+                        <button
+                          type="button"
+                          disabled={busy === `${key}:esc`}
+                          onClick={() => {
+                            setEscalateFor(key)
+                            setEscTarget("")
+                            void openEscalate()
+                          }}
+                          className="h-7 border border-border px-2 text-[11px] font-medium text-muted-foreground hover:text-destructive disabled:opacity-50"
+                        >
+                          Escalate
+                        </button>
+                      ) : null}
+                      {(c.status === "suggested" || c.status === "needs_input") &&
+                      c.pairing.some((p) => p.insertOnMissing && p.variant === "preferred") ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const pref = c.pairing.find((p) => p.insertOnMissing && p.variant === "preferred")!
+                            void copyInsertion(key, pref.languageBody)
+                          }}
+                          className="flex h-7 items-center gap-1 border border-border px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                        >
+                          {copiedKey === key ? (
+                            <Check className="h-3 w-3" aria-hidden="true" />
+                          ) : (
+                            <Copy className="h-3 w-3" aria-hidden="true" />
+                          )}
+                          {copiedKey === key ? "Copied" : "Copy insertion"}
+                        </button>
+                      ) : null}
                     </div>
                   </div>
+                  {escalateFor === key ? (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <select
+                        value={escTarget}
+                        onChange={(e) => setEscTarget(e.target.value)}
+                        aria-label="Route escalation to"
+                        className="h-8 min-w-0 flex-1 border border-input bg-background px-2 text-xs outline-none"
+                      >
+                        <option value="">Route to…</option>
+                        {approvers.map((a) => (
+                          <option key={a.userId} value={`user:${a.userId}`}>
+                            {a.email || "Approver"}
+                          </option>
+                        ))}
+                        {groups.map((g) => (
+                          <option key={g.groupId} value={`group:${g.groupId}`}>
+                            {g.name} (group)
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={busy === `${key}:esc` || !escTarget}
+                        onClick={() => void sendEscalation(d.auditId, c.clauseId, c.title)}
+                        className="h-8 shrink-0 bg-primary px-2.5 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
+                      >
+                        Send
+                      </button>
+                    </div>
+                  ) : null}
                   {noteFor === key ? (
                     <div className="mt-1.5 flex gap-1.5">
                       <input

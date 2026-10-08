@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { LibrarySection } from "@/components/clauses/library-section"
+import { PairingSection } from "@/components/clauses/pairing-section"
 import { TrackedSection } from "@/components/clauses/tracked-section"
 import { RULE_DEAL_TYPES } from "@/lib/standing/rules"
 import {
@@ -318,6 +319,16 @@ export function ClausesView() {
             </div>
           </>
         )}
+      </section>
+
+      <section aria-label="Pairings" className="mt-6 shrink-0">
+        <h2 className="text-sm font-semibold">Pairings</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Positions bound to exact language — one update propagates everywhere.
+        </p>
+        <div className="mt-2">
+          <PairingSection />
+        </div>
       </section>
 
       <section aria-label="Clause library" className="mt-6 shrink-0">
