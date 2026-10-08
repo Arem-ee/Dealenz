@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { readFileSync } from "node:fs"
+import { readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 
 // Static regression coverage for migrations that cannot run without a live
@@ -911,6 +911,109 @@ describe("00111 prompt lab registry (static)", () => {
   it("bounds run evals and model metadata", () => {
     expect(mig).toMatch(/eval_score INT NULL CHECK/)
     expect(mig).toMatch(/status IN \('success', 'failure'\)/)
+  })
+})
+
+describe("00116 RLS recursion remediation (static)", () => {
+  const mig = code(sql("00116_rls_recursion_remediation.sql"))
+
+  it("defines owner/membership helpers as SECURITY DEFINER", () => {
+    for (const fn of ["rls_audit_owner", "rls_deal_shared", "rls_org_member", "rls_group_org_member", "rls_is_group_member"]) {
+      expect(mig).toMatch(new RegExp(`CREATE OR REPLACE FUNCTION ${fn}`))
+    }
+    expect(mig.match(/SECURITY DEFINER/g)?.length).toBeGreaterThanOrEqual(5)
+    expect(mig).toMatch(/GRANT EXECUTE ON FUNCTION rls_audit_owner\(TEXT\) TO anon, authenticated/)
+  })
+
+  it("routes every rewritten policy through helpers, never protected tables", () => {
+    const blocks = mig.match(/CREATE POLICY[\s\S]*?;\n/g) ?? []
+    expect(blocks.length).toBeGreaterThan(10)
+    for (const block of blocks) {
+      expect(block).not.toMatch(/FROM audits\b/)
+      expect(block).not.toMatch(/JOIN audits\b/)
+      expect(block).not.toMatch(/FROM deal_shares\b/)
+      expect(block).not.toMatch(/FROM organization_members\b/)
+      expect(block).not.toMatch(/FROM permission_group_members\b/)
+      expect(block).not.toMatch(/FROM permission_groups\b/)
+    }
+  })
+
+  it("preserves the shared-read semantics it replaces", () => {
+    expect(mig).toMatch(/deal_visible_to\(audits\.id, auth\.uid\(\)\)/)
+    expect(mig).toMatch(/rls_deal_shared\(\(storage\.foldername\(name\)\)\[2\]\)/)
+  })
+})
+
+// Anti-pattern guard (all migrations): a CREATE POLICY block must never
+// reference a protected table directly — 42P17 infinite recursion (live
+// incident, 00116). Helpers (SECURITY DEFINER) and cycle-free tables are
+// the only legal building blocks. Legacy violations predate this guard;
+// files AFTER 00116 must be clean.
+describe("RLS policy hygiene (static, all migrations)", () => {
+  const dir = join(process.cwd(), "supabase", "migrations")
+  const files = readdirSync(dir)
+    .filter((f) => /^\d{5}_.*\.sql$/.test(f))
+    .sort()
+  const protectedTables = [
+    "audits",
+    "deal_shares",
+    "organization_members",
+    "permission_groups",
+    "permission_group_members",
+  ]
+
+  it("introduces no new direct protected-table references after 00116", () => {
+    const offenders: string[] = []
+    for (const file of files) {
+      const num = parseInt(file.slice(0, 5), 10)
+      if (num <= 116) continue
+      const text = code(readFileSync(join(dir, file), "utf8"))
+      const blocks = text.match(/CREATE POLICY[\s\S]*?;\n/g) ?? []
+      for (const block of blocks) {
+        const name = /CREATE POLICY "([^"]+)"/.exec(block)?.[1] ?? "unnamed"
+        for (const table of protectedTables) {
+          const hit =
+            new RegExp(`FROM\\s+${table}\\b`, "i").test(block) ||
+            new RegExp(`JOIN\\s+${table}\\b`, "i").test(block)
+          if (hit) offenders.push(`${file} :: ${name} -> ${table}`)
+        }
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+})
+
+describe("00115 contract search (static)", () => {
+  const mig = code(sql("00115_contract_search.sql"))
+
+  it("indexes stored tsvectors with GIN and trigrams for names", () => {
+    expect(mig).toMatch(/content_tsv tsvector/)
+    expect(mig).toMatch(/GENERATED ALWAYS AS \(to_tsvector\('english'/)
+    expect(mig).toMatch(/USING gin \(content_tsv\)/)
+    expect(mig).toMatch(/gin_trgm_ops/)
+    expect(mig).toMatch(/CREATE EXTENSION IF NOT EXISTS pg_trgm/)
+  })
+
+  it("keeps the search function invoker-scoped with join-only visibility", () => {
+    expect(mig).not.toMatch(/SECURITY DEFINER/)
+    expect(mig).toMatch(/JOIN audits a ON a\.id = v\.audit_id/)
+    expect(mig).toMatch(/JOIN audits a ON a\.id = c\.audit_id/)
+  })
+})
+
+describe("00114 position clause links (static)", () => {
+  const mig = code(sql("00114_position_clause_links.sql"))
+
+  it("binds positions to versioned language with ladder ordering", () => {
+    expect(mig).toMatch(/UNIQUE \(user_id, position_id, library_key, variant\)/)
+    expect(mig).toMatch(/variant IN \('preferred', 'fallback', 'walkaway'\)/)
+    expect(mig).toMatch(/REFERENCES standing_instructions\(id\) ON DELETE CASCADE/)
+  })
+
+  it("keeps links owner-scoped with no shared reads", () => {
+    expect(mig).toMatch(/USING \(auth\.uid\(\) = user_id\)/)
+    expect(mig).not.toMatch(/service_role/)
+    expect(mig).not.toMatch(/DROP TABLE/)
   })
 })
 
