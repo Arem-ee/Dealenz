@@ -15,6 +15,7 @@ export type RateLimitedAction =
   | "verification_resend"
   | "ask_turn"
   | "prompt_run"
+  | "negotiation_round"
 
 const LIMITS: Record<RateLimitedAction, number> = {
   generateProtectionPackage: 10,
@@ -39,6 +40,8 @@ const LIMITS: Record<RateLimitedAction, number> = {
   // Prompt Lab test runs: abuse cap on top of the credit gate (credits stop
   // broke attackers, this stops funded ones burning provider budget).
   prompt_run: 20,
+  // Negotiation rounds: same shape — priced AI drafts behind a daily cap.
+  negotiation_round: 20,
 }
 
 /** Single source for daily usage limits shown in the UI. Analyses are not
