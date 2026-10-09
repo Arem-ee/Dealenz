@@ -103,8 +103,9 @@ export async function generateDraft(input: {
   familyId: string
   jurisdiction?: string
   variables?: Record<string, string>
+  language?: string
 }): Promise<
-  ActionOk<{ familyTitle: string; versionNumber: number; missingVariables: string[] }> | ActionFail
+  ActionOk<{ familyTitle: string; versionNumber: number; missingVariables: string[]; language: string; languageFallbacks: string[] }> | ActionFail
 > {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -133,10 +134,18 @@ export async function generateDraft(input: {
   const rawFindings = row.structured_data?.deterministicFindings
   const findings = (Array.isArray(rawFindings) ? rawFindings : []) as RuleResult[]
 
+  const { isLocale } = await import("@/lib/i18n/locale")
+  const language = isLocale(input.language) ? input.language : "en"
+  const { getLocalizedOverrides } = await import("@/app/(app)/clauses/library")
+  const { overrides } = await getLocalizedOverrides({ clauseIds: family.clauseIds, language })
+
   let result: ReturnType<typeof assembleDraft>
   try {
     result = assembleDraft(
-      { familyId: family.id, dealType, jurisdiction: { country: jurisdiction, region: null }, findings, variables },
+      {
+        familyId: family.id, dealType, jurisdiction: { country: jurisdiction, region: null }, findings, variables,
+        language, localizedClauses: overrides,
+      },
       new Date()
     )
   } catch (err) {
@@ -199,10 +208,10 @@ export async function generateDraft(input: {
       const retry = await persistVersion(retryNumber)
       if (retry.error || !retry.data) return { ok: false, error: "We couldn't save that draft. Please try again." }
       await persistAnchors((retry.data as { id: string }).id)
-      return { ok: true, familyTitle: family.title, versionNumber: retryNumber, missingVariables: result.missingVariables }
+      return { ok: true, familyTitle: family.title, versionNumber: retryNumber, missingVariables: result.missingVariables, language: result.language, languageFallbacks: result.languageFallbacks }
     }
     return { ok: false, error: "We couldn't save that draft. Please try again." }
   }
   if (first.data) await persistAnchors((first.data as { id: string }).id)
-  return { ok: true, familyTitle: family.title, versionNumber: firstNumber, missingVariables: result.missingVariables }
+  return { ok: true, familyTitle: family.title, versionNumber: firstNumber, missingVariables: result.missingVariables, language: result.language, languageFallbacks: result.languageFallbacks }
 }

@@ -16,6 +16,13 @@ import { familyById } from "./families"
 import type { DocumentVariables, DraftDocument, DocumentProvenance } from "./types"
 import type { RuleResult } from "@/lib/rules/result"
 
+export interface LocalizedClauseOverride {
+  clauseId: string
+  body: string
+  version: number
+  language: string
+}
+
 export interface AssemblyInput {
   familyId: string
   dealType: string
@@ -23,6 +30,10 @@ export interface AssemblyInput {
   findings: RuleResult[]
   variables: DocumentVariables // user-provided, may be partial
   partnershipStructure?: string | null // "LLP" | "LP" | "ordinary" | null (UNKNOWN)
+  /** Agreement language (default "en"). Overrides render per clause. */
+  language?: string
+  /** Approved localized language, one row per clause at most. */
+  localizedClauses?: LocalizedClauseOverride[]
 }
 
 export interface ClauseAnchor {
@@ -43,6 +54,13 @@ export interface AssemblyResult {
   requiresLawyerReview: boolean
   /** Recorded clause spans (D1): exact offsets, zero inference. */
   anchors: ClauseAnchor[]
+  /** Agreement language the draft rendered in. */
+  language: string
+  /**
+   * Clause ids that fell back to English (no approved line in the
+   * requested language). Labeled, never silent — the UI must say so.
+   */
+  languageFallbacks: string[]
 }
 
 function citationsForFamily(familyId: string, jurisdictionCountry: string, now: Date): { citations: LegalCitation[]; veracity: AssemblyVeracity } {
@@ -215,9 +233,23 @@ export function assembleDraft(input: AssemblyInput, now: Date = new Date()): Ass
     lines.push(s)
     offset += s.length + 1
   }
+  const language = input.language === "fr" || input.language === "de" ? input.language : "en"
+  const overrides = new Map<string, LocalizedClauseOverride>()
+  for (const o of input.localizedClauses ?? []) {
+    if (o && typeof o.clauseId === "string" && typeof o.body === "string" && o.language === language) {
+      if (!overrides.has(o.clauseId)) overrides.set(o.clauseId, o)
+    }
+  }
   const anchors: ClauseAnchor[] = []
+  const languageFallbacks: string[] = []
   for (const clause of clauses) {
-    const { rendered, missing } = renderClauseTemplate(clause.template, variables)
+    const override = language === "en" ? undefined : overrides.get(clause.id)
+    // Approved localized language wins; English code template is the
+    // labeled fallback — never machine translation, never silent.
+    const sourceText = override?.body ?? clause.template
+    const sourceVersion = override?.version ?? clause.version
+    if (language !== "en" && !override) languageFallbacks.push(clause.id)
+    const { rendered, missing } = renderClauseTemplate(sourceText, variables)
     const start = offset
     push(`### ${clause.title}`)
     push(`*${clause.purpose}*`)
@@ -237,7 +269,7 @@ export function assembleDraft(input: AssemblyInput, now: Date = new Date()): Ass
       title: clause.title,
       startOffset: start,
       endOffset: offset - 1,
-      templateVersion: clause.version,
+      templateVersion: sourceVersion,
     })
   }
 
@@ -290,5 +322,5 @@ export function assembleDraft(input: AssemblyInput, now: Date = new Date()): Ass
     warnings: clauses.flatMap((c) => c.warnings),
   }
 
-  return { draft, missingVariables, citations, veracity, requiresLawyerReview, anchors }
+  return { draft, missingVariables, citations, veracity, requiresLawyerReview, anchors, language, languageFallbacks }
 }

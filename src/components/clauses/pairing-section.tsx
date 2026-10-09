@@ -69,7 +69,7 @@ export function PairingSection() {
     () =>
       latestUsableEntries(
         (library ?? []).map((e) => ({
-          id: e.id, key: e.key, variant: e.variant, version: e.version, title: e.title, body: e.body,
+          id: e.id, key: e.key, variant: e.variant, language: e.language, version: e.version, title: e.title, body: e.body,
           category: e.category, dealTypes: e.dealTypes, status: e.status, changeNote: e.changeNote,
           templateId: e.templateId, templateVersion: e.templateVersion, useCount: e.useCount,
           lastUsedAt: e.lastUsedAt, createdAt: e.createdAt,

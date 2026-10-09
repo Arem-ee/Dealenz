@@ -43,6 +43,7 @@ export function LibrarySection({ dealTypeFilter }: { dealTypeFilter: string }) {
   const [newBody, setNewBody] = useState("")
   const [newCategory, setNewCategory] = useState("general")
   const [newScope, setNewScope] = useState<string[]>([])
+  const [newLanguage, setNewLanguage] = useState<"en" | "fr" | "de">("en")
   const [saving, setSaving] = useState(false)
   const [editingSlot, setEditingSlot] = useState<string | null>(null)
   const [editBody, setEditBody] = useState("")
@@ -77,7 +78,7 @@ export function LibrarySection({ dealTypeFilter }: { dealTypeFilter: string }) {
     () =>
       latestUsableEntries(
         (entries ?? []).map((e) => ({
-          id: e.id, key: e.key, variant: e.variant, version: e.version, title: e.title, body: e.body,
+          id: e.id, key: e.key, variant: e.variant, language: e.language, version: e.version, title: e.title, body: e.body,
           category: e.category, dealTypes: e.dealTypes, status: e.status, changeNote: e.changeNote,
           templateId: e.templateId, templateVersion: e.templateVersion, useCount: e.useCount,
           lastUsedAt: e.lastUsedAt, createdAt: e.createdAt,
@@ -87,16 +88,18 @@ export function LibrarySection({ dealTypeFilter }: { dealTypeFilter: string }) {
   )
 
   const lines = useMemo(() => {
-    const byKey = new Map<string, typeof heads>()
+    const byLine = new Map<string, typeof heads>()
     for (const h of heads) {
-      const list = byKey.get(h.key) ?? []
+      const lineKey = `${h.key}::${h.language}`
+      const list = byLine.get(lineKey) ?? []
       list.push(h)
-      byKey.set(h.key, list)
+      byLine.set(lineKey, list)
     }
-    const all = [...byKey.entries()].map(([key, variants]) => {
+    const all = [...byLine.entries()].map(([lineKey, variants]) => {
+      const [key, language] = lineKey.split("::") as [string, string]
       const first = variants[0]!
       const full = (entries ?? []).find((e) => e.id === first.id)!
-      return { key, title: first.title, category: first.category, dealTypes: full.dealTypes, variants }
+      return { key, language, title: first.title, category: first.category, dealTypes: full.dealTypes, variants }
     })
     if (dealTypeFilter === "All") return all
     const want = dealTypeFilter.toLowerCase()
@@ -105,9 +108,9 @@ export function LibrarySection({ dealTypeFilter }: { dealTypeFilter: string }) {
     )
   }, [heads, entries, dealTypeFilter])
 
-  const historyFor = (key: string, variant: LibraryClauseVariant) =>
+  const historyFor = (key: string, variant: LibraryClauseVariant, language: string) =>
     (entries ?? [])
-      .filter((e) => e.key === key && e.variant === variant)
+      .filter((e) => e.key === key && e.variant === variant && e.language === language)
       .sort((a, b) => b.version - a.version)
 
   async function refresh() {
@@ -121,12 +124,13 @@ export function LibrarySection({ dealTypeFilter }: { dealTypeFilter: string }) {
     if (saving || !newTitle.trim() || !newBody.trim()) return
     setSaving(true)
     try {
-      const res = await addCustomClause({ title: newTitle, body: newBody, category: newCategory, dealTypes: newScope })
+      const res = await addCustomClause({ title: newTitle, body: newBody, category: newCategory, dealTypes: newScope, language: newLanguage })
       if (!res.ok) throw new Error(res.error)
       setNewTitle("")
       setNewBody("")
       setNewCategory("general")
       setNewScope([])
+      setNewLanguage("en")
       setShowAdd(false)
       await refresh()
     } catch (err) {
@@ -228,25 +232,26 @@ export function LibrarySection({ dealTypeFilter }: { dealTypeFilter: string }) {
           {lines.map((line) => {
             const missing = missingVariants(
               (entries ?? []).map((e) => ({
-                id: e.id, key: e.key, variant: e.variant, version: e.version, title: e.title, body: e.body,
+                id: e.id, key: e.key, variant: e.variant, language: e.language, version: e.version, title: e.title, body: e.body,
                 category: e.category, dealTypes: e.dealTypes, status: e.status, changeNote: e.changeNote,
                 templateId: e.templateId, templateVersion: e.templateVersion, useCount: e.useCount,
                 lastUsedAt: e.lastUsedAt, createdAt: e.createdAt,
               })),
-              line.key
+              line.key,
+              line.language as "en" | "fr" | "de"
             )
             const uses = Math.max(...line.variants.map((v) => {
               const full = (entries ?? []).find((e) => e.id === v.id)
               return full?.useCount ?? 0
             }))
             return (
-              <li key={line.key} className="border border-border px-3 py-2.5">
+              <li key={`${line.key}::${line.language}`} className="border border-border px-3 py-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-[13px] font-medium">
                       {line.title}{" "}
                       <span className="font-normal text-muted-foreground">
-                        · {line.category} · {scopeLabel(line.dealTypes)}
+                        · {line.language.toUpperCase()} · {line.category} · {scopeLabel(line.dealTypes)}
                         {uses > 0 ? ` · used ${uses}×` : ""}
                       </span>
                     </p>
@@ -268,8 +273,8 @@ export function LibrarySection({ dealTypeFilter }: { dealTypeFilter: string }) {
 
                 {line.variants.map((v) => {
                   const full = (entries ?? []).find((e) => e.id === v.id)!
-                  const history = historyFor(line.key, v.variant)
-                  const slot = `${line.key}:${v.variant}`
+                  const history = historyFor(line.key, v.variant, line.language)
+                  const slot = `${line.key}:${v.variant}:${line.language}`
                   const isEditing = editingSlot === slot
                   return (
                     <div key={v.variant} className="mt-2 border-t border-border pt-2">
@@ -370,7 +375,7 @@ export function LibrarySection({ dealTypeFilter }: { dealTypeFilter: string }) {
 
                 {confirmDeleteKey === line.key ? (
                   <div className="mt-2 flex items-center gap-2 border-t border-border pt-2">
-                    <p className="text-[11px] text-muted-foreground">Delete this line, all variants, all versions?</p>
+                    <p className="text-[11px] text-muted-foreground">Delete this line, all variants, versions, and languages?</p>
                     <button
                       type="button"
                       onClick={() => void handleDeleteLine(line.key)}
@@ -423,6 +428,22 @@ export function LibrarySection({ dealTypeFilter }: { dealTypeFilter: string }) {
                 aria-label="Clause category"
                 className="h-8 w-36 border border-input bg-background px-2 text-xs outline-none placeholder:text-muted-foreground/60"
               />
+              {(["en", "fr", "de"] as const).map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  aria-pressed={newLanguage === l}
+                  onClick={() => setNewLanguage(l)}
+                  className={cn(
+                    "border px-2 py-1 text-[11px] font-medium uppercase transition-colors",
+                    newLanguage === l
+                      ? "border-foreground bg-muted font-semibold text-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {l}
+                </button>
+              ))}
               {RULE_DEAL_TYPES.filter((t) => t !== "generic").map((t) => (
                 <button
                   key={t}

@@ -959,6 +959,21 @@ describe("00118 anchors + guest comments (static)", () => {
   })
 })
 
+describe("00122 clause language (static)", () => {
+  const mig = code(sql("00122_clause_language.sql"))
+
+  it("versions language lines independently with English default", () => {
+    expect(mig).toMatch(/CHECK \(language IN \('en', 'fr', 'de'\)\)/)
+    expect(mig).toMatch(/UNIQUE \(user_id, key, variant, language, version\)/)
+    expect(mig).toMatch(/DEFAULT 'en'/)
+  })
+
+  it("touches no RLS policies", () => {
+    expect(mig).not.toMatch(/CREATE POLICY/)
+    expect(mig).not.toMatch(/GRANT/)
+  })
+})
+
 describe("00121 profile locale (static)", () => {
   const mig = code(sql("00121_profile_locale.sql"))
 

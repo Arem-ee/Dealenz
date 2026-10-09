@@ -17,10 +17,11 @@ export function GenerateDraft({ auditId }: { auditId: string }) {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [familyId, setFamilyId] = useState("")
   const [jurisdiction, setJurisdiction] = useState("")
+  const [language, setLanguage] = useState("en")
   const [vars, setVars] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [done, setDone] = useState<{ familyTitle: string; versionNumber: number; missingVariables: string[] } | null>(null)
+  const [done, setDone] = useState<{ familyTitle: string; versionNumber: number; missingVariables: string[]; language: string; languageFallbacks: string[] } | null>(null)
 
   useEffect(() => {
     let live = true
@@ -53,9 +54,9 @@ export function GenerateDraft({ auditId }: { auditId: string }) {
     setError(null)
     setDone(null)
     try {
-      const res = await generateDraft({ auditId, familyId, jurisdiction, variables: vars })
+      const res = await generateDraft({ auditId, familyId, jurisdiction, variables: vars, language })
       if (!res.ok) throw new Error(res.error)
-      setDone({ familyTitle: res.familyTitle, versionNumber: res.versionNumber, missingVariables: res.missingVariables })
+      setDone({ familyTitle: res.familyTitle, versionNumber: res.versionNumber, missingVariables: res.missingVariables, language: res.language, languageFallbacks: res.languageFallbacks })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Draft generation failed. Please try again.")
     } finally {
@@ -101,6 +102,24 @@ export function GenerateDraft({ auditId }: { auditId: string }) {
       </select>
       {selected && <p className="mt-1 text-[11px] text-muted-foreground">{selected.description}</p>}
 
+      <label className="mt-3 block text-[11px] font-medium text-muted-foreground" htmlFor="draft-language">
+        Agreement language
+      </label>
+      <select
+        id="draft-language"
+        value={language}
+        onChange={(e) => {
+          setLanguage(e.target.value)
+          setDone(null)
+        }}
+        disabled={busy}
+        className="mt-1 h-9 w-full border border-input bg-background px-2 text-sm disabled:opacity-60"
+      >
+        <option value="en">English</option>
+        <option value="fr">Français — approved lines only, rest in English</option>
+        <option value="de">Deutsch — approved lines only, rest in English</option>
+      </select>
+
       <label className="mt-3 block text-[11px] font-medium text-muted-foreground" htmlFor="draft-jurisdiction">
         Jurisdiction <span className="font-normal">(optional)</span>
       </label>
@@ -138,9 +157,12 @@ export function GenerateDraft({ auditId }: { auditId: string }) {
       {error && <p role="alert" className="mt-3 border border-destructive/30 bg-destructive/5 px-2.5 py-2 text-xs text-destructive">{error}</p>}
       {done && (
         <div className="mt-3 border border-border bg-muted/40 px-2.5 py-2 text-xs" role="status">
-          <p><strong>{done.familyTitle}</strong> v{done.versionNumber} saved.</p>
+          <p><strong>{done.familyTitle}</strong> v{done.versionNumber} saved{done.language !== "en" ? ` in ${done.language.toUpperCase()}` : ""}.</p>
           {done.missingVariables.length > 0 && (
             <p className="mt-1 text-muted-foreground">Still blank: {done.missingVariables.join(", ")}</p>
+          )}
+          {done.languageFallbacks.length > 0 && (
+            <p className="mt-1 text-muted-foreground">In English (no approved {done.language.toUpperCase()} line yet): {done.languageFallbacks.length} clause{done.languageFallbacks.length === 1 ? "" : "s"}</p>
           )}
           <Link href="/drafts" className="mt-1 inline-block font-medium text-primary hover:underline">Open in Drafts →</Link>
         </div>

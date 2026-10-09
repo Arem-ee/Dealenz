@@ -31,8 +31,9 @@ export async function createFromTemplate(input: {
   familyId: string
   jurisdiction?: string
   variables?: Record<string, string>
+  language?: string
 }): Promise<
-  ActionOk<{ threadId: string; auditId: string; familyTitle: string; versionNumber: number }> | ActionFail
+  ActionOk<{ threadId: string; auditId: string; familyTitle: string; versionNumber: number; language: string; languageFallbacks: string[] }> | ActionFail
 > {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -49,10 +50,18 @@ export async function createFromTemplate(input: {
     if (typeof v === "string" && v.trim()) variables[k] = v.trim()
   }
 
+  const { isLocale } = await import("@/lib/i18n/locale")
+  const language = isLocale(input.language) ? input.language : "en"
+  const { getLocalizedOverrides } = await import("@/app/(app)/clauses/library")
+  const { overrides } = await getLocalizedOverrides({ clauseIds: family.clauseIds, language })
+
   let assembled: ReturnType<typeof assembleDraft>
   try {
     assembled = assembleDraft(
-      { familyId: family.id, dealType, jurisdiction: { country: jurisdiction, region: null }, findings: [], variables },
+      {
+        familyId: family.id, dealType, jurisdiction: { country: jurisdiction, region: null }, findings: [], variables,
+        language, localizedClauses: overrides,
+      },
       new Date()
     )
   } catch (err) {
@@ -118,7 +127,10 @@ export async function createFromTemplate(input: {
     void import("@/app/(app)/clauses/library")
       .then((m) => m.recordClauseUse({ templateIds: family.clauseIds }))
       .catch(() => undefined)
-    return { ok: true, threadId: thread.id, auditId, familyTitle: family.title, versionNumber: 1 }
+    return {
+      ok: true, threadId: thread.id, auditId, familyTitle: family.title, versionNumber: 1,
+      language: assembled.language, languageFallbacks: assembled.languageFallbacks,
+    }
   } catch {
     await supabase.from("audits").delete().eq("id", auditId).eq("user_id", user.id)
     return { ok: false, error: "We couldn't save that draft. Please try again." }

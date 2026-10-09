@@ -216,6 +216,31 @@ describe("business-owner document assembly — international", () => {
     ).toThrow(/Jurisdiction is required/)
   })
 
+  it("renders approved localized language with labeled English fallbacks", () => {
+    const findings = founderFindings("Alice (CEO) and Bob (CTO) split 50/50.")
+    const base = {
+      familyId: "founder-agreement",
+      dealType: "founder" as const,
+      jurisdiction: { country: "Nigeria" },
+      findings,
+      variables: { company_name: "Acme Ltd", founder_names: "Alice and Bob", ownership_percentages: "50/50" },
+    }
+    const localized = assembleDraft({
+      ...base,
+      language: "fr",
+      localizedClauses: [
+        { clauseId: "founder-ownership-allocation", body: "Les fondateurs conviennent {{ownership_percentages}}.", version: 3, language: "fr" },
+      ],
+    })
+    expect(localized.language).toBe("fr")
+    expect(localized.draft.markdown).toContain("Les fondateurs conviennent 50/50.")
+    expect(localized.languageFallbacks).not.toContain("founder-ownership-allocation")
+    expect(localized.languageFallbacks.length).toBeGreaterThan(0)
+    const english = assembleDraft({ ...base, language: "de" })
+    expect(english.language).toBe("de")
+    expect(english.languageFallbacks.length).toBe(english.anchors.length)
+  })
+
   it("records exact clause anchors — slices reproduce the rendered blocks", () => {
     const findings = founderFindings("Alice (CEO) and Bob (CTO) split 50/50.")
     const result = assembleDraft({

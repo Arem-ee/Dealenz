@@ -17,6 +17,7 @@ function row(over: Partial<LibraryClauseRow> & { key: string }): LibraryClauseRo
   return {
     id: over.key,
     variant: "preferred",
+    language: "en",
     version: 1,
     title: "Title",
     body: "Body",
@@ -70,13 +71,27 @@ describe("latestUsableEntries", () => {
       ["a", "fallback", 1],
     ])
   })
+
+  it("tracks histories separately per language", () => {
+    const rows = [
+      row({ key: "a", variant: "preferred", language: "en", version: 2 }),
+      row({ key: "a", variant: "preferred", language: "fr", version: 1 }),
+    ]
+    const out = latestUsableEntries(rows)
+    expect(out.map((r) => [r.language, r.version])).toEqual([["en", 2], ["fr", 1]])
+  })
 })
 
 describe("missingVariants / isLibraryVariant", () => {
-  it("flags lines without a walk-away", () => {
-    const rows = [row({ key: "a", variant: "preferred" }), row({ key: "a", variant: "fallback" })]
-    expect(missingVariants(rows, "a")).toEqual(["walkaway"])
-    expect(missingVariants(rows, "b")).toEqual(["preferred", "fallback", "walkaway"])
+  it("flags lines without a walk-away, per language", () => {
+    const rows = [
+      row({ key: "a", variant: "preferred" }),
+      row({ key: "a", variant: "fallback" }),
+      row({ key: "a", variant: "preferred", language: "fr" }),
+    ]
+    expect(missingVariants(rows, "a", "en")).toEqual(["walkaway"])
+    expect(missingVariants(rows, "a", "fr")).toEqual(["fallback", "walkaway"])
+    expect(missingVariants(rows, "b", "en")).toEqual(["preferred", "fallback", "walkaway"])
   })
 
   it("validates variant names", () => {

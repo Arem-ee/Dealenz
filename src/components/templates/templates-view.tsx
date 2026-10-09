@@ -42,16 +42,23 @@ export function TemplatesView() {
   }, [dealType, showError])
 
   const visible = useMemo(() => templates ?? [], [templates])
+  const [language, setLanguage] = useState("en")
 
   function create(familyId: string) {
     setPendingId(familyId)
     startTransition(async () => {
       try {
-        const res = await createFromTemplate({ familyId })
+        const res = await createFromTemplate({ familyId, language })
         if (!res.ok) {
           showError(res.error, "Template failed")
           setPendingId(null)
           return
+        }
+        if (res.languageFallbacks.length > 0) {
+          showError(
+            `${res.languageFallbacks.length} clause${res.languageFallbacks.length === 1 ? "" : "s"} rendered in English — no approved ${res.language.toUpperCase()} line yet.`,
+            "Partial translation"
+          )
         }
         router.push(`/chat/${res.threadId}`)
       } catch {
@@ -77,6 +84,19 @@ export function TemplatesView() {
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-1.5 pb-4" aria-label="Filter by deal type">
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          Language
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            aria-label="Agreement language"
+            className="h-7 border border-border bg-background px-1.5 text-xs text-foreground outline-none"
+          >
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+          </select>
+        </label>
         {["All", ...DEAL_TYPES].map((t) => (
           <button
             key={t}

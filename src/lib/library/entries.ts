@@ -23,10 +23,17 @@ export function isLibraryVariant(raw: unknown): raw is LibraryClauseVariant {
   return raw === "preferred" || raw === "fallback" || raw === "walkaway"
 }
 
+export type LibraryLanguage = "en" | "fr" | "de"
+
+export function isLibraryLanguage(raw: unknown): raw is LibraryLanguage {
+  return raw === "en" || raw === "fr" || raw === "de"
+}
+
 export interface LibraryClauseRow {
   id: string
   key: string
   variant: LibraryClauseVariant
+  language: LibraryLanguage
   version: number
   title: string
   body: string
@@ -76,27 +83,29 @@ export function normalizeLibraryCategory(raw: unknown): string {
 }
 
 /**
- * Latest usable row per key+variant: highest version that is not
- * superseded. Variants are sibling lines — preferred, fallback, and
- * walkaway each carry their own history.
+ * Latest usable row per key+variant+language: highest version that is not
+ * superseded. Each language carries its own history — preferred-FR evolves
+ * independently of preferred-EN.
  */
 export function latestUsableEntries(rows: LibraryClauseRow[]): LibraryClauseRow[] {
   const bySlot = new Map<string, LibraryClauseRow>()
   for (const row of rows) {
     if (row.status === "superseded") continue
-    const slot = `${row.key}:${row.variant}`
+    const slot = `${row.key}:${row.variant}:${row.language}`
     const cur = bySlot.get(slot)
     if (!cur || row.version > cur.version) bySlot.set(slot, row)
   }
   const order: Record<LibraryClauseVariant, number> = { preferred: 0, fallback: 1, walkaway: 2 }
   return [...bySlot.values()].sort(
-    (a, b) => a.title.localeCompare(b.title) || order[a.variant] - order[b.variant]
+    (a, b) => a.title.localeCompare(b.title) || a.language.localeCompare(b.language) || order[a.variant] - order[b.variant]
   )
 }
 
-/** Variants a line is missing — a line without walkaway concedes under pressure. */
-export function missingVariants(rows: LibraryClauseRow[], key: string): LibraryClauseVariant[] {
-  const have = new Set(rows.filter((r) => r.key === key && r.status !== "superseded").map((r) => r.variant))
+/** Variants a line is missing in a language — a line without walkaway concedes under pressure. */
+export function missingVariants(rows: LibraryClauseRow[], key: string, language: LibraryLanguage): LibraryClauseVariant[] {
+  const have = new Set(
+    rows.filter((r) => r.key === key && r.language === language && r.status !== "superseded").map((r) => r.variant)
+  )
   return LIBRARY_VARIANTS.filter((v) => !have.has(v))
 }
 
