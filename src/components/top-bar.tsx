@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
 import { LogOut, Menu, Plus, Search } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/toast"
@@ -26,6 +27,8 @@ export function TopBar({ email, businessName, creditBalance = null, threads = []
 }) {
   const router = useRouter()
   const supabase = createClient()
+  const t = useTranslations("topbar")
+  const tn = useTranslations("nav")
   const displayName = businessName ?? email
   const initials = displayName.charAt(0).toUpperCase()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -83,7 +86,7 @@ export function TopBar({ email, businessName, creditBalance = null, threads = []
                       className="flex items-center gap-3 px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     >
                       <Icon className="h-4 w-4" />
-                      <span>{item.label}</span>
+                      <span>{tn(item.i18nKey)}</span>
                     </Link>
                   )
                 })}
@@ -94,7 +97,7 @@ export function TopBar({ email, businessName, creditBalance = null, threads = []
                 className="mt-4 inline-flex h-11 items-center justify-center gap-1.5 bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
               >
                 <Plus className="h-4 w-4" />
-                New deal
+                {t("newDeal")}
               </Link>
             </SheetContent>
           </Sheet>
@@ -114,11 +117,11 @@ export function TopBar({ email, businessName, creditBalance = null, threads = []
             title={scopeLabel ? `Pool balance · ${scopeLabel}` : "Credit balance"}
             className="max-w-[110px] min-w-0 shrink truncate text-[13px] tabular-nums text-muted-foreground sm:max-w-none"
           >
-            {typeof creditBalance === "number" ? `${creditBalance} credit${creditBalance === 1 ? "" : "s"}` : ""}
+            {typeof creditBalance === "number" ? t("credits", { count: creditBalance }) : ""}
           </span>
           <div className="relative shrink-0" ref={accountWrapRef}>
             <button
-              aria-label="Account menu"
+              aria-label={t("account")}
               aria-expanded={accountOpen}
               onClick={() => setAccountOpen((v) => !v)}
               className="flex h-8 w-8 items-center p-1 transition-colors hover:bg-muted"
@@ -128,12 +131,12 @@ export function TopBar({ email, businessName, creditBalance = null, threads = []
               </Avatar>
             </button>
             {accountOpen && (
-              <div className="absolute right-0 top-full z-50 mt-1.5 w-52 border border-border bg-background" aria-label="Account menu">
+              <div className="absolute right-0 top-full z-50 mt-1.5 w-52 border border-border bg-background" aria-label={t("account")}>
                 <div className="max-w-full truncate px-3 py-2 text-xs text-muted-foreground">{displayName}</div>
                 <div className="border-t border-border" />
                 <button onClick={() => void handleSignOut()} className="flex w-full items-center px-3 py-2.5 text-sm transition-colors hover:bg-muted">
                   <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
+                  {t("signOut")}
                 </button>
               </div>
             )}
@@ -209,6 +212,7 @@ function stripSnippetTags(snippet: string): string {
 
 function InlineSearch({ threads }: { threads: SidebarThread[] }) {
   const { showError } = useToast()
+  const t = useTranslations("topbar")
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -360,8 +364,8 @@ function InlineSearch({ threads }: { threads: SidebarThread[] }) {
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Search..."
-          aria-label="Search deals"
+          placeholder={t("searchPlaceholder")}
+          aria-label={t("searchDeals")}
           role="combobox"
           aria-autocomplete="list"
           aria-activedescendant={selectedIndex >= 0 ? `search-result-${selectedIndex}` : undefined}
@@ -375,7 +379,7 @@ function InlineSearch({ threads }: { threads: SidebarThread[] }) {
         )}
       </div>
       {open && (
-        <div id="topbar-search-results" className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-80 overflow-y-auto border border-border bg-background p-1.5" role="listbox" aria-label="Search deals">
+        <div id="topbar-search-results" className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-80 overflow-y-auto border border-border bg-background p-1.5" role="listbox" aria-label={t("searchDeals")}>
           {query.trim().length >= 2 ? (
             <div className="flex flex-wrap gap-1 px-1.5 pb-1.5" aria-label="Filter by deal type">
               {SEARCH_TYPES.map((t) => (
@@ -436,10 +440,10 @@ function InlineSearch({ threads }: { threads: SidebarThread[] }) {
           ) : (
             <p className="px-3 py-4 text-center text-sm text-muted-foreground">
               {searching
-                ? "Searching documents…"
+                ? t("searching")
                 : threads.length === 0
-                  ? "No deals yet — start from Home."
-                  : "No matching deals."}
+                  ? t("noDeals")
+                  : t("noMatches")}
             </p>
           )}
         </div>

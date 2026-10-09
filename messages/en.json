@@ -1,0 +1,36 @@
+{
+  "nav": {
+    "home": "Home",
+    "inbox": "Inbox",
+    "drafts": "Drafts",
+    "signing": "Signing",
+    "tracker": "Tracker",
+    "clauses": "Clauses",
+    "templates": "Templates",
+    "compare": "Compare",
+    "approvals": "Approvals",
+    "reports": "Reports",
+    "lab": "Prompt Lab",
+    "team": "Team",
+    "settings": "Settings",
+    "billing": "Billing",
+    "help": "Get help"
+  },
+  "topbar": {
+    "searchPlaceholder": "Search deals, documents, clauses…",
+    "searchDeals": "Search deals",
+    "noDeals": "No deals yet — start from Home.",
+    "noMatches": "No matching deals.",
+    "searching": "Searching documents…",
+    "newDeal": "New deal",
+    "account": "Account menu",
+    "signOut": "Sign out",
+    "credits": "{count, plural, one {# credit} other {# credits}}"
+  },
+  "settings": {
+    "languageTitle": "Language & region",
+    "interfaceLanguage": "Interface language",
+    "languageNote": "Applies to the app interface. Rules, findings, and approved clauses stay in English.",
+    "languageSaved": "Language preference saved."
+  }
+}

@@ -93,7 +93,11 @@ Not tabs, by design: search (top bar only), Ask interrogation / analysis /
 negotiation (inside-deal tools in the workspace), Settings (personal layer
 only: profile, language, model keys, billing), portals (separate doors for
 outsiders — employees, suppliers, customers enter through scoped invites,
-never the member sidebar).
+never the member sidebar). Language is a profile setting (English default,
+French + German pilot): UI strings render in the profile language with
+English fallback; rules, verdicts, and approved clause language stay
+English until agreement-language lines land. Basis:
+`research/i18n-multilingual/`.
 
 ## Deal Workspace
 

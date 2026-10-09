@@ -1,12 +1,55 @@
 "use server"
 
+import { cookies } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { encryptSecret, validateKeyShape } from "@/lib/models/crypto"
 import { isMissingTableError, listModelKeys, type ModelKeyRow } from "@/lib/models/store"
 import type { ByokProvider } from "@/lib/models/run"
+import { isLocale, LOCALE_COOKIE, type AppLocale } from "@/lib/i18n/locale"
 
 type ActionOk<T> = { ok: true } & T
 type ActionFail = { ok: false; error: string }
+
+/** Profile interface locale (personal layer, like model keys). */
+export async function getLocale(): Promise<ActionOk<{ locale: AppLocale }> | ActionFail> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "You must be signed in." }
+  const { data } = await supabase
+    .from("business_profiles")
+    .select("locale")
+    .eq("user_id", user.id)
+    .maybeSingle()
+  const locale = (data as { locale?: unknown } | null)?.locale
+  return { ok: true, locale: isLocale(locale) ? locale : "en" }
+}
+
+/**
+ * Persists the interface locale to the profile AND the request cookie, so
+ * the choice applies immediately without a login round-trip. Unknown values
+ * fail closed to English rather than storing garbage.
+ */
+export async function saveLocale(input: {
+  locale: string
+}): Promise<ActionOk<{ locale: AppLocale }> | ActionFail> {
+  const locale = isLocale(input.locale) ? input.locale : "en"
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "You must be signed in." }
+  const { error } = await supabase.from("business_profiles").upsert(
+    { user_id: user.id, locale, updated_at: new Date().toISOString() },
+    { onConflict: "user_id" }
+  )
+  if (error) {
+    if (error.message.includes("business_profiles") || error.message.includes("locale")) {
+      return { ok: false, error: "Language preference needs a database update (migration 00121). Please try again after migrating." }
+    }
+    return { ok: false, error: "We couldn't save that preference. Please try again." }
+  }
+  const store = await cookies()
+  store.set(LOCALE_COOKIE, locale, { path: "/", maxAge: 365 * 86_400, sameSite: "lax" })
+  return { ok: true, locale }
+}
 
 const PROVIDERS: ByokProvider[] = ["anthropic", "openai_compatible", "gemini"]
 

@@ -959,6 +959,20 @@ describe("00118 anchors + guest comments (static)", () => {
   })
 })
 
+describe("00121 profile locale (static)", () => {
+  const mig = code(sql("00121_profile_locale.sql"))
+
+  it("constrains the locale to shipped languages", () => {
+    expect(mig).toMatch(/CHECK \(locale IN \('en', 'fr', 'de'\)\)/)
+    expect(mig).toMatch(/DEFAULT 'en'/)
+  })
+
+  it("touches no RLS policies", () => {
+    expect(mig).not.toMatch(/CREATE POLICY/)
+    expect(mig).not.toMatch(/GRANT/)
+  })
+})
+
 describe("00120 saved reports (static)", () => {
   const mig = code(sql("00120_saved_reports.sql"))
 

@@ -1,0 +1,36 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "inbox": "Boîte de réception",
+    "drafts": "Brouillons",
+    "signing": "Signature",
+    "tracker": "Suivi",
+    "clauses": "Clauses",
+    "templates": "Modèles",
+    "compare": "Comparer",
+    "approvals": "Approbations",
+    "reports": "Rapports",
+    "lab": "Labo de prompts",
+    "team": "Équipe",
+    "settings": "Paramètres",
+    "billing": "Facturation",
+    "help": "Aide"
+  },
+  "topbar": {
+    "searchPlaceholder": "Rechercher accords, documents, clauses…",
+    "searchDeals": "Rechercher des accords",
+    "noDeals": "Aucun accord — commencez depuis l'accueil.",
+    "noMatches": "Aucun accord correspondant.",
+    "searching": "Recherche dans les documents…",
+    "newDeal": "Nouvel accord",
+    "account": "Menu du compte",
+    "signOut": "Se déconnecter",
+    "credits": "{count, plural, one {# crédit} other {# crédits}}"
+  },
+  "settings": {
+    "languageTitle": "Langue et région",
+    "interfaceLanguage": "Langue de l'interface",
+    "languageNote": "S'applique à l'interface. Règles, conclusions et clauses approuvées restent en anglais.",
+    "languageSaved": "Préférence de langue enregistrée."
+  }
+}

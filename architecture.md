@@ -90,6 +90,11 @@ stacking under their message.
   search box.
 - **Copy voice**: enterprise-terse. Empty states carry benefit + exactly
   one primary action.
+- **Locales**: cookie-resolved (`dealenz-locale`, else profile, else
+  English) via next-intl, no URL routing; missing keys fall back to
+  English and log. Clause variant keys gain language in the agreement
+  phase; AI takes a per-call response language while rules and verdicts
+  stay English. Basis: `research/i18n-multilingual/`.
 
 ## Data Model
 

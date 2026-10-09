@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { addKey, listKeys, revokeKey, rotateKey } from "@/app/(app)/settings/actions"
+import { addKey, getLocale, listKeys, revokeKey, rotateKey, saveLocale } from "@/app/(app)/settings/actions"
 import type { ModelKeyRow } from "@/lib/models/store"
+import { LOCALES, isLocale, localeLabel, type AppLocale } from "@/lib/i18n/locale"
+import { useToast } from "@/components/ui/toast"
 
 const SECTIONS = ["Profile", "Language", "Models", "Billing", "Notifications"] as const
 type Section = (typeof SECTIONS)[number]
@@ -64,20 +66,7 @@ export function SettingsView({ email }: { email: string }) {
           )}
 
           {section === "Language" && (
-            <section aria-label="Language">
-              <h2 className="text-sm font-semibold">Language & region</h2>
-              <dl className="mt-3 space-y-3">
-                <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Interface language</dt>
-                  <dd className="mt-0.5 text-sm">English</dd>
-                </div>
-                <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Region & timezone</dt>
-                  <dd className="mt-0.5 text-sm text-muted-foreground">—</dd>
-                </div>
-              </dl>
-              <p className="mt-4 text-[11px] text-muted-foreground">Language preference is display-only; compliance locale stays separate.</p>
-            </section>
+            <LanguageSection />
           )}
 
           {section === "Models" && (
@@ -99,6 +88,80 @@ export function SettingsView({ email }: { email: string }) {
         <p className="mt-1 text-xs text-muted-foreground">Cancel subscription and delete workspace live here alone — each with intent-proving confirmation. Nothing destructive exists anywhere else in Settings.</p>
       </section>
     </div>
+  )
+}
+
+function LanguageSection() {
+  const { showError, showSuccess } = useToast()
+  const [locale, setLocale] = useState<AppLocale | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    getLocale()
+      .then((res) => {
+        if (!live) return
+        if (res.ok) setLocale(res.locale)
+        else setLocale("en")
+      })
+      .catch(() => {
+        if (!live) return
+        setLocale("en")
+      })
+    return () => {
+      live = false
+    }
+  }, [])
+
+  async function pick(next: string) {
+    if (!isLocale(next) || saving) return
+    setSaving(true)
+    try {
+      const res = await saveLocale({ locale: next })
+      if (!res.ok) throw new Error(res.error)
+      setLocale(res.locale)
+      showSuccess("Language preference saved — reloading in the new language.")
+      setTimeout(() => window.location.reload(), 600)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Preference not saved.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section aria-label="Language">
+      <h2 className="text-sm font-semibold">Language & region</h2>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        Applies to the app interface. Rules, findings, and approved clauses stay in English.
+      </p>
+      {locale === null ? (
+        <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading preference…
+        </p>
+      ) : (
+        <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Interface language">
+          {LOCALES.map((l) => (
+            <button
+              key={l}
+              type="button"
+              aria-pressed={locale === l}
+              onClick={() => void pick(l)}
+              disabled={saving}
+              className={cn(
+                "border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50",
+                locale === l
+                  ? "border-foreground bg-muted font-semibold text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {localeLabel(l)}
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="mt-4 text-[11px] text-muted-foreground">Compliance locale stays separate.</p>
+    </section>
   )
 }
 

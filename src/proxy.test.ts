@@ -19,11 +19,12 @@ import type { NextRequest } from "next/server"
 import { proxy } from "./proxy"
 import { logEventWithClient } from "@/lib/logger"
 
-function mockRequest(url: string) {
+function mockRequest(url: string, acceptLanguage: string | null = null) {
   const u = new URL(url)
   return {
     nextUrl: { href: u.href, pathname: u.pathname, origin: u.origin, clone: () => new URL(u.href) },
-    cookies: { getAll: () => [], set: vi.fn(), get: vi.fn() },
+    cookies: { getAll: () => [], set: vi.fn(), get: vi.fn(() => undefined) },
+    headers: new Headers(acceptLanguage ? { "accept-language": acceptLanguage } : {}),
   } as unknown as NextRequest
 }
 
@@ -100,6 +101,26 @@ describe("proxy middleware — auth redirects", () => {
         error_message: "Token expired",
       })
     )
+  })
+
+  it("seeds the locale cookie from Accept-Language on first visit", async () => {
+    mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null })
+    mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: null })
+
+    const res = await proxy(mockRequest("http://localhost:3000/", "fr-FR,fr;q=0.9"))
+    expect(res.status).toBe(200)
+    expect(res.cookies.get("dealenz-locale")?.value).toBe("fr")
+  })
+
+  it("leaves a valid locale cookie untouched", async () => {
+    mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null })
+    mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: null })
+
+    const req = mockRequest("http://localhost:3000/", "fr-FR,fr;q=0.9")
+    ;(req.cookies.get as ReturnType<typeof vi.fn>).mockReturnValue({ value: "de" })
+    const res = await proxy(req)
+    expect(res.status).toBe(200)
+    expect(res.cookies.get("dealenz-locale")).toBeUndefined()
   })
 
   it("logs redirect for authenticated user", async () => {

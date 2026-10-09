@@ -1,0 +1,36 @@
+{
+  "nav": {
+    "home": "Start",
+    "inbox": "Posteingang",
+    "drafts": "Entwürfe",
+    "signing": "Signatur",
+    "tracker": "Verfolgung",
+    "clauses": "Klauseln",
+    "templates": "Vorlagen",
+    "compare": "Vergleichen",
+    "approvals": "Freigaben",
+    "reports": "Berichte",
+    "lab": "Prompt-Labor",
+    "team": "Team",
+    "settings": "Einstellungen",
+    "billing": "Abrechnung",
+    "help": "Hilfe"
+  },
+  "topbar": {
+    "searchPlaceholder": "Deals, Dokumente, Klauseln suchen…",
+    "searchDeals": "Deals suchen",
+    "noDeals": "Noch keine Deals – starten Sie von der Übersicht.",
+    "noMatches": "Keine passenden Deals.",
+    "searching": "Dokumente werden durchsucht…",
+    "newDeal": "Neuer Deal",
+    "account": "Kontomenü",
+    "signOut": "Abmelden",
+    "credits": "{count, plural, one {# Credit} other {# Credits}}"
+  },
+  "settings": {
+    "languageTitle": "Sprache und Region",
+    "interfaceLanguage": "Oberflächensprache",
+    "languageNote": "Gilt für die Oberfläche. Regeln, Befunde und freigegebene Klauseln bleiben auf Englisch.",
+    "languageSaved": "Spracheinstellung gespeichert."
+  }
+}

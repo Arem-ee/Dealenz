@@ -2,6 +2,22 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { logEventWithClient } from "@/lib/logger"
 import { supabasePublicConfig } from "@/lib/config"
+import { LOCALE_COOKIE, isLocale, negotiateLocale } from "@/lib/i18n/locale"
+
+// First-visit locale seeding (browser → cookie). Explicit choices win by
+// construction: this only fires when the cookie is absent or invalid, so
+// Settings and login always override it. Applied to every response,
+// including redirects, so the landing reads correctly on arrival.
+function seedLocaleCookie(request: NextRequest, response: NextResponse): NextResponse {
+  const current = request.cookies.get(LOCALE_COOKIE)?.value
+  if (isLocale(current)) return response
+  response.cookies.set(LOCALE_COOKIE, negotiateLocale(request.headers.get("accept-language")), {
+    path: "/",
+    maxAge: 365 * 86_400,
+    sameSite: "lax",
+  })
+  return response
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -60,7 +76,7 @@ export async function proxy(request: NextRequest) {
       status: "success",
       error_message: "Authenticated user redirected to /",
     })
-    return NextResponse.redirect(url)
+    return seedLocaleCookie(request, NextResponse.redirect(url))
   }
 
   // App routes return tab by tab with the rebuild; each guarded prefix is
@@ -73,10 +89,10 @@ export async function proxy(request: NextRequest) {
       status: "success",
       error_message: "Unauthenticated user redirected to /login",
     })
-    return NextResponse.redirect(url)
+    return seedLocaleCookie(request, NextResponse.redirect(url))
   }
 
-  return supabaseResponse
+  return seedLocaleCookie(request, supabaseResponse)
 }
 
 export const config = {

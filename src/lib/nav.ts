@@ -1,8 +1,14 @@
 import type { ComponentType } from "react"
 import { BarChart3, CalendarClock, ClipboardCheck, Columns2, FilePlus2, FileText, FlaskConical, Inbox, LayoutDashboard, PenLine, ScrollText, Settings as SettingsIcon, ReceiptText, LifeBuoy, Users } from "lucide-react"
 
+export type NavMessageKey =
+  | "home" | "inbox" | "drafts" | "signing" | "tracker" | "clauses"
+  | "templates" | "compare" | "approvals" | "reports" | "lab" | "team"
+  | "settings" | "billing" | "help"
+
 export interface NavEntry {
   label: string
+  i18nKey: NavMessageKey
   href: string
   icon: ComponentType<{ className?: string }>
 }
@@ -15,18 +21,18 @@ export interface NavEntry {
  * The account menu lives solely in the top bar.
  */
 export const PRIMARY_NAV: NavEntry[] = [
-  { label: "Home", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Inbox", href: "/inbox", icon: Inbox },
-  { label: "Drafts", href: "/drafts", icon: FileText },
-  { label: "Signing", href: "/signing", icon: PenLine },
-  { label: "Tracker", href: "/tracker", icon: CalendarClock },
-  { label: "Clauses", href: "/clauses", icon: ScrollText },
-  { label: "Templates", href: "/templates", icon: FilePlus2 },
-  { label: "Compare", href: "/compare", icon: Columns2 },
-  { label: "Approvals", href: "/approvals", icon: ClipboardCheck },
-  { label: "Reports", href: "/reports", icon: BarChart3 },
-  { label: "Prompt Lab", href: "/lab", icon: FlaskConical },
-  { label: "Team", href: "/team", icon: Users },
+  { label: "Home", i18nKey: "home", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Inbox", i18nKey: "inbox", href: "/inbox", icon: Inbox },
+  { label: "Drafts", i18nKey: "drafts", href: "/drafts", icon: FileText },
+  { label: "Signing", i18nKey: "signing", href: "/signing", icon: PenLine },
+  { label: "Tracker", i18nKey: "tracker", href: "/tracker", icon: CalendarClock },
+  { label: "Clauses", i18nKey: "clauses", href: "/clauses", icon: ScrollText },
+  { label: "Templates", i18nKey: "templates", href: "/templates", icon: FilePlus2 },
+  { label: "Compare", i18nKey: "compare", href: "/compare", icon: Columns2 },
+  { label: "Approvals", i18nKey: "approvals", href: "/approvals", icon: ClipboardCheck },
+  { label: "Reports", i18nKey: "reports", href: "/reports", icon: BarChart3 },
+  { label: "Prompt Lab", i18nKey: "lab", href: "/lab", icon: FlaskConical },
+  { label: "Team", i18nKey: "team", href: "/team", icon: Users },
 ]
 
 export const SECONDARY_NAV: NavEntry[] = []
@@ -34,13 +40,13 @@ export const SECONDARY_NAV: NavEntry[] = []
 // Account-level entry, pinned to the sidebar bottom below a divider —
 // never counted among the workflow tabs.
 export const SETTINGS_NAV: NavEntry[] = [
-  { label: "Settings", href: "/settings", icon: SettingsIcon },
+  { label: "Settings", i18nKey: "settings", href: "/settings", icon: SettingsIcon },
 ]
 
 export const ACCOUNT_NAV: NavEntry[] = [
-  { label: "Settings", href: "/settings", icon: SettingsIcon },
-  { label: "Billing", href: "/billing", icon: ReceiptText },
-  { label: "Get help", href: "/help", icon: LifeBuoy },
+  { label: "Settings", i18nKey: "settings", href: "/settings", icon: SettingsIcon },
+  { label: "Billing", i18nKey: "billing", href: "/billing", icon: ReceiptText },
+  { label: "Get help", i18nKey: "help", href: "/help", icon: LifeBuoy },
 ]
 
 /** True when the pathname belongs to the entry (covers nested routes). */

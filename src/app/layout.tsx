@@ -1,7 +1,9 @@
 import type { Metadata } from "next"
 import "./globals.css"
+import { getLocale, getMessages } from "next-intl/server"
 import { ToastProvider } from "@/components/ui/toast"
 import { ThemeProvider, THEME_BOOTSTRAP_SCRIPT } from "@/components/theme-provider"
+import { I18nProvider } from "@/components/i18n-provider"
 
 export const metadata: Metadata = {
   title: {
@@ -23,19 +25,25 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const locale = await getLocale()
+  const messages = await getMessages()
   return (
-    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+    <html lang={locale} className="h-full antialiased" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
       </head>
       <body className="min-h-full">
         <ThemeProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <ToastProvider>
+            <I18nProvider locale={locale} messages={messages}>
+              {children}
+            </I18nProvider>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>
