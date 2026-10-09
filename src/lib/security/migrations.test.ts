@@ -959,6 +959,21 @@ describe("00118 anchors + guest comments (static)", () => {
   })
 })
 
+describe("00120 saved reports (static)", () => {
+  const mig = code(sql("00120_saved_reports.sql"))
+
+  it("keeps reports owner-scoped with bounded names", () => {
+    expect(mig).toMatch(/REFERENCES auth\.users\(id\) ON DELETE CASCADE/)
+    expect(mig).toMatch(/char_length\(name\) BETWEEN 1 AND 80/)
+    expect(mig).toMatch(/USING \(auth\.uid\(\) = user_id\)/)
+  })
+
+  it("stores parameters only, never SQL", () => {
+    expect(mig).toMatch(/params JSONB NOT NULL DEFAULT '\{\}'/)
+    expect(mig).not.toMatch(/query_text|sql_text|raw_sql/i)
+  })
+})
+
 describe("00119 guest commenter scope (static)", () => {
   const mig = code(sql("00119_guest_commenter_scope.sql"))
 

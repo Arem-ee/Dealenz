@@ -265,6 +265,13 @@ what). No silent fallbacks: degraded output is labeled degraded in the
 UI, not just logged. Error tracking + uptime monitoring + provider-failure
 alerting land before the first paying workspace.
 
+Custom metrics run from a server-declared catalog (dimensions/measures as
+code — users compose, never write SQL) through the authenticated client,
+so table RLS scopes static and custom runs identically. Row cap 500,
+bounded date ranges, no service-role analytics reads. Saved reports are
+owner-scoped (`saved_reports`); sharing follows later. Basis:
+`research/custom-analytics/`.
+
 ## Build Method (Binding)
 
 Foregrounds first (structure, spacing, states, empty states — never fake

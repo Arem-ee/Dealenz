@@ -80,7 +80,11 @@ The product is twelve tabs, built foreground-first, functions second:
 9. **Approvals** — the decision queue. Nothing consequential runs without a
    human call; every decision logged. Works solo (self-approval); delegation
    arrives with the Team tab.
-10. **Reports** — charts, reports, custom analytics over deals and obligations.
+10. **Reports** — fixed aggregates plus composed metrics from an exposed
+    catalog (filters, groupings, saved/rerunnable, CSV), including
+    acceptance analytics: which fallback rung closes, which clauses get
+    pushed back, where ladders exhaust. Basis:
+    `research/custom-analytics/`.
 11. **Prompt Lab** — saved, versioned, testable prompts with run history.
 12. **Team** — members, groups, roles. The only teams surface — team
     management never hides inside Settings.
