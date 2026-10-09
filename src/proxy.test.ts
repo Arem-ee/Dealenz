@@ -112,6 +112,18 @@ describe("proxy middleware — auth redirects", () => {
     expect(res.cookies.get("dealenz-locale")?.value).toBe("fr")
   })
 
+  it("seeds the cookie on authenticated responses too", async () => {
+    mockAuth.getSession.mockResolvedValue({ data: { session: { user: { id: "u1" } } }, error: null })
+    mockAuth.getUser.mockResolvedValue({ data: { user: { id: "u1", email: "a@b.com" } }, error: null })
+
+    const res = await proxy(mockRequest("http://localhost:3000/dashboard", "de-DE,de;q=0.9"))
+
+    expect(res.status).toBe(200)
+    // Profile lookup fails against the mock client, so the browser
+    // negotiation stands in — the guarantee is a valid cookie, always.
+    expect(res.cookies.get("dealenz-locale")?.value).toBe("de")
+  })
+
   it("leaves a valid locale cookie untouched", async () => {
     mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null })
     mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: null })

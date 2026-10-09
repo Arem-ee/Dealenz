@@ -4,14 +4,39 @@ import { logEventWithClient } from "@/lib/logger"
 import { supabasePublicConfig } from "@/lib/config"
 import { LOCALE_COOKIE, isLocale, negotiateLocale } from "@/lib/i18n/locale"
 
-// First-visit locale seeding (browser → cookie). Explicit choices win by
-// construction: this only fires when the cookie is absent or invalid, so
-// Settings and login always override it. Applied to every response,
-// including redirects, so the landing reads correctly on arrival.
-function seedLocaleCookie(request: NextRequest, response: NextResponse): NextResponse {
+// First-visit locale seeding. Explicit choices win by construction: this
+// only fires when the cookie is absent or invalid, so Settings always
+// overrides it. Signed-in users reseed from the profile (one read, only
+// when the cookie is missing) so a new device picks up their language;
+// everyone else negotiates from Accept-Language. Applied to every
+// response, including redirects. Best-effort — never breaks auth flow.
+async function seedLocaleCookie(
+  request: NextRequest,
+  response: NextResponse,
+  userId: string | null
+): Promise<NextResponse> {
   const current = request.cookies.get(LOCALE_COOKIE)?.value
   if (isLocale(current)) return response
-  response.cookies.set(LOCALE_COOKIE, negotiateLocale(request.headers.get("accept-language")), {
+  let locale = negotiateLocale(request.headers.get("accept-language"))
+  if (userId) {
+    try {
+      const { url, anonKey } = supabasePublicConfig()
+      const { createServerClient: createClient } = await import("@supabase/ssr")
+      const supabase = createClient(url, anonKey, {
+        cookies: { getAll: () => request.cookies.getAll(), setAll: () => undefined },
+      })
+      const { data } = await supabase
+        .from("business_profiles")
+        .select("locale")
+        .eq("user_id", userId)
+        .maybeSingle()
+      const stored = (data as { locale?: unknown } | null)?.locale
+      if (isLocale(stored)) locale = stored
+    } catch {
+      // Browser-negotiated locale stands.
+    }
+  }
+  response.cookies.set(LOCALE_COOKIE, locale, {
     path: "/",
     maxAge: 365 * 86_400,
     sameSite: "lax",
@@ -42,7 +67,7 @@ export async function proxy(request: NextRequest) {
     },
   })
 
-  let user = null
+  let user: { id: string } | null = null
   try {
     await supabase.auth.getSession()
   } catch (error) {
@@ -76,7 +101,7 @@ export async function proxy(request: NextRequest) {
       status: "success",
       error_message: "Authenticated user redirected to /",
     })
-    return seedLocaleCookie(request, NextResponse.redirect(url))
+    return seedLocaleCookie(request, NextResponse.redirect(url), user ? user.id : null)
   }
 
   // App routes return tab by tab with the rebuild; each guarded prefix is
@@ -89,10 +114,10 @@ export async function proxy(request: NextRequest) {
       status: "success",
       error_message: "Unauthenticated user redirected to /login",
     })
-    return seedLocaleCookie(request, NextResponse.redirect(url))
+    return seedLocaleCookie(request, NextResponse.redirect(url), null)
   }
 
-  return seedLocaleCookie(request, supabaseResponse)
+  return seedLocaleCookie(request, supabaseResponse, user ? user.id : null)
 }
 
 export const config = {

@@ -768,6 +768,21 @@ export async function askQuestion(input: { threadId: string; text: string; model
     await touchKeyUsed(supabase as never, userId, byok.keyId, error)
   }
 
+  // Response language (i18n D4): the profile locale steers prose only —
+  // findings, rules, and verdicts stay English. Best-effort, English gap.
+  let langInstruction = ""
+  try {
+    const { data: profile } = await supabase
+      .from("business_profiles")
+      .select("locale")
+      .eq("user_id", userId)
+      .maybeSingle()
+    const { responseLanguageInstruction } = await import("@/lib/ai/language")
+    langInstruction = responseLanguageInstruction((profile as { locale?: unknown } | null)?.locale)
+  } catch {
+    langInstruction = ""
+  }
+
   const attempt = async (correction?: string) => {
     const { systemPrompt, userContent } = buildAskPrompt({
       question: correction ? `${question}\n\nCorrection to apply: ${correction}` : question,
@@ -777,6 +792,7 @@ export async function askQuestion(input: { threadId: string; text: string; model
       history,
       standing: standingBlock,
     })
+    const localizedSystem = `${systemPrompt}${langInstruction}`
     if (byok) {
       const { runWithUserKey } = await import("@/lib/models/run")
       const res = await runWithUserKey({
@@ -784,7 +800,7 @@ export async function askQuestion(input: { threadId: string; text: string; model
         apiKey: byok.apiKey,
         model: byok.model,
         baseUrl: byok.baseUrl,
-        systemPrompt,
+        systemPrompt: localizedSystem,
         userContent: userContent.slice(0, ASK_MATERIAL_CHARS + ASK_PROMPT_CHARS),
         temperature: 0.2,
         maxTokens: 1200,
@@ -792,7 +808,7 @@ export async function askQuestion(input: { threadId: string; text: string; model
       return { text: res.text, model: `${res.provider}/${res.model} (your key)`, provider: res.provider, usage: res.usage }
     }
     const res = await callAIForSurface("authenticated", {
-      systemPrompt,
+      systemPrompt: localizedSystem,
       userContent: userContent.slice(0, ASK_MATERIAL_CHARS + ASK_PROMPT_CHARS),
       temperature: 0.2,
       maxTokens: 1200,

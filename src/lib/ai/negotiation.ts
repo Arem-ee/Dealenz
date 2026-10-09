@@ -15,11 +15,16 @@ export async function generateNegotiationPoints(
   // the model explains and prioritizes them but never re-decides their
   // status (see detectFindingConflicts in src/lib/rules/result.ts).
   findings: Finding[] = [],
-  onUsage?: UsageReporter
+  onUsage?: UsageReporter,
+  // Response language (i18n D4): prose only, findings stay English.
+  language?: string
 ): Promise<string[]> {
   const input = JSON.stringify({ extractedData: data, riskFindings: report.categories, summary: report.summary, recommendations: report.recommendations, deterministicFindings: findings.map((f) => ({ ruleKey: f.ruleKey, status: "FAIL", summary: f.summary, severity: f.severity })) }, null, 2)
   // Talking points are user-facing prose, so the response contract applies.
-  const systemPrompt = applyConstitution(GENERIC_NEGOTIATION_POINTS_SYSTEM_PROMPT, "negotiation")
+  const { responseLanguageInstruction } = await import("./language")
+  const systemPrompt =
+    applyConstitution(GENERIC_NEGOTIATION_POINTS_SYSTEM_PROMPT, "negotiation") +
+    responseLanguageInstruction(language)
   const { text: raw, meta } = await callAISurface(surface, { systemPrompt, userContent: input, temperature: 0.4, maxTokens: maxTokensForOperation("negotiation") })
   onUsage?.({
     provider: meta.primary.provider,
@@ -48,14 +53,18 @@ export async function draftCounterLanguage(
     rungBody: string
     rung: number
     condition: string
+    /** Response language (i18n D4): prose only, obligations untouched. */
+    language?: string
   },
   surface: AISurface = "authenticated",
   onUsage?: UsageReporter
 ): Promise<{ text: string; usage?: TokenUsage }> {
-  const systemPrompt = applyConstitution(
-    `You restate approved fallback contract language against counterparty wording. Rules: output ONLY the revised clause text, no preamble, no explanation. Hold the fallback's legal meaning exactly — change wording, never obligations, caps, time periods, or parties. Stay within the rung; do not invent new concessions. If the counterparty text already matches the fallback, return the fallback verbatim.`,
-    "negotiation"
-  )
+  const { responseLanguageInstruction } = await import("./language")
+  const systemPrompt =
+    applyConstitution(
+      `You restate approved fallback contract language against counterparty wording. Rules: output ONLY the revised clause text, no preamble, no explanation. Hold the fallback's legal meaning exactly — change wording, never obligations, caps, time periods, or parties. Stay within the rung; do not invent new concessions. If the counterparty text already matches the fallback, return the fallback verbatim.`,
+      "negotiation"
+    ) + responseLanguageInstruction(input.language)
   const userContent = JSON.stringify({
     clause: input.clauseTitle,
     fallbackRung: input.rung,

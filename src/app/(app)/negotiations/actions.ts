@@ -50,12 +50,19 @@ interface LadderSlot {
   version: number
   condition: string
   insertOnMissing: boolean
+  /** Language the body resolved in — English fallback labeled, never silent. */
+  bodyLanguage: string
 }
 
-/** Paired ladder per clause, bodies at latest usable versions. */
+/**
+ * Paired ladder per clause, bodies at latest usable versions. When a
+ * response language is requested, rung bodies resolve in that language
+ * with English fallback per clause (D4 + agreement-language D3).
+ */
 async function laddersForAudit(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string
+  userId: string,
+  language?: string
 ): Promise<Map<string, { links: LadderSlot[] }>> {
   const { data: linkRows } = await supabase
     .from("position_clause_links")
@@ -64,20 +71,24 @@ async function laddersForAudit(
     .limit(500)
   const { data: libRows } = await supabase
     .from("library_clauses")
-    .select("key, variant, version, body, status")
+    .select("key, variant, version, body, status, language")
     .eq("user_id", userId)
     .limit(500)
-  const heads = new Map<string, { body: string; version: number }>()
+  const wantLang = language === "fr" || language === "de" ? language : "en"
+  const heads = new Map<string, { body: string; version: number; language: string }>()
   for (const r of ((libRows ?? []) as Array<{
-    key: string; variant: unknown; version: number; body: string; status: unknown
+    key: string; variant: unknown; version: number; body: string; status: unknown; language: unknown
   }>)) {
     if (!isLibraryVariant(r.variant)) continue
     if (r.status !== "active" && r.status !== "deprecated") continue
     if (typeof r.body !== "string" || typeof r.version !== "number") continue
-    const slot = `${r.key}:${r.variant}`
+    const lang = r.language === "fr" || r.language === "de" ? (r.language as string) : "en"
+    const slot = `${r.key}:${r.variant}:${lang}`
     const cur = heads.get(slot)
-    if (!cur || r.version > cur.version) heads.set(slot, { body: r.body, version: r.version })
+    if (!cur || r.version > cur.version) heads.set(slot, { body: r.body, version: r.version, language: lang })
   }
+  const headFor = (key: string, variant: string) =>
+    heads.get(`${key}:${variant}:${wantLang}`) ?? heads.get(`${key}:${variant}:en`) ?? null
   // Links address standard keys; tracked clause ids are template ids.
   const byClause = new Map<string, { links: LadderSlot[] }>()
   for (const l of ((linkRows ?? []) as Array<{
@@ -85,7 +96,7 @@ async function laddersForAudit(
     insert_on_missing: boolean
   }>)) {
     if (!isLibraryVariant(l.variant)) continue
-    const head = heads.get(`${l.library_key}:${l.variant}`)
+    const head = headFor(l.library_key, l.variant)
     if (!head) continue
     const clauseId = l.library_key.startsWith("std:") ? l.library_key.slice(4) : null
     if (!clauseId) continue
@@ -97,6 +108,7 @@ async function laddersForAudit(
       version: head.version,
       condition: l.condition_text ?? "",
       insertOnMissing: l.insert_on_missing === true,
+      bodyLanguage: head.language,
     })
     byClause.set(clauseId, entry)
   }
@@ -190,7 +202,21 @@ export async function startRound(input: {
     grantId = (grant as { id: string }).id
   }
 
-  const ladders = await laddersForAudit(supabase, user.id)
+  // Response language (i18n D4): profile locale steers rung bodies and
+  // counter-language prose; ladder logic and verdicts stay language-free.
+  let responseLanguage = "en"
+  try {
+    const { data: profile } = await supabase
+      .from("business_profiles")
+      .select("locale")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    const stored = (profile as { locale?: unknown } | null)?.locale
+    if (stored === "fr" || stored === "de") responseLanguage = stored
+  } catch {
+    responseLanguage = "en"
+  }
+  const ladders = await laddersForAudit(supabase, user.id, responseLanguage)
 
   // Base version for recorded spans: explicit base or the latest version.
   let spanVersion: { id: string; content: string | null } | null = null
@@ -399,7 +425,7 @@ export async function startRound(input: {
       const offered = await offeredRungs(supabase, user.id, input.auditId, clauseId)
       const evaluated = evaluateClauseRound({
         clauseId,
-        currentText: c.mode === "missing" ? null : (c.counterText ?? ""),
+        currentText: c.mode === "missing" ? null : currentText,
         preferredBody: preferred?.body ?? "",
         preferredVersion: preferred?.version ?? 0,
         fallbacks: fallbacks.map(({ rung, variant, body }) => ({ rung, variant, body })),
@@ -408,6 +434,7 @@ export async function startRound(input: {
         insertOnMissing: ladder.links.some((l) => l.variant === "preferred" && l.insertOnMissing),
         stance,
       })
+      evaluated.reasoning = `${provenance}${evaluated.reasoning}`.slice(0, 1000)
       let counterText = (c.counterText ?? "").slice(0, 4000)
       if (evaluated.outcome === "fallback" && evaluated.offeredBody) {
         try {
@@ -418,6 +445,7 @@ export async function startRound(input: {
             rungBody: evaluated.offeredBody,
             rung: evaluated.rung ?? 0,
             condition: rungLink?.condition ?? "",
+            language: responseLanguage,
           })
           counterText = drafted.text
           if (drafted.usage) {
