@@ -62,13 +62,18 @@ until approved. Approval amends the docs first, then code follows.
   locale driving both UI and document defaults. RTL out of scope until a
   right-to-left buyer exists (font + layout cost unjustified before that).
 
-## D6. Deferred
+## D6. Per-language search (APPROVED — building)
 
-- Per-language search configs (german/french stemmers on new tsvector
-  columns once non-English corpora exist); cross-language search;
-  localized rule text (rules stay English, per Icertis); CJK/Arabic fonts;
-  SEO hreflang (no public localized pages); extraction-quality-per-language
-  benchmarking (ongoing, not a milestone).
+- Design (Postgres built-ins: Snowball stemmers per language, GIN per
+  column): stored `content_tsv_fr` / `content_tsv_de` (+ quote variants)
+  beside the English columns — one table rewrite each, explicit and
+  planner-friendly over concatenated-vector or config-function tricks.
+- One call, two recalls: the query runs in the user's config against
+  same-language columns **and** in English against English columns, so a
+  French user still finds English deals (no recall cliff). Full
+  cross-language semantic search stays deferred; recall never breaks.
+- Remaining deferred: localized rule text (rules stay English, per
+  Icertis); CJK/Arabic fonts; SEO hreflang; extraction benchmarking.
 
 ## Doc amendments on approval
 

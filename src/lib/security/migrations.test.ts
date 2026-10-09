@@ -959,6 +959,28 @@ describe("00118 anchors + guest comments (static)", () => {
   })
 })
 
+describe("00123 search locales (static)", () => {
+  const mig = code(sql("00123_search_locales.sql"))
+
+  it("adds per-language tsvector columns with GIN", () => {
+    expect(mig).toMatch(/content_tsv_fr tsvector/)
+    expect(mig).toMatch(/to_tsvector\('french'/)
+    expect(mig).toMatch(/to_tsvector\('german'/)
+    expect(mig).toMatch(/USING gin \(content_tsv_fr\)/)
+  })
+
+  it("replaces the RPC with a language-aware signature and explicit grants", () => {
+    expect(mig).toMatch(/DROP FUNCTION IF EXISTS search_deals\(TEXT, TEXT\[\], INT\)/)
+    expect(mig).toMatch(/p_language TEXT DEFAULT 'english'/)
+    expect(mig).toMatch(/GRANT EXECUTE ON FUNCTION search_deals\(TEXT, TEXT\[\], INT, TEXT\) TO anon, authenticated/)
+  })
+
+  it("keeps join-only visibility with no RLS changes", () => {
+    expect(mig).toMatch(/JOIN audits a ON a\.id = v\.audit_id/)
+    expect(mig).not.toMatch(/SECURITY DEFINER/)
+  })
+})
+
 describe("00122 clause language (static)", () => {
   const mig = code(sql("00122_clause_language.sql"))
 

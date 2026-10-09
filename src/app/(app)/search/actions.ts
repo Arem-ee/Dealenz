@@ -33,10 +33,27 @@ export async function searchContent(input: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "You must be signed in." }
   const dealTypes = normalizeRuleDealTypes(input.dealTypes).filter((t) => t !== "generic")
+  // Query language follows the profile locale (best-effort, English gap):
+  // french/german stemming on same-language columns, English columns
+  // always matched too, so recall never cliffs across languages.
+  let language = "english"
+  try {
+    const { data: profile } = await supabase
+      .from("business_profiles")
+      .select("locale")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    const stored = (profile as { locale?: unknown } | null)?.locale
+    if (stored === "fr") language = "french"
+    else if (stored === "de") language = "german"
+  } catch {
+    language = "english"
+  }
   const { data, error } = await supabase.rpc("search_deals", {
     p_query: query,
     p_deal_types: dealTypes.length > 0 ? dealTypes : null,
     p_limit: 20,
+    p_language: language,
   })
   if (error) {
     if (error.message.includes("search_deals") || error.message.includes("content_tsv")) {
