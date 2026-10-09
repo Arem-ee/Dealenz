@@ -13,12 +13,13 @@ export async function GET(req: NextRequest) {
   if (!state) return NextResponse.json({ error: "Missing state" }, { status: 400 })
 
   try {
-    const { verifyGmailOAuthState } = await import("@/lib/gmail/oauth-state")
+    const { verifyGmailOAuthState, consumeGmailOAuthNonce } = await import("@/lib/gmail/oauth-state")
     const checked = verifyGmailOAuthState(state, user.id)
     // A missing GMAIL_OAUTH_STATE_SECRET fails closed as "Invalid state"
     // (indistinguishable from tampering); never leak which case occurred.
     if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 })
-    // single-use could be enforced via storing nonce in gmail_oauth_states, but expiry + HMAC suffices for CSRF
+    const consumed = await consumeGmailOAuthNonce(supabase, state, user.id)
+    if (!consumed.ok) return NextResponse.json({ error: consumed.error }, { status: 400 })
   } catch {
     return NextResponse.json({ error: "Invalid state" }, { status: 400 })
   }

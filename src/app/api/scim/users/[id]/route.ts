@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { isScimAuthorized, parseScimActive } from "@/lib/scim/scim"
+import { checkAnonymousRateLimit, getTrustedClientIp, type AnonRateLimitClient } from "@/lib/rate-limit-anon"
 
 export const dynamic = "force-dynamic"
 
@@ -18,10 +19,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return NextResponse.json({ error: "Service not configured" }, { status: 500 })
   const svc = createClient(url, key)
+  const quota = await checkAnonymousRateLimit(svc as unknown as AnonRateLimitClient, `scim:${getTrustedClientIp(req.headers)}`, 60, 3600)
+  if (!quota.allowed) return NextResponse.json({ error: "Rate limited" }, { status: 429 })
   const { data, error } = await svc.auth.admin.updateUserById(id, {
     ban_duration: parsed.active ? "none" : "876000h",
   })
   if (error || !data.user) return NextResponse.json({ error: "User not found." }, { status: 404 })
+  try {
+    await svc.from("activity_events").insert({
+      type: parsed.active ? "scim_user_reactivated" : "scim_user_suspended",
+      details: { user_id: id, active: parsed.active },
+    })
+  } catch {
+    // Audit best-effort.
+  }
   return NextResponse.json({ id: data.user.id, userName: data.user.email ?? "", active: parsed.active })
 }
 

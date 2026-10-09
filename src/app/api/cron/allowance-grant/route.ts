@@ -1,25 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { cronQuota, isCronAuthorized, logCronDenied } from "@/lib/cron/guard"
 
 // Allowance rollover pass: subscriptions past period end get the unspent
 // slice of the closing grant clawed back (packs untouched), the new
 // period granted, and the window advanced. Idempotent per period via
 // ledger idempotency keys. Same auth contract as sibling crons
-// (CRON_SECRET bearer; open in development when unset).
+// (CRON_SECRET bearer; fail-closed unless explicit local opt-in).
 
 export const dynamic = "force-dynamic"
 
 const BATCH = 200
 
-function isAuthorized(req: NextRequest): boolean {
-  const cronSecret = process.env.CRON_SECRET
-  const auth = req.headers.get("authorization")
-  if (!cronSecret) return process.env.NODE_ENV !== "production"
-  return auth === `Bearer ${cronSecret}`
-}
-
 export async function GET(req: NextRequest) {
-  if (!isAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await cronQuota(req))) return NextResponse.json({ error: "Rate limited" }, { status: 429 })
+  if (!isCronAuthorized(req)) {
+    await logCronDenied("allowance-grant")
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY

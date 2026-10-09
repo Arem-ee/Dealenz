@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 import { extractTextFromBuffer, MAX_TOTAL_UPLOAD_BYTES } from "./text-extract"
 
 describe("extractTextFromBuffer security boundaries", () => {
@@ -29,5 +29,16 @@ describe("extractTextFromBuffer security boundaries", () => {
   it("aggregate upload cap is sane (below 10 files x 10MB)", () => {
     expect(MAX_TOTAL_UPLOAD_BYTES).toBeLessThan(10 * 10 * 1024 * 1024)
     expect(MAX_TOTAL_UPLOAD_BYTES).toBeGreaterThan(10 * 1024 * 1024)
+  })
+
+  it("performs no network calls on any extraction branch", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network disabled in test"))
+    try {
+      await extractTextFromBuffer(Buffer.from("hello deal offline", "utf-8"), "text/plain")
+      await expect(extractTextFromBuffer(Buffer.alloc(64, 0), "text/plain")).rejects.toThrow()
+    } finally {
+      spy.mockRestore()
+    }
+    expect(spy).not.toHaveBeenCalled()
   })
 })

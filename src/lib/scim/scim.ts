@@ -18,6 +18,12 @@ export function scimTokenConfigured(): boolean {
   return typeof process.env.SCIM_PROVISION_TOKEN === "string" && process.env.SCIM_PROVISION_TOKEN.length >= 32
 }
 
+export function scimIpAllowed(ip: string): boolean {
+  const allowlist = (process.env.SCIM_ALLOWED_IPS ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+  if (allowlist.length === 0) return true
+  return allowlist.includes(ip)
+}
+
 export function isScimAuthorized(req: NextRequest): boolean {
   const configured = process.env.SCIM_PROVISION_TOKEN
   if (!configured || configured.length < 32) return false
@@ -27,7 +33,12 @@ export function isScimAuthorized(req: NextRequest): boolean {
   const a = Buffer.from(presented, "utf8")
   const b = Buffer.from(configured, "utf8")
   if (a.length !== b.length) return false
-  return timingSafeEqual(a, b)
+  if (!timingSafeEqual(a, b)) return false
+  const realIp = req.headers.get("x-real-ip")?.trim() ?? ""
+  const xff = req.headers.get("x-forwarded-for")?.trim() ?? ""
+  const ip = realIp || xff.split(",").pop()?.trim() || ""
+  if (ip && !scimIpAllowed(ip)) return false
+  return true
 }
 
 export interface ScimUserInput {

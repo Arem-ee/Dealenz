@@ -1,7 +1,9 @@
 "use server"
 
 import { randomUUID } from "node:crypto"
+import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
+import { checkAnonymousRateLimit, getTrustedClientIp } from "@/lib/rate-limit-anon"
 import { isValidFileSize, MAX_EXTRACTED_CHARS } from "@/lib/text-extract"
 import { sanitizeFilename, sniffUploadMime, SUPPORTED_UPLOAD_MIMES } from "@/lib/validation/files"
 import { isGuestAudience, isGuestScope, type GuestAudience, type GuestScope } from "@/lib/guests/grants"
@@ -37,6 +39,7 @@ export async function getGuestComments(token: string): Promise<
   { ok: true; comments: GuestComment[] } | { ok: false; error: string }
 > {
   if (!validToken(token)) return { ok: false, error: "That link is no longer valid." }
+  if (!(await guestQuota())) return { ok: false, error: "Too many attempts. Please try again later." }
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("get_guest_comments", { p_token: token })
   if (error || !data) return { ok: false, error: "That link is no longer valid." }
@@ -61,6 +64,7 @@ export async function postGuestComment(token: string, body: string): Promise<
   { ok: true } | { ok: false; error: string }
 > {
   if (!validToken(token)) return { ok: false, error: "That link is no longer valid." }
+  if (!(await guestQuota())) return { ok: false, error: "Too many attempts. Please try again later." }
   const text = (body ?? "").trim().slice(0, 2000)
   if (!text) return { ok: false, error: "Write the comment first." }
   const supabase = await createClient()
@@ -96,6 +100,7 @@ export async function getGuestNegotiation(token: string): Promise<
   { ok: true; rows: GuestRoundRow[] } | { ok: false; error: string }
 > {
   if (!validToken(token)) return { ok: false, error: "That link is no longer valid." }
+  if (!(await guestQuota())) return { ok: false, error: "Too many attempts. Please try again later." }
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("get_guest_negotiation", { p_token: token })
   if (error || !data) return { ok: false, error: "That link is no longer valid." }
@@ -143,9 +148,21 @@ function validToken(token: string): boolean {
   return typeof token === "string" && token.length >= 32 && token.length <= 200
 }
 
+async function guestQuota(): Promise<boolean> {
+  try {
+    const supabase = await createClient()
+    const ip = getTrustedClientIp(await headers())
+    const quota = await checkAnonymousRateLimit(supabase, `guest:${ip}`, 120, 3600)
+    return quota.allowed
+  } catch {
+    return false
+  }
+}
+
 /** Portal view: deal title, grant scope, and version metadata. Null when invalid. */
 export async function getGuestPortal(token: string): Promise<GuestPortalState | null> {
   if (!validToken(token)) return null
+  if (!(await guestQuota())) return null
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("get_guest_view", { p_token: token })
   if (error || !data) return null
@@ -179,6 +196,7 @@ export async function getGuestContent(token: string, versionId: string): Promise
   { ok: true; content: string; truncated: boolean; documentType: string } | { ok: false; error: string }
 > {
   if (!validToken(token)) return { ok: false, error: "That link is no longer valid." }
+  if (!(await guestQuota())) return { ok: false, error: "Too many attempts. Please try again later." }
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("get_guest_version_content", { p_token: token, p_version_id: versionId })
   if (error || !data) return { ok: false, error: "That link is no longer valid." }
@@ -205,6 +223,7 @@ export async function uploadStagedRedline(
   formData: FormData
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!validToken(token)) return { ok: false, error: "That upload link is no longer valid." }
+  if (!(await guestQuota())) return { ok: false, error: "Too many attempts. Please try again later." }
   const file = formData.get("file")
   if (!(file instanceof File)) return { ok: false, error: "Choose a file first." }
   if (!isValidFileSize(file.size)) return { ok: false, error: "Files top out at 10MB." }
@@ -220,7 +239,9 @@ export async function uploadStagedRedline(
     return { ok: false, error: allowed?.message || "That upload link is no longer valid." }
   }
   const buffer = Buffer.from(await file.arrayBuffer())
-  if (!sniffUploadMime(buffer)) return { ok: false, error: "That file isn't a readable document." }
+  const sniffed = sniffUploadMime(buffer)
+  if (!sniffed) return { ok: false, error: "That file isn't a readable document." }
+  if (sniffed !== file.type) return { ok: false, error: "File content does not match its declared type." }
   const svc = await serviceClient()
   if (!svc) return { ok: false, error: "Uploads are unavailable right now — please try again later." }
   const { data: audit } = await svc.from("audits").select("user_id").eq("id", allowed.deal_id).maybeSingle()
@@ -231,7 +252,7 @@ export async function uploadStagedRedline(
   const name = sanitizeFilename(file.name)
   const path = `${ownerId}/${allowed.deal_id}/staged/${uploadId}/${name}`
   const { error: upError } = await svc.storage.from("audit-files").upload(path, buffer, {
-    contentType: file.type,
+    contentType: sniffed,
     upsert: false,
   })
   if (upError) return { ok: false, error: "We couldn't store that file. Please try again." }
@@ -241,7 +262,7 @@ export async function uploadStagedRedline(
     grant_id: allowed.grant_id,
     file_name: name,
     storage_path: path,
-    mime: file.type,
+    mime: sniffed,
     size_bytes: buffer.length,
     status: "pending",
   })

@@ -24,6 +24,62 @@ export const MAX_TOTAL_UPLOAD_BYTES = 30 * 1024 * 1024
 // as if it were the whole document.
 export const MAX_EXTRACTED_CHARS = 500_000
 
+// Active-content note: mammoth.extractRawText and pdf-parse text extraction
+// never execute scripts, macros, XFA, or remote includes — they decode text
+// runs only. assertSafeZip below additionally rejects archives whose declared
+// expansion is abusive before inflation. Extraction performs no fetch calls;
+// the offline test in text-extract.test.ts fails the suite if a network
+// call is ever introduced on this path.
+
+const MAX_ZIP_ENTRIES = 500
+const MAX_ZIP_UNCOMPRESSED_BYTES = 50 * 1024 * 1024
+const MAX_ZIP_RATIO = 100
+
+function assertSafeZip(buffer: Buffer): void {
+  // Minimal local-file-header scan (PK\x03\x04): entry count, declared
+  // uncompressed total, and compression ratio. Rejects zip bombs before
+  // mammoth inflates them. Malformed archives fail closed.
+  let entries = 0
+  let uncompressedTotal = 0
+  let offset = 0
+  while (offset + 30 <= buffer.length) {
+    if (
+      buffer[offset] !== 0x50 ||
+      buffer[offset + 1] !== 0x4b ||
+      buffer[offset + 2] !== 0x03 ||
+      buffer[offset + 3] !== 0x04
+    ) {
+      offset += 1
+      continue
+    }
+    entries += 1
+    if (entries > MAX_ZIP_ENTRIES) {
+      throw new Error(`Archive exceeds the ${MAX_ZIP_ENTRIES}-entry limit`)
+    }
+    const compressedSize = buffer.readUInt32LE(offset + 18)
+    const uncompressedSize = buffer.readUInt32LE(offset + 22)
+    const nameLen = buffer.readUInt16LE(offset + 26)
+    const extraLen = buffer.readUInt16LE(offset + 28)
+    if (!Number.isFinite(compressedSize) || !Number.isFinite(uncompressedSize)) {
+      throw new Error("Archive headers are unreadable")
+    }
+    uncompressedTotal += uncompressedSize
+    if (uncompressedTotal > MAX_ZIP_UNCOMPRESSED_BYTES) {
+      throw new Error(
+        `Archive expands beyond the ${(MAX_ZIP_UNCOMPRESSED_BYTES / 1024 / 1024).toFixed(0)}MB limit`
+      )
+    }
+    const dataStart = offset + 30 + nameLen + extraLen
+    if (dataStart > buffer.length) break
+    // Ratio check per entry (skip directory entries with zero compressed size).
+    if (compressedSize > 0 && uncompressedSize / compressedSize > MAX_ZIP_RATIO) {
+      throw new Error("Archive compression ratio looks abusive; split the document and retry")
+    }
+    offset = dataStart + compressedSize
+    if (offset <= dataStart) break // overflow guard
+  }
+}
+
 export function isSupportedFileType(mimeType: string): boolean {
   return SUPPORTED_TYPES.includes(mimeType)
 }
@@ -66,6 +122,7 @@ export async function extractTextFromBuffer(
     }
 
     case "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+      assertSafeZip(buffer)
       const result = await mammoth.extractRawText({ buffer })
       text = result.value || ""
       break

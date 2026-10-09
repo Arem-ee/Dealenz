@@ -22,7 +22,7 @@ export function SiteFooter() {
             </div>
 
             <p className="display-h mt-5 max-w-sm text-[22px] leading-snug text-white">
-              Know the risk before you sign.
+              Harness automated deal intelligence to turn contracts into a strategic advantage.
             </p>
 
             <div className="mt-6 flex items-center gap-3 text-white/40">
@@ -88,7 +88,7 @@ export function SiteFooter() {
           </p>
 
           <div className="mt-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center text-[12px] text-white/40">
-            <p>© 2026 Dealenz Inc. All rights reserved. Know the risk before you sign.</p>
+            <p>© 2026 Dealenz Inc. All rights reserved. Harness automated deal intelligence to turn contracts into a strategic advantage.</p>
             <p>EU Hosted · AES-256 Encryption</p>
           </div>
         </div>

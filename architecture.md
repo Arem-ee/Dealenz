@@ -6,6 +6,15 @@ API + lib engine survive; all app UI was rebuilt tab by tab from a blank
 slate. Anything cited here to a file exists; anything planned is marked
 planned, never assumed.
 
+## Principles
+
+- **Best option wins regardless of difficulty.** This is an enterprise
+  platform: selections are made on merit (correctness, fidelity,
+  deliverability, auditability), never on implementation comfort.
+  Constraints are documented as explicit follow-ups, never silent
+  downgrades — if the best option needs something we lack (a vendor, a
+  buyer, a milestone), the record says so and the build waits for it.
+
 ## Stack
 
 - **Framework:** Next.js 16 (App Router), React 19, TypeScript (strict mode)

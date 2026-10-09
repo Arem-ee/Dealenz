@@ -4,6 +4,7 @@ import { cookies } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { encryptSecret, validateKeyShape } from "@/lib/models/crypto"
 import { isMissingTableError, listModelKeys, type ModelKeyRow } from "@/lib/models/store"
+import { isSafeByokBaseUrl } from "@/lib/ai/providers/openai-compatible"
 import type { ByokProvider } from "@/lib/models/run"
 import { isLocale, LOCALE_COOKIE, type AppLocale } from "@/lib/i18n/locale"
 
@@ -98,6 +99,10 @@ export async function addKey(input: {
   const baseUrl = (input.baseUrl ?? "").trim()
   if (input.provider !== "openai_compatible" && baseUrl) {
     return { ok: false, error: "A custom endpoint only applies to OpenAI-compatible keys." }
+  }
+  if (baseUrl) {
+    const check = isSafeByokBaseUrl(baseUrl)
+    if (!check.ok) return { ok: false, error: `That endpoint is not allowed (${check.reason ?? "unsafe"}). Use a public HTTPS endpoint.` }
   }
 
   let secretEnc: string

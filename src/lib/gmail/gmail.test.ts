@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { getGmailTokens, upsertGmailTokens } from "./tokens"
+import { encryptSecret } from "@/lib/models/crypto"
 import { sendGmailForRow } from "./send"
+
+const TEST_KEY = "a".repeat(64)
+process.env.MODEL_KEYS_ENCRYPTION_KEY = TEST_KEY
+
+function sealed(plain: string): string {
+  return `enc:${encryptSecret(plain)}`
+}
 
 describe("gmail", () => {
   beforeEach(() => vi.clearAllMocks())
@@ -12,8 +20,8 @@ describe("gmail", () => {
         if (table === "gmail_tokens") {
           self.select = vi.fn(() => self)
           self.eq = vi.fn(() => self)
-          self.maybeSingle = vi.fn(() => Promise.resolve({ data: { user_id: "user-1", access_token: "at", refresh_token: "rt", expiry_date: new Date(Date.now() + 3600000).toISOString(), scope: "gmail.send", token_type: "Bearer" }, error: null }))
-          self.upsert = vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: { user_id: "user-1", access_token: "new_at", refresh_token: "rt", expiry_date: new Date(Date.now() + 3600000).toISOString() }, error: null })) })) })) as never
+          self.maybeSingle = vi.fn(() => Promise.resolve({ data: { user_id: "user-1", access_token: sealed("at"), refresh_token: sealed("rt"), expiry_date: new Date(Date.now() + 3600000).toISOString(), scope: "gmail.send", token_type: "Bearer" }, error: null }))
+          self.upsert = vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: { user_id: "user-1", access_token: sealed("new_at"), refresh_token: sealed("rt"), expiry_date: new Date(Date.now() + 3600000).toISOString() }, error: null })) })) })) as never
           return self as never
         }
         self.select = vi.fn(() => self)
@@ -36,15 +44,15 @@ describe("gmail", () => {
         if (table === "gmail_tokens") {
           self.select = vi.fn(() => self)
           self.eq = vi.fn(() => self)
-          self.maybeSingle = vi.fn(() => Promise.resolve({ data: { user_id: "user-1", access_token: "old", refresh_token: "rt", expiry_date: new Date(Date.now() - 1000).toISOString(), scope: "gmail.send", token_type: "Bearer" }, error: null }))
-          self.upsert = vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: { user_id: "user-1", access_token: "new_at", refresh_token: "rt", expiry_date: new Date(Date.now() + 3600000).toISOString() }, error: null })) })) })) as never
+          self.maybeSingle = vi.fn(() => Promise.resolve({ data: { user_id: "user-1", access_token: sealed("old"), refresh_token: sealed("rt"), expiry_date: new Date(Date.now() - 1000).toISOString(), scope: "gmail.send", token_type: "Bearer" }, error: null }))
+          self.upsert = vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: { user_id: "user-1", access_token: sealed("new_at"), refresh_token: sealed("rt"), expiry_date: new Date(Date.now() + 3600000).toISOString() }, error: null })) })) })) as never
           return self as never
         }
         return self as never
       }),
     } as unknown as { from: (t: string) => never }
     const refreshed = await upsertGmailTokens(client as never, "user-1", { access_token: "new_at", refresh_token: "rt", expiry_date: new Date(Date.now() + 3600000).toISOString() })
-    expect(refreshed.access_token).toBe("new_at")
+    expect(refreshed.access_token.startsWith("enc:")).toBe(true)
   })
 
   it("successful send records provider IDs", async () => {
@@ -54,7 +62,7 @@ describe("gmail", () => {
         if (table === "gmail_tokens") {
           self.select = vi.fn(() => self)
           self.eq = vi.fn(() => self)
-          self.maybeSingle = vi.fn(() => Promise.resolve({ data: { user_id: "user-1", access_token: "at", refresh_token: "rt", expiry_date: new Date(Date.now() + 3600000).toISOString() }, error: null }))
+          self.maybeSingle = vi.fn(() => Promise.resolve({ data: { user_id: "user-1", access_token: sealed("at"), refresh_token: sealed("rt"), expiry_date: new Date(Date.now() + 3600000).toISOString() }, error: null }))
           self.upsert = vi.fn(() => self)
           return self as never
         }
@@ -92,7 +100,7 @@ describe("gmail", () => {
         if (table === "gmail_tokens") {
           self.select = vi.fn(() => self)
           self.eq = vi.fn(() => self)
-          self.maybeSingle = vi.fn(() => Promise.resolve({ data: { user_id: "user-1", access_token: "at", refresh_token: "rt", expiry_date: new Date(Date.now() + 3600000).toISOString() }, error: null }))
+          self.maybeSingle = vi.fn(() => Promise.resolve({ data: { user_id: "user-1", access_token: sealed("at"), refresh_token: sealed("rt"), expiry_date: new Date(Date.now() + 3600000).toISOString() }, error: null }))
           return self as never
         }
         if (table === "work_plan_steps") {

@@ -16,10 +16,22 @@ export interface ParsedRow {
   contentHash: string
 }
 
+import { createHash } from "node:crypto"
+
 function hashString(s: string): string {
-  let h = 5381
-  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0
-  return h.toString(16).padStart(8, "0")
+  return createHash("sha256").update(s, "utf8").digest("hex").slice(0, 16)
+}
+
+const MAX_ROWS = 5000
+const MAX_COLS = 100
+const MAX_CELL_CHARS = 10000
+const MAX_INPUT_CHARS = 2_000_000
+
+export function sanitizeCellForExport(value: string): string {
+  // Formula-injection guard: prefix-escape cells that spreadsheet apps would
+  // execute (=, +, -, @, tab/CR starters) with a leading apostrophe.
+  if (/^[=+\-@\t\r]/.test(value)) return `'${value}`
+  return value
 }
 
 function parseCSVLine(line: string): string[] {
@@ -44,14 +56,29 @@ function parseCSVLine(line: string): string[] {
 }
 
 export function parseSpreadsheetCSV(text: string): { headers: string[]; rows: Record<string, string>[] } {
+  if (text.length > MAX_INPUT_CHARS) {
+    throw new Error(`Spreadsheet input exceeds the ${MAX_INPUT_CHARS.toLocaleString()}-character limit`)
+  }
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0)
   if (lines.length === 0) return { headers: [], rows: [] }
+  if (lines.length - 1 > MAX_ROWS) {
+    throw new Error(`Spreadsheet exceeds the ${MAX_ROWS.toLocaleString()}-row limit`)
+  }
   const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase().trim())
+  if (headers.length > MAX_COLS) {
+    throw new Error(`Spreadsheet exceeds the ${MAX_COLS}-column limit`)
+  }
   const rows: Record<string, string>[] = []
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCSVLine(lines[i])
     const rec: Record<string, string> = {}
-    for (let j = 0; j < headers.length; j++) rec[headers[j]] = cols[j] ?? ""
+    for (let j = 0; j < headers.length; j++) {
+      const cell = cols[j] ?? ""
+      if (cell.length > MAX_CELL_CHARS) {
+        throw new Error(`Row ${i} exceeds the ${MAX_CELL_CHARS.toLocaleString()}-character cell limit`)
+      }
+      rec[headers[j]] = cell
+    }
     rows.push(rec)
   }
   return { headers, rows }

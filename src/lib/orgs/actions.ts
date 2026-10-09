@@ -19,10 +19,13 @@ export interface OrgRosterMember {
 
 /** Roster of one org the caller belongs to, with emails for display. */
 export async function listOrgMembers(
-  orgId: string
+  orgId: string,
+  page = 1
 ): Promise<{ ok: true; members: OrgRosterMember[]; myRole: string | null } | { ok: false; error: string }> {
   try {
     if (!isUUID(orgId)) return { ok: false as const, error: "Invalid organization." }
+    const safePage = Number.isInteger(page) && page >= 1 && page <= 20 ? page : 1
+    const PAGE_SIZE = 50
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { ok: false as const, error: "You must be signed in." }
@@ -37,26 +40,45 @@ export async function listOrgMembers(
       .eq("user_id", user.id)
       .maybeSingle()
     if (!mine) return { ok: false as const, error: "Not a member of that organization." }
+    const myRole = (mine as { role: string }).role
+    const privileged = myRole === "owner" || myRole === "admin"
     const { data: members } = await svc
       .from("organization_members")
       .select("user_id, role")
       .eq("org_id", orgId)
       .order("created_at", { ascending: true })
-      .limit(200)
+      .range((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE - 1)
     const rows = ((members ?? []) as Array<{ user_id: string; role: string }>)
     const emails = new Map<string, string>()
-    try {
-      const { data: listed } = await svc.auth.admin.listUsers({ page: 1, perPage: 200 })
-      for (const u of ((listed as { users?: Array<{ id: string; email?: string }> } | null)?.users ?? [])) {
-        emails.set(u.id, u.email ?? "")
+    if (privileged) {
+      try {
+        // Owner/admin only: resolve display emails page by page instead of a
+        // 200-user blanket dump.
+        const { data: listed } = await svc.auth.admin.listUsers({ page: safePage, perPage: PAGE_SIZE })
+        for (const u of ((listed as { users?: Array<{ id: string; email?: string }> } | null)?.users ?? [])) {
+          emails.set(u.id, u.email ?? "")
+        }
+      } catch {
+        // Ids still identify rows; emails are display-only.
       }
+    }
+    try {
+      await svc.from("activity_events").insert({
+        user_id: user.id,
+        type: "org_roster_viewed",
+        details: { org_id: orgId, page: safePage, privileged },
+      })
     } catch {
-      // Ids still identify rows; emails are display-only.
+      // Audit is best-effort.
     }
     return {
       ok: true as const,
-      members: rows.map((m) => ({ userId: m.user_id, email: emails.get(m.user_id) ?? "", role: m.role })),
-      myRole: (mine as { role: string }).role,
+      members: rows.map((m) => ({
+        userId: m.user_id,
+        email: privileged ? (emails.get(m.user_id) ?? "") : m.user_id === user.id ? (emails.get(m.user_id) ?? "") : "",
+        role: m.role,
+      })),
+      myRole,
     }
   } catch (e) {
     return toActionFailure(e, "We couldn't load members.") as never

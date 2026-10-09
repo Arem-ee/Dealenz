@@ -54,6 +54,35 @@ function resolveOpenRouterModel(override?: string): string {
   return explicit
 }
 
+function isPrivateByokHost(host: string): boolean {
+  const h = host.toLowerCase().replace(/^\[|\]$/g, "")
+  if (h === "localhost" || h === "0.0.0.0" || h === "::" || h === "::1") return true
+  if (h === "169.254.169.254" || h === "100.100.100.200" || h === "metadata.google.internal") return true
+  if (h.startsWith("10.") || h.startsWith("192.168.")) return true
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true
+  if (h.startsWith("169.254.")) return true
+  if (h.startsWith("fd") || h.startsWith("fc")) return true
+  if (h.startsWith("fe80:")) return true
+  if (h === "127.0.0.1") return true
+  if (h.startsWith("::ffff:")) return true
+  if (/^0x/i.test(h) || /^[0-9]+$/.test(h.replace(/\./g, ""))) return true
+  return false
+}
+
+export function isSafeByokBaseUrl(raw: string): { ok: boolean; reason?: string } {
+  if (!raw || raw.length > 500) return { ok: false, reason: "invalid endpoint" }
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    return { ok: false, reason: "invalid endpoint URL" }
+  }
+  if (url.protocol !== "https:") return { ok: false, reason: "HTTPS required for custom endpoints" }
+  if (url.username || url.password) return { ok: false, reason: "credentials in endpoint URL" }
+  if (isPrivateByokHost(url.hostname)) return { ok: false, reason: "private/loopback/metadata host blocked" }
+  return { ok: true }
+}
+
 function buildUrl(baseUrl: string): string {
   if (baseUrl.endsWith("/chat/completions")) return baseUrl
   return `${baseUrl}/chat/completions`
@@ -74,7 +103,16 @@ export interface OpenAIResolvedRequest {
 export function resolveOpenAIRequest(params: OpenAICompatibleCallParams): OpenAIResolvedRequest {
   const { systemPrompt, userContent, temperature, maxTokens, model: modelOverride } = params
   const apiKey = params.apiKey ?? resolveKey()
-  const baseUrl = (params.baseUrl?.trim() || undefined) ?? resolveBaseUrl()
+  const rawBaseUrl = (params.baseUrl?.trim() || undefined) ?? resolveBaseUrl()
+  const baseUrl = rawBaseUrl.replace(/\/+$/, "")
+  const check = isSafeByokBaseUrl(baseUrl)
+  if (!check.ok) {
+    throw new AIProviderError({
+      provider: "openai_compatible",
+      category: "invalid_request",
+      message: `Custom endpoint rejected (${check.reason ?? "unsafe"})`,
+    })
+  }
   const onOpenRouter = isOpenRouterHost(baseUrl)
   const model = onOpenRouter ? resolveOpenRouterModel(modelOverride) : resolveModel(modelOverride)
   const url = buildUrl(baseUrl)
@@ -139,12 +177,58 @@ export async function callOpenAICompatible(params: OpenAICompatibleCallParams): 
   const timeout = setTimeout(() => controller.abort(), 30_000)
 
   try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      signal: controller.signal,
-      body: JSON.stringify(body),
-    })
+    const payload = JSON.stringify(body)
+    const originHost = new URL(url).hostname.toLowerCase()
+    let currentUrl = url
+    let response: Response | null = null
+    for (let hop = 0; hop <= 2; hop += 1) {
+      const res = await fetch(currentUrl, {
+        method: "POST",
+        headers,
+        signal: controller.signal,
+        body: payload,
+        redirect: "manual",
+      })
+      const location = res.headers.get("location")
+      const isRedirect = res.status >= 300 && res.status <= 308 && location
+      if (!isRedirect || !location) {
+        response = res
+        break
+      }
+      const next = new URL(location, currentUrl)
+      // Same-origin redirects only: cross-origin hops (the SSRF-via-redirect
+      // shape) fail closed. Re-validate the hop target before following.
+      if (next.hostname.toLowerCase() !== originHost) {
+        throw new AIProviderError({
+          provider: "openai_compatible",
+          category: "invalid_request",
+          message: "Custom endpoint attempted a cross-origin redirect — refused",
+        })
+      }
+      const hopCheck = isSafeByokBaseUrl(next.origin)
+      if (!hopCheck.ok) {
+        throw new AIProviderError({
+          provider: "openai_compatible",
+          category: "invalid_request",
+          message: `Custom endpoint redirect refused (${hopCheck.reason ?? "unsafe"})`,
+        })
+      }
+      if (hop === 2) {
+        throw new AIProviderError({
+          provider: "openai_compatible",
+          category: "invalid_request",
+          message: "Custom endpoint redirected too many times",
+        })
+      }
+      currentUrl = next.toString()
+    }
+    if (!response) {
+      throw new AIProviderError({
+        provider: "openai_compatible",
+        category: "invalid_request",
+        message: "Custom endpoint redirect chain failed",
+      })
+    }
 
     if (!response.ok) {
       const errorBody = await response.text()

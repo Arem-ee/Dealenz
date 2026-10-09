@@ -72,6 +72,13 @@ Do not commit real values. All values below are names only.
 | `STRIPE_WEBHOOK_SECRET` | Stripe Dashboard → Developers → Webhooks → endpoint secret | Server-only. Verified with Stripe's timestamped scheme (300s tolerance). Unset fails closed per route. |
 | `PAYSTACK_WEBHOOK_SECRET` | Paystack Dashboard → Settings → API Keys & Webhooks | Server-only. HMAC-SHA512 verification. Unset fails closed per route. |
 
+### Transactional email / Resend (required before scheduled emails send)
+
+| Variable | Where to obtain | Notes |
+|---|---|---|
+| `RESEND_API_KEY` | Resend Dashboard → API Keys (`re_…`) | Server-only. Scheduled report delivery. Unset fails closed — schedules queue and log but never send. |
+| `EMAIL_FROM_ADDRESS` | Your sending subdomain (e.g. `Dealenz <mail@yourdomain.com>`) | Server-only. Must live on a dedicated subdomain with SPF/DKIM/DMARC. |
+
 ### User model keys / BYOK (required before keys can be saved)
 
 | Variable | Where to obtain | Notes |
