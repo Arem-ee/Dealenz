@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { isNonEnglishLocale } from "@/lib/i18n/locale"
 import { normalizeRuleDealTypes } from "@/lib/standing/rules"
 import { clauseById, CLAUSE_LIBRARY } from "@/lib/protection/clauses"
 import {
@@ -399,7 +400,7 @@ export async function getLocalizedOverrides(input: {
   language: string
 }): Promise<{ overrides: LocalizedOverride[] }> {
   try {
-    if (input.language !== "fr" && input.language !== "de") return { overrides: [] }
+    if (!isNonEnglishLocale(input.language)) return { overrides: [] }
     const wanted = new Set((input.clauseIds ?? []).filter((id) => typeof id === "string"))
     if (wanted.size === 0) return { overrides: [] }
     const supabase = await createClient()

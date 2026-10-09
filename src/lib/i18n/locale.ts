@@ -4,7 +4,7 @@
 // No URL routing: the app shell is authenticated and SEO-irrelevant, so
 // the locale travels in the `dealenz-locale` cookie and never in paths.
 
-export const LOCALES = ["en", "fr", "de"] as const
+export const LOCALES = ["en", "fr", "de", "nl"] as const
 
 export type AppLocale = (typeof LOCALES)[number]
 
@@ -13,7 +13,12 @@ export const DEFAULT_LOCALE: AppLocale = "en"
 export const LOCALE_COOKIE = "dealenz-locale"
 
 export function isLocale(raw: unknown): raw is AppLocale {
-  return raw === "en" || raw === "fr" || raw === "de"
+  return raw === "en" || raw === "fr" || raw === "de" || raw === "nl"
+}
+
+/** Non-English shipped locales: agreement language, response language. */
+export function isNonEnglishLocale(raw: unknown): raw is Exclude<AppLocale, "en"> {
+  return raw === "fr" || raw === "de" || raw === "nl"
 }
 
 /**
@@ -30,6 +35,7 @@ export function resolveLocale(cookieValue: unknown, profileValue: unknown): AppL
 export function localeLabel(locale: AppLocale): string {
   if (locale === "fr") return "Français"
   if (locale === "de") return "Deutsch"
+  if (locale === "nl") return "Nederlands"
   return "English"
 }
 

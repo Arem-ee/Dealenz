@@ -43,7 +43,7 @@ export function LibrarySection({ dealTypeFilter }: { dealTypeFilter: string }) {
   const [newBody, setNewBody] = useState("")
   const [newCategory, setNewCategory] = useState("general")
   const [newScope, setNewScope] = useState<string[]>([])
-  const [newLanguage, setNewLanguage] = useState<"en" | "fr" | "de">("en")
+  const [newLanguage, setNewLanguage] = useState<"en" | "fr" | "de" | "nl">("en")
   const [saving, setSaving] = useState(false)
   const [editingSlot, setEditingSlot] = useState<string | null>(null)
   const [editBody, setEditBody] = useState("")
@@ -238,7 +238,7 @@ export function LibrarySection({ dealTypeFilter }: { dealTypeFilter: string }) {
                 lastUsedAt: e.lastUsedAt, createdAt: e.createdAt,
               })),
               line.key,
-              line.language as "en" | "fr" | "de"
+              line.language as "en" | "fr" | "de" | "nl"
             )
             const uses = Math.max(...line.variants.map((v) => {
               const full = (entries ?? []).find((e) => e.id === v.id)
@@ -428,7 +428,7 @@ export function LibrarySection({ dealTypeFilter }: { dealTypeFilter: string }) {
                 aria-label="Clause category"
                 className="h-8 w-36 border border-input bg-background px-2 text-xs outline-none placeholder:text-muted-foreground/60"
               />
-              {(["en", "fr", "de"] as const).map((l) => (
+              {(["en", "fr", "de", "nl"] as const).map((l) => (
                 <button
                   key={l}
                   type="button"

@@ -1,0 +1,36 @@
+{
+  "nav": {
+    "home": "Home",
+    "inbox": "Postvak",
+    "drafts": "Concepten",
+    "signing": "Ondertekening",
+    "tracker": "Opvolging",
+    "clauses": "Clausules",
+    "templates": "Sjablonen",
+    "compare": "Vergelijken",
+    "approvals": "Goedkeuringen",
+    "reports": "Rapporten",
+    "lab": "Promptlab",
+    "team": "Team",
+    "settings": "Instellingen",
+    "billing": "Facturering",
+    "help": "Hulp"
+  },
+  "topbar": {
+    "searchPlaceholder": "Deals, documenten, clausules zoeken…",
+    "searchDeals": "Deals zoeken",
+    "noDeals": "Nog geen deals — begin vanaf Home.",
+    "noMatches": "Geen overeenkomende deals.",
+    "searching": "Documenten doorzoeken…",
+    "newDeal": "Nieuwe deal",
+    "account": "Accountmenu",
+    "signOut": "Afmelden",
+    "credits": "{count, plural, one {# credit} other {# credits}}"
+  },
+  "settings": {
+    "languageTitle": "Taal en regio",
+    "interfaceLanguage": "Interfacetaal",
+    "languageNote": "Geldt voor de interface. Regels, bevindingen en goedgekeurde clausules blijven in het Engels.",
+    "languageSaved": "Taalvoorkeur opgeslagen."
+  }
+}

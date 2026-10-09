@@ -2,6 +2,7 @@
 
 import { randomUUID } from "node:crypto"
 import { createClient } from "@/lib/supabase/server"
+import { isNonEnglishLocale } from "@/lib/i18n/locale"
 import { isLibraryVariant, type LibraryClauseVariant } from "@/lib/library/entries"
 import { evaluateClauseRound, isNegotiationStance, type NegotiationStance } from "@/lib/negotiation/round"
 import { authorizeOperation, completeOperation } from "@/lib/credits/policy"
@@ -74,7 +75,7 @@ async function laddersForAudit(
     .select("key, variant, version, body, status, language")
     .eq("user_id", userId)
     .limit(500)
-  const wantLang = language === "fr" || language === "de" ? language : "en"
+  const wantLang = isNonEnglishLocale(language) ? language : "en"
   const heads = new Map<string, { body: string; version: number; language: string }>()
   for (const r of ((libRows ?? []) as Array<{
     key: string; variant: unknown; version: number; body: string; status: unknown; language: unknown
@@ -82,7 +83,7 @@ async function laddersForAudit(
     if (!isLibraryVariant(r.variant)) continue
     if (r.status !== "active" && r.status !== "deprecated") continue
     if (typeof r.body !== "string" || typeof r.version !== "number") continue
-    const lang = r.language === "fr" || r.language === "de" ? (r.language as string) : "en"
+    const lang = isNonEnglishLocale(r.language) ? (r.language as string) : "en"
     const slot = `${r.key}:${r.variant}:${lang}`
     const cur = heads.get(slot)
     if (!cur || r.version > cur.version) heads.set(slot, { body: r.body, version: r.version, language: lang })
@@ -212,7 +213,7 @@ export async function startRound(input: {
       .eq("user_id", user.id)
       .maybeSingle()
     const stored = (profile as { locale?: unknown } | null)?.locale
-    if (stored === "fr" || stored === "de") responseLanguage = stored
+    if (isNonEnglishLocale(stored)) responseLanguage = stored
   } catch {
     responseLanguage = "en"
   }

@@ -959,6 +959,36 @@ describe("00118 anchors + guest comments (static)", () => {
   })
 })
 
+describe("00125 search dutch (static)", () => {
+  const mig = code(sql("00125_search_dutch.sql"))
+
+  it("adds dutch columns as the proven fr/de pattern", () => {
+    expect(mig).toMatch(/to_tsvector\('dutch'/)
+    expect(mig).toMatch(/USING gin \(content_tsv_nl\)/)
+    expect(mig).toMatch(/WHEN p_language = 'dutch' THEN 'dutch'::regconfig/)
+    expect(mig).toMatch(/GRANT EXECUTE ON FUNCTION search_deals\(TEXT, TEXT\[\], INT, TEXT\) TO anon, authenticated/)
+  })
+
+  it("keeps English fallback matching with no RLS changes", () => {
+    expect(mig).toMatch(/ts_rank_cd\(a\.content_tsv, \(SELECT tsq_en FROM q\)\)/)
+    expect(mig).not.toMatch(/SECURITY DEFINER/)
+  })
+})
+
+describe("00124 dutch locale (static)", () => {
+  const mig = code(sql("00124_dutch_locale.sql"))
+
+  it("widens locale checks to en/fr/de/nl", () => {
+    expect(mig).toMatch(/CHECK \(locale IN \('en', 'fr', 'de', 'nl'\)\)/)
+    expect(mig).toMatch(/CHECK \(language IN \('en', 'fr', 'de', 'nl'\)\)/)
+  })
+
+  it("touches no RLS policies", () => {
+    expect(mig).not.toMatch(/CREATE POLICY/)
+    expect(mig).not.toMatch(/GRANT/)
+  })
+})
+
 describe("00123 search locales (static)", () => {
   const mig = code(sql("00123_search_locales.sql"))
 

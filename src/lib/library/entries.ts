@@ -23,10 +23,10 @@ export function isLibraryVariant(raw: unknown): raw is LibraryClauseVariant {
   return raw === "preferred" || raw === "fallback" || raw === "walkaway"
 }
 
-export type LibraryLanguage = "en" | "fr" | "de"
+export type LibraryLanguage = "en" | "fr" | "de" | "nl"
 
 export function isLibraryLanguage(raw: unknown): raw is LibraryLanguage {
-  return raw === "en" || raw === "fr" || raw === "de"
+  return raw === "en" || raw === "fr" || raw === "de" || raw === "nl"
 }
 
 export interface LibraryClauseRow {

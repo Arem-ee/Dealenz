@@ -46,6 +46,7 @@ export async function searchContent(input: {
     const stored = (profile as { locale?: unknown } | null)?.locale
     if (stored === "fr") language = "french"
     else if (stored === "de") language = "german"
+    else if (stored === "nl") language = "dutch"
   } catch {
     language = "english"
   }

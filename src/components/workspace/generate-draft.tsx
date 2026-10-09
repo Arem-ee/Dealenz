@@ -118,6 +118,7 @@ export function GenerateDraft({ auditId }: { auditId: string }) {
         <option value="en">English</option>
         <option value="fr">Français — approved lines only, rest in English</option>
         <option value="de">Deutsch — approved lines only, rest in English</option>
+        <option value="nl">Nederlands — approved lines only, rest in English</option>
       </select>
 
       <label className="mt-3 block text-[11px] font-medium text-muted-foreground" htmlFor="draft-jurisdiction">

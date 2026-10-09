@@ -8,14 +8,16 @@ describe("responseLanguageInstruction", () => {
     expect(responseLanguageInstruction(null)).toBe("")
   })
 
-  it("instructs French/German prose with English evidence preserved", () => {
+  it("instructs French/German/Dutch prose with English evidence preserved", () => {
     const fr = responseLanguageInstruction("fr")
     expect(fr).toContain("French")
     expect(fr).toContain("original English")
     expect(responseLanguageInstruction("de")).toContain("German")
+    expect(responseLanguageInstruction("nl")).toContain("Dutch")
   })
 
   it("names locales", () => {
     expect(responseLanguageName("de")).toBe("German")
+    expect(responseLanguageName("nl")).toBe("Dutch")
   })
 })

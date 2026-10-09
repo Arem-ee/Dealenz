@@ -12,6 +12,7 @@ import { validateLegalSource } from "@/lib/legal-research/validation"
 import type { LegalCitation } from "@/lib/legal-research/types"
 import { CLAUSE_LIBRARY, renderClauseTemplate } from "@/lib/protection/clauses"
 import { protectionIntentsFromFindings } from "@/lib/protection/intents"
+import { isNonEnglishLocale } from "@/lib/i18n/locale"
 import { familyById } from "./families"
 import type { DocumentVariables, DraftDocument, DocumentProvenance } from "./types"
 import type { RuleResult } from "@/lib/rules/result"
@@ -233,7 +234,7 @@ export function assembleDraft(input: AssemblyInput, now: Date = new Date()): Ass
     lines.push(s)
     offset += s.length + 1
   }
-  const language = input.language === "fr" || input.language === "de" ? input.language : "en"
+  const language = isNonEnglishLocale(input.language) ? input.language : "en"
   const overrides = new Map<string, LocalizedClauseOverride>()
   for (const o of input.localizedClauses ?? []) {
     if (o && typeof o.clauseId === "string" && typeof o.body === "string" && o.language === language) {

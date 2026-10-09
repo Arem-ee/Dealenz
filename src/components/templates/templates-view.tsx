@@ -95,6 +95,7 @@ export function TemplatesView() {
             <option value="en">English</option>
             <option value="fr">Français</option>
             <option value="de">Deutsch</option>
+            <option value="nl">Nederlands</option>
           </select>
         </label>
         {["All", ...DEAL_TYPES].map((t) => (

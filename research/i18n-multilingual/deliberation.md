@@ -29,6 +29,8 @@ until approved. Approval amends the docs first, then code follows.
   English **and log** (the production gotcha); typed message keys.
   Pilot languages: French + German (EU deal coverage; both top every
   vendor list). Dutch next by buyer demand (Gartner thread), not upfront.
+  UPDATE: Dutch approved — completes the EN/FR/DE/NL buyer-thread set;
+  Snowball `dutch` stemmer confirmed in-Postgres, same proven patterns.
 
 ## D3. Agreement language: localized clause variants (Icertis model)
 
