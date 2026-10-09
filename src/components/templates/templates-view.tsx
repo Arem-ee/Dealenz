@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { FilePlus2, Loader2, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { LOCALES, localeLabel } from "@/lib/i18n/locale"
 import { useToast } from "@/components/ui/toast"
 import { createFromTemplate, listTemplates, type TemplateOption } from "@/app/(app)/templates/actions"
 
@@ -92,10 +93,11 @@ export function TemplatesView() {
             aria-label="Agreement language"
             className="h-7 border border-border bg-background px-1.5 text-xs text-foreground outline-none"
           >
-            <option value="en">English</option>
-            <option value="fr">Français</option>
-            <option value="de">Deutsch</option>
-            <option value="nl">Nederlands</option>
+            {LOCALES.map((l) => (
+              <option key={l} value={l}>
+                {localeLabel(l)}
+              </option>
+            ))}
           </select>
         </label>
         {["All", ...DEAL_TYPES].map((t) => (

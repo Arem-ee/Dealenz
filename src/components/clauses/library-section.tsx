@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RULE_DEAL_TYPES } from "@/lib/standing/rules"
+import { LOCALES, type AppLocale } from "@/lib/i18n/locale"
 import { latestUsableEntries, missingVariants, type LibraryClauseVariant } from "@/lib/library/entries"
 import { useToast } from "@/components/ui/toast"
 import {
@@ -43,7 +44,7 @@ export function LibrarySection({ dealTypeFilter }: { dealTypeFilter: string }) {
   const [newBody, setNewBody] = useState("")
   const [newCategory, setNewCategory] = useState("general")
   const [newScope, setNewScope] = useState<string[]>([])
-  const [newLanguage, setNewLanguage] = useState<"en" | "fr" | "de" | "nl">("en")
+  const [newLanguage, setNewLanguage] = useState<AppLocale>("en")
   const [saving, setSaving] = useState(false)
   const [editingSlot, setEditingSlot] = useState<string | null>(null)
   const [editBody, setEditBody] = useState("")
@@ -428,7 +429,7 @@ export function LibrarySection({ dealTypeFilter }: { dealTypeFilter: string }) {
                 aria-label="Clause category"
                 className="h-8 w-36 border border-input bg-background px-2 text-xs outline-none placeholder:text-muted-foreground/60"
               />
-              {(["en", "fr", "de", "nl"] as const).map((l) => (
+              {LOCALES.map((l) => (
                 <button
                   key={l}
                   type="button"

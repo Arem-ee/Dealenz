@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isLocale, isNonEnglishLocale, localeLabel, negotiateLocale, resolveLocale } from "./locale"
+import { isLocale, isNonEnglishLocale, LOCALES, LOCALE_META, localeLabel, negotiateLocale, resolveLocale } from "./locale"
 
 describe("resolveLocale", () => {
   it("prefers a valid cookie", () => {
@@ -24,6 +24,15 @@ describe("resolveLocale", () => {
     expect(isNonEnglishLocale("nl")).toBe(true)
     expect(isNonEnglishLocale("en")).toBe(false)
     expect(negotiateLocale("nl-NL,nl;q=0.9")).toBe("nl")
+  })
+
+  it("covers every locale in metadata exactly once", () => {
+    expect(Object.keys(LOCALE_META).sort()).toEqual([...LOCALES].sort())
+    for (const locale of LOCALES) {
+      expect(LOCALE_META[locale].label.trim().length).toBeGreaterThan(0)
+      expect(LOCALE_META[locale].searchConfig.trim().length).toBeGreaterThan(0)
+      expect(LOCALE_META[locale].aiName.trim().length).toBeGreaterThan(0)
+    }
   })
 
   it("negotiates first-visit locale from Accept-Language", () => {

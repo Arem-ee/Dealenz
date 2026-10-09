@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { isLocale, LOCALE_META } from "@/lib/i18n/locale"
 import { normalizeRuleDealTypes } from "@/lib/standing/rules"
 
 export interface ContentHit {
@@ -44,9 +45,7 @@ export async function searchContent(input: {
       .eq("user_id", user.id)
       .maybeSingle()
     const stored = (profile as { locale?: unknown } | null)?.locale
-    if (stored === "fr") language = "french"
-    else if (stored === "de") language = "german"
-    else if (stored === "nl") language = "dutch"
+    if (isLocale(stored)) language = LOCALE_META[stored].searchConfig
   } catch {
     language = "english"
   }

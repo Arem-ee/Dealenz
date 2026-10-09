@@ -23,10 +23,13 @@ export function isLibraryVariant(raw: unknown): raw is LibraryClauseVariant {
   return raw === "preferred" || raw === "fallback" || raw === "walkaway"
 }
 
-export type LibraryLanguage = "en" | "fr" | "de" | "nl"
+import type { AppLocale } from "@/lib/i18n/locale"
+import { LOCALES } from "@/lib/i18n/locale"
+
+export type LibraryLanguage = AppLocale
 
 export function isLibraryLanguage(raw: unknown): raw is LibraryLanguage {
-  return raw === "en" || raw === "fr" || raw === "de" || raw === "nl"
+  return (LOCALES as readonly string[]).includes(typeof raw === "string" ? raw : "")
 }
 
 export interface LibraryClauseRow {

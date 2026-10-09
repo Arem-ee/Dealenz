@@ -5,17 +5,10 @@
 // the model renders the explanation in the requested language. When in
 // doubt the model qualifies rather than inventing legal language.
 
-import { isNonEnglishLocale, type AppLocale } from "@/lib/i18n/locale"
-
-const LANGUAGE_NAMES: Record<AppLocale, string> = {
-  en: "English",
-  fr: "French",
-  de: "German",
-  nl: "Dutch",
-}
+import { isNonEnglishLocale, LOCALE_META, type AppLocale } from "@/lib/i18n/locale"
 
 export function responseLanguageName(locale: AppLocale): string {
-  return LANGUAGE_NAMES[locale]
+  return LOCALE_META[locale].aiName
 }
 
 /**

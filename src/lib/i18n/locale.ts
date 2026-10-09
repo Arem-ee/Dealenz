@@ -12,13 +12,29 @@ export const DEFAULT_LOCALE: AppLocale = "en"
 
 export const LOCALE_COOKIE = "dealenz-locale"
 
+/**
+ * Single locale metadata table: label, Postgres text-search config, and
+ * AI response-language name. Every consumer reads from here — adding a
+ * language extends this table (plus its message catalog and SQL CHECKs,
+ * which cannot import TypeScript by nature).
+ */
+export const LOCALE_META: Record<
+  AppLocale,
+  { label: string; searchConfig: string; aiName: string }
+> = {
+  en: { label: "English", searchConfig: "english", aiName: "English" },
+  fr: { label: "Français", searchConfig: "french", aiName: "French" },
+  de: { label: "Deutsch", searchConfig: "german", aiName: "German" },
+  nl: { label: "Nederlands", searchConfig: "dutch", aiName: "Dutch" },
+}
+
 export function isLocale(raw: unknown): raw is AppLocale {
-  return raw === "en" || raw === "fr" || raw === "de" || raw === "nl"
+  return (LOCALES as readonly string[]).includes(typeof raw === "string" ? raw : "")
 }
 
 /** Non-English shipped locales: agreement language, response language. */
 export function isNonEnglishLocale(raw: unknown): raw is Exclude<AppLocale, "en"> {
-  return raw === "fr" || raw === "de" || raw === "nl"
+  return isLocale(raw) && raw !== DEFAULT_LOCALE
 }
 
 /**
@@ -33,10 +49,7 @@ export function resolveLocale(cookieValue: unknown, profileValue: unknown): AppL
 }
 
 export function localeLabel(locale: AppLocale): string {
-  if (locale === "fr") return "Français"
-  if (locale === "de") return "Deutsch"
-  if (locale === "nl") return "Nederlands"
-  return "English"
+  return LOCALE_META[locale].label
 }
 
 /**

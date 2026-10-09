@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Loader2 } from "lucide-react"
 import { draftFamilies, generateDraft, type FamilyOption } from "@/app/(app)/drafts/actions"
+import { LOCALES, localeLabel } from "@/lib/i18n/locale"
 
 function humanize(key: string): string {
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
@@ -115,10 +116,11 @@ export function GenerateDraft({ auditId }: { auditId: string }) {
         disabled={busy}
         className="mt-1 h-9 w-full border border-input bg-background px-2 text-sm disabled:opacity-60"
       >
-        <option value="en">English</option>
-        <option value="fr">Français — approved lines only, rest in English</option>
-        <option value="de">Deutsch — approved lines only, rest in English</option>
-        <option value="nl">Nederlands — approved lines only, rest in English</option>
+        {LOCALES.map((l) => (
+          <option key={l} value={l}>
+            {localeLabel(l)}{l === "en" ? "" : " — approved lines only, rest in English"}
+          </option>
+        ))}
       </select>
 
       <label className="mt-3 block text-[11px] font-medium text-muted-foreground" htmlFor="draft-jurisdiction">
