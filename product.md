@@ -7,7 +7,7 @@ sugarcoating, no "deal intelligence, not a CLM" fiction: intake, analysis,
 negotiation, approval, signing, obligation tracking, and renewal — the full
 lifecycle, one product, enterprise standard.
 
-Tagline: "Know the risk before you sign."
+Tagline: "Harness automated deal intelligence to turn contracts into a strategic advantage."
 
 Anyone entering an agreement — a vendor MSA, a lease, a partnership, an
 employment offer, a purchase agreement, a funding round — is exposed to terms

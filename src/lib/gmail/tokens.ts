@@ -1,8 +1,12 @@
 // Gmail token storage — server-side only, RLS, no service_role, no browser exposure.
 // Tokens are stored in gmail_tokens (user_id PK, access_token, refresh_token, expiry_date).
 // Refresh and send use server-side handlers.
-
+// At-rest encryption (enforced): values are AES-256-GCM envelopes via
+// MODEL_KEYS_ENCRYPTION_KEY. Writes fail closed without the key; legacy
+// plaintext rows are rejected and must re-authorize (migration 00127 purges
+// them and adds a DB CHECK for the enc: prefix).
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { decryptSecret, encryptSecret } from "@/lib/models/crypto"
 
 type Client = SupabaseClient
 
@@ -17,10 +21,32 @@ export interface GmailTokens {
   updated_at: string
 }
 
+function sealToken(plain: string): string {
+  // Fail closed: no key → throw, never store plaintext.
+  return `enc:${encryptSecret(plain)}`
+}
+
+function openToken(stored: string): string {
+  if (!stored.startsWith("enc:")) {
+    throw new Error("Stored Gmail tokens are legacy plaintext — re-authorize Gmail")
+  }
+  return decryptSecret(stored.slice(4))
+}
+
 export async function getGmailTokens(client: Client, userId: string): Promise<GmailTokens | null> {
   const { data, error } = await client.from("gmail_tokens").select("*").eq("user_id", userId).maybeSingle()
   if (error) throw new Error(error.message)
-  return (data as GmailTokens | null) ?? null
+  const row = (data as GmailTokens | null) ?? null
+  if (!row) return null
+  try {
+    return {
+      ...row,
+      access_token: openToken(row.access_token),
+      refresh_token: openToken(row.refresh_token),
+    }
+  } catch {
+    throw new Error("Stored Gmail tokens are unreadable — re-authorize Gmail")
+  }
 }
 
 export async function upsertGmailTokens(
@@ -32,8 +58,8 @@ export async function upsertGmailTokens(
     .from("gmail_tokens")
     .upsert({
       user_id: userId,
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
+      access_token: sealToken(tokens.access_token),
+      refresh_token: sealToken(tokens.refresh_token),
       expiry_date: tokens.expiry_date,
       scope: tokens.scope ?? "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly",
       token_type: tokens.token_type ?? "Bearer",

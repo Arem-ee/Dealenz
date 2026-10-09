@@ -1,6 +1,19 @@
 "use server"
 
+import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
+import { checkAnonymousRateLimit, getTrustedClientIp } from "@/lib/rate-limit-anon"
+
+async function signerQuota(): Promise<boolean> {
+  try {
+    const supabase = await createClient()
+    const ip = getTrustedClientIp(await headers())
+    const quota = await checkAnonymousRateLimit(supabase, `sign:${ip}`, 120, 3600)
+    return quota.allowed
+  } catch {
+    return false
+  }
+}
 
 /** Service client for post-event owner lookups invitees can't read. Null when unconfigured. */
 async function serviceClient() {
@@ -32,6 +45,7 @@ export interface SignerViewState {
 /** Public invitee view: token-gated RPC, no account. Null when invalid. */
 export async function getSignerView(token: string): Promise<SignerViewState | null> {
   if (!token || token.length > 200) return null
+  if (!(await signerQuota())) return null
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("get_signer_view", { p_token: token })
   if (error || !data) return null
@@ -65,6 +79,7 @@ export async function signTokenAction(input: {
   email: string
   consent: boolean
 }): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!(await signerQuota())) return { ok: false, error: "Too many attempts. Please try again later." }
   const name = input.name.trim()
   const email = input.email.trim()
   if (!name || !email) return { ok: false, error: "Type your name and confirm your email to sign." }
@@ -110,6 +125,7 @@ export async function signTokenAction(input: {
 export async function declineTokenAction(input: { token: string }): Promise<
   { ok: true } | { ok: false; error: string }
 > {
+  if (!(await signerQuota())) return { ok: false, error: "Too many attempts. Please try again later." }
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("decline_as_invitee", { p_token: input.token })
   if (error) return { ok: false, error: "We couldn't record that. Please try again." }
@@ -151,6 +167,7 @@ export async function saveArtifactAction(input: {
   imageData: string
   method: string
 }): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!(await signerQuota())) return { ok: false, error: "Too many attempts. Please try again later." }
   const { validateSignatureArtifact } = await import("@/lib/signatures/validate")
   const valid = validateSignatureArtifact({ imageData: input.imageData, method: input.method })
   if (!valid.ok) return { ok: false, error: valid.error }
@@ -172,6 +189,7 @@ export async function forwardTokenAction(input: {
   name: string
   email: string
 }): Promise<{ ok: true; newToken: string } | { ok: false; error: string }> {
+  if (!(await signerQuota())) return { ok: false, error: "Too many attempts. Please try again later." }
   const name = input.name.trim()
   const email = input.email.trim().toLowerCase()
   if (!name || name.length > 120) return { ok: false, error: "Enter the colleague's full name." }

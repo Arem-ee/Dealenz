@@ -24,7 +24,7 @@ export function signGmailOAuthState(userId: string, now: number = Date.now()): s
   return `${Buffer.from(payload, "utf8").toString("base64url")}.${sig}`
 }
 
-export type GmailStateVerification = { ok: true } | { ok: false; error: "Invalid state" | "State mismatch" | "State expired" }
+export type GmailStateVerification = { ok: true } | { ok: false; error: "Invalid state" | "State mismatch" | "State expired" | "State reused" }
 
 export function verifyGmailOAuthState(state: string, userId: string, now: number = Date.now()): GmailStateVerification {
   let decoded: string
@@ -60,6 +60,44 @@ export function verifyGmailOAuthState(state: string, userId: string, now: number
   }
   if (typeof parsed.ts !== "number" || now - parsed.ts > STATE_TTL_MS) {
     return { ok: false, error: "State expired" }
+  }
+  return { ok: true }
+}
+
+export function extractGmailStateNonce(state: string): string | null {
+  try {
+    const raw = decodeURIComponent(state)
+    const dot = raw.lastIndexOf(".")
+    if (dot <= 0) return null
+    const decoded = Buffer.from(raw.slice(0, dot), "base64url").toString("utf8")
+    const parsed = JSON.parse(decoded) as { nonce?: unknown }
+    return typeof parsed.nonce === "string" && parsed.nonce.length >= 8 ? parsed.nonce : null
+  } catch {
+    return null
+  }
+}
+
+interface NonceStore {
+  from(table: string): {
+    insert(row: Record<string, unknown>): PromiseLike<{ error: { message: string; code?: string } | null }>
+  }
+}
+
+/** Single-use enforcement: first presentation wins, replays fail closed. */
+export async function consumeGmailOAuthNonce(
+  store: NonceStore,
+  state: string,
+  userId: string
+): Promise<{ ok: true } | { ok: false; error: "State reused" | "Invalid state" }> {
+  const nonce = extractGmailStateNonce(state)
+  if (!nonce) return { ok: false, error: "Invalid state" }
+  const { error } = await store
+    .from("gmail_oauth_nonces")
+    .insert({ nonce, user_id: userId })
+  if (error) {
+    // Unique violation (23505) or any insert failure on the nonce table
+    // means this state was already consumed — refuse the replay.
+    return { ok: false, error: "State reused" }
   }
   return { ok: true }
 }

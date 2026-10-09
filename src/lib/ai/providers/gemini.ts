@@ -50,10 +50,10 @@ export async function callGeminiProvider(params: GeminiCallParams): Promise<Prov
   const timeout = setTimeout(() => controller.abort(), 30_000)
 
   try {
-    const url = `${baseUrl}/models/${model}:generateContent?key=${apiKey}`
+    const url = `${baseUrl}/models/${encodeURIComponent(model)}:generateContent`
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       signal: controller.signal,
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },

@@ -424,6 +424,9 @@ export function createMockAdapter(): ProviderAdapter {
       throw new Error("Subscription webhooks are not simulated by the mock adapter")
     },
     async verifyWebhook(input) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("Mock adapter is never available in production")
+      }
       let parsed: unknown
       try {
         parsed = JSON.parse(input.body)
@@ -431,7 +434,7 @@ export function createMockAdapter(): ProviderAdapter {
         throw new Error("Invalid webhook body")
       }
       if (input.signature !== "test" && input.signature !== null) {
-        void 0
+        throw new Error("Mock webhook signature must be exactly \"test\"")
       }
       const event = parsePaddleTransactionEvent(parsed)
       return { ...event, raw: parsed }

@@ -52,6 +52,23 @@ export const MAX_SOURCES_PER_RESEARCH = 8
 export const RESEARCH_TIMEOUT_MS = 8000
 export const RESEARCH_MAX_REDIRECTS = 2
 
+function isPrivateHostStrict(host: string): boolean {
+  const h = host.toLowerCase().replace(/^\[|\]$/g, "")
+  if (h === "localhost" || h === "0.0.0.0" || h === "::" || h === "::1") return true
+  if (h === "169.254.169.254" || h === "100.100.100.200" || h === "metadata.google.internal") return true
+  if (h === "127.0.0.1") return true
+  if (h.startsWith("10.") || h.startsWith("192.168.")) return true
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true
+  if (h.startsWith("172.")) return true // crude: treat any 172. as private
+  if (h.startsWith("169.254.")) return true
+  if (h.startsWith("fd") || h.startsWith("fc")) return true
+  if (h.startsWith("fe80:")) return true
+  if (h.startsWith("::ffff:")) return true
+  if (/^0x/i.test(h)) return true // hex-encoded IP
+  if (/^[0-9]+$/.test(h.replace(/\./g, "")) && /\./.test(h)) return true // decimal/octal dotted quad
+  return false
+}
+
 export function isAllowedUrl(raw: string): boolean {
   let url: URL
   try {
@@ -59,16 +76,12 @@ export function isAllowedUrl(raw: string): boolean {
   } catch {
     return false
   }
-  if (url.protocol !== "https:" && url.protocol !== "http:") return false
+  if (url.protocol !== "https:") return false
   if (url.username || url.password) return false
-  // SSRF guard: never allow private / localhost / link-local.
+  // SSRF guard (strict, shared with retrieval): never allow private /
+  // localhost / link-local / metadata, including encoded IP forms.
   const host = url.hostname.toLowerCase()
-  if (host === "localhost" || host === "127.0.0.1" || host === "::1") return false
-  if (host.startsWith("10.") || host.startsWith("192.168.") || host.startsWith("172.")) {
-    // 172.16.0.0/12 crude guard — treat any 172. as private for safety.
-    return false
-  }
-  if (host === "0.0.0.0") return false
+  if (isPrivateHostStrict(host)) return false
   // Check allowlist: exact or subdomain.
   for (const domain of ALLOWED_DOMAINS) {
     if (host === domain || host.endsWith(`.${domain}`)) return true

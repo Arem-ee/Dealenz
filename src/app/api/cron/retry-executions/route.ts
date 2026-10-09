@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { cronQuota, isCronAuthorized, logCronDenied } from "@/lib/cron/guard"
 
 // Cron to retry failed/rate_limited work executions with next_retry_at due.
 // Honest background contract: queued work is picked up only when this cron is invoked
@@ -9,18 +10,12 @@ import { createClient } from "@supabase/supabase-js"
 
 export const dynamic = "force-dynamic"
 
-function isAuthorized(req: NextRequest): boolean {
-  const cronSecret = process.env.CRON_SECRET
-  const auth = req.headers.get("authorization")
-  // Default-deny: an unset secret fails closed everywhere except local
-  // development. Vercel previews run NODE_ENV=production, so gating on it
-  // would still leave preview deploys open to retry storms.
-  if (!cronSecret) return process.env.NODE_ENV !== "production"
-  return auth === `Bearer ${cronSecret}`
-}
-
 export async function GET(req: NextRequest) {
-  if (!isAuthorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await cronQuota(req))) return NextResponse.json({ error: "Rate limited" }, { status: 429 })
+  if (!isCronAuthorized(req)) {
+    await logCronDenied("retry-executions")
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
